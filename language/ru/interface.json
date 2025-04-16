@@ -110,6 +110,8 @@
 				"needEnergyAmount": "Мне нужно %{amount} ед. Энергии!",
 				"giveMetal": "Я отправил %{amount} Металла %{name} ",
 				"giveEnergy": "Я отправил %{amount} Энергии %{name}",
+				"sentMetalSimple": "Отправлено %{amount}м",
+				"sentMetalThreshold": "Отправлено %{amount}м (%{cumulative}/%{threshold}м согласно лимиту отправки игрока)",
 				"takeTeam": "Я взял %{name}.",
 				"takeTeamAmount": "Я забрал %{name}: %{units} юнитов, %{energy} Энергии и %{metal} Металла."
 			}

@@ -98,6 +98,8 @@
 				"needEnergyAmount": "Ich benötige %{amount} Energie!",
 				"giveMetal": "Ich habe %{name} %{amount} Metall gesendet.",
 				"giveEnergy": "Ich habe %{name} %{amount} Energie gesendet.",
+				"sentMetalSimple": "Gesendet %{amount}m",
+				"sentMetalThreshold": "Gesendet %{amount}m (%{cumulative}/%{threshold}m gemäß Spielersendegrenze)",
 				"takeTeam": "Ich habe %{name}übernommen. ",
 				"takeTeamAmount": "Ich habe %{name}:%{units}Einheiten, %{energy} Energie und %{metal}Metal übermommen."
 			}

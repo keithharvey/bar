@@ -110,6 +110,8 @@
 				"needEnergyAmount": "¡Necesito %{amount} de energía!",
 				"giveMetal": "He enviado %{amount} de metal a %{name}",
 				"giveEnergy": "He enviado %{amount} de energía a %{name}",
+				"sentMetalSimple": "Enviado %{amount}m",
+				"sentMetalThreshold": "Enviado %{amount}m (%{cumulative}/%{threshold}m permitido por el umbral de envío del jugador)",
 				"takeTeam": "Juego con %{name}.",
 				"takeTeamAmount": "Juego con %{name}: %{units} unidades, %{energy} de energía y %{metal} de metal."
 			}

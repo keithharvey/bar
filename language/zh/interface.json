@@ -109,6 +109,8 @@
 				"needEnergyAmount": "我需要 %{amount} 电力!",
 				"giveMetal": "我给了 %{name} %{amount} 金属",
 				"giveEnergy": "我给了 %{name} %{amount} 电力",
+				"sentMetalSimple": "已发送 %{amount}m",
+				"sentMetalThreshold": "已发送 %{amount}m（%{cumulative}/%{threshold}m，受玩家发送阈值限制）",
 				"takeTeam": "我接管了 %{name}.",
 				"takeTeamAmount": "我接管了 %{name}: %{units} 个单位, %{energy} 电力和 %{metal} 金属."
 			}
