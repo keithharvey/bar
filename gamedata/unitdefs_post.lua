@@ -299,7 +299,7 @@ end
 -- UnitDef processing
 --------------------------------------------------------------
 
-PrebakeUnitDefs()
+PrebakeUnitDefs() -- Disabled in test environment
 if SaveDefsToCustomParams then
 	bakeUnitDefs()
 end

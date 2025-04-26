@@ -16,6 +16,12 @@ DefinitionsModule.UNIT_CATEGORIES = {} -- Enum Name -> Category Name
 DefinitionsModule.categoryUnits = {}   -- Category Name -> { Side -> Unit Name }
 DefinitionsModule.unitCategories = {}  -- Unit Name -> Category Name
 
+BUILDING_CATEGORIES = {
+    METAL_STORAGE = "METAL_STORAGE",
+    ENERGY_STORAGE = "ENERGY_STORAGE",
+    PINPOINTER = "PINPOINTER",
+}
+DefinitionsModule.BUILDING_CATEGORIES = BUILDING_CATEGORIES
 -- ===================================================================
 -- Define Unit Categories
 -- ===================================================================
@@ -37,7 +43,7 @@ local function DefCat(enumKey, unitTable) -- Made local to definitions.lua
 end
 
 function DefinitionsModule.defineUnitCategories()
-    Spring.Log("BlueprintDefs", LOG.INFO, "Defining static unit categories START...")
+    Spring.Log("BlueprintDefs", LOG.DEBUG, "Defining static unit categories START...")
     local SIDES = DefinitionsModule.SIDES -- Use SIDES from the module
 
     -- Clear existing tables (important if this function could be called multiple times on the same module instance, though typically not)
@@ -52,7 +58,7 @@ function DefinitionsModule.defineUnitCategories()
     DefCat("ADVANCED_EXPLOITER", {[SIDES.ARMADA]="armmoho", [SIDES.CORTEX]="cormexp", [SIDES.LEGION]="cormexp"})
     DefCat("UW_EXTRACTOR", {[SIDES.ARMADA]="armuwmex", [SIDES.CORTEX]="coruwmex", [SIDES.LEGION]="leguwmex"})
     DefCat("ADVANCED_UW_EXTRACTOR", {[SIDES.ARMADA]="armuwmme", [SIDES.CORTEX]="coruwmme", [SIDES.LEGION]="leguwmme"})
-    DefCat("METAL_STORAGE", {[SIDES.ARMADA]="armmstor", [SIDES.CORTEX]="cormstor", [SIDES.LEGION]="legmstor"})
+    DefCat(BUILDING_CATEGORIES.METAL_STORAGE, {[SIDES.ARMADA]="armmstor", [SIDES.CORTEX]="cormstor", [SIDES.LEGION]="legmstor"})
     DefCat("ADVANCED_METAL_STORAGE", {[SIDES.ARMADA]="armuwadvms", [SIDES.CORTEX]="coramstor", [SIDES.LEGION]="legamstor"})
     DefCat("UW_METAL_STORAGE", {[SIDES.ARMADA]="armuwms", [SIDES.CORTEX]="coruwms", [SIDES.LEGION]="legamstor"})
     DefCat("UW_ADVANCED_METAL_STORAGE", {[SIDES.ARMADA]="armuwadvms", [SIDES.CORTEX]="coruwadvms", [SIDES.LEGION]="coruwadvms"})
@@ -71,7 +77,7 @@ function DefinitionsModule.defineUnitCategories()
     DefCat("GEOTHERMAL", {[SIDES.ARMADA]="armageo", [SIDES.CORTEX]="corbhmth", [SIDES.LEGION]="leggeo"})
     DefCat("ADVANCED_GEO", {[SIDES.ARMADA]="armgmm", [SIDES.CORTEX]="corgmm", [SIDES.LEGION]="leggmm"})
     DefCat("UW_ADV_GEO", {[SIDES.ARMADA]="armuwageo", [SIDES.CORTEX]="coruwageo", [SIDES.LEGION]="leguwageo"})
-    DefCat("ENERGY_STORAGE", {[SIDES.ARMADA]="armestor", [SIDES.CORTEX]="corestor", [SIDES.LEGION]="legestor"})
+    DefCat(BUILDING_CATEGORIES.ENERGY_STORAGE, {[SIDES.ARMADA]="armestor", [SIDES.CORTEX]="corestor", [SIDES.LEGION]="legestor"})
     DefCat("ADVANCED_ENERGY_STORAGE", {[SIDES.ARMADA]="armuwadves", [SIDES.CORTEX]="coradvestore", [SIDES.LEGION]="legadvestore"})
     DefCat("UW_ENERGY_STORAGE", {[SIDES.ARMADA]="armuwes", [SIDES.CORTEX]="coruwes", [SIDES.LEGION]="leguwes"})
     DefCat("UW_ADVANCED_ENERGY_STORAGE", {[SIDES.ARMADA]="armuwadves", [SIDES.CORTEX]="coruwadves", [SIDES.LEGION]="coruwadves"})
@@ -135,7 +141,7 @@ function DefinitionsModule.defineUnitCategories()
     DefCat("FLOATING_NANO_TOWER", {[SIDES.ARMADA]="armnanotcplat", [SIDES.CORTEX]="cornanotcplat", [SIDES.LEGION]="legnanotcplat"})
     DefCat("ADV_NANO_TOWER", {[SIDES.ARMADA]="armnanotct2", [SIDES.CORTEX]="cornanotct2", [SIDES.LEGION]="legnanotct2"})
     DefCat("STEALTH_DETECTION", {[SIDES.ARMADA]="armrsd", [SIDES.CORTEX]="corrsd", [SIDES.LEGION]="legsd"})
-    DefCat("PINPOINTER", {[SIDES.ARMADA]="armtarg", [SIDES.CORTEX]="cortarg", [SIDES.LEGION]="legtarg"})
+    DefCat(BUILDING_CATEGORIES.PINPOINTER, {[SIDES.ARMADA]="armtarg", [SIDES.CORTEX]="cortarg", [SIDES.LEGION]="legtarg"})
     DefCat("FLOATING_PINPOINTER", {[SIDES.ARMADA]="armfatf", [SIDES.CORTEX]="corfatf", [SIDES.LEGION]="corfatf"})
     DefCat("FLOATING_TORPEDO_LAUNCHER_PG", {[SIDES.ARMADA]="armtl", [SIDES.CORTEX]="cortl", [SIDES.LEGION]="cortl"})
     DefCat("FLOATING_RADAR_PG", {[SIDES.ARMADA]="armfrad", [SIDES.CORTEX]="corfrad", [SIDES.LEGION]="corfrad"})
@@ -154,7 +160,20 @@ function DefinitionsModule.defineUnitCategories()
     end
     local categoryCount = 0
     for _ in pairs(DefinitionsModule.UNIT_CATEGORIES) do categoryCount = categoryCount + 1 end
-    Spring.Log("BlueprintDefs", LOG.INFO, string.format("Defined %d categories covering %d units. END", categoryCount, unitCount))
+    Spring.Log("BlueprintDefs", LOG.DEBUG, string.format("Defined %d categories covering %d units. END", categoryCount, unitCount))
+end
+
+function DefinitionsModule.getCategory(unitDefID)
+    return DefinitionsModule.unitCategories[unitDefID]
+end
+
+
+---Calculate default energy transfer data for pipeline context
+---@param categoryName string BUILDING_CATEGORIES.METAL_STORAGE
+---@param side_enum string SIDES_ENUM.ARM
+---@return string unitDefId
+function DefinitionsModule.getUnitByCategory(categoryName, side_enum)
+    return DefinitionsModule.categoryUnits[categoryName][side_enum]
 end
 
 DefinitionsModule.defineUnitCategories() -- Call it once to populate the module table

@@ -171,10 +171,13 @@ if gadgetHandler:IsSyncedCode() then
 		for _,teamID in ipairs(teamList) do
 			if GetTeamRulesParam(teamID,"numActivePlayers") == 0 then
 				numToTake = numToTake + 1
-				-- transfer all units
+				-- transfer all units - mark them for TeamTransfer validation
 				local teamUnits = GetTeamUnits(teamID)
 				for i=1, #teamUnits do
-					TransferUnit(teamUnits[i], takerID)
+					local unitID = teamUnits[i]
+					-- Mark unit for takeover so TeamTransfer validator allows it
+					SetUnitRulesParam(unitID, "idlePlayerTakeover", 1)
+					TransferUnit(unitID, takerID)
 				end
 				-- send all resources en-block to the taker
 				for _, resourceName in ipairs(resourceList) do
@@ -231,20 +234,7 @@ if gadgetHandler:IsSyncedCode() then
 			end
 		end
 	end
-
-	function gadget:AllowResourceTransfer(fromTeamID, toTeamID, restype, level)
-		-- prevent resources to leak to uncontrolled teams
-		return GetTeamRulesParam(toTeamID,"numActivePlayers") ~= 0 or IsCheatingEnabled()
-	end
-
-	function gadget:AllowUnitTransfer(unitID, unitDefID, fromTeamID, toTeamID, capture)
-		-- prevent units to be shared to uncontrolled teams
-		return capture or GetTeamRulesParam(toTeamID,"numActivePlayers") ~= 0 or IsCheatingEnabled()
-	end
-
-
 else	-- UNSYNCED
-
 
 	local GetLastUpdateSeconds = Spring.GetLastUpdateSeconds
 	local SendLuaRulesMsg = Spring.SendLuaRulesMsg
@@ -349,7 +339,7 @@ else	-- UNSYNCED
 	function gadget:Initialize()
 		gadgetHandler:AddSyncAction("OnGameStart", onGameStart)
 		gadgetHandler:AddSyncAction("NotifyError", notifyError)
-		gadgetHandler:AddSyncAction("PlayerLagging", playerLagging)
+		gadgetHandler:c("PlayerLagging", playerLagging)
 		gadgetHandler:AddSyncAction("PlayerResumed", playerResumed)
 		gadgetHandler:AddSyncAction("PlayerAFK", playerAFK)
 		gadgetHandler:AddSyncAction("PlayerReturned", playerReturned)

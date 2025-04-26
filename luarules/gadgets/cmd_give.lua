@@ -53,10 +53,15 @@ if gadgetHandler:IsSyncedCode() then
 		end
 		-- give resources
 		if unitName == "metal" or unitName == "energy" then
-			-- Give resources instead of units
-			Spring.AddTeamResource(teamID, unitName, amount)
-			Spring.SendMessageToTeam(teamID, "You have been given: "..amount.." "..unitName)
-			Spring.SendMessageToPlayer(playerID, "You have given team "..teamID..": "..amount.." "..unitName)
+			-- Give resources instead of units via centralized transfer API
+			local resType = (unitName == "metal") and GG.TeamTransfer.ResourceType.METAL or GG.TeamTransfer.ResourceType.ENERGY
+			local ok, added = GG.TeamTransfer.AddTeamResource(teamID, resType, amount)
+			if ok then
+				Spring.SendMessageToTeam(teamID, "You have been given: "..added.." "..unitName)
+				Spring.SendMessageToPlayer(playerID, "You have given team "..teamID..": "..added.." "..unitName)
+			else
+				Spring.SendMessageToPlayer(playerID, "Give failed: unknown")
+			end
 			return
 		end
 		-- give units

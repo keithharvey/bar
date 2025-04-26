@@ -784,14 +784,14 @@ if gadgetHandler:IsSyncedCode() then
 				Spring.DestroyUnit(unitID, false, true)
 			elseif action == 'transfer' then
 				if type(tonumber(params)) == 'number' then
-					Spring.TransferUnit(unitID, tonumber(params), true)
+					GG.TeamTransfer.TransferUnit(unitID, tonumber(params), true)
 				end
 			elseif action == 'reclaim' then
 				local teamID = Spring.GetUnitTeam(unitID)
 				local unitDefID = Spring.GetUnitDefID(unitID)
 				Spring.DestroyUnit(unitID, false, true)		-- this doesnt give back resources in itself
-				Spring.AddTeamResource(teamID, 'metal', UnitDefs[unitDefID].metalCost)
-				Spring.AddTeamResource(teamID, 'energy', UnitDefs[unitDefID].energyCost)
+				GG.TeamTransfer.AddTeamResource(teamID, GG.TeamTransfer.ResourceType.METAL, UnitDefs[unitDefID].metalCost)
+				GG.TeamTransfer.AddTeamResource(teamID, GG.TeamTransfer.ResourceType.ENERGY, UnitDefs[unitDefID].energyCost)
 			elseif action == 'wreck' then
 				local unitDefID = Spring.GetUnitDefID(unitID)
 				local x, y, z = Spring.GetUnitPosition(unitID)
