@@ -3337,10 +3337,25 @@ function widget:MousePress(x, y, button)
                                     if release >= now then
                                         if clickedPlayer.team == myTeamID then
                                             --Spring_SendCommands("say a: " .. Spring.I18N('ui.playersList.chat.needSupport'))
-											Spring.SendLuaRulesMsg('msg:ui.playersList.chat.needSupport')
+								Spring.SendLuaRulesMsg('msg:ui.playersList.chat.needSupport')
                                         else
-                                            Spring_ShareResources(clickedPlayer.team, "units")
-                                            Spring.PlaySoundFile("beep4", 1, 'ui')
+                                            local sharing = VFS.Include("common/unit_sharing.lua")
+                                            local unitSharingMode = sharing.getUnitSharingMode()
+                                            if unitSharingMode == "disabled" then
+                                                Spring.Echo(sharing.blockMessage(nil, unitSharingMode))
+                                            else
+                                                local selected = Spring.GetSelectedUnits()
+                                                local shareable, unshareable, total = sharing.countUnshareable(selected, unitSharingMode)
+                                                if total > 0 and shareable == 0 then
+                                                    Spring.Echo(sharing.blockMessage(unshareable, unitSharingMode))
+                                                else
+                                                    if unshareable and unshareable > 0 then
+                                                        Spring.Echo(sharing.blockMessage(unshareable, unitSharingMode))
+                                                    end
+                                                    Spring_ShareResources(clickedPlayer.team, "units")
+                                                    Spring.PlaySoundFile("beep4", 1, 'ui')
+                                                end
+                                            end
                                         end
                                     end
                                     release = nil
