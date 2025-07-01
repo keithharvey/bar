@@ -1,4 +1,3 @@
-
 if Spring.GetModOptions().marketplace ~= "enabled" then
 	return
 end
@@ -37,37 +36,23 @@ for i=1,#teams do
 	marketplaces[teams[i]] = 0
 end
 
-function gadget:AllowResourceTransfer(oldTeam, newTeam, type, amount)
-    if (marketplaces[oldTeam] > 0 and marketplaces[newTeam] > 0) or spIsCheatingEnabled() then
-        return true
-    end
-
-    return false
-end
-
-function gadget:AllowUnitTransfer(unitID, unitDefID, oldTeam, newTeam, capture)
-    if (marketplaces[oldTeam] > 0 and marketplaces[newTeam] > 0) or spIsCheatingEnabled() then
-        return true
-    end
-
-    return false
-end
-
-function gadget:UnitDestroyed(unitID, unitDefID, teamID)
-	if isMarketPlace[unitDefID] then
-		marketplaces[teamID] = marketplaces[teamID] and marketplaces[teamID] - 1 or 0
-	end
-end
-gadget.UnitTaken = gadget.UnitDestroyed
-
-function gadget:UnitFinished(unitID, unitDefID, teamID)
-	if isMarketPlace[unitDefID] then
-		marketplaces[teamID] = marketplaces[teamID] and marketplaces[teamID] + 1 or 1
-	end
-end
-gadget.UnitGiven = gadget.UnitFinished
+-- Deprecated: centralized in TeamTransfer resource validators
 
 function gadget:Initialize()
+    -- Resource sharing requires both sides to have a marketplace
+    GG.TeamTransfer.RegisterResourceValidator("MarketplaceRequired", function(oldTeam, newTeam, resourceType, amount)
+        if (marketplaces[oldTeam] > 0 and marketplaces[newTeam] > 0) or spIsCheatingEnabled() then
+            return true
+        end
+        return false
+    end)
+
+    -- Prevent SOLD unit transfers unless seller has a marketplace (example unit-side validator)
+    GG.TeamTransfer.RegisterUnitValidator("MarketplaceRequiredForSold", function(unitID, unitDefID, oldTeam, newTeam, reason)
+        if reason ~= GG.TeamTransfer.REASON.SOLD then return true end
+        return (marketplaces[oldTeam] > 0) or spIsCheatingEnabled()
+    end)
+
 	for ct, unitID in pairs(Spring.GetAllUnits()) do
 		local unitDefID = Spring.GetUnitDefID(unitID)
 		local unitTeam = Spring.GetUnitTeam(unitID)

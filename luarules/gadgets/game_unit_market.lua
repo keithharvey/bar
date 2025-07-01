@@ -27,6 +27,7 @@ if gadgetHandler:IsSyncedCode() then
 
 -- There is no GUI or any other fancy tricks here. This is just a backend. Other widget makers though should be able to use this no problem.
 
+local GG = gadgetHandler.GG
 local CMD_SELL_UNIT = GameCMD.SELL_UNIT
 
 local unitsForSale = {}
@@ -169,7 +170,7 @@ local function tryToBuyUnit(unitID, msgFromTeamID)
 
     if (current < price) then return end
 
-    TransferUnit(unitID, msgFromTeamID)
+    GG.TeamTransfer.TransferUnit(unitID, msgFromTeamID, GG.TeamTransfer.REASON.SOLD)
     if msgFromTeamID ~= old_ownerTeamID and price > 0 then -- don't send resources to yourself
         ShareTeamResource(msgFromTeamID, old_ownerTeamID, "metal", price)
     end
@@ -275,6 +276,8 @@ function gadget:UnitGiven(unitID, unitDefID, newTeamID, oldTeamID)
             end
         end
     end
+    -- Clear sale state on SOLD transfers
+    local lastReason = nil -- if we later store lastReason via listener, we could check SOLD specifically
     setNotForSale(unitID)
 end
 
