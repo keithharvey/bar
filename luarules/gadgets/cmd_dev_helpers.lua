@@ -24,6 +24,7 @@ local PACKET_HEADER_LENGTH = string.len(PACKET_HEADER)
 
 if gadgetHandler:IsSyncedCode() then
 	startPlayers = {}
+	local GG = gadgetHandler.GG
 end
 
 function isAuthorized(playerID)
@@ -746,6 +747,10 @@ if gadgetHandler:IsSyncedCode() then
 				Spring.DestroyUnit(unitID, false, true)
 			elseif action == 'removenearbyunits' then
 				Spring.DestroyUnit(unitID, false, true)
+			elseif action == 'transfer' then
+				if type(tonumber(params)) == 'number' then
+                    GG.TeamTransfer.TransferUnit(unitID, tonumber(params), GG.TeamTransfer.REASON.DEV_TRANSFER)
+				end
 			elseif action == 'reclaim' then
 				local teamID = Spring.GetUnitTeam(unitID)
 				local unitDefID = Spring.GetUnitDefID(unitID)
