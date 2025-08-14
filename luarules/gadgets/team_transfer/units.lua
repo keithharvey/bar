@@ -38,7 +38,8 @@ Units.TransferUnit = function(unitID, newTeam, reason)
     local unitDefID = Spring.GetUnitDefID(unitID)
     if not unitDefID then return false end
 
-    local success = Spring.TransferUnit(unitID, newTeam, true)
+    local capture = (reason == TeamTransfer.REASON.CAPTURED or reason == TeamTransfer.REASON.RECLAIMED)
+    local success = Spring.TransferUnit(unitID, newTeam, capture)
     return success
 end
 
