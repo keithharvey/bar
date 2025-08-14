@@ -42,6 +42,30 @@ Units.TransferUnit = function(unitID, newTeam, reason)
     return success
 end
 
+function Units.HandleFactoryTeamChange(factoryID, newTeam, reason)
+    if not factoryID or not newTeam then
+        return false
+    end
+
+    local factoryDefID = Spring.GetUnitDefID(factoryID)
+    if not factoryDefID then return false end
+
+    local buildeeID = Spring.GetUnitIsBuilding(factoryID)
+    if buildeeID then
+        local buildeeDefID = Spring.GetUnitDefID(buildeeID)
+        if buildeeDefID then
+            local buildProgress = Spring.GetUnitBuildProgress(buildeeID)
+            if buildProgress and buildProgress >= 1.0 then
+                Units.TransferUnit(buildeeID, newTeam, reason)
+            else
+                Units.TransferUnit(buildeeID, newTeam, reason)
+            end
+        end
+    end
+
+    return false
+end
+
 
 
 

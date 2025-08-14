@@ -127,6 +127,7 @@ if gadgetHandler:IsSyncedCode() then
         NetShareTransfer           = function(unitID, oldTeam, newTeam, reason) return Units.TransferUnit(unitID, newTeam, reason) end,
         TeamTransfer               = function(unitID, oldTeam, newTeam, reason) return Units.TransferUnit(unitID, newTeam, reason) end,
         BuilderCapture             = function(unitID, oldTeam, newTeam, reason) return Units.TransferUnit(unitID, newTeam, reason) end,
+        FactoryTeamChange          = function(factoryID, newTeam, reason) return Units.HandleFactoryTeamChange(factoryID, newTeam, reason) end,
         TeamGiveEverything         = function(fromTeam, toTeam) return Teammates.GiveEverythingTo(fromTeam, toTeam) end,
         TeamGiveEverythingComplete = function(fromTeam, toTeam) return true end,
         NetResourceTransfer        = function(fromTeam, toTeam, m, e) return Api.NetResourceTransfer(fromTeam, toTeam, m, e) end,
