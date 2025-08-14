@@ -1589,7 +1589,8 @@ function gadgetHandler:AllowUnitTransportUnload(transporterID, transporterUnitDe
 	return true
 end
 
-function gadgetHandler:AllowUnitTransfer(unitID, unitDefID, oldTeam, newTeam, reason)
+function gadgetHandler:AllowUnitTransfer(unitID, unitDefID,
+										 oldTeam, newTeam, reason)
 	for _, g in ipairs(self.AllowUnitTransferList) do
 		if not g:AllowUnitTransfer(unitID, unitDefID, oldTeam, newTeam, reason) then
 			return false
