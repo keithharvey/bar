@@ -3790,7 +3790,7 @@ function Take(teamID, name, i)
     tookTeamID = teamID
     tookTeamName = name
     tookFrame = Spring.GetGameFrame()
-    Spring_SendCommands("luarules take2 " .. teamID)
+    Spring_SendCommands("luarules take " .. teamID)
 end
 
 ---------------------------------------------------------------------------------------------------

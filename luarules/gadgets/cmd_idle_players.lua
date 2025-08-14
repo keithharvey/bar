@@ -21,7 +21,7 @@ local warningPeriod = 15
 local maxPing = 33 -- in seconds
 local finishedResumingPing = 2 --in seconds
 local maxInitialQueueSlack = 150 -- in seconds
-local takeCommand = "take2"
+local takeCommand = "take"
 local minTimeToTake = 12 -- in seconds
 local checkQueueTime = 25 -- in seconds
 -- in chose ingame startpostype, players must place beforehand, so take an action, grace period can be shorter
