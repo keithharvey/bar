@@ -1892,11 +1892,11 @@ function gadgetHandler:UnitTaken(unitID, unitDefID, unitTeam, newTeam)
 	end
 end
 
-function gadgetHandler:UnitGiven(unitID, unitDefID, oldTeam, newTeam)
-	gadgetHandler:MetaUnitAdded(unitID, unitDefID, newTeam)
+function gadgetHandler:UnitGiven(unitID, unitDefID, unitTeam, oldTeam)
+	gadgetHandler:MetaUnitAdded(unitID, unitDefID, unitTeam)
 	
 	for _, g in ipairs(self.UnitGivenList) do
-		g:UnitGiven(unitID, unitDefID, oldTeam, newTeam)
+		g:UnitGiven(unitID, unitDefID, unitTeam, oldTeam)
 	end
 
 end
