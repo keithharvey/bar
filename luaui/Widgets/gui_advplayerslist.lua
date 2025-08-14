@@ -3325,11 +3325,7 @@ function widget:MousePress(x, y, button)
                             if clickedPlayer.totake then
                                 if IsOnRect(x, y, widgetPosX - 57, posY, widgetPosX - 12, posY + 17) then
                                     --take button
-                                    if WG.Chobby.Take then
-                                        WG.Chobby.Take(clickedPlayer.team)
-                                    else
-                                        Spring_SendCommands("/take " .. clickedPlayer.team)
-                                    end
+                                    Spring_SendCommands("/take " .. clickedPlayer.team)
                                     return true
                                 end
                             end

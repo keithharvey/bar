@@ -20,6 +20,16 @@ end
 local monitorPlayers = {}
 local spGetPlayerInfo = Spring.GetPlayerInfo
 
+local function removeSelfdOrders(teamID)
+	local units = Spring.GetTeamUnits(teamID)
+	for i=1,#units do
+		local unitID = units[i]
+		if Spring.GetUnitSelfDTime(unitID) > 0 then
+			Spring.GiveOrderToUnit(unitID, CMD.SELFD, {}, 0)
+		end
+	end
+end
+
 function gadget:Initialize()
     GG.TeamTransfer.RegisterUnitValidator("PreventShareSelfD", function(unitID, unitDefID, oldTeam, newTeam, reason)
         if not unitID or type(unitID) ~= "number" then
