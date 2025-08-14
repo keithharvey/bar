@@ -124,10 +124,22 @@ if gadgetHandler:IsSyncedCode() then
 
     local syncedActions = {
         -- Engine fallbacks → route to Lua-owned transfer entrypoints
-        NetShareTransfer           = function(unitID, oldTeam, newTeam, reason) return Units.TransferUnit(unitID, newTeam, reason) end,
-        TeamTransfer               = function(unitID, oldTeam, newTeam, reason) return Units.TransferUnit(unitID, newTeam, reason) end,
-        BuilderCapture             = function(unitID, oldTeam, newTeam, reason) return Units.TransferUnit(unitID, newTeam, reason) end,
-        FactoryTeamChange          = function(factoryID, newTeam, reason) return Units.HandleFactoryTeamChange(factoryID, newTeam, reason) end,
+        NetShareTransfer           = function(unitID, oldTeam, newTeam, capture) 
+            local reason = capture and TeamTransfer.REASON.CAPTURED or TeamTransfer.REASON.GIVEN
+            return Units.TransferUnit(unitID, newTeam, reason) 
+        end,
+        TeamTransfer               = function(unitID, oldTeam, newTeam, capture) 
+            local reason = capture and TeamTransfer.REASON.CAPTURED or TeamTransfer.REASON.GIVEN
+            return Units.TransferUnit(unitID, newTeam, reason) 
+        end,
+        BuilderCapture             = function(unitID, oldTeam, newTeam, capture) 
+            local reason = capture and TeamTransfer.REASON.CAPTURED or TeamTransfer.REASON.GIVEN
+            return Units.TransferUnit(unitID, newTeam, reason) 
+        end,
+        FactoryTeamChange          = function(factoryID, newTeam, capture) 
+            local reason = capture and TeamTransfer.REASON.CAPTURED or TeamTransfer.REASON.GIVEN
+            return Units.HandleFactoryTeamChange(factoryID, newTeam, reason) 
+        end,
         TeamGiveEverything         = function(fromTeam, toTeam) return Teammates.GiveEverythingTo(fromTeam, toTeam) end,
         TeamGiveEverythingComplete = function(fromTeam, toTeam) return true end,
         NetResourceTransfer        = function(fromTeam, toTeam, m, e) return Api.NetResourceTransfer(fromTeam, toTeam, m, e) end,
@@ -157,7 +169,8 @@ if gadgetHandler:IsSyncedCode() then
         _G.TeamTransfer = nil
     end
 
-    function gadget:AllowUnitTransfer(unitID, unitDefID, oldTeam, newTeam, reason)
+    function gadget:AllowUnitTransfer(unitID, unitDefID, oldTeam, newTeam, capture)
+        local reason = capture and TeamTransfer.REASON.CAPTURED or TeamTransfer.REASON.GIVEN
         return Api.ValidateUnitTransfer(unitID, unitDefID, oldTeam, newTeam, reason)
     end
 
