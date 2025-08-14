@@ -576,7 +576,7 @@ local function attachToNewCarrier(newCarrier, subUnitID)
 
 end
 
-function gadget:UnitCreated(unitID, unitDefID, unitTeam, builderID)
+function gadget:UnitCreated(unitID, unitDefID, unitTeam)
 	local unitDef = UnitDefs[unitDefID]
 	local weaponList = unitDef.weapons
 	for i = 1, #weaponList do
