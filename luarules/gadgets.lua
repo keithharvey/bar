@@ -816,7 +816,6 @@ function gadgetHandler:RemoveGadgetRaw(gadget)
 
 	local name = gadget.ghInfo.name
 	self.knownGadgets[name].active = false
-	
   -- Auto-unregister gadget managers (preferred path)
   if gadget._gadgetManager then
     gadget._gadgetManager:Unregister()
