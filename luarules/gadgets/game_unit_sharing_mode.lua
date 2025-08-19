@@ -20,6 +20,13 @@ if not gadgetHandler:IsSyncedCode() then
 end
 
 local sharing = VFS.Include("common/unit_sharing.lua")
+local sharingModeUtils = VFS.Include("common/sharing_mode_utils.lua")
+local KEYS = VFS.Include("common/sharing_modoption_keys.lua")
+
+-- Check if this gadget should run based on selected sharing mode
+if not sharingModeUtils.shouldGadgetRun(KEYS.UNIT_SHARING_MODE) then
+	return false
+end
 local unitSharingMode = sharing.getUnitSharingMode()
 local unitMarketEnabled = Spring.GetModOptions().unit_market or false
 
