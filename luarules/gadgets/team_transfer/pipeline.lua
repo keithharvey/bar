@@ -92,6 +92,7 @@ function Pipeline.RunAllowResourceTransfer(senderTeamId, receiverTeamId, resourc
 		areAlliedTeams = Spring.AreTeamsAllied(senderTeamId, receiverTeamId),
 		isCheatingEnabled = Spring.IsCheatingEnabled(),
 		senderIsNonPlayer = isNonPlayerTeam(senderTeamId),
+		receiverIsNonPlayer = isNonPlayerTeam(receiverTeamId),
 	}
 
 	local res = evaluatePolicies(Definitions.PolicyType.ResourceTransfer, ctx)
@@ -171,6 +172,7 @@ function Pipeline.RunAllowUnitTransfer(unitID, unitDefID, fromTeamID, toTeamID, 
 		areAlliedTeams = Spring.AreTeamsAllied(fromTeamID, toTeamID),
 		isCheatingEnabled = Spring.IsCheatingEnabled(),
 		fromIsNonPlayer = isNonPlayerTeam(fromTeamID),
+		toIsNonPlayer = isNonPlayerTeam(toTeamID),
 	}
 
 	local res = evaluatePolicies(Definitions.PolicyType.UnitTransfer, ctx)
