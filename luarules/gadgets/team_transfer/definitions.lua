@@ -5,5 +5,11 @@ M.PolicyType = {
 	UnitTransfer = "UnitTransfer",
 	Command = "Command",
 }
+M.SharingTriggerUnits = {
+	EnergyStorage = "EnergyStorage",
+	MetalStorage = "MetalStorage",
+	Pinpointer = "Pinpointer",
+}
+
 
 return M
