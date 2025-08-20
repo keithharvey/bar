@@ -1,7 +1,9 @@
+local Definitions = VFS.Include("luarules/gadgets/team_transfer/definitions.lua")
+
 local API = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
 
 API.RegisterPolicy(function(policy)
-	policy:For("ResourceTransfer")
+	policy:For(Definitions.PolicyType.ResourceTransfer)
 	:When(function(ctx) return not ctx.areAlliedTeams end)
 	:Use(function(ctx)
 		if ctx.isCheatingEnabled or ctx.senderIsNonPlayer or ctx.receiverIsNonPlayer then
@@ -10,7 +12,7 @@ API.RegisterPolicy(function(policy)
 		return false
 	end)
 
-	policy:For("UnitTransfer")
+	policy:For(Definitions.PolicyType.UnitTransfer)
 	:Use(function(ctx)
 		if ctx.capture then
 			return true

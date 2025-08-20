@@ -3,6 +3,7 @@ local units = VFS.Include("luarules/gadgets/team_transfer/units.lua")
 local sharing = VFS.Include("common/unit_sharing.lua")
 local sharingModeUtils = VFS.Include("common/sharing_mode_utils.lua")
 local KEYS = VFS.Include("common/sharing_modoption_keys.lua")
+local Definitions = VFS.Include("luarules/gadgets/team_transfer/definitions.lua")
 
 if not sharingModeUtils.shouldGadgetRun(KEYS.UNIT_SHARING_MODE) then
 	return
@@ -14,7 +15,7 @@ if unitSharingMode == "enabled" then
 end
 
 API.RegisterPolicy(function(policy)
-	policy:For("UnitTransfer")
+	policy:For(Definitions.PolicyType.UnitTransfer)
 	:Use(function(ctx)
 		if ctx.capture then
 			return { allow = true }

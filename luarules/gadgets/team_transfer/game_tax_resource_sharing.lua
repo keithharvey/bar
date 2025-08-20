@@ -3,6 +3,7 @@ local Tax = VFS.Include('common/luaUtilities/resource_share_tax.lua')
 local sharingModeUtils = VFS.Include("common/sharing_mode_utils.lua")
 local KEYS = VFS.Include("common/sharing_modoption_keys.lua")
 local Predicates = VFS.Include("luarules/gadgets/team_transfer/predicates.lua")
+local Definitions = VFS.Include("luarules/gadgets/team_transfer/definitions.lua")
 
 if not sharingModeUtils.shouldGadgetRun(KEYS.TAX_RESOURCE_SHARING_AMOUNT) then
 	return
@@ -16,7 +17,7 @@ end
 local metalThreshold = modOpts[KEYS.PLAYER_METAL_SEND_THRESHOLD] or 0
 
 API.RegisterPolicy(function(policy)
-	policy:For("ResourceTransfer")
+	policy:For(Definitions.PolicyType.ResourceTransfer)
 	:When(function(ctx) return ctx.areAlliedTeams end)
 	:Use(function(ctx)
 		if ctx.amountClamped <= 0 then
@@ -42,20 +43,20 @@ API.RegisterPolicy(function(policy)
 		}
 	end)
 
-	policy:For("Command")
+	policy:For(Definitions.PolicyType.Command)
 	:When(Predicates.Command.isReclaim)
 	:When(Predicates.Command.targetAllied)
 	:Use(function(ctx)
 		return { deny = true }
 	end)
 
-	policy:For("Command")
+	policy:For(Definitions.PolicyType.Command)
 	:When(Predicates.Command.isReclaim)
 	:Use(function(ctx)
 		return { allow = true }
 	end)
 
-	policy:For("Command")
+	policy:For(Definitions.PolicyType.Command)
 	:When(Predicates.Command.isGuard)
 	:When(Predicates.Command.targetAllied)
 	:When(Predicates.Command.targetHasReclaim)
@@ -63,7 +64,7 @@ API.RegisterPolicy(function(policy)
 		return { deny = true }
 	end)
 
-	policy:For("Command")
+	policy:For(Definitions.PolicyType.Command)
 	:When(Predicates.Command.isGuard)
 	:Use(function(ctx)
 		return { allow = true }

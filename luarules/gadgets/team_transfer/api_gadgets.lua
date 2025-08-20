@@ -69,13 +69,14 @@
 
 
 
+local Definitions = VFS.Include("luarules/gadgets/team_transfer/definitions.lua")
+
 local M = {}
 
-
 local policies = {
-	["ResourceTransfer"] = {},
-	["UnitTransfer"] = {},
-	["Command"] = {},
+	[Definitions.PolicyType.ResourceTransfer] = {},
+	[Definitions.PolicyType.UnitTransfer] = {},
+	[Definitions.PolicyType.Command] = {},
 }
 
 local function pushPolicy(policyType, entry)
