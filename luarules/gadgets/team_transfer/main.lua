@@ -22,7 +22,8 @@ local Pipeline = VFS.Include("luarules/gadgets/team_transfer/pipeline.lua")
 local API = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
 
 local function registerPolicies()
-	VFS.Include("luarules/gadgets/team_transfer/game_tax_resource_sharing_policy.lua")
+	VFS.Include("luarules/gadgets/team_transfer/game_enemy_transfer.lua")
+	VFS.Include("luarules/gadgets/team_transfer/game_tax_resource_sharing.lua")
 	VFS.Include("luarules/gadgets/team_transfer/game_unit_sharing_mode.lua")
 	VFS.Include("luarules/gadgets/team_transfer/game_disable_assist_ally_construction.lua")
 end

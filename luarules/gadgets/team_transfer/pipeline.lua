@@ -6,6 +6,20 @@ local Pipeline = {}
 
 local cumulativeMetalSent = {}
 
+local function isNonPlayerTeam(teamID)
+	if teamID == Spring.GetGaiaTeamID() then
+		return true
+	end
+	local _, _, _, isAiTeam = Spring.GetTeamInfo(teamID, false)
+	if isAiTeam then
+		return true
+	end
+	if Spring.GetTeamLuaAI(teamID) ~= nil then
+		return true
+	end
+	return false
+end
+
 local function normalizeResourceName(resourceType)
 	if resourceType == 'm' then return 'metal' end
 	if resourceType == 'e' then return 'energy' end
@@ -76,6 +90,8 @@ function Pipeline.RunAllowResourceTransfer(senderTeamId, receiverTeamId, resourc
 		receiverCur = receiverCur,
 		cumulativeMetal = cumulativeMetalSent[senderTeamId] or 0,
 		areAlliedTeams = Spring.AreTeamsAllied(senderTeamId, receiverTeamId),
+		isCheatingEnabled = Spring.IsCheatingEnabled(),
+		senderIsNonPlayer = isNonPlayerTeam(senderTeamId),
 	}
 
 	local res = evaluatePolicies(Definitions.PolicyType.ResourceTransfer, ctx)
@@ -152,6 +168,9 @@ function Pipeline.RunAllowUnitTransfer(unitID, unitDefID, fromTeamID, toTeamID, 
 		toTeamID = toTeamID,
 		capture = capture,
 		takeBypassAllowed = computeTakeBypass(fromTeamID, toTeamID),
+		areAlliedTeams = Spring.AreTeamsAllied(fromTeamID, toTeamID),
+		isCheatingEnabled = Spring.IsCheatingEnabled(),
+		fromIsNonPlayer = isNonPlayerTeam(fromTeamID),
 	}
 
 	local res = evaluatePolicies(Definitions.PolicyType.UnitTransfer, ctx)
