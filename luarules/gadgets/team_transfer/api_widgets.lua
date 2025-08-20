@@ -1,3 +1,5 @@
+---@meta
+
 local M = {}
 
 M.UnitSharing = VFS.Include("common/unit_sharing.lua")
