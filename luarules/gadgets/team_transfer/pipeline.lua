@@ -1,5 +1,4 @@
 local API = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
-local Definitions = VFS.Include("luarules/gadgets/team_transfer/definitions.lua")
 local Resources = VFS.Include("luarules/gadgets/team_transfer/resources.lua")
 local State = VFS.Include("luarules/gadgets/team_transfer/state.lua")
 
@@ -39,22 +38,22 @@ local function evaluatePolicies(policyType, ctx)
 		end
 	end
 
-	local legacy = API.GetLegacyPipeline()
-	if policyType == Definitions.PolicyType.ResourceTransfer then
+	local legacy = API.GetPipeline()
+	if policyType == "ResourceTransfer" then
 		local hs = legacy.onAllowResourceTransfer
 		for i = 1, #hs do
 			local r = hs[i](ctx.senderTeamId, ctx.receiverTeamId, ctx.resource, ctx.amount)
 			if r ~= nil then return r end
 		end
 		return true
-	elseif policyType == Definitions.PolicyType.UnitTransfer then
+	elseif policyType == "UnitTransfer" then
 		local hs = legacy.onAllowUnitTransfer
 		for i = 1, #hs do
 			local r = hs[i](ctx.unitID, ctx.unitDefID, ctx.fromTeamID, ctx.toTeamID, ctx.capture)
 			if r ~= nil then return r end
 		end
 		return true
-	elseif policyType == Definitions.PolicyType.Command then
+	elseif policyType == "Command" then
 		local hs = legacy.onAllowCommand
 		for i = 1, #hs do
 			local r = hs[i](ctx.unitID, ctx.unitDefID, ctx.unitTeam, ctx.cmdID, ctx.cmdParams, ctx.cmdOptions, ctx.cmdTag, ctx.synced)
@@ -73,7 +72,7 @@ function Pipeline.RunAllowResourceTransfer(senderTeamId, receiverTeamId, resourc
 	end
 	local clampedAmount = math.min(math.max(amount, 0), maxShare)
 	local ctx = {
-		type = Definitions.PolicyType.ResourceTransfer,
+		type = "ResourceTransfer",
 		senderTeamId = senderTeamId,
 		receiverTeamId = receiverTeamId,
 		resource = resourceName,
@@ -81,14 +80,14 @@ function Pipeline.RunAllowResourceTransfer(senderTeamId, receiverTeamId, resourc
 		amountClamped = clampedAmount,
 		maxShare = maxShare,
 		receiverCur = receiverCur,
-		cumulativeMetal = Resources.GetCumulativeMetalSent(senderTeamId),
+		cumulativeMetal = State.GetCumulativeMetalSent(senderTeamId),
 		areAlliedTeams = Spring.AreTeamsAllied(senderTeamId, receiverTeamId),
 		isCheatingEnabled = Spring.IsCheatingEnabled(),
 		senderIsNonPlayer = isNonPlayerTeam(senderTeamId),
 		receiverIsNonPlayer = isNonPlayerTeam(receiverTeamId),
 	}
 
-	local res = evaluatePolicies(Definitions.PolicyType.ResourceTransfer, ctx)
+	local res = evaluatePolicies("ResourceTransfer", ctx)
 	if type(res) == "table" then
 		if res.applyTransfer then
 			local sent = res.applyTransfer.sent or 0
@@ -97,7 +96,7 @@ function Pipeline.RunAllowResourceTransfer(senderTeamId, receiverTeamId, resourc
 			local sCur = select(1, Spring.GetTeamResources(senderTeamId, resourceName))
 			Spring.SetTeamResource(senderTeamId, resourceName, sCur - sent)
 			if resourceName == 'metal' and res.applyTransfer.updateCumulativeMetal then
-				local newCum = Resources.AddCumulativeMetalSent(senderTeamId, sent)
+				local newCum = State.AddCumulativeMetalSent(senderTeamId, sent)
 				Spring.SetTeamRulesParam(senderTeamId, "metal_share_cumulative_sent", newCum)
 			end
 			if res.expose then
@@ -123,15 +122,6 @@ function Pipeline.RunAllowResourceTransfer(senderTeamId, receiverTeamId, resourc
 	return true
 end
 
-local function hasTransferOverride(unitID)
-	local flag = Spring.GetUnitRulesParam(unitID, "transfer_override_market")
-	if flag and flag == 1 then
-		Spring.SetUnitRulesParam(unitID, "transfer_override_market", nil)
-		return true
-	end
-	return false
-end
-
 local function computeTakeBypass(fromTeamID, toTeamID)
 	if Spring.AreTeamsAllied(fromTeamID, toTeamID) then
 		for _, playerID in ipairs(Spring.GetPlayerList()) do
@@ -149,12 +139,8 @@ function Pipeline.RunAllowUnitTransfer(unitID, unitDefID, fromTeamID, toTeamID, 
 	if capture then
 		return true
 	end
-	if hasTransferOverride(unitID) then
-		return true
-	end
-
 	local ctx = {
-		type = Definitions.PolicyType.UnitTransfer,
+		type = "UnitTransfer",
 		unitID = unitID,
 		unitDefID = unitDefID,
 		fromTeamID = fromTeamID,
@@ -167,7 +153,7 @@ function Pipeline.RunAllowUnitTransfer(unitID, unitDefID, fromTeamID, toTeamID, 
 		toIsNonPlayer = isNonPlayerTeam(toTeamID),
 	}
 
-	local res = evaluatePolicies(Definitions.PolicyType.UnitTransfer, ctx)
+	local res = evaluatePolicies("UnitTransfer", ctx)
 	if type(res) == "table" then
 		if res.allow ~= nil then return res.allow end
 		if res.deny ~= nil then return not res.deny end
@@ -190,7 +176,7 @@ function Pipeline.RunAllowCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams,
 	local targetAllied = (targetTeam ~= nil) and Spring.AreTeamsAllied(unitTeam, targetTeam) and (unitTeam ~= targetTeam) or false
 
 	local ctx = {
-		type = Definitions.PolicyType.Command,
+		type = "Command",
 		unitID = unitID,
 		unitDefID = unitDefID,
 		unitTeam = unitTeam,
@@ -206,7 +192,7 @@ function Pipeline.RunAllowCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams,
 		targetIsComplete = targetID and isComplete(targetID) or true,
 	}
 
-	local res = evaluatePolicies(Definitions.PolicyType.Command, ctx)
+	local res = evaluatePolicies("Command", ctx)
 	if type(res) == "table" then
 		if res.allow ~= nil then return res.allow end
 		if res.deny ~= nil then return not res.deny end
