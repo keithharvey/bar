@@ -11,25 +11,24 @@ function gadget:GetInfo()
 end
 
 
-local API = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
-local Tax = VFS.Include('common/luaUtilities/resource_share_tax.lua')
-local sharingModeUtils = VFS.Include("common/sharing_mode_utils.lua")
-local KEYS = VFS.Include("luarules/gadgets/team_transfer/sharing_modoption_keys.lua")
-local Predicates = VFS.Include("luarules/gadgets/team_transfer/predicates.lua")
+local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
+local Tax = TeamTransfer.ResourceShareTax
+local MODOPTION_KEYS = TeamTransfer.MODOPTION_KEYS
+local Predicates = TeamTransfer.Predicates
 
-if not sharingModeUtils.shouldGadgetRun(KEYS.TAX_RESOURCE_SHARING_AMOUNT) then
+if not TeamTransfer.IsSharingOption(MODOPTION_KEYS.TAX_RESOURCE_SHARING_AMOUNT) then
 	return
 end
 
 local modOpts = Spring.GetModOptions()
-local taxRate = modOpts[KEYS.TAX_RESOURCE_SHARING_AMOUNT] or 0
+local taxRate = modOpts[MODOPTION_KEYS.TAX_RESOURCE_SHARING_AMOUNT] or 0
 if taxRate == 0 then
 	return
 end
-local metalThreshold = modOpts[KEYS.PLAYER_METAL_SEND_THRESHOLD] or 0
+local metalThreshold = modOpts[MODOPTION_KEYS.PLAYER_METAL_SEND_THRESHOLD] or 0
 
-API.RegisterPolicy(function(policy)
-	policy:For(API.PolicyType.ResourceTransfer)
+TeamTransfer.RegisterPolicy(function(policy)
+	policy:For(TeamTransfer.PolicyType.ResourceTransfer)
 	:When(function(ctx) return ctx.areAlliedTeams end)
 	:Use(function(ctx)
 		if ctx.amountClamped <= 0 then
@@ -55,20 +54,20 @@ API.RegisterPolicy(function(policy)
 		}
 	end)
 
-	policy:For(API.PolicyType.Command)
+	policy:For(TeamTransfer.PolicyType.Command)
 	:When(Predicates.Command.isReclaim)
 	:When(Predicates.Command.targetAllied)
 	:Use(function(ctx)
 		return { deny = true }
 	end)
 
-	policy:For(API.PolicyType.Command)
+	policy:For(TeamTransfer.PolicyType.Command)
 	:When(Predicates.Command.isReclaim)
 	:Use(function(ctx)
 		return { allow = true }
 	end)
 
-	policy:For(API.PolicyType.Command)
+	policy:For(TeamTransfer.PolicyType.Command)
 	:When(Predicates.Command.isGuard)
 	:When(Predicates.Command.targetAllied)
 	:When(Predicates.Command.targetHasReclaim)
@@ -76,7 +75,7 @@ API.RegisterPolicy(function(policy)
 		return { deny = true }
 	end)
 
-	policy:For(API.PolicyType.Command)
+	policy:For(TeamTransfer.PolicyType.Command)
 	:When(Predicates.Command.isGuard)
 	:Use(function(ctx)
 		return { allow = true }

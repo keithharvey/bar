@@ -1,8 +1,8 @@
-local API = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
+local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
 local Resources = VFS.Include("luarules/gadgets/team_transfer/resources.lua")
 local State = VFS.Include("luarules/gadgets/team_transfer/state.lua")
 
-local PolicyType = API.PolicyType
+local PolicyType = TeamTransfer.PolicyType
 
 local Pipeline = {}
 
@@ -21,7 +21,7 @@ local function isNonPlayerTeam(teamID)
 end
 
 local function evaluatePolicies(policyType, ctx)
-	local entries = API.GetPolicies()[policyType]
+	local entries = TeamTransfer.GetPolicies()[policyType]
 	for i = 1, #entries do
 		local entry = entries[i]
 		local preds = entry.predicates
@@ -40,7 +40,7 @@ local function evaluatePolicies(policyType, ctx)
 		end
 	end
 
-	local legacy = API.GetPipeline()
+	local legacy = TeamTransfer.GetPipeline()
 	if policyType == PolicyType.ResourceTransfer then
 		local hs = legacy.onAllowResourceTransfer
 		for i = 1, #hs do

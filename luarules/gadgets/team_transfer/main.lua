@@ -16,10 +16,9 @@ if not gadgetHandler:IsSyncedCode() then
 	return false
 end
 
-local sharingModeUtils = VFS.Include("common/sharing_mode_utils.lua")
-local KEYS = VFS.Include("luarules/gadgets/team_transfer/sharing_modoption_keys.lua")
+local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
+local MODOPTION_KEYS = TeamTransfer.MODOPTION_KEYS
 local Pipeline = VFS.Include("luarules/gadgets/team_transfer/pipeline.lua")
-local API = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
 
 local function registerPolicies()
 	VFS.Include("luarules/gadgets/team_transfer/game_enemy_transfer.lua")

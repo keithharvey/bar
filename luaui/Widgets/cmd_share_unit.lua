@@ -82,8 +82,7 @@ local function tablelength(T)
 	return count
 end
 
-local TTW = VFS.Include("luarules/gadgets/team_transfer/api_widgets.lua")
-local sharing = TTW.UnitSharing
+local sharing = VFS.Include("luarules/gadgets/team_transfer/unit_sharing.lua")
 local unitSharingMode = sharing.getUnitSharingMode()
 
 local function isT2Constructor(unitDef)

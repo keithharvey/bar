@@ -11,13 +11,12 @@ function gadget:GetInfo()
 end
 
 
-local API = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
-local units = VFS.Include("luarules/gadgets/team_transfer/units.lua")
-local sharing = VFS.Include("common/unit_sharing.lua")
-local sharingModeUtils = VFS.Include("common/sharing_mode_utils.lua")
-local KEYS = VFS.Include("luarules/gadgets/team_transfer/sharing_modoption_keys.lua")
+local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
+local units = TeamTransfer.Units
+local sharing = TeamTransfer.UnitSharing
+local MODOPTION_KEYS = TeamTransfer.MODOPTION_KEYS
 
-if not sharingModeUtils.shouldGadgetRun(KEYS.UNIT_SHARING_MODE) then
+if not TeamTransfer.IsSharingOption(MODOPTION_KEYS.UNIT_SHARING_MODE) then
 	return
 end
 
@@ -26,17 +25,11 @@ if unitSharingMode == "enabled" then
 	return
 end
 
-API.RegisterPolicy(function(policy)
-	policy:For(API.PolicyType.UnitTransfer)
+TeamTransfer.RegisterPolicy(function(policy)
+	policy.For(TeamTransfer.PolicyType.ResourceTransfer)
+	policy:For(TeamTransfer.PolicyType.UnitTransfer)
 	:Use(function(ctx)
-		if ctx.capture then
-			return { allow = true }
-		end
-		if ctx.takeBypassAllowed then
-			return { allow = true }
-		end
-		local allowed = units.AllowUnitTransferByMode(ctx.unitID, ctx.unitDefID, ctx.fromTeamID, ctx.toTeamID, ctx.capture, unitSharingMode)
-		return { allow = allowed }
+		
 	end)
 end)
 

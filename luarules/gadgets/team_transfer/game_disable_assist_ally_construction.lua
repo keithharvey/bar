@@ -11,36 +11,36 @@ function gadget:GetInfo()
 end
 
 
-local API = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
-local sharingModeUtils = VFS.Include("common/sharing_mode_utils.lua")
-local KEYS = VFS.Include("luarules/gadgets/team_transfer/sharing_modoption_keys.lua")
-local Predicates = VFS.Include("luarules/gadgets/team_transfer/predicates.lua")
+local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
+local MODOPTION_KEYS = TeamTransfer.MODOPTION_KEYS
+local Predicates = TeamTransfer.Predicates
 
-if not sharingModeUtils.shouldGadgetRun(KEYS.DISABLE_ASSIST_ALLY_CONSTRUCTION) then
+if not TeamTransfer.IsSharingOption(MODOPTION_KEYS.DISABLE_ASSIST_ALLY_CONSTRUCTION) then
 	return
 end
 
-local allowAssist = not Spring.GetModOptions()[KEYS.DISABLE_ASSIST_ALLY_CONSTRUCTION]
+local allowAssist = not Spring.GetModOptions()[MODOPTION_KEYS.DISABLE_ASSIST_ALLY_CONSTRUCTION]
 if allowAssist then
 	return
 end
 
-API.RegisterPolicy(function(policy)
-	policy:For(API.PolicyType.Command)
+TeamTransfer.RegisterPolicy(function(policy)
+	policy:For(TeamTransfer.PolicyType.Command)
 	:When(Predicates.Command.isGuard)
 	:When(Predicates.Command.targetAllied)
 	:When(Predicates.Command.targetHasAssist)
 	:Use(function(ctx)
 		return { deny = true }
 	end)
+	)
 
-	policy:For(API.PolicyType.Command)
+	policy:For(TeamTransfer.PolicyType.Command)
 	:When(Predicates.Command.isGuard)
 	:Use(function(ctx)
 		return { allow = true }
 	end)
 
-	policy:For(API.PolicyType.Command)
+	policy:For(TeamTransfer.PolicyType.Command)
 	:When(Predicates.Command.isRepair)
 	:When(Predicates.Command.targetAllied)
 	:When(Predicates.Command.targetIsIncomplete)
@@ -48,7 +48,7 @@ API.RegisterPolicy(function(policy)
 		return { deny = true }
 	end)
 
-	policy:For(API.PolicyType.Command)
+	policy:For(TeamTransfer.PolicyType.Command)
 	:When(Predicates.Command.isRepair)
 	:Use(function(ctx)
 		return { allow = true }
