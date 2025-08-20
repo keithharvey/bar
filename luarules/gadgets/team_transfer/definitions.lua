@@ -1,5 +1,11 @@
 local M = {}
 
+M.PolicyType = {
+	ResourceTransfer = "ResourceTransfer",
+	UnitTransfer = "UnitTransfer",
+	Command = "Command",
+}
+
 M.SharingOutcomes = {
 	EnergyTransfer = "EnergyTransfer",
 	MetalTransfer = "MetalTransfer",
