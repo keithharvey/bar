@@ -3382,7 +3382,8 @@ function widget:MousePress(x, y, button)
                                             --Spring_SendCommands("say a: " .. Spring.I18N('ui.playersList.chat.needSupport'))
 								Spring.SendLuaRulesMsg('msg:ui.playersList.chat.needSupport')
                                         else
-                                            local sharing = VFS.Include("common/unit_sharing.lua")
+                                            local TTW = VFS.Include("luarules/gadgets/team_transfer/api_widgets.lua")
+                                            local sharing = TTW.UnitSharing
                                             local unitSharingMode = sharing.getUnitSharingMode()
                                             if unitSharingMode == "disabled" then
                                                 Spring.Echo(sharing.blockMessage(nil, unitSharingMode))
