@@ -1,5 +1,8 @@
 local widget = widget ---@type Widget
 
+---@diagnostic disable: undefined-global
+---@load-file luaui/types/team_transfer.lua
+
 function widget:GetInfo()
 	return {
 		name = "Share Unit Command",
@@ -8,9 +11,8 @@ function widget:GetInfo()
 		date = "2024",
 		license = "GNU GPL, v2 or later",
 		version = 1.0,
-		layer = 0,
+		layer = 1, -- Load after api_team_transfer.lua (layer -1)
 		enabled = true,
-		handler = true,
 	}
 end
 
@@ -82,12 +84,12 @@ local function tablelength(T)
 	return count
 end
 
----@type UnitSharing
-local sharing = VFS.Include("common/unit_sharing.lua")
-local unitSharingMode = sharing.getUnitSharingMode()
+---@type TeamTransferAPI
+local sharing = VFS.Include("luarules/gadgets/team_transfer/api_widgets.lua")
+local unitSharingMode
 
 local function isT2Constructor(unitDef)
-	return sharing.isT2ConstructorDef(unitDef)
+	return sharing.UnitSharing.isT2ConstructorDef(unitDef)
 end
 
 local function countShareableSelection()
@@ -337,19 +339,11 @@ end
 
 function widget:CommandNotify(cmdID, cmdParams, _)
 	if cmdID == cmdQuickShareToTargetId then
-		if unitSharingMode == "disabled" then
-			Spring.Echo(sharing.blockMessage(nil, unitSharingMode))
+		local teamTransfer = WG['TeamTransfer'] --[[@as TeamTransferAPI]]
+		if not teamTransfer then return true end
+		
+		if not teamTransfer.validateShareCommand() then
 			return true
-		end
-		if unitSharingMode == "t2cons" then
-			local t2count, total, unshareable = countShareableSelection()
-			if total > 0 and t2count == 0 then
-				Spring.Echo(sharing.blockMessage(unshareable, unitSharingMode))
-				return true
-			end
-			if unshareable > 0 then
-				Spring.Echo(sharing.blockMessage(unshareable, unitSharingMode))
-			end
 		end
 		local targetTeamID
 		if #cmdParams ~= 1 and #cmdParams ~= 3 then
@@ -403,6 +397,9 @@ function widget:Initialize()
 	widget:ViewResize()
 	defaultColor = { 0.88, 0.88, 0.88, 1 }
 	setupDisplayLists()
+	
+	-- Initialize unit sharing settings
+	unitSharingMode = sharing.getUnitSharingMode()
 end
 
 function widget:Shutdown()

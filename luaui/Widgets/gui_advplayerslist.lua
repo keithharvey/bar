@@ -1,7 +1,7 @@
 local widget = widget ---@type Widget
 
----@type UnitSharing
-local sharing = VFS.Include("common/unit_sharing.lua")
+---@type TeamTransferAPI
+local sharing = VFS.Include("luarules/gadgets/team_transfer/api_widgets.lua")
 local unitSharingMode
 local unitSharingEnabled
 
@@ -13,7 +13,7 @@ function widget:GetInfo()
         date = "2008",
         version = 46,
         license = "GNU GPL, v2 or later",
-        layer = -4,
+        layer = 1, -- Load after api_team_transfer.lua (layer -1)
         enabled = true,
     }
 end
@@ -3236,9 +3236,7 @@ end
 
 ---------------------------------------------------------------------------------------------------
 --  Share slider gllist
----------------------------------------------------------------------------------------------------
-
-local ShareTax = VFS.Include('common/luaUtilities/resource_share_tax.lua')
+-------------------------------------------------------------------------------------------------
 
 function CreateShareSlider()
     if ShareSlider then
