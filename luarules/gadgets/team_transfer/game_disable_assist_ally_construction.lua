@@ -1,7 +1,19 @@
+function gadget:GetInfo()
+	return {
+		name    = "ModOptions: Disable Assist Ally Construction",
+		desc    = "Declares mod options for disabling allied assist/repair on certain targets",
+		author  = "BAR",
+		date    = "Aug 2025",
+		license = "GNU GPL, v2 or later",
+		layer   = 0,
+		enabled = true
+	}
+end
+
+
 local API = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
 local sharingModeUtils = VFS.Include("common/sharing_mode_utils.lua")
-local KEYS = VFS.Include("common/sharing_modoption_keys.lua")
-local Definitions = VFS.Include("luarules/gadgets/team_transfer/definitions.lua")
+local KEYS = VFS.Include("luarules/gadgets/team_transfer/sharing_modoption_keys.lua")
 local Predicates = VFS.Include("luarules/gadgets/team_transfer/predicates.lua")
 
 if not sharingModeUtils.shouldGadgetRun(KEYS.DISABLE_ASSIST_ALLY_CONSTRUCTION) then
@@ -14,7 +26,7 @@ if allowAssist then
 end
 
 API.RegisterPolicy(function(policy)
-	policy:For(Definitions.PolicyType.Command)
+	policy:For(API.PolicyType.Command)
 	:When(Predicates.Command.isGuard)
 	:When(Predicates.Command.targetAllied)
 	:When(Predicates.Command.targetHasAssist)
@@ -22,13 +34,13 @@ API.RegisterPolicy(function(policy)
 		return { deny = true }
 	end)
 
-	policy:For(Definitions.PolicyType.Command)
+	policy:For(API.PolicyType.Command)
 	:When(Predicates.Command.isGuard)
 	:Use(function(ctx)
 		return { allow = true }
 	end)
 
-	policy:For(Definitions.PolicyType.Command)
+	policy:For(API.PolicyType.Command)
 	:When(Predicates.Command.isRepair)
 	:When(Predicates.Command.targetAllied)
 	:When(Predicates.Command.targetIsIncomplete)
@@ -36,7 +48,7 @@ API.RegisterPolicy(function(policy)
 		return { deny = true }
 	end)
 
-	policy:For(Definitions.PolicyType.Command)
+	policy:For(API.PolicyType.Command)
 	:When(Predicates.Command.isRepair)
 	:Use(function(ctx)
 		return { allow = true }
