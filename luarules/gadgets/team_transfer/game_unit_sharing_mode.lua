@@ -23,7 +23,7 @@ API.RegisterPolicy(function(policy)
 		if ctx.takeBypassAllowed then
 			return { allow = true }
 		end
-		local allowed = units.AllowUnitTransferByMode(ctx.unitID, ctx.unitDefID, ctx.fromTeamID, ctx.toTeamID, ctx.capture)
+		local allowed = units.AllowUnitTransferByMode(ctx.unitID, ctx.unitDefID, ctx.fromTeamID, ctx.toTeamID, ctx.capture, unitSharingMode)
 		return { allow = allowed }
 	end)
 end)
