@@ -1,6 +1,7 @@
 local API = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
 local Definitions = VFS.Include("luarules/gadgets/team_transfer/definitions.lua")
 local Resources = VFS.Include("luarules/gadgets/team_transfer/resources.lua")
+local State = VFS.Include("luarules/gadgets/team_transfer/state.lua")
 
 local Pipeline = {}
 
