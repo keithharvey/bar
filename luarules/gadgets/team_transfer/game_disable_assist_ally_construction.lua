@@ -1,52 +1,22 @@
-local gadget = gadget ---@type Gadget
-
-function gadget:GetInfo()
-	return {
-		name    = 'Disable Assist Ally Construction',
-		desc    = 'Disable assisting allied units (e.g. labs and units/buildings under construction) when modoption is enabled',
-		author  = 'Rimilel',
-		date    = 'April 2024',
-		license = 'GNU GPL, v2 or later',
-		layer   = 0,
-		enabled = true
-	}
-end
-
-----------------------------------------------------------------
--- Synced only
-----------------------------------------------------------------
-if not gadgetHandler:IsSyncedCode() then
-	return false
-end
-
+local API = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
 local sharingModeUtils = VFS.Include("common/sharing_mode_utils.lua")
 local KEYS = VFS.Include("common/sharing_modoption_keys.lua")
 
--- Check if this gadget should run based on selected sharing mode
 if not sharingModeUtils.shouldGadgetRun(KEYS.DISABLE_ASSIST_ALLY_CONSTRUCTION) then
-	return false
+	return
 end
 
 local allowAssist = not Spring.GetModOptions()[KEYS.DISABLE_ASSIST_ALLY_CONSTRUCTION]
-
 if allowAssist then
-	return false
+	return
 end
 
 local function isComplete(u)
 	local _,_,_,_,buildProgress=Spring.GetUnitHealth(u)
-	if buildProgress and buildProgress>=1 then
-		return true
-	else
-		return false
-	end
+	return (buildProgress and buildProgress>=1) or false
 end
 
-
-function gadget:AllowCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOptions, cmdTag, synced)
-
-	-- Disallow guard commands onto labs, units that have buildOptions or can assist
-
+API.RegisterAllowCommand(function(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOptions, cmdTag, synced)
 	if (cmdID == CMD.GUARD) then
 		local targetID = cmdParams[1]
 		local targetTeam = Spring.GetUnitTeam(targetID)
@@ -60,9 +30,6 @@ function gadget:AllowCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdO
 		return true
 	end
 
-	-- Also disallow assisting building (caused by a repair command) units under construction 
-	-- Area repair doesn't cause assisting, so it's fine that we can't properly filter it
-
 	if (cmdID == CMD.REPAIR and #cmdParams == 1) then
 		local targetID = cmdParams[1]
 		local targetTeam = Spring.GetUnitTeam(targetID)
@@ -75,7 +42,5 @@ function gadget:AllowCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdO
 		return true
 	end
 
-
-
 	return true
-end
+end)
