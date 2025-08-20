@@ -4,8 +4,6 @@ local Resources = VFS.Include("luarules/gadgets/team_transfer/resources.lua")
 
 local Pipeline = {}
 
-local cumulativeMetalSent = {}
-
 local function isNonPlayerTeam(teamID)
 	if teamID == Spring.GetGaiaTeamID() then
 		return true
@@ -18,12 +16,6 @@ local function isNonPlayerTeam(teamID)
 		return true
 	end
 	return false
-end
-
-local function normalizeResourceName(resourceType)
-	if resourceType == 'm' then return 'metal' end
-	if resourceType == 'e' then return 'energy' end
-	return resourceType
 end
 
 local function evaluatePolicies(policyType, ctx)
@@ -72,7 +64,7 @@ local function evaluatePolicies(policyType, ctx)
 end
 
 function Pipeline.RunAllowResourceTransfer(senderTeamId, receiverTeamId, resourceType, amount)
-	local resourceName = normalizeResourceName(resourceType)
+	local resourceName = Resources.NormalizeResourceName(resourceType)
 	local maxShare = 0
 	local receiverCur = 0
 	if resourceName == 'metal' or resourceName == 'energy' then
@@ -88,7 +80,7 @@ function Pipeline.RunAllowResourceTransfer(senderTeamId, receiverTeamId, resourc
 		amountClamped = clampedAmount,
 		maxShare = maxShare,
 		receiverCur = receiverCur,
-		cumulativeMetal = cumulativeMetalSent[senderTeamId] or 0,
+		cumulativeMetal = Resources.GetCumulativeMetalSent(senderTeamId),
 		areAlliedTeams = Spring.AreTeamsAllied(senderTeamId, receiverTeamId),
 		isCheatingEnabled = Spring.IsCheatingEnabled(),
 		senderIsNonPlayer = isNonPlayerTeam(senderTeamId),
@@ -104,8 +96,7 @@ function Pipeline.RunAllowResourceTransfer(senderTeamId, receiverTeamId, resourc
 			local sCur = select(1, Spring.GetTeamResources(senderTeamId, resourceName))
 			Spring.SetTeamResource(senderTeamId, resourceName, sCur - sent)
 			if resourceName == 'metal' and res.applyTransfer.updateCumulativeMetal then
-				local newCum = (cumulativeMetalSent[senderTeamId] or 0) + sent
-				cumulativeMetalSent[senderTeamId] = newCum
+				local newCum = Resources.AddCumulativeMetalSent(senderTeamId, sent)
 				Spring.SetTeamRulesParam(senderTeamId, "metal_share_cumulative_sent", newCum)
 			end
 			if res.expose then
