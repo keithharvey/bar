@@ -4,9 +4,9 @@ A command-line test runner for BAR's unit tests that can execute tests without s
 
 ## Installation
 
-Ensure you have Lua 5.3 installed:
+Ensure you have Lua 5.1 installed:
 ```bash
-sudo apt install lua5.3
+sudo apt install lua5.1
 ```
 
 ## Usage
@@ -15,20 +15,20 @@ Run the test runner from the BAR repository root directory:
 
 ```bash
 # Run all unit tests
-lua5.3 test_runner.lua
+lua5.1 test_runner.lua
 
 # Run all unit tests (explicit pattern)
-lua5.3 test_runner.lua unit/
+lua5.1 test_runner.lua unit/
 
 # Run specific test file
-lua5.3 test_runner.lua unit/test_policy_builder
-lua5.3 test_runner.lua unit/test_predicates
-lua5.3 test_runner.lua unit/test_resource_tax_calculations
-lua5.3 test_runner.lua unit/test_unit_sharing_logic
+lua5.1 test_runner.lua unit/test_policy_builder
+lua5.1 test_runner.lua unit/test_predicates
+lua5.1 test_runner.lua unit/test_resource_tax_calculations
+lua5.1 test_runner.lua unit/test_unit_sharing_logic
 
 # Run tests matching a pattern
-lua5.3 test_runner.lua predicates
-lua5.3 test_runner.lua policy
+lua5.1 test_runner.lua predicates
+lua5.1 test_runner.lua policy
 ```
 
 ## Features
@@ -89,7 +89,7 @@ The test runner returns appropriate exit codes for CI integration:
 ## Troubleshooting
 
 ### "lua: command not found"
-Install Lua 5.3: `sudo apt install lua5.3`
+Install Lua 5.1: `sudo apt install lua5.1`
 
 ### "Could not open file"
 Ensure you're running the command from the BAR repository root directory.

@@ -1,8 +1,8 @@
-#!/usr/bin/env lua5.3
+#!/usr/bin/env lua5.1
 
 --
---   lua5.3 test_runner.lua                           # Run all unit tests
---   lua5.3 test_runner.lua unit/                     # Run all unit tests
+--   lua5.1 test_runner.lua                           # Run all unit tests
+--   lua5.1 test_runner.lua unit/                     # Run all unit tests
 
 
 local function loadTestingUtilities()
@@ -75,7 +75,7 @@ local function createTestEnvironment()
         type = type,
         tostring = tostring,
         tonumber = tonumber,
-        unpack = table.unpack or unpack,
+        unpack = unpack,
         select = select,
         pcall = pcall,
         xpcall = xpcall,
@@ -90,10 +90,45 @@ local function createTestEnvironment()
             GetModOptions = function() return {} end,
             GetGameFrame = function() return 1 end,
             GetTimer = function() return 0 end,
+            GetGameSeconds = function() return 1 end,
+            GetTeamList = function() return {0, 1} end,
+            AreTeamsAllied = function(team1, team2) return team1 == team2 end,
+            GetTeamResources = function(teamID, resource) 
+                return 1000, 1000, 0, 1000, 1000, 0, 0, 0 -- current, storage, pull, income, expense, share, sent, received
+            end,
+            GetUnitDefID = function(unitID) return 1 end,
+            GetUnitTeam = function(unitID) return 0 end,
+            ValidUnitID = function(unitID) return true end,
         },
-        CMD = { GUARD = 10, MOVE = 20, ATTACK = 30 },
+        CMD = { 
+            GUARD = 10, 
+            MOVE = 20, 
+            ATTACK = 30,
+            STOP = 0,
+            WAIT = 5,
+            MOVE_STATE = 50,
+            FIRE_STATE = 45,
+            REPEAT = 115,
+            CLOAK = 37,
+            ONOFF = 35,
+        },
         GG = {},
         debug = debug,
+        
+        UnitDefs = {
+            [1] = {
+                name = "armcom",
+                customParams = { iscommander = "1" },
+                canMove = true,
+                canAttack = true,
+            },
+            [2] = {
+                name = "armlab", 
+                customParams = { techlevel = "1" },
+                canMove = false,
+                canAttack = false,
+            }
+        },
         
     }
     
@@ -143,7 +178,7 @@ local function runTest(filename)
     local content = file:read("*all")
     file:close()
     
-    local chunk, err = load(content, filename, "t")
+    local chunk, err = loadstring(content, filename)
     if not chunk then
         return {
             result = TestResults.TEST_RESULT.ERROR,
@@ -151,24 +186,7 @@ local function runTest(filename)
         }
     end
     
-    if setfenv then
-        setfenv(chunk, env)
-    else
-        local function setEnvironment(f, env)
-            local i = 1
-            while true do
-                local name = debug.getupvalue(f, i)
-                if name == "_ENV" then
-                    debug.upvaluejoin(f, i, (function() return env end), 1)
-                    break
-                elseif not name then
-                    break
-                end
-                i = i + 1
-            end
-        end
-        setEnvironment(chunk, env)
-    end
+    setfenv(chunk, env)
     
     local success, err = pcall(chunk)
     if not success then
