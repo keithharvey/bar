@@ -35,4 +35,19 @@ function P.Command.targetIsIncomplete(ctx)
 	return ctx.targetIsComplete == false
 end
 
+
+P.Resource = {
+	isMetalTransfer = function(ctx) return ctx.resource == "metal" end,
+	isEnergyTransfer = function(ctx) return ctx.resource == "energy" end,
+	areAlliedTeams = function(ctx) return ctx.areAlliedTeams end,
+	isCheatingEnabled = function(ctx) return ctx.isCheatingEnabled end,
+}
+
+P.Unit = {
+	areAlliedTeams = function(ctx) return ctx.areAlliedTeams end,
+	isCheatingEnabled = function(ctx) return ctx.isCheatingEnabled end,
+	isCapture = function(ctx) return ctx.capture end,
+	takeBypassAllowed = function(ctx) return ctx.takeBypassAllowed end,
+}
+
 return P

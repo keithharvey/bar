@@ -1,4 +1,5 @@
 ---@meta
+
 ---@class TeamTransferPolicyContext
 ---@field type string
 ---@field resource? "metal"|"energy"

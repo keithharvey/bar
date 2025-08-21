@@ -3,6 +3,7 @@ local sharing = {}
 -- Cache for valid unit IDs by sharing mode
 local validUnitCache = {}
 
+---@return string
 function sharing.getUnitSharingMode()
 	local mo = Spring.GetModOptions and Spring.GetModOptions()
 	return (mo and mo.unit_sharing_mode) or "enabled"
@@ -108,6 +109,7 @@ function sharing.shouldShowShareButton(unitIDs, mode)
 	return total > 0 and shareable > 0
 end
 
+---@return string
 function sharing.blockMessage(unshareable, mode)
 	mode = mode or sharing.getUnitSharingMode()
 	if mode == "disabled" then

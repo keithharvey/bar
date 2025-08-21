@@ -29,6 +29,18 @@ end
 
 function gadget:Initialize()
 	registerPolicies()
+	
+	GG.TeamTransfer = {
+		UnitSharing = TeamTransfer.UnitSharing,
+		ResourceShareTax = TeamTransfer.ResourceShareTax,
+		Predicates = TeamTransfer.Predicates,
+		getUnitSharingMode = TeamTransfer.UnitSharing.getUnitSharingMode,
+		isT2ConstructorDef = TeamTransfer.UnitSharing.isT2ConstructorDef,
+		countUnshareable = TeamTransfer.UnitSharing.countUnshareable,
+		shouldShowShareButton = TeamTransfer.UnitSharing.shouldShowShareButton,
+		blockMessage = TeamTransfer.UnitSharing.blockMessage,
+		computeTransfer = TeamTransfer.ResourceShareTax.computeTransfer,
+	}
 end
 
 function gadget:AllowResourceTransfer(senderTeamId, receiverTeamId, resourceType, amount)

@@ -82,17 +82,32 @@ local function tablelength(T)
 	return count
 end
 
-local sharing = VFS.Include("luarules/gadgets/team_transfer/unit_sharing.lua")
-local unitSharingMode = sharing.getUnitSharingMode()
+local sharing = GG.TeamTransfer ---@type TeamTransferAPI
+local unitSharingMode = sharing and sharing.getUnitSharingMode() or "enabled"
 
 local function isT2Constructor(unitDef)
-	return sharing.isT2ConstructorDef(unitDef)
+	return sharing and sharing.isT2ConstructorDef(unitDef) or (unitDef.techLevel and unitDef.techLevel >= 2 and unitDef.isBuilder and unitDef.canMove)
 end
 
 local function countShareableSelection()
 	local selectedUnits = GetSelectedUnits()
-	local shareable, unshareable, total = sharing.countUnshareable(selectedUnits, unitSharingMode)
-	return shareable, total, unshareable
+	if sharing and sharing.countUnshareable then
+		local shareable, unshareable, total = sharing.countUnshareable(selectedUnits, unitSharingMode)
+		return shareable, total, unshareable
+	else
+		local count = 0
+		for i = 1, #selectedUnits do
+			local unitID = selectedUnits[i]
+			local unitDefID = GetUnitDefID(unitID)
+			if unitDefID then
+				local unitDef = UnitDefs[unitDefID]
+				if unitDef and not unitDef.isFactory and not unitDef.isBuilding then
+					count = count + 1
+				end
+			end
+		end
+		return count, count, 0
+	end
 end
 
 local function getSecondPart(offset)
@@ -337,17 +352,17 @@ end
 function widget:CommandNotify(cmdID, cmdParams, _)
 	if cmdID == cmdQuickShareToTargetId then
 		if unitSharingMode == "disabled" then
-			Spring.Echo(sharing.blockMessage(nil, unitSharingMode))
+			Spring.Echo(sharing and sharing.blockMessage(nil, unitSharingMode) or "Unit sharing is disabled")
 			return true
 		end
 		if unitSharingMode == "t2cons" then
 			local t2count, total, unshareable = countShareableSelection()
 			if total > 0 and t2count == 0 then
-				Spring.Echo(sharing.blockMessage(unshareable, unitSharingMode))
+				Spring.Echo(sharing and sharing.blockMessage(unshareable, unitSharingMode) or "Cannot share selected units")
 				return true
 			end
 			if unshareable > 0 then
-				Spring.Echo(sharing.blockMessage(unshareable, unitSharingMode))
+				Spring.Echo(sharing and sharing.blockMessage(unshareable, unitSharingMode) or "Cannot share selected units")
 			end
 		end
 		local targetTeamID
@@ -380,7 +395,7 @@ function widget:CommandsChanged()
 	end
 
 	local selectedUnits = GetSelectedUnits()
-	local allow = sharing.shouldShowShareButton(selectedUnits, unitSharingMode)
+	local allow = sharing and sharing.shouldShowShareButton(selectedUnits, unitSharingMode) or false
 
 	if allow then
 		local customCommands = widgetHandler.customCommands
