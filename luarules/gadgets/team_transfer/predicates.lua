@@ -1,6 +1,24 @@
-local P = {}
+---@diagnostic disable: undefined-global
+---@module "luarules/gadgets/team_transfer/predicates"
 
-P.Command = {}
+---@class TeamTransferPredicates
+---@field Command TeamTransferPredicatesCommand
+---@field Resource TeamTransferPredicatesResource
+---@field Unit TeamTransferPredicatesUnit
+---@type TeamTransferPredicates
+local P = { Command = {}, Resource = {}, Unit = {} }
+
+---@class TeamTransferPredicatesCommand
+---@field isGuard fun(ctx: TeamTransferPolicyContext): boolean
+---@field isRepair fun(ctx: TeamTransferPolicyContext): boolean
+---@field isReclaim fun(ctx: TeamTransferPolicyContext): boolean
+---@field targetAllied fun(ctx: TeamTransferPolicyContext): boolean
+---@field targetHasAssist fun(ctx: TeamTransferPolicyContext): boolean
+---@field targetHasReclaim fun(ctx: TeamTransferPolicyContext): boolean
+---@field targetIsIncomplete fun(ctx: TeamTransferPolicyContext): boolean
+---@type TeamTransferPredicatesCommand
+-- fields populated below
+P.Command = P.Command
 
 function P.Command.isGuard(ctx)
 	return ctx.cmdID == CMD.GUARD and ctx.targetID ~= nil
@@ -36,18 +54,31 @@ function P.Command.targetIsIncomplete(ctx)
 end
 
 
-P.Resource = {
-	isMetalTransfer = function(ctx) return ctx.resource == "metal" end,
-	isEnergyTransfer = function(ctx) return ctx.resource == "energy" end,
-	areAlliedTeams = function(ctx) return ctx.areAlliedTeams end,
-	isCheatingEnabled = function(ctx) return ctx.isCheatingEnabled end,
-}
+---@class TeamTransferPredicatesResource
+---@field isMetalTransfer fun(ctx: TeamTransferPolicyContext): boolean
+---@field isEnergyTransfer fun(ctx: TeamTransferPolicyContext): boolean
+---@field areAlliedTeams fun(ctx: TeamTransferPolicyContext): boolean
+---@field isCheatingEnabled fun(ctx: TeamTransferPolicyContext): boolean
+---@type TeamTransferPredicatesResource
+-- fields populated below
+P.Resource = P.Resource
+P.Resource.isMetalTransfer = function(ctx) return ctx.resource == "metal" end
+P.Resource.isEnergyTransfer = function(ctx) return ctx.resource == "energy" end
+P.Resource.areAlliedTeams = function(ctx) return ctx.areAlliedTeams end
+P.Resource.isCheatingEnabled = function(ctx) return ctx.isCheatingEnabled end
 
-P.Unit = {
-	areAlliedTeams = function(ctx) return ctx.areAlliedTeams end,
-	isCheatingEnabled = function(ctx) return ctx.isCheatingEnabled end,
-	isCapture = function(ctx) return ctx.capture end,
-	takeBypassAllowed = function(ctx) return ctx.takeBypassAllowed end,
-}
+---@class TeamTransferPredicatesUnit
+---@field areAlliedTeams fun(ctx: TeamTransferPolicyContext): boolean
+---@field isCheatingEnabled fun(ctx: TeamTransferPolicyContext): boolean
+---@field isCapture fun(ctx: TeamTransferPolicyContext): boolean
+---@field takeBypassAllowed fun(ctx: TeamTransferPolicyContext): boolean
+---@type TeamTransferPredicatesUnit
+-- fields populated below
+P.Unit = P.Unit
+P.Unit.areAlliedTeams = function(ctx) return ctx.areAlliedTeams end
+P.Unit.isCheatingEnabled = function(ctx) return ctx.isCheatingEnabled end
+P.Unit.isCapture = function(ctx) return ctx.capture end
+P.Unit.takeBypassAllowed = function(ctx) return ctx.takeBypassAllowed end
 
+---@return TeamTransferPredicates
 return P

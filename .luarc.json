@@ -15,10 +15,20 @@
     "library": [
       "recoil-lua-library"
     ],
+    "userThirdParty": [
+      "types"
+    ],
     "ignoreDir": [
       ".vscode",
       "luaui/Tests",
       "luaui/TestsExamples"
     ]
-  }
+  },
+  "diagnostics.globals": [
+    "VFS",
+    "Spring",
+    "Game",
+    "CMD",
+    "gadget"
+  ]
 }

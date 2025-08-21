@@ -1,4 +1,5 @@
 ---@meta
+---@module "luarules/gadgets/team_transfer/api_gadgets"
 
 ---@class TeamTransferPolicyContext
 ---@field type string
@@ -60,15 +61,16 @@
 ---@field Use fun(self: PolicyBuilder, handler: TeamTransferHandler)
 
 ---@class TeamTransferAPI
+---@field PolicyType { ResourceTransfer: string, UnitTransfer: string, Command: string }
 ---@field RegisterPolicy fun(registrar: fun(policy: PolicyBuilder))
-
-
-
-
-
-
-
-
+---@field GetPolicies fun(): table
+---@field GetPipeline fun(): table
+---@field UnitSharing table
+---@field ResourceShareTax table
+---@field MODOPTION_KEYS table
+---@field Predicates TeamTransferPredicates
+---@field Units table
+---@field IsSharingOption fun(modoptionKey: string): boolean
 
 local M = {}
 
@@ -144,38 +146,40 @@ end
 M.UnitSharing = VFS.Include("luarules/gadgets/team_transfer/unit_sharing.lua")
 M.ResourceShareTax = VFS.Include("luarules/gadgets/team_transfer/resource_share_tax.lua")
 M.MODOPTION_KEYS = VFS.Include("luarules/gadgets/team_transfer/sharing_modoption_keys.lua")
+---@type TeamTransferPredicates
 M.Predicates = VFS.Include("luarules/gadgets/team_transfer/predicates.lua")
 M.Units = VFS.Include("luarules/gadgets/team_transfer/units.lua")
 
 -- Inline sharing mode option check to avoid extra includes and improve discoverability
 local cachedSharingModes
 local function loadSharingModes()
-    if cachedSharingModes then return cachedSharingModes end
-    cachedSharingModes = {}
-    if VFS.FileExists("gamedata/sharingoptions.json") then
-        local jsonStr = VFS.LoadFile("gamedata/sharingoptions.json")
-        if jsonStr then
-            for modeBlock in jsonStr:gmatch('"key"%s*:%s*"([^"]+)".-"options"%s*:%s*{(.-)}') do
-                local key = modeBlock
-                if key then
-                    cachedSharingModes[key] = {}
-                    for optKey in modeBlock:gmatch('"([^"_][^"]*)"%s*:') do
-                        cachedSharingModes[key][optKey] = true
-                    end
-                end
-            end
-        end
-    end
-    return cachedSharingModes
+	if cachedSharingModes then return cachedSharingModes end
+	cachedSharingModes = {}
+	if VFS.FileExists("gamedata/sharingoptions.json") then
+		local jsonStr = VFS.LoadFile("gamedata/sharingoptions.json")
+		if jsonStr then
+			for modeBlock in jsonStr:gmatch('"key"%s*:%s*"([^"]+)".-"options"%s*:%s*{(.-)}') do
+				local key = modeBlock
+				if key then
+					cachedSharingModes[key] = {}
+					for optKey in modeBlock:gmatch('"([^"_][^"]*)"%s*:') do
+						cachedSharingModes[key][optKey] = true
+					end
+				end
+			end
+		end
+	end
+	return cachedSharingModes
 end
 
 function M.IsSharingOption(modoptionKey)
-    local selectedMode = Spring.GetModOptions()._sharing_mode_selected or ""
-    if selectedMode == "" then return true end
-    local modes = loadSharingModes()
-    local modeCfg = modes[selectedMode]
-    if not modeCfg then return true end
-    return modeCfg[modoptionKey] ~= nil
+	local selectedMode = Spring.GetModOptions()._sharing_mode_selected or ""
+	if selectedMode == "" then return true end
+	local modes = loadSharingModes()
+	local modeCfg = modes[selectedMode]
+	if not modeCfg then return true end
+	return modeCfg[modoptionKey] ~= nil
 end
 
+---@return TeamTransferAPI
 return M

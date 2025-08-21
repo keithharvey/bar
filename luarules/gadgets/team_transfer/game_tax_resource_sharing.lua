@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 function gadget:GetInfo()
 	return {
 		name    = "ModOptions: Tax Resource Sharing",
@@ -10,10 +11,11 @@ function gadget:GetInfo()
 	}
 end
 
-
+---@type TeamTransferAPI
 local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
 local Tax = TeamTransfer.ResourceShareTax
 local MODOPTION_KEYS = TeamTransfer.MODOPTION_KEYS
+---@type TeamTransferPredicates
 local Predicates = TeamTransfer.Predicates
 
 if not TeamTransfer.IsSharingOption(MODOPTION_KEYS.TAX_RESOURCE_SHARING_AMOUNT) then

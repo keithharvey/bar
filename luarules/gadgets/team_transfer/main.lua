@@ -30,6 +30,7 @@ end
 function gadget:Initialize()
 	registerPolicies()
 	
+	---@type TeamTransferAPI
 	GG.TeamTransfer = {
 		UnitSharing = TeamTransfer.UnitSharing,
 		ResourceShareTax = TeamTransfer.ResourceShareTax,
