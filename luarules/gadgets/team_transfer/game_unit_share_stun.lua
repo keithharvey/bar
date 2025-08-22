@@ -30,23 +30,11 @@ end
 
 ----------------------------------------------------------------
 ----------------------------------------------------------------
-local stunFrames = stunSeconds * 30
 
 function gadget:UnitGiven(unitID, unitDefID, newTeam, oldTeam)
 	if newTeam ~= oldTeam then
-		Spring.SetUnitStunned(unitID, true)
-		Spring.SetUnitRulesParam(unitID, "share_stun_end", Spring.GetGameFrame() + stunFrames)
-	end
-end
-
-function gadget:GameFrame(frame)
-	local allUnits = Spring.GetAllUnits()
-	for i = 1, #allUnits do
-		local unitID = allUnits[i]
-		local stunEnd = Spring.GetUnitRulesParam(unitID, "share_stun_end")
-		if stunEnd and frame >= stunEnd then
-			Spring.SetUnitStunned(unitID, false)
-			Spring.SetUnitRulesParam(unitID, "share_stun_end", nil)
-		end
+		local health, maxHealth, paralyze = Spring.GetUnitHealth(unitID)
+		local paralyzeDamage = maxHealth * stunSeconds * 0.033333
+		Spring.SetUnitHealth(unitID, { paralyze = paralyzeDamage })
 	end
 end
