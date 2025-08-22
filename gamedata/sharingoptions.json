@@ -115,12 +115,8 @@
           "value": "enabled",
           "locked": true
         },
-        "allied_capture": {
-          "value": "enabled_restricted",
-          "locked": true
-        },
-        "reclaim_mode": {
-          "value": "enabled",
+        "unit_share_stun_seconds": {
+          "value": 0,
           "locked": true
         }
       }
@@ -153,10 +149,7 @@
         "allied_construction_assist": {
           "locked": false
         },
-        "allied_capture": {
-          "locked": false
-        },
-        "reclaim_mode": {
+        "unit_share_stun_seconds": {
           "locked": false
         }
       }

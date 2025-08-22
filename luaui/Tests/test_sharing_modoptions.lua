@@ -140,7 +140,7 @@ function test:testAlliedConstructionAssist()
 		assistPolicies = assistPolicies + 1
 	end
 	
-	VFS.Include("luarules/gadgets/team_transfer/game_allied_construction_assist.lua")
+	VFS.Include("luarules/gadgets/team_transfer/game_disable_assist_ally_construction.lua")
 	
 	self:assertGreaterThan(assistPolicies, 0, "Assist policies should be registered when disabled")
 end

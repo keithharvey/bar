@@ -65,7 +65,7 @@ local options = {
         desc   	= "Number of seconds units are stunned after being shared",
         type   	= "number",
         section	= "options_sharing",
-        sharing_category = true,
+        sharing_category = "units",
         def    	= 0,
         min    	= 0,
         max    	= 10000,
@@ -78,7 +78,7 @@ local options = {
         desc   	= "Controls what types of allied construction can be assisted",
         type   	= "list",
         section	= "options_sharing",
-        sharing_category = true,
+        sharing_category = "allied_construction",
         def    	= "enabled",
         items  	= {
             {key = "enabled", name = "Enabled", desc = "All allied construction can be assisted"},
@@ -87,36 +87,7 @@ local options = {
         },
     },
 
-    {
-        key    	= "allied_capture",
-        name   	= "Allied Capture",
-        desc   	= "Controls allied unit capture mechanics",
-        type   	= "list",
-        section	= "options_sharing",
-        sharing_category = true,
-        def    	= "enabled_restricted",
-        items  	= {
-            {key = "enabled_restricted", name = "Enabled with automation restrictions", desc = "Allied capture allowed with automation limits"},
-            {key = "enabled", name = "Enabled", desc = "Full allied capture allowed"},
-            {key = "disabled", name = "Disabled", desc = "No allied capture allowed"},
-        },
-    },
 
-    {
-        key    	= "reclaim_mode",
-        name   	= "Reclaim",
-        desc   	= "Controls how reclaim resources are distributed",
-        type   	= "list",
-        section	= "options_sharing",
-        sharing_category = true,
-        def    	= "enabled",
-        items  	= {
-            {key = "enabled", name = "Enabled", desc = "Normal reclaim behavior"},
-            {key = "allied_taxed", name = "Enabled Allied Transfers Taxed", desc = "Allied reclaim transfers are taxed"},
-            {key = "no_ally_transfers", name = "Enabled Except For Ally Transfers", desc = "No resource transfer from allied reclaim"},
-            {key = "original_creator", name = "Refunded To Original Creator", desc = "Reclaim resources go to original unit creator"},
-        },
-    },
 
     {
         key    	= "disable_ally_extractor_upgrade",
@@ -124,7 +95,7 @@ local options = {
         desc   	= "Prevents players from upgrading teammate metal extractors and geothermal plants",
         type   	= "bool",
         section	= "options_sharing",
-        sharing_category = true,
+        sharing_category = "t2_mex_geo_upgrades",
         def    	= false,
     },
 
@@ -361,7 +332,7 @@ local options = {
 		type	= "list",
 		section	= "options_sharing",
 		def		= "enabled",
-		sharing_category = true,
+		sharing_category = "units",
 		items	= {
 			{ key = "enabled",     name = "Enabled",                     desc = "All unit sharing allowed" },
 			{ key = "t2cons", name = "T2 Constructor Sharing Only", desc = "Only T2 constructors can be shared between allies" },
@@ -381,7 +352,7 @@ local options = {
 		max		= 0.99,
 		step	= 0.01,
 		section	= "options_sharing",
-		sharing_category = true,
+		sharing_category = "resources",
 		column = 1,
 	},
 	{
@@ -396,7 +367,7 @@ local options = {
 		section = "options_sharing",
 		column  = 2,
 		disabled= { key="tax_resource_sharing_amount", value = 0},
-		sharing_category = true,
+		sharing_category = "resources",
 		depends_on = "tax_resource_sharing_amount",
 	},
 	    {
@@ -407,7 +378,7 @@ local options = {
         section	= "options_sharing",
         def		= false,
         column	= 1,
-        sharing_category = true,
+        sharing_category = "allied_construction",
     },
 
     -- Sharing mode selection (set by Chobby)
