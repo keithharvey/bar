@@ -271,6 +271,15 @@ local options = {
 		column	= 1.76,
 	},
 	{
+		key		= "disable_economic_sharing",
+		name	= "Disable Economic Sharing",
+		desc	= "Disables sharing of any resources, sharing of resource producing units/structures, and sharing of constructors. Only combat units can be shared",
+		type	= "bool",
+		section	= "options_main",
+		def		= false,
+		column	= 1.76,
+	},
+	{
 		key		= "unit_market",
 		name	= "Unit Market",
 		desc	= "Allow players to trade units. (Select unit, press 'For Sale' in order window or say /sell_unit in chat to mark the unit for sale. Double-click to buy from allies. T2cons show up in shop window!)",

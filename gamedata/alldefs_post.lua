@@ -199,6 +199,14 @@ function UnitDef_Post(name, uDef)
 			end
 		end
 
+		-- Mark economic units for sharing restrictions
+		if uDef.canAssist or uDef.isFactory then
+			uDef.customparams.iseconomicunit = "1"
+		elseif uDef.customparams and uDef.customparams.unitgroup and 
+			   (uDef.customparams.unitgroup == "energy" or uDef.customparams.unitgroup == "metal") then
+			uDef.customparams.iseconomicunit = "1"
+		end
+
 		if modOptions.unit_restrictions_noair then
 			if string.find(uDef.customparams.subfolder, "Aircraft") then
 				uDef.maxthisunit = 0
