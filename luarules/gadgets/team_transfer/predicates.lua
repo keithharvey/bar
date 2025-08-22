@@ -72,6 +72,12 @@ P.Resource.isCheatingEnabled = function(ctx) return ctx.isCheatingEnabled end
 ---@field isCheatingEnabled fun(ctx: TeamTransferPolicyContext): boolean
 ---@field isCapture fun(ctx: TeamTransferPolicyContext): boolean
 ---@field takeBypassAllowed fun(ctx: TeamTransferPolicyContext): boolean
+---@field isEconomic fun(ctx: TeamTransferPolicyContext): boolean
+---@field isCombat fun(ctx: TeamTransferPolicyContext): boolean
+---@field isT2Constructor fun(ctx: TeamTransferPolicyContext): boolean
+---@field isNotEconomic fun(ctx: TeamTransferPolicyContext): boolean
+---@field isNotCombat fun(ctx: TeamTransferPolicyContext): boolean
+---@field isNotT2Constructor fun(ctx: TeamTransferPolicyContext): boolean
 ---@type TeamTransferPredicatesUnit
 -- fields populated below
 P.Unit = P.Unit
@@ -79,6 +85,14 @@ P.Unit.areAlliedTeams = function(ctx) return ctx.areAlliedTeams end
 P.Unit.isCheatingEnabled = function(ctx) return ctx.isCheatingEnabled end
 P.Unit.isCapture = function(ctx) return ctx.capture end
 P.Unit.takeBypassAllowed = function(ctx) return ctx.takeBypassAllowed end
+
+local Units = VFS.Include("luarules/gadgets/team_transfer/units.lua")
+P.Unit.isEconomic = function(ctx) return Units.IsEconomicUnit(ctx.targetUnitDef and ctx.targetUnitDef.id) end
+P.Unit.isCombat = function(ctx) return Units.IsCombatUnit(ctx.targetUnitDef and ctx.targetUnitDef.id) end
+P.Unit.isT2Constructor = function(ctx) return Units.IsT2Constructor(ctx.unitDefID) end
+P.Unit.isNotEconomic = function(ctx) return not Units.IsEconomicUnit(ctx.targetUnitDef and ctx.targetUnitDef.id) end
+P.Unit.isNotCombat = function(ctx) return not Units.IsCombatUnit(ctx.targetUnitDef and ctx.targetUnitDef.id) end
+P.Unit.isNotT2Constructor = function(ctx) return not Units.IsT2Constructor(ctx.unitDefID) end
 
 ---@return TeamTransferPredicates
 return P

@@ -42,25 +42,19 @@ TeamTransfer.RegisterPolicy(function(policy)
 		end)
 	elseif unitSharingMode == "t2cons" then
 		policy:For(TeamTransfer.PolicyType.UnitTransfer)
-		:When(function(ctx)
-			return not Units.IsT2Constructor(ctx.unitDefID)
-		end)
+		:When(Predicates.Unit.isNotT2Constructor)
 		:Use(function(ctx)
 			return { deny = true }
 		end)
 	elseif unitSharingMode == "combat" then
 		policy:For(TeamTransfer.PolicyType.UnitTransfer)
-		:When(function(ctx)
-			return not Units.IsCombatUnit(ctx.unitDefID)
-		end)
+		:When(Predicates.Unit.isNotCombat)
 		:Use(function(ctx)
 			return { deny = true }
 		end)
 	elseif unitSharingMode == "economy" then
 		policy:For(TeamTransfer.PolicyType.UnitTransfer)
-		:When(function(ctx)
-			return not Units.IsEconomicUnit(ctx.unitDefID)
-		end)
+		:When(Predicates.Unit.isNotEconomic)
 		:Use(function(ctx)
 			return { deny = true }
 		end)
