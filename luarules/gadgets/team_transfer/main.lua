@@ -26,7 +26,6 @@ local function registerPolicies()
 	VFS.Include("luarules/gadgets/team_transfer/game_unit_sharing_mode.lua")
 	VFS.Include("luarules/gadgets/team_transfer/game_disable_assist_ally_construction.lua")
 	VFS.Include("luarules/gadgets/team_transfer/game_disable_ally_extractor_upgrade.lua")
-	VFS.Include("luarules/gadgets/team_transfer/game_unit_share_stun.lua")
 end
 
 function gadget:Initialize()

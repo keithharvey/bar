@@ -110,10 +110,6 @@
         "allied_construction_assist": {
           "value": "enabled",
           "locked": true
-        },
-        "unit_share_stun_seconds": {
-          "value": 0,
-          "locked": true
         }
       }
     },
@@ -140,9 +136,6 @@
           "locked": false
         },
         "allied_construction_assist": {
-          "locked": false
-        },
-        "unit_share_stun_seconds": {
           "locked": false
         }
       }

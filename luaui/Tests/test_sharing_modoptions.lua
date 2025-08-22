@@ -114,22 +114,6 @@ function test:testDisableAllyExtractorUpgrade()
 	self:assertNotNil(gadget.AllowUnitCreation, "AllowUnitCreation should be implemented")
 end
 
-
-function test:testUnitShareStun()
-	self.mockModOptions.unit_share_stun_seconds = 5
-	
-	local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
-	local stunPolicies = 0
-	
-	TeamTransfer.RegisterPolicy = function(policyFunc)
-		stunPolicies = stunPolicies + 1
-	end
-	
-	VFS.Include("luarules/gadgets/team_transfer/game_unit_share_stun.lua")
-	
-	self:assertGreaterThan(stunPolicies, 0, "Stun policies should be registered when stun time > 0")
-end
-
 function test:testAlliedConstructionAssist()
 	self.mockModOptions.allied_construction_assist = "disabled"
 	

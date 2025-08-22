@@ -9,7 +9,6 @@ return {
 	
 	-- New sharing restriction modoptions
 	DISABLE_ALLY_EXTRACTOR_UPGRADE = "disable_ally_extractor_upgrade",
-	UNIT_SHARE_STUN_SECONDS = "unit_share_stun_seconds",
 	ALLIED_CONSTRUCTION_ASSIST = "allied_construction_assist",
 	
 	-- System modoptions

@@ -60,19 +60,6 @@ local options = {
 
 
     {
-        key    	= "unit_share_stun_seconds",
-        name   	= "Unit Share Stun Seconds",
-        desc   	= "Number of seconds units are stunned after being shared",
-        type   	= "number",
-        section	= "options_sharing",
-        sharing_category = "units",
-        def    	= 0,
-        min    	= 0,
-        max    	= 10000,
-        step   	= 1,
-    },
-
-    {
         key    	= "allied_construction_assist",
         name   	= "Allied Construction Assist",
         desc   	= "Controls what types of allied construction can be assisted",
