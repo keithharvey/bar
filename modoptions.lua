@@ -370,16 +370,6 @@ local options = {
 		sharing_category = "resources",
 		depends_on = "tax_resource_sharing_amount",
 	},
-	    {
-        key		= "disable_assist_ally_construction",
-        name	= "Disable Assist Ally Construction",
-        desc	= "Disables assisting allied blueprints and labs.",
-        type	= "bool",
-        section	= "options_sharing",
-        def		= false,
-        column	= 1,
-        sharing_category = "allied_construction",
-    },
 
     -- Sharing mode selection (set by Chobby)
     {

@@ -145,4 +145,19 @@ function test:testAlliedConstructionAssist()
 	self:assertGreaterThan(assistPolicies, 0, "Assist policies should be registered when disabled")
 end
 
+function test:testAlliedConstructionAssistEconomicOnly()
+	self.mockModOptions.allied_construction_assist = "economic"
+	
+	local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
+	local assistPolicies = 0
+	
+	TeamTransfer.RegisterPolicy = function(policyFunc)
+		assistPolicies = assistPolicies + 1
+	end
+	
+	VFS.Include("luarules/gadgets/team_transfer/game_disable_assist_ally_construction.lua")
+	
+	self:assertGreaterThan(assistPolicies, 0, "Assist policies should be registered for economic mode")
+end
+
 return test

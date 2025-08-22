@@ -20,22 +20,11 @@ local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua
 local MODOPTION_KEYS = TeamTransfer.MODOPTION_KEYS
 local Predicates = TeamTransfer.Predicates
 
-local hasOldOption = TeamTransfer.IsSharingOption(MODOPTION_KEYS.DISABLE_ASSIST_ALLY_CONSTRUCTION)
-local hasNewOption = TeamTransfer.IsSharingOption(MODOPTION_KEYS.ALLIED_CONSTRUCTION_ASSIST)
-
-if not hasOldOption and not hasNewOption then
+if not TeamTransfer.IsSharingOption(MODOPTION_KEYS.ALLIED_CONSTRUCTION_ASSIST) then
 	return
 end
 
-local assistMode = "enabled"
-if hasNewOption then
-	assistMode = Spring.GetModOptions()[MODOPTION_KEYS.ALLIED_CONSTRUCTION_ASSIST] or "enabled"
-elseif hasOldOption then
-	local disableAssistAllyConstruction = Spring.GetModOptions()[MODOPTION_KEYS.DISABLE_ASSIST_ALLY_CONSTRUCTION]
-	if disableAssistAllyConstruction then
-		assistMode = "disabled"
-	end
-end
+local assistMode = Spring.GetModOptions()[MODOPTION_KEYS.ALLIED_CONSTRUCTION_ASSIST] or "enabled"
 
 if assistMode == "enabled" then
 	return

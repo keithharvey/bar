@@ -6,7 +6,6 @@ return {
 	UNIT_SHARING_MODE = "unit_sharing_mode",
 	TAX_RESOURCE_SHARING_AMOUNT = "tax_resource_sharing_amount",
 	PLAYER_METAL_SEND_THRESHOLD = "player_metal_send_threshold",
-	DISABLE_ASSIST_ALLY_CONSTRUCTION = "disable_assist_ally_construction",
 	
 	-- New sharing restriction modoptions
 	DISABLE_ALLY_EXTRACTOR_UPGRADE = "disable_ally_extractor_upgrade",

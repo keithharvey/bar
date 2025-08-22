@@ -30,8 +30,8 @@
             "max": 0
           }
         },
-        "disable_assist_ally_construction": {
-          "value": true,
+        "allied_construction_assist": {
+          "value": "disabled",
           "locked": true
         }
       }
@@ -67,8 +67,8 @@
             "step": 10
           }
         },
-        "disable_assist_ally_construction": {
-          "value": true,
+        "allied_construction_assist": {
+          "value": "disabled",
           "locked": true
         }
       }
@@ -98,10 +98,6 @@
           "value": 0,
           "locked": true,
           "ui": "hidden"
-        },
-        "disable_assist_ally_construction": {
-          "value": false,
-          "locked": true
         },
         "disable_ally_extractor_upgrade": {
           "value": false,
@@ -135,9 +131,6 @@
         },
         "player_metal_send_threshold": {
           "value": 0,
-          "locked": false
-        },
-        "disable_assist_ally_construction": {
           "locked": false
         },
         "disable_ally_extractor_upgrade": {
