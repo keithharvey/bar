@@ -1,3 +1,21 @@
+local gadget = gadget
+
+function gadget:GetInfo()
+	return {
+		name    = 'Team Transfer Policy: Unit Sharing Mode',
+		desc    = 'Enforces unit sharing restrictions based on mod options',
+		author  = 'Devin',
+		date    = 'Aug 2025',
+		license = 'GNU GPL, v2 or later',
+		layer   = 0,
+		enabled = true
+	}
+end
+
+if not gadgetHandler:IsSyncedCode() then
+	return false
+end
+
 local units = GG.TeamTransfer.Units
 local sharing = GG.TeamTransfer.UnitSharing
 local MODOPTION_KEYS = GG.TeamTransfer.MODOPTION_KEYS

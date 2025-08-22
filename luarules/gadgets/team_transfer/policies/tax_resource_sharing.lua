@@ -1,3 +1,21 @@
+local gadget = gadget
+
+function gadget:GetInfo()
+	return {
+		name    = 'Team Transfer Policy: Tax Resource Sharing',
+		desc    = 'Implements tax system for allied resource sharing',
+		author  = 'Devin',
+		date    = 'Aug 2025',
+		license = 'GNU GPL, v2 or later',
+		layer   = 0,
+		enabled = true
+	}
+end
+
+if not gadgetHandler:IsSyncedCode() then
+	return false
+end
+
 local Tax = GG.TeamTransfer.ResourceShareTax
 local MODOPTION_KEYS = GG.TeamTransfer.MODOPTION_KEYS
 local Predicates = GG.TeamTransfer.Predicates
