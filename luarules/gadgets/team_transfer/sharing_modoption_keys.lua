@@ -7,6 +7,8 @@ return {
 	TAX_RESOURCE_SHARING_AMOUNT = "tax_resource_sharing_amount", 
 	PLAYER_METAL_SEND_THRESHOLD = "player_metal_send_threshold",
 	DISABLE_ASSIST_ALLY_CONSTRUCTION = "disable_assist_ally_construction",
+	DISABLE_ECONOMIC_SHARING = "disable_economic_sharing",
+	DISABLE_UNIT_SHARING = "disable_unit_sharing",
 	
 	-- System modoptions
 	SHARING_MODE_SELECTED = "_sharing_mode_selected",

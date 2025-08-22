@@ -1402,6 +1402,50 @@ local options = {
         def  	= false,
     },
 
+    {
+        key     = "sub_header",
+        name    = "Sharing Restrictions",
+        desc    = "Control what can be shared between allied players",
+        section = "options_experimental",
+        type    = "subheader",
+        def     = true,
+    },
+
+    {
+        key     = "sub_header",
+        section = "options_experimental",
+        type    = "separator",
+    },
+
+    {
+        key     = "disable_economic_sharing",
+        name    = "The Nuclear Option: Disable Economic Sharing",
+        desc    = "Completely disable all forms of economic cooperation between allies.\n\n" ..
+                  "This comprehensive restriction prevents:\n" ..
+                  "• Direct resource sharing between players\n" ..
+                  "• Sharing of resource-producing units (metal extractors, energy generators)\n" ..
+                  "• Sharing of constructors, builders, and factories\n" ..
+                  "• Assisting ally construction projects\n" ..
+                  "• Resource overflow distribution to allies\n\n" ..
+                  "Combat and utility units (like transports) can still be shared.\n" ..
+                  "Use this for pure competitive gameplay where economic cooperation is forbidden.",
+        type    = "bool",
+        section = "options_experimental",
+        def     = false,
+    },
+
+    {
+        key     = "disable_unit_sharing", 
+        name    = "Restrict Unit Sharing",
+        desc    = "Prevent sharing of specific unit types while allowing others.\n\n" ..
+                  "This provides granular control over what units can be transferred between allies.\n" ..
+                  "Useful for custom game modes where certain unit types should remain faction-exclusive\n" ..
+                  "while still allowing some forms of cooperation.",
+        type    = "bool",
+        section = "options_experimental", 
+        def     = false,
+    },
+
     -- Hidden Tests
 
 	{

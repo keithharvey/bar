@@ -15,7 +15,8 @@ local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua
 local MODOPTION_KEYS = TeamTransfer.MODOPTION_KEYS
 local Predicates = TeamTransfer.Predicates
 
-if not TeamTransfer.IsSharingOption(MODOPTION_KEYS.DISABLE_ASSIST_ALLY_CONSTRUCTION) then
+if not (TeamTransfer.IsSharingOption(MODOPTION_KEYS.DISABLE_ASSIST_ALLY_CONSTRUCTION) or 
+        TeamTransfer.IsSharingOption(MODOPTION_KEYS.DISABLE_ECONOMIC_SHARING)) then
 	return
 end
 
