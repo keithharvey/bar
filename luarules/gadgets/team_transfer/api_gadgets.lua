@@ -147,6 +147,54 @@ local function newBuilder()
 		return self
 	end
 
+	function builder:ForAlliedReclaimCommands()
+		current = { 
+			policyType = M.PolicyType.Command, 
+			predicates = {
+				M.Predicates.Command.isReclaim,
+				M.Predicates.Command.targetAllied
+			}, 
+			handler = nil 
+		}
+		return self
+	end
+
+	function builder:ForEnemyReclaimCommands()
+		current = { 
+			policyType = M.PolicyType.Command, 
+			predicates = {
+				M.Predicates.Command.isReclaim
+			}, 
+			handler = nil 
+		}
+		return self
+	end
+
+	function builder:ForAlliedGuardReclaimCommands()
+		current = { 
+			policyType = M.PolicyType.Command, 
+			predicates = {
+				M.Predicates.Command.isGuard,
+				M.Predicates.Command.targetAllied,
+				M.Predicates.Command.targetHasReclaim
+			}, 
+			handler = nil 
+		}
+		return self
+	end
+
+	function builder:ForEnemyGuardReclaimCommands()
+		current = { 
+			policyType = M.PolicyType.Command, 
+			predicates = {
+				M.Predicates.Command.isGuard,
+				M.Predicates.Command.targetHasReclaim
+			}, 
+			handler = nil 
+		}
+		return self
+	end
+
 	return builder
 end
 

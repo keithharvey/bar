@@ -59,39 +59,16 @@ TeamTransfer.RegisterPolicy(function(policy)
 		}
 	end)
 
-	local function reclaimCommands(targetAllied, result)
-		return function(policy)
-			local builder = policy:For(TeamTransfer.PolicyType.Command)
-				:When(Predicates.Command.isReclaim)
-			
-			if targetAllied then
-				builder = builder:When(Predicates.Command.targetAllied)
-			end
-			
-			return builder:Use(function(ctx)
-				return result
-			end)
-		end
-	end
-
-	local function guardReclaimCommands(targetAllied, result)
-		return function(policy)
-			local builder = policy:For(TeamTransfer.PolicyType.Command)
-				:When(Predicates.Command.isGuard)
-			
-			if targetAllied then
-				builder = builder:When(Predicates.Command.targetAllied)
-					:When(Predicates.Command.targetHasReclaim)
-			end
-			
-			return builder:Use(function(ctx)
-				return result
-			end)
-		end
-	end
-
-	reclaimCommands(true, { deny = true })(policy)
-	reclaimCommands(false, { allow = true })(policy)
-	guardReclaimCommands(true, { deny = true })(policy)
-	guardReclaimCommands(false, { allow = true })(policy)
+	policy:ForAlliedReclaimCommands():Use(function(ctx)
+		return { deny = true }
+	end)
+	policy:ForEnemyReclaimCommands():Use(function(ctx)
+		return { allow = true }
+	end)
+	policy:ForAlliedGuardReclaimCommands():Use(function(ctx)
+		return { deny = true }
+	end)
+	policy:ForEnemyGuardReclaimCommands():Use(function(ctx)
+		return { allow = true }
+	end)
 end)
