@@ -17,6 +17,7 @@ if not gadgetHandler:IsSyncedCode() then
 end
 
 local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
+local Predicates = TeamTransfer.Predicates
 local MODOPTION_KEYS = TeamTransfer.MODOPTION_KEYS
 
 if not TeamTransfer.IsSharingOption(MODOPTION_KEYS.UNIT_SHARING_MODE) then
@@ -35,25 +36,26 @@ local Units = TeamTransfer.Units
 ----------------------------------------------------------------
 ----------------------------------------------------------------
 TeamTransfer.RegisterPolicy(function(policy)
+	unitTransfers = policy:For(TeamTransfer.PolicyType.UnitTransfer)
 	if unitSharingMode == "disabled" then
-		policy:For(TeamTransfer.PolicyType.UnitTransfer)
-		:Use(function(ctx)
+		
+		unitTransfers:Use(function(ctx)
 			return { deny = true }
 		end)
 	elseif unitSharingMode == "t2cons" then
-		policy:For(TeamTransfer.PolicyType.UnitTransfer)
+		unitTransfers
 		:When(Predicates.Unit.isNotT2Constructor)
 		:Use(function(ctx)
 			return { deny = true }
 		end)
 	elseif unitSharingMode == "combat" then
-		policy:For(TeamTransfer.PolicyType.UnitTransfer)
+		unitTransfers
 		:When(Predicates.Unit.isNotCombat)
 		:Use(function(ctx)
 			return { deny = true }
 		end)
 	elseif unitSharingMode == "economy" then
-		policy:For(TeamTransfer.PolicyType.UnitTransfer)
+		unitTransfers
 		:When(Predicates.Unit.isNotEconomic)
 		:Use(function(ctx)
 			return { deny = true }
