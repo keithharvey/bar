@@ -121,6 +121,32 @@ local function newBuilder()
 		return self
 	end
 
+	function builder:ForAlliedGuardCommands()
+		current = { 
+			policyType = M.PolicyType.Command, 
+			predicates = {
+				M.Predicates.Command.isGuard,
+				M.Predicates.Command.targetAllied,
+				M.Predicates.Command.targetHasAssist
+			}, 
+			handler = nil 
+		}
+		return self
+	end
+
+	function builder:ForAlliedRepairCommands()
+		current = { 
+			policyType = M.PolicyType.Command, 
+			predicates = {
+				M.Predicates.Command.isRepair,
+				M.Predicates.Command.targetAllied,
+				M.Predicates.Command.targetIsIncomplete
+			}, 
+			handler = nil 
+		}
+		return self
+	end
+
 	return builder
 end
 
