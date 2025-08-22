@@ -1,10 +1,8 @@
-local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
+local units = GG.TeamTransfer.Units
+local sharing = GG.TeamTransfer.UnitSharing
+local MODOPTION_KEYS = GG.TeamTransfer.MODOPTION_KEYS
 
-local units = TeamTransfer.Units
-local sharing = TeamTransfer.UnitSharing
-local MODOPTION_KEYS = TeamTransfer.MODOPTION_KEYS
-
-local enabled = TeamTransfer.IsSharingOption(MODOPTION_KEYS.UNIT_SHARING_MODE)
+local enabled = GG.TeamTransfer.IsSharingOption(MODOPTION_KEYS.UNIT_SHARING_MODE)
 if not enabled then
 	return
 end
@@ -14,7 +12,7 @@ if unitSharingMode == "enabled" then
 	return
 end
 
-TeamTransfer.RegisterPolicy(function(policy)
+GG.TeamTransfer.RegisterPolicy(function(policy)
 	if unitSharingMode == "disabled" then
 		policy.UnitTransfers.Allied:Deny()
 	elseif unitSharingMode == "t2cons" then

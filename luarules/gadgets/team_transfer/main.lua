@@ -3,7 +3,7 @@ local gadget = gadget
 function gadget:GetInfo()
 	return {
 		name    = 'Team Transfer Framework',
-		desc    = 'Primary handler for Team Transfer policies/pipeline',
+		desc    = 'Primary handler for Team Transfer Allow* callins',
 		author  = 'Devin',
 		date    = 'Aug 2025',
 		license = 'GNU GPL, v2 or later',
@@ -16,32 +16,9 @@ if not gadgetHandler:IsSyncedCode() then
 	return false
 end
 
-local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
-local MODOPTION_KEYS = TeamTransfer.MODOPTION_KEYS
 local Pipeline = VFS.Include("luarules/gadgets/team_transfer/pipeline.lua")
 
-local function loadPolicies()
-	local policyFiles = VFS.DirList("luarules/gadgets/team_transfer/policies/", "*.lua")
-	for _, policyFile in ipairs(policyFiles) do
-		VFS.Include(policyFile)
-	end
-end
-
 function gadget:Initialize()
-	loadPolicies()
-	
-	---@type TeamTransferAPI
-	GG.TeamTransfer = {
-		UnitSharing = TeamTransfer.UnitSharing,
-		ResourceShareTax = TeamTransfer.ResourceShareTax,
-		Predicates = TeamTransfer.Predicates,
-		getUnitSharingMode = TeamTransfer.UnitSharing.getUnitSharingMode,
-		isT2ConstructorDef = TeamTransfer.UnitSharing.isT2ConstructorDef,
-		countUnshareable = TeamTransfer.UnitSharing.countUnshareable,
-		shouldShowShareButton = TeamTransfer.UnitSharing.shouldShowShareButton,
-		blockMessage = TeamTransfer.UnitSharing.blockMessage,
-		computeTransfer = TeamTransfer.ResourceShareTax.computeTransfer,
-	}
 end
 
 function gadget:AllowResourceTransfer(senderTeamId, receiverTeamId, resourceType, amount)

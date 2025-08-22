@@ -1,5 +1,3 @@
-local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
-
 local function shouldAllowResourceTransfer(ctx)
 	return ctx.isCheatingEnabled or ctx.senderIsNonPlayer or ctx.receiverIsNonPlayer
 end
@@ -11,7 +9,7 @@ local function shouldAllowUnitTransfer(ctx)
 	return ctx.isCheatingEnabled or ctx.fromIsNonPlayer or ctx.toIsNonPlayer
 end
 
-TeamTransfer.RegisterPolicy(function(policy)
+GG.TeamTransfer.RegisterPolicy(function(policy)
 	policy.ResourceTransfers.Enemy:Use(function(ctx)
 		if shouldAllowResourceTransfer(ctx) then
 			return true

@@ -1,10 +1,8 @@
-local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
+local Tax = GG.TeamTransfer.ResourceShareTax
+local MODOPTION_KEYS = GG.TeamTransfer.MODOPTION_KEYS
+local Predicates = GG.TeamTransfer.Predicates
 
-local Tax = TeamTransfer.ResourceShareTax
-local MODOPTION_KEYS = TeamTransfer.MODOPTION_KEYS
-local Predicates = TeamTransfer.Predicates
-
-local enabled = TeamTransfer.IsSharingOption(MODOPTION_KEYS.TAX_RESOURCE_SHARING_AMOUNT)
+local enabled = GG.TeamTransfer.IsSharingOption(MODOPTION_KEYS.TAX_RESOURCE_SHARING_AMOUNT)
 if not enabled then
 	return
 end
@@ -16,8 +14,8 @@ if taxRate == 0 then
 end
 local metalThreshold = modOpts[MODOPTION_KEYS.PLAYER_METAL_SEND_THRESHOLD] or 0
 
-TeamTransfer.RegisterPolicy(function(policy)
-	policy:For(TeamTransfer.PolicyType.ResourceTransfer)
+GG.TeamTransfer.RegisterPolicy(function(policy)
+	policy:For(GG.TeamTransfer.PolicyType.ResourceTransfer)
 	:When(function(ctx) return ctx.areAlliedTeams end)
 	:Use(function(ctx)
 		if ctx.amountClamped <= 0 then
