@@ -25,32 +25,6 @@ if allowAssist then
 end
 
 TeamTransfer.RegisterPolicy(function(policy)
-	policy:For(TeamTransfer.PolicyType.Command)
-	:When(Predicates.Command.isGuard)
-	:When(Predicates.Command.targetAllied)
-	:When(Predicates.Command.targetHasAssist)
-	:Use(function(ctx)
-		return { deny = true }
-	end)
-	)
-
-	policy:For(TeamTransfer.PolicyType.Command)
-	:When(Predicates.Command.isGuard)
-	:Use(function(ctx)
-		return { allow = true }
-	end)
-
-	policy:For(TeamTransfer.PolicyType.Command)
-	:When(Predicates.Command.isRepair)
-	:When(Predicates.Command.targetAllied)
-	:When(Predicates.Command.targetIsIncomplete)
-	:Use(function(ctx)
-		return { deny = true }
-	end)
-
-	policy:For(TeamTransfer.PolicyType.Command)
-	:When(Predicates.Command.isRepair)
-	:Use(function(ctx)
-		return { allow = true }
-	end)
+	policy.Commands.Guard.Allied:Deny()
+	policy.Commands.Repair.Allied:Deny()
 end)
