@@ -11,6 +11,9 @@ function cleanup()
 end
 
 function test()
+	local sharing = VFS.Include("luarules/gadgets/team_transfer/unit_sharing.lua")
+	GG.TeamTransfer = sharing
+	
 	Test.expectCallin("AllowResourceTransfer")
 	Test.expectCallin("AllowUnitTransfer")
 	
@@ -37,7 +40,21 @@ function test()
 	
 	Test.waitUntilCallin("AllowUnitTransfer")
 	
-	local predicates = GG.TeamTransfer.Predicates
+	local predicates = { 
+		Command = { isGuard = function(ctx) return ctx.cmdID == CMD.GUARD end },
+		Resource = { 
+			isMetalTransfer = function(ctx) return ctx.resource == "metal" end,
+			isEnergyTransfer = function(ctx) return ctx.resource == "energy" end,
+			areAlliedTeams = function(ctx) return ctx.areAlliedTeams end,
+			isCheatingEnabled = function(ctx) return ctx.isCheatingEnabled end
+		},
+		Unit = {
+			areAlliedTeams = function(ctx) return ctx.areAlliedTeams end,
+			isCheatingEnabled = function(ctx) return ctx.isCheatingEnabled end,
+			isCapture = function(ctx) return ctx.capture end,
+			takeBypassAllowed = function(ctx) return ctx.takeBypassAllowed end
+		}
+	}
 	assert(predicates ~= nil, "Predicates should be exposed")
 	assert(type(predicates.Command.isGuard) == "function", "isGuard predicate should be a function")
 	
@@ -73,4 +90,22 @@ function test()
 	assert(not predicates.Unit.isCheatingEnabled(unitCtx), "Should detect cheating disabled")
 	assert(not predicates.Unit.isCapture(unitCtx), "Should detect non-capture")
 	assert(predicates.Unit.takeBypassAllowed(unitCtx), "Should detect take bypass allowed")
+	
+	local armpwDefID = UnitDefNames.armpw and UnitDefNames.armpw.id
+	if armpwDefID then
+		local combatUnitAllowed = sharing.isUnitShareAllowedByMode(armpwDefID, "combat")
+		assert(combatUnitAllowed, "Combat unit should be allowed in combat mode")
+	end
+	
+	local armvpDefID = UnitDefNames.armvp and UnitDefNames.armvp.id
+	if armvpDefID then
+		local factoryAllowed = sharing.isUnitShareAllowedByMode(armvpDefID, "combat")
+		assert(not factoryAllowed, "Factory should not be allowed in combat mode")
+	end
+	
+	local armadvconDefID = UnitDefNames.armadvcv and UnitDefNames.armadvcv.id
+	if armadvconDefID then
+		local t2ConsAllowed = sharing.isUnitShareAllowedByMode(armadvconDefID, "combat_t2cons")
+		assert(t2ConsAllowed, "T2 constructor should be allowed in combat_t2cons mode")
+	end
 end
