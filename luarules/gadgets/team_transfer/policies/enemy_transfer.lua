@@ -1,4 +1,20 @@
-local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
+local gadget = gadget
+
+function gadget:GetInfo()
+	return {
+		name    = 'Team Transfer Policy: Enemy Transfer',
+		desc    = 'Handles resource and unit transfers between enemy teams',
+		author  = 'Devin',
+		date    = 'Aug 2025',
+		license = 'GNU GPL, v2 or later',
+		layer   = 0,
+		enabled = true
+	}
+end
+
+if not gadgetHandler:IsSyncedCode() then
+	return false
+end
 
 local function shouldAllowResourceTransfer(ctx)
 	return ctx.isCheatingEnabled or ctx.senderIsNonPlayer or ctx.receiverIsNonPlayer
@@ -11,7 +27,7 @@ local function shouldAllowUnitTransfer(ctx)
 	return ctx.isCheatingEnabled or ctx.fromIsNonPlayer or ctx.toIsNonPlayer
 end
 
-TeamTransfer.RegisterPolicy(function(policy)
+GG.TeamTransfer.RegisterPolicy(function(policy)
 	policy.ResourceTransfers.Enemy:Use(function(ctx)
 		if shouldAllowResourceTransfer(ctx) then
 			return true

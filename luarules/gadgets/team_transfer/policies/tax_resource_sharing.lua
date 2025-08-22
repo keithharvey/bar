@@ -1,24 +1,27 @@
----@diagnostic disable: undefined-global
+local gadget = gadget
+
 function gadget:GetInfo()
 	return {
-		name    = "ModOptions: Tax Resource Sharing",
-		desc    = "Declares mod options for resource sharing tax + metal threshold",
-		author  = "BAR",
-		date    = "Aug 2025",
-		license = "GNU GPL, v2 or later",
+		name    = 'Team Transfer Policy: Tax Resource Sharing',
+		desc    = 'Implements tax system for allied resource sharing',
+		author  = 'Devin',
+		date    = 'Aug 2025',
+		license = 'GNU GPL, v2 or later',
 		layer   = 0,
 		enabled = true
 	}
 end
 
----@type TeamTransferAPI
-local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
-local Tax = TeamTransfer.ResourceShareTax
-local MODOPTION_KEYS = TeamTransfer.MODOPTION_KEYS
----@type TeamTransferPredicates
-local Predicates = TeamTransfer.Predicates
+if not gadgetHandler:IsSyncedCode() then
+	return false
+end
 
-if not TeamTransfer.IsSharingOption(MODOPTION_KEYS.TAX_RESOURCE_SHARING_AMOUNT) then
+local Tax = GG.TeamTransfer.ResourceShareTax
+local MODOPTION_KEYS = GG.TeamTransfer.MODOPTION_KEYS
+local Predicates = GG.TeamTransfer.Predicates
+
+local enabled = GG.TeamTransfer.IsSharingOption(MODOPTION_KEYS.TAX_RESOURCE_SHARING_AMOUNT)
+if not enabled then
 	return
 end
 
@@ -29,8 +32,8 @@ if taxRate == 0 then
 end
 local metalThreshold = modOpts[MODOPTION_KEYS.PLAYER_METAL_SEND_THRESHOLD] or 0
 
-TeamTransfer.RegisterPolicy(function(policy)
-	policy:For(TeamTransfer.PolicyType.ResourceTransfer)
+GG.TeamTransfer.RegisterPolicy(function(policy)
+	policy:For(GG.TeamTransfer.PolicyType.ResourceTransfer)
 	:When(function(ctx) return ctx.areAlliedTeams end)
 	:Use(function(ctx)
 		if ctx.amountClamped <= 0 then

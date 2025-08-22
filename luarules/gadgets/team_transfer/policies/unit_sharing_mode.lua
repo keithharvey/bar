@@ -1,22 +1,27 @@
+local gadget = gadget
+
 function gadget:GetInfo()
 	return {
-		name    = "ModOptions: Unit Sharing Mode",
-		desc    = "Declares mod options for unit sharing mode (enabled, t2cons, disabled)",
-		author  = "BAR",
-		date    = "Aug 2025",
-		license = "GNU GPL, v2 or later",
+		name    = 'Team Transfer Policy: Unit Sharing Mode',
+		desc    = 'Enforces unit sharing restrictions based on mod options',
+		author  = 'Devin',
+		date    = 'Aug 2025',
+		license = 'GNU GPL, v2 or later',
 		layer   = 0,
 		enabled = true
 	}
 end
 
+if not gadgetHandler:IsSyncedCode() then
+	return false
+end
 
-local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
-local units = TeamTransfer.Units
-local sharing = TeamTransfer.UnitSharing
-local MODOPTION_KEYS = TeamTransfer.MODOPTION_KEYS
+local units = GG.TeamTransfer.Units
+local sharing = GG.TeamTransfer.UnitSharing
+local MODOPTION_KEYS = GG.TeamTransfer.MODOPTION_KEYS
 
-if not TeamTransfer.IsSharingOption(MODOPTION_KEYS.UNIT_SHARING_MODE) then
+local enabled = GG.TeamTransfer.IsSharingOption(MODOPTION_KEYS.UNIT_SHARING_MODE)
+if not enabled then
 	return
 end
 
@@ -25,7 +30,7 @@ if unitSharingMode == "enabled" then
 	return
 end
 
-TeamTransfer.RegisterPolicy(function(policy)
+GG.TeamTransfer.RegisterPolicy(function(policy)
 	if unitSharingMode == "disabled" then
 		policy.UnitTransfers.Allied:Deny()
 	elseif unitSharingMode == "t2cons" then
@@ -43,4 +48,3 @@ TeamTransfer.RegisterPolicy(function(policy)
 		end):Deny()
 	end
 end)
-
