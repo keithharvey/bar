@@ -32,6 +32,114 @@ local options = {
 
     ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    -- Sharing
+    ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    {
+        key		= "options_sharing",
+        name	= "Sharing",
+        desc   	= "",
+        type   	= "section",
+        weight  = 8,
+    },
+
+    {
+        key     = "sub_header",
+        name    = "Options for controlling resource and unit sharing between allies.",
+        desc    = "",
+        section = "options_sharing",
+        type    = "subheader",
+        def     =  true,
+    },
+
+    {
+        key     = "sub_header",
+        section = "options_sharing",
+        type    = "separator",
+    },
+
+    {
+        key    	= "transfer_to_enemies",
+        name   	= "Transfer To Enemies",
+        desc   	= "Allow transferring resources and units to enemy teams",
+        type   	= "bool",
+        section	= "options_sharing",
+        sharing_category = true,
+        hidden  = true,
+        def    	= false,
+    },
+
+    {
+        key    	= "unit_share_stun_seconds",
+        name   	= "Unit Share Stun Seconds",
+        desc   	= "Number of seconds units are stunned after being shared",
+        type   	= "number",
+        section	= "options_sharing",
+        sharing_category = true,
+        def    	= 0,
+        min    	= 0,
+        max    	= 10000,
+        step   	= 1,
+    },
+
+    {
+        key    	= "allied_construction_assist",
+        name   	= "Allied Construction Assist",
+        desc   	= "Controls what types of allied construction can be assisted",
+        type   	= "list",
+        section	= "options_sharing",
+        sharing_category = true,
+        def    	= "enabled",
+        items  	= {
+            {key = "enabled", name = "Enabled", desc = "All allied construction can be assisted"},
+            {key = "economic", name = "Economic Only", desc = "Only economic construction can be assisted"},
+            {key = "disabled", name = "Disabled", desc = "No allied construction assistance allowed"},
+        },
+    },
+
+    {
+        key    	= "allied_capture",
+        name   	= "Allied Capture",
+        desc   	= "Controls allied unit capture mechanics",
+        type   	= "list",
+        section	= "options_sharing",
+        sharing_category = true,
+        def    	= "enabled_restricted",
+        items  	= {
+            {key = "enabled_restricted", name = "Enabled with automation restrictions", desc = "Allied capture allowed with automation limits"},
+            {key = "enabled", name = "Enabled", desc = "Full allied capture allowed"},
+            {key = "disabled", name = "Disabled", desc = "No allied capture allowed"},
+        },
+    },
+
+    {
+        key    	= "reclaim_mode",
+        name   	= "Reclaim",
+        desc   	= "Controls how reclaim resources are distributed",
+        type   	= "list",
+        section	= "options_sharing",
+        sharing_category = true,
+        def    	= "enabled",
+        items  	= {
+            {key = "enabled", name = "Enabled", desc = "Normal reclaim behavior"},
+            {key = "allied_taxed", name = "Enabled Allied Transfers Taxed", desc = "Allied reclaim transfers are taxed"},
+            {key = "no_ally_transfers", name = "Enabled Except For Ally Transfers", desc = "No resource transfer from allied reclaim"},
+            {key = "original_creator", name = "Refunded To Original Creator", desc = "Reclaim resources go to original unit creator"},
+        },
+    },
+
+    {
+        key    	= "disable_ally_extractor_upgrade",
+        name   	= "Disable Ally Extractor Upgrade",
+        desc   	= "Prevents players from upgrading teammate metal extractors and geothermal plants",
+        type   	= "bool",
+        section	= "options_sharing",
+        sharing_category = true,
+        def    	= false,
+    },
+
+    ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     -- Main + Restrictions
     ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -261,12 +369,14 @@ local options = {
 		name	= "Unit Sharing",
 		desc	= "Controls which units can be shared with allies",
 		type	= "list",
-		section	= "options_main",
+		section	= "options_sharing",
 		def		= "enabled",
-		sharing_category = "units",
+		sharing_category = true,
 		items	= {
 			{ key = "enabled",     name = "Enabled",                     desc = "All unit sharing allowed" },
 			{ key = "t2cons", name = "T2 Constructor Sharing Only", desc = "Only T2 constructors can be shared between allies" },
+			{ key = "combat", name = "Combat Only", desc = "Only combat units can be shared" },
+			{ key = "economy", name = "Economy Only", desc = "Only economic units can be shared" },
 			{ key = "disabled",    name = "Disabled",                    desc = "No unit sharing allowed" },
 		},
 	},
@@ -280,8 +390,8 @@ local options = {
 		min		= 0,
 		max		= 0.99,
 		step	= 0.01,
-		section	= "options_main",
-		sharing_category = "resources",
+		section	= "options_sharing",
+		sharing_category = true,
 		column = 1,
 	},
 	{
@@ -293,10 +403,10 @@ local options = {
 		min     = 0,
 		max     = 100000,
 		step    = 10,
-		section = "options_main",
+		section = "options_sharing",
 		column  = 2,
 		disabled= { key="tax_resource_sharing_amount", value = 0},
-		sharing_category = "resources",
+		sharing_category = true,
 		depends_on = "tax_resource_sharing_amount",
 	},
 	    {
@@ -304,10 +414,10 @@ local options = {
         name	= "Disable Assist Ally Construction",
         desc	= "Disables assisting allied blueprints and labs.",
         type	= "bool",
-        section	= "options_main",
+        section	= "options_sharing",
         def		= false,
         column	= 1,
-        sharing_category = "allied_construction",
+        sharing_category = true,
     },
 
     -- Sharing mode selection (set by Chobby)

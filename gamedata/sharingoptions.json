@@ -102,6 +102,26 @@
         "disable_assist_ally_construction": {
           "value": false,
           "locked": true
+        },
+        "disable_ally_extractor_upgrade": {
+          "value": false,
+          "locked": true
+        },
+        "unit_sharing_mode": {
+          "value": "enabled",
+          "locked": true
+        },
+        "allied_construction_assist": {
+          "value": "enabled",
+          "locked": true
+        },
+        "allied_capture": {
+          "value": "enabled_restricted",
+          "locked": true
+        },
+        "reclaim_mode": {
+          "value": "enabled",
+          "locked": true
         }
       }
     },
@@ -122,6 +142,21 @@
           "locked": false
         },
         "disable_assist_ally_construction": {
+          "locked": false
+        },
+        "disable_ally_extractor_upgrade": {
+          "locked": false
+        },
+        "unit_sharing_mode": {
+          "locked": false
+        },
+        "allied_construction_assist": {
+          "locked": false
+        },
+        "allied_capture": {
+          "locked": false
+        },
+        "reclaim_mode": {
           "locked": false
         }
       }
