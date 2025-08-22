@@ -44,20 +44,7 @@ end
 ----------------------------------------------------------------
 ----------------------------------------------------------------
 
-local economicUnits = {}
-if assistMode == "economic" then
-	for unitDefID, unitDef in pairs(UnitDefs) do
-		if unitDef.canAssist or unitDef.isFactory or unitDef.isBuilder then
-			economicUnits[unitDefID] = true
-		end
-		if unitDef.customParams and (unitDef.customParams.unitgroup == "energy" or unitDef.customParams.unitgroup == "metal") then
-			economicUnits[unitDefID] = true
-		end
-		if unitDef.extractsMetal > 0 then
-			economicUnits[unitDefID] = true
-		end
-	end
-end
+local Units = TeamTransfer.Units
 
 TeamTransfer.RegisterPolicy(function(policy)
 	if assistMode == "disabled" then
@@ -82,7 +69,7 @@ TeamTransfer.RegisterPolicy(function(policy)
 		:When(Predicates.Command.targetAllied)
 		:When(Predicates.Command.targetHasAssist)
 		:When(function(ctx)
-			return not economicUnits[ctx.targetUnitDef and ctx.targetUnitDef.id]
+			return not Units.IsEconomicUnit(ctx.targetUnitDef and ctx.targetUnitDef.id)
 		end)
 		:Use(function(ctx)
 			return { deny = true }
@@ -93,7 +80,7 @@ TeamTransfer.RegisterPolicy(function(policy)
 		:When(Predicates.Command.targetAllied)
 		:When(Predicates.Command.targetIsIncomplete)
 		:When(function(ctx)
-			return not economicUnits[ctx.targetUnitDef and ctx.targetUnitDef.id]
+			return not Units.IsEconomicUnit(ctx.targetUnitDef and ctx.targetUnitDef.id)
 		end)
 		:Use(function(ctx)
 			return { deny = true }

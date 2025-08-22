@@ -27,7 +27,7 @@ function test:testUnitSharingModeEnabled()
 		table.insert(policies, policyFunc)
 	end
 	
-	VFS.Include("luarules/gadgets/team_transfer/game_disable_unit_sharing.lua")
+	VFS.Include("luarules/gadgets/team_transfer/game_unit_sharing_mode.lua")
 	
 	self:assertEqual(#policies, 0, "No policies should be registered when unit sharing is enabled")
 end
@@ -59,7 +59,7 @@ function test:testUnitSharingModeDisabled()
 		policyFunc(mockPolicy)
 	end
 	
-	VFS.Include("luarules/gadgets/team_transfer/game_disable_unit_sharing.lua")
+	VFS.Include("luarules/gadgets/team_transfer/game_unit_sharing_mode.lua")
 	
 	self:assertGreaterThan(deniedTransfers, 0, "Unit transfers should be denied when disabled")
 end
@@ -90,7 +90,7 @@ function test:testUnitSharingModeT2Cons()
 		policyFunc(mockPolicy)
 	end
 	
-	VFS.Include("luarules/gadgets/team_transfer/game_disable_unit_sharing.lua")
+	VFS.Include("luarules/gadgets/team_transfer/game_unit_sharing_mode.lua")
 	
 	self:assertGreaterThan(restrictedUnits, 0, "Non-T2 constructor units should be restricted")
 end

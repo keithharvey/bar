@@ -1,7 +1,7 @@
 function gadget:GetInfo()
 	return {
 		name    = "ModOptions: Unit Sharing Mode",
-		desc    = "Declares mod options for unit sharing mode (enabled, t2cons, disabled)",
+		desc    = "Policy implementation for unit sharing mode dropdown options",
 		author  = "BAR",
 		date    = "Aug 2025",
 		license = "GNU GPL, v2 or later",
@@ -10,26 +10,60 @@ function gadget:GetInfo()
 	}
 end
 
+----------------------------------------------------------------
+----------------------------------------------------------------
+if not gadgetHandler:IsSyncedCode() then
+	return false
+end
 
 local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
-local units = TeamTransfer.Units
-local sharing = TeamTransfer.UnitSharing
 local MODOPTION_KEYS = TeamTransfer.MODOPTION_KEYS
 
 if not TeamTransfer.IsSharingOption(MODOPTION_KEYS.UNIT_SHARING_MODE) then
 	return
 end
 
-local unitSharingMode = sharing.getUnitSharingMode()
+local unitSharingMode = Spring.GetModOptions()[MODOPTION_KEYS.UNIT_SHARING_MODE] or "enabled"
 if unitSharingMode == "enabled" then
 	return
 end
 
+----------------------------------------------------------------
+----------------------------------------------------------------
+local Units = TeamTransfer.Units
+
+----------------------------------------------------------------
+----------------------------------------------------------------
 TeamTransfer.RegisterPolicy(function(policy)
-	policy.For(TeamTransfer.PolicyType.ResourceTransfer)
-	policy:For(TeamTransfer.PolicyType.UnitTransfer)
-	:Use(function(ctx)
-		
-	end)
+	if unitSharingMode == "disabled" then
+		policy:For(TeamTransfer.PolicyType.UnitTransfer)
+		:Use(function(ctx)
+			return { deny = true }
+		end)
+	elseif unitSharingMode == "t2cons" then
+		policy:For(TeamTransfer.PolicyType.UnitTransfer)
+		:When(function(ctx)
+			return not Units.IsT2Constructor(ctx.unitDefID)
+		end)
+		:Use(function(ctx)
+			return { deny = true }
+		end)
+	elseif unitSharingMode == "combat" then
+		policy:For(TeamTransfer.PolicyType.UnitTransfer)
+		:When(function(ctx)
+			return not Units.IsCombatUnit(ctx.unitDefID)
+		end)
+		:Use(function(ctx)
+			return { deny = true }
+		end)
+	elseif unitSharingMode == "economy" then
+		policy:For(TeamTransfer.PolicyType.UnitTransfer)
+		:When(function(ctx)
+			return not Units.IsEconomicUnit(ctx.unitDefID)
+		end)
+		:Use(function(ctx)
+			return { deny = true }
+		end)
+	end
 end)
 
