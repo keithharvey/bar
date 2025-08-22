@@ -19,18 +19,16 @@ end
 local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
 local MODOPTION_KEYS = TeamTransfer.MODOPTION_KEYS
 local Pipeline = VFS.Include("luarules/gadgets/team_transfer/pipeline.lua")
-local PolicyManager = VFS.Include("luarules/gadgets/team_transfer/policy_manager.lua")
 
-local function loadPolicyConfigurations()
-	VFS.Include("luarules/gadgets/team_transfer/policies/enemy_transfer.lua")
-	VFS.Include("luarules/gadgets/team_transfer/policies/tax_resource_sharing.lua")
-	VFS.Include("luarules/gadgets/team_transfer/policies/unit_sharing_mode.lua")
-	VFS.Include("luarules/gadgets/team_transfer/policies/assist_ally.lua")
+local function loadPolicies()
+	local policyFiles = VFS.DirList("luarules/gadgets/team_transfer/policies/", "*.lua")
+	for _, policyFile in ipairs(policyFiles) do
+		VFS.Include(policyFile)
+	end
 end
 
 function gadget:Initialize()
-	loadPolicyConfigurations()
-	PolicyManager.applyPolicies()
+	loadPolicies()
 	
 	---@type TeamTransferAPI
 	GG.TeamTransfer = {
