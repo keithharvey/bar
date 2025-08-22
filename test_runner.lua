@@ -21,6 +21,8 @@ local function loadTestingUtilities()
                 elseif filename == "results" then
                     return dofile("common/testing/results.lua")
                 end
+            elseif path == "luarules/gadgets/team_transfer/unit_sharing.lua" then
+                return dofile("luarules/gadgets/team_transfer/unit_sharing.lua")
             end
             
             return {}
@@ -55,16 +57,126 @@ local function createTestEnvironment()
     local Util = VFS.Include("common/testing/util.lua")
     local TestResults = VFS.Include("common/testing/results.lua")
     
+    _G.Spring = {
+        GetModOptions = function() return {} end,
+        GetGameFrame = function() return 1 end,
+        GetTimer = function() return 0 end,
+        GetGameSeconds = function() return 1 end,
+        GetTeamList = function() return {0, 1} end,
+        AreTeamsAllied = function(team1, team2) return team1 == team2 end,
+        GetTeamResources = function(teamID, resource) 
+            return 1000, 1000, 0, 1000, 1000, 0, 0, 0
+        end,
+        GetUnitDefID = function(unitID) return 1 end,
+        GetUnitTeam = function(unitID) return 0 end,
+        ValidUnitID = function(unitID) return true end,
+        Echo = function(...) print(...) end,
+        Log = function(tag, level, msg)
+            print(string.format("[%s][%s] %s", tostring(level or "INFO"), tostring(tag or "Log"), tostring(msg)))
+        end,
+        GetMyTeamID = function() return 0 end,
+        GetMyAllyTeamID = function() return 0 end,
+        GetTeamInfo = function(teamID) return 0, 0, 0, false, false, 0, false, false end,
+        GetAllyTeamInfo = function(allyTeamID) return 1, 1 end,
+        GetAllyTeamList = function() return {0} end,
+        CreateUnit = function(unitDefName, x, y, z, facing, teamID) return math.random(1000, 9999) end,
+        GetGroundHeight = function(x, z) return 0 end,
+        ShareResources = function(teamID, resource, amount) end,
+        TransferUnit = function(unitID, teamID, given) end,
+    }
+    
+    _G.CMD = { 
+        GUARD = 10, 
+        MOVE = 20, 
+        ATTACK = 30,
+        STOP = 0,
+        WAIT = 5,
+        MOVE_STATE = 50,
+        FIRE_STATE = 45,
+        REPEAT = 115,
+        CLOAK = 37,
+        ONOFF = 35,
+    }
+    
+    _G.UnitDefs = {
+        [1] = {
+            name = "armcom",
+            customParams = { iscommander = "1" },
+            canMove = true,
+            canAttack = true,
+        },
+        [2] = {
+            name = "armlab", 
+            customParams = { techlevel = "1" },
+            canMove = false,
+            canAttack = false,
+            isFactory = true,
+        },
+        [3] = {
+            name = "armpw",
+            customParams = { techlevel = "1" },
+            canMove = true,
+            canAttack = true,
+        },
+        [4] = {
+            name = "armadvcv",
+            customParams = { techlevel = "2" },
+            canMove = true,
+            canAssist = true,
+            buildOptions = { "armcom", "armpw" },
+        },
+        [5] = {
+            name = "armvp",
+            customParams = { techlevel = "1" },
+            canMove = false,
+            canAttack = false,
+            isFactory = true,
+            buildOptions = { "armpw" },
+        },
+        [6] = {
+            name = "armsolar",
+            customParams = { unitgroup = "energy" },
+            canMove = false,
+            canAttack = false,
+        },
+        [7] = {
+            name = "armmex",
+            customParams = { unitgroup = "metal" },
+            canMove = false,
+            canAttack = false,
+        }
+    }
+    
+    _G.UnitDefNames = {
+        armcom = { id = 1 },
+        armlab = { id = 2 },
+        armpw = { id = 3 },
+        armadvcv = { id = 4 },
+        armvp = { id = 5 },
+        armsolar = { id = 6 },
+        armmex = { id = 7 },
+    }
+    
+    _G.GG = {
+        TeamTransfer = nil
+    }
+    
+    _G.LOG = { INFO = "INFO", WARNING = "WARNING", ERROR = "ERROR", DEBUG = "DEBUG" }
+    
     local Test = {
         mock = Mock.mock,
         spy = Mock.spy,
         clearMap = function() end, -- No-op for unit tests
         waitFrames = function(frames) end, -- No-op for unit tests
+        waitUntilCallin = function(callinName) end, -- No-op for unit tests
+        expectCallin = function(callinName) end, -- No-op for unit tests
     }
     
     local env = {
         Test = Test,
         VFS = VFS,
+        SyncedRun = function(func, locals) return func(locals or {}) end,
+        Game = { mapSizeX = 1000, mapSizeZ = 1000 },
         
         assert = assert,
         error = error,
@@ -103,6 +215,15 @@ local function createTestEnvironment()
             Log = function(tag, level, msg)
                 print(string.format("[%s][%s] %s", tostring(level or "INFO"), tostring(tag or "Log"), tostring(msg)))
             end,
+            GetMyTeamID = function() return 0 end,
+            GetMyAllyTeamID = function() return 0 end,
+            GetTeamInfo = function(teamID) return 0, 0, 0, false, false, 0, false, false end,
+            GetAllyTeamInfo = function(allyTeamID) return 1, 1 end,
+            GetAllyTeamList = function() return {0} end,
+            CreateUnit = function(unitDefName, x, y, z, facing, teamID) return math.random(1000, 9999) end,
+            GetGroundHeight = function(x, z) return 0 end,
+            ShareResources = function(teamID, resource, amount) end,
+            TransferUnit = function(unitID, teamID, given) end,
         },
         CMD = { 
             GUARD = 10, 
@@ -116,7 +237,9 @@ local function createTestEnvironment()
             CLOAK = 37,
             ONOFF = 35,
         },
-        GG = {},
+        GG = {
+            TeamTransfer = nil
+        },
         debug = debug,
         
         UnitDefs = {
@@ -131,7 +254,51 @@ local function createTestEnvironment()
                 customParams = { techlevel = "1" },
                 canMove = false,
                 canAttack = false,
+                isFactory = true,
+            },
+            [3] = {
+                name = "armpw",
+                customParams = { techlevel = "1" },
+                canMove = true,
+                canAttack = true,
+            },
+            [4] = {
+                name = "armadvcv",
+                customParams = { techlevel = "2" },
+                canMove = true,
+                canAssist = true,
+                buildOptions = { "armcom", "armpw" },
+            },
+            [5] = {
+                name = "armvp",
+                customParams = { techlevel = "1" },
+                canMove = false,
+                canAttack = false,
+                isFactory = true,
+                buildOptions = { "armpw" },
+            },
+            [6] = {
+                name = "armsolar",
+                customParams = { unitgroup = "energy" },
+                canMove = false,
+                canAttack = false,
+            },
+            [7] = {
+                name = "armmex",
+                customParams = { unitgroup = "metal" },
+                canMove = false,
+                canAttack = false,
             }
+        },
+        
+        UnitDefNames = {
+            armcom = { id = 1 },
+            armlab = { id = 2 },
+            armpw = { id = 3 },
+            armadvcv = { id = 4 },
+            armvp = { id = 5 },
+            armsolar = { id = 6 },
+            armmex = { id = 7 },
         },
         
     }
@@ -155,7 +322,10 @@ local function findTestFiles(pattern)
         "luaui/Tests/team_transfer/unit/test_policy_builder.lua",
         "luaui/Tests/team_transfer/unit/test_predicates.lua", 
         "luaui/Tests/team_transfer/unit/test_resource_tax_calculations.lua",
-        "luaui/Tests/team_transfer/unit/test_unit_sharing_logic.lua"
+        "luaui/Tests/team_transfer/unit/test_unit_sharing_logic.lua",
+        "luaui/Tests/team_transfer/test_ally_assist.lua",
+        "luaui/Tests/team_transfer/test_unit_sharing.lua",
+        "luaui/Tests/team_transfer/test_policies.lua"
     }
     
     for _, file in ipairs(knownTests) do
@@ -279,7 +449,7 @@ local function main(args)
     print("==========================")
     
     if #patterns == 0 then
-        patterns = { "unit/" }
+        patterns = { "" }
     end
     
     local env, TestResults = createTestEnvironment()

@@ -25,6 +25,7 @@ lua5.1 test_runner.lua unit/test_policy_builder
 lua5.1 test_runner.lua unit/test_predicates
 lua5.1 test_runner.lua unit/test_resource_tax_calculations
 lua5.1 test_runner.lua unit/test_unit_sharing_logic
+lua5.1 test_runner.lua test_ally_assist
 
 # Run tests matching a pattern
 lua5.1 test_runner.lua predicates
@@ -75,8 +76,9 @@ PASS: test_policy_builder.lua [2 ms]
 PASS: test_predicates.lua [1 ms]
 PASS: test_resource_tax_calculations.lua [3 ms]
 PASS: test_unit_sharing_logic.lua [2 ms]
+PASS: test_ally_assist.lua [1 ms]
 
-Results: 4/4 tests passed
+Results: 6/6 tests passed
 All tests passed! ✓
 ```
 

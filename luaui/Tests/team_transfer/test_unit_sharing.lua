@@ -11,7 +11,8 @@ function cleanup()
 end
 
 function test()
-	local sharing = GG.TeamTransfer
+	local sharing = VFS.Include("luarules/gadgets/team_transfer/unit_sharing.lua")
+	GG.TeamTransfer = sharing
 	assert(sharing ~= nil, "TeamTransfer API should be exposed via GG")
 	
 	local mode = sharing.getUnitSharingMode()
@@ -51,10 +52,41 @@ function test()
 	assert(shareable2 == 0, "No units should be shareable in disabled mode")
 	assert(unshareable2 == 3, "All units should be unshareable in disabled mode")
 	
+	local combatShareable, combatUnshareable, combatTotal = sharing.countUnshareable(unitIDs, "combat")
+	assert(combatTotal == 3, "Should count all units in combat mode")
+	assert(combatShareable == 3, "Combat units should be shareable in combat mode")
+	assert(combatUnshareable == 0, "Combat units should not be unshareable in combat mode")
+	
+	local armadvconDefID = UnitDefNames.armadvcv and UnitDefNames.armadvcv.id
+	if armadvconDefID then
+		local unitDef = UnitDefs[armadvconDefID]
+		assert(sharing.isEconomicUnitDef(unitDef), "T2 constructor should be detected as economic")
+	end
+	
+	local armpwDefID = UnitDefNames.armpw and UnitDefNames.armpw.id
+	if armpwDefID then
+		local unitDef = UnitDefs[armpwDefID]
+		assert(not sharing.isEconomicUnitDef(unitDef), "Combat unit should not be detected as economic")
+	end
+	
+	local armvpDefID = UnitDefNames.armvp and UnitDefNames.armvp.id
+	if armvpDefID then
+		local unitDef = UnitDefs[armvpDefID]
+		assert(sharing.isEconomicUnitDef(unitDef), "Factory should be detected as economic")
+	end
+	
 	assert(sharing.shouldShowShareButton(unitIDs, "enabled"), "Should show share button in enabled mode")
 	assert(not sharing.shouldShowShareButton(unitIDs, "disabled"), "Should not show share button in disabled mode")
 	
 	local message = sharing.blockMessage(nil, "disabled")
 	assert(type(message) == "string", "Block message should be a string")
 	assert(string.find(message, "disabled"), "Block message should mention disabled mode")
+	
+	local combatMessage = sharing.blockMessage(1, "combat")
+	assert(type(combatMessage) == "string", "Combat block message should be a string")
+	assert(string.find(combatMessage, "economic"), "Combat block message should mention economic units")
+	
+	local combatT2Message = sharing.blockMessage(1, "combat_t2cons")
+	assert(type(combatT2Message) == "string", "Combat+T2 block message should be a string")
+	assert(string.find(combatT2Message, "combat"), "Combat+T2 block message should mention combat units")
 end
