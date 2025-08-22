@@ -82,32 +82,12 @@ local function tablelength(T)
 	return count
 end
 
-local sharing = GG.TeamTransfer ---@type TeamTransferAPI
-local unitSharingMode = sharing and sharing.getUnitSharingMode() or "enabled"
-
-local function isT2Constructor(unitDef)
-	return sharing and sharing.isT2ConstructorDef(unitDef) or (unitDef.techLevel and unitDef.techLevel >= 2 and unitDef.isBuilder and unitDef.canMove)
-end
+local unitSharingMode = GG.TeamTransfer.getUnitSharingMode()
 
 local function countShareableSelection()
 	local selectedUnits = GetSelectedUnits()
-	if sharing and sharing.countUnshareable then
-		local shareable, unshareable, total = sharing.countUnshareable(selectedUnits, unitSharingMode)
-		return shareable, total, unshareable
-	else
-		local count = 0
-		for i = 1, #selectedUnits do
-			local unitID = selectedUnits[i]
-			local unitDefID = GetUnitDefID(unitID)
-			if unitDefID then
-				local unitDef = UnitDefs[unitDefID]
-				if unitDef and not unitDef.isFactory and not unitDef.isBuilding then
-					count = count + 1
-				end
-			end
-		end
-		return count, count, 0
-	end
+	local shareable, unshareable, total =  GG.TeamTransfer.countUnshareable(selectedUnits, unitSharingMode)
+	return shareable, total, unshareable
 end
 
 local function getSecondPart(offset)
