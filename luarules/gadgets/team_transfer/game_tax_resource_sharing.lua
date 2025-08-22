@@ -56,30 +56,9 @@ TeamTransfer.RegisterPolicy(function(policy)
 		}
 	end)
 
-	policy:For(TeamTransfer.PolicyType.Command)
-	:When(Predicates.Command.isReclaim)
-	:When(Predicates.Command.targetAllied)
-	:Use(function(ctx)
-		return { deny = true }
-	end)
-
-	policy:For(TeamTransfer.PolicyType.Command)
-	:When(Predicates.Command.isReclaim)
-	:Use(function(ctx)
-		return { allow = true }
-	end)
-
-	policy:For(TeamTransfer.PolicyType.Command)
-	:When(Predicates.Command.isGuard)
-	:When(Predicates.Command.targetAllied)
-	:When(Predicates.Command.targetHasReclaim)
-	:Use(function(ctx)
-		return { deny = true }
-	end)
-
-	policy:For(TeamTransfer.PolicyType.Command)
-	:When(Predicates.Command.isGuard)
-	:Use(function(ctx)
-		return { allow = true }
-	end)
+	policy.Commands.Reclaim.Allied:Deny()
+	policy.Commands.Reclaim.Enemy:Allow()
+	
+	policy.Commands.Guard.Allied:When(Predicates.Command.targetHasReclaim):Deny()
+	policy.Commands.Guard.Enemy:When(Predicates.Command.targetHasReclaim):Allow()
 end)

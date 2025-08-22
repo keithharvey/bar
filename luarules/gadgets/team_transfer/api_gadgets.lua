@@ -59,6 +59,33 @@
 ---@field For fun(self: PolicyBuilder, policyType: string): PolicyBuilder
 ---@field When fun(self: PolicyBuilder, predicate: TeamTransferPredicate): PolicyBuilder
 ---@field Use fun(self: PolicyBuilder, handler: TeamTransferHandler)
+---@field Commands CommandBuilder
+---@field ResourceTransfers ResourceTransferBuilder
+---@field UnitTransfers UnitTransferBuilder
+
+---@class CommandBuilder
+---@field Guard GuardBuilder
+---@field Repair RepairBuilder
+---@field Reclaim ReclaimBuilder
+
+---@class GuardBuilder
+---@field Allied PolicyBuilder
+---@field Enemy PolicyBuilder
+
+---@class RepairBuilder
+---@field Allied PolicyBuilder
+
+---@class ReclaimBuilder
+---@field Allied PolicyBuilder
+---@field Enemy PolicyBuilder
+
+---@class ResourceTransferBuilder
+---@field Allied PolicyBuilder
+---@field Enemy PolicyBuilder
+
+---@class UnitTransferBuilder
+---@field Allied PolicyBuilder
+---@field Enemy PolicyBuilder
 
 ---@class TeamTransferAPI
 ---@field PolicyType { ResourceTransfer: string, UnitTransfer: string, Command: string }
@@ -98,6 +125,36 @@ local function newBuilder()
 		handler = nil,
 	}
 
+	local function createPolicyBuilder(policyType, predicates)
+		local policyBuilder = {}
+		
+		function policyBuilder:When(predicateFn)
+			local newPredicates = {}
+			for i = 1, #predicates do
+				newPredicates[i] = predicates[i]
+			end
+			newPredicates[#newPredicates + 1] = predicateFn
+			return createPolicyBuilder(policyType, newPredicates)
+		end
+		
+		function policyBuilder:Use(handlerFn)
+			pushPolicy(policyType, { predicates = predicates, handler = handlerFn })
+			return self
+		end
+		
+		function policyBuilder:Allow()
+			pushPolicy(policyType, { predicates = predicates, handler = function(ctx) return { allow = true } end })
+			return self
+		end
+		
+		function policyBuilder:Deny()
+			pushPolicy(policyType, { predicates = predicates, handler = function(ctx) return { deny = true } end })
+			return self
+		end
+		
+		return policyBuilder
+	end
+
 	local builder = {}
 
 	function builder:For(policyType)
@@ -116,6 +173,56 @@ local function newBuilder()
 		current = { policyType = nil, predicates = {}, handler = nil }
 		return self
 	end
+
+	builder.Commands = {
+		Guard = {
+			Allied = createPolicyBuilder(M.PolicyType.Command, {
+				M.Predicates.Command.isGuard,
+				M.Predicates.Command.targetAllied,
+				M.Predicates.Command.targetHasAssist
+			}),
+			Enemy = createPolicyBuilder(M.PolicyType.Command, {
+				M.Predicates.Command.isGuard,
+				function(ctx) return not ctx.targetAllied end,
+				M.Predicates.Command.targetHasAssist
+			})
+		},
+		Repair = {
+			Allied = createPolicyBuilder(M.PolicyType.Command, {
+				M.Predicates.Command.isRepair,
+				M.Predicates.Command.targetAllied,
+				M.Predicates.Command.targetIsIncomplete
+			})
+		},
+		Reclaim = {
+			Allied = createPolicyBuilder(M.PolicyType.Command, {
+				M.Predicates.Command.isReclaim,
+				M.Predicates.Command.targetAllied
+			}),
+			Enemy = createPolicyBuilder(M.PolicyType.Command, {
+				M.Predicates.Command.isReclaim,
+				function(ctx) return not ctx.targetAllied end
+			})
+		}
+	}
+
+	builder.ResourceTransfers = {
+		Allied = createPolicyBuilder(M.PolicyType.ResourceTransfer, {
+			function(ctx) return ctx.areAlliedTeams end
+		}),
+		Enemy = createPolicyBuilder(M.PolicyType.ResourceTransfer, {
+			function(ctx) return not ctx.areAlliedTeams end
+		})
+	}
+
+	builder.UnitTransfers = {
+		Allied = createPolicyBuilder(M.PolicyType.UnitTransfer, {
+			function(ctx) return ctx.areAlliedTeams end
+		}),
+		Enemy = createPolicyBuilder(M.PolicyType.UnitTransfer, {
+			function(ctx) return not ctx.areAlliedTeams end
+		})
+	}
 
 	return builder
 end

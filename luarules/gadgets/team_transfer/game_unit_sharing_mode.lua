@@ -26,10 +26,12 @@ if unitSharingMode == "enabled" then
 end
 
 TeamTransfer.RegisterPolicy(function(policy)
-	policy.For(TeamTransfer.PolicyType.ResourceTransfer)
-	policy:For(TeamTransfer.PolicyType.UnitTransfer)
-	:Use(function(ctx)
-		
-	end)
+	if unitSharingMode == "disabled" then
+		policy.UnitTransfers.Allied:Deny()
+	elseif unitSharingMode == "t2cons" then
+		policy.UnitTransfers.Allied:When(function(ctx)
+			return not sharing.isT2ConstructorDef(ctx.unitDefID)
+		end):Deny()
+	end
 end)
 
