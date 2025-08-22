@@ -114,37 +114,6 @@ function test:testDisableAllyExtractorUpgrade()
 	self:assertNotNil(gadget.AllowUnitCreation, "AllowUnitCreation should be implemented")
 end
 
-function test:testTransferToEnemiesDisabled()
-	self.mockModOptions.transfer_to_enemies = false
-	
-	local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
-	local enemyTransfersDenied = 0
-	
-	TeamTransfer.RegisterPolicy = function(policyFunc)
-		local mockPolicy = {
-			For = function(self, policyType)
-				return {
-					When = function(self, predicate)
-						return {
-							Use = function(self, handler)
-								local result = handler({})
-								if result and result.deny then
-									enemyTransfersDenied = enemyTransfersDenied + 1
-								end
-								return self
-							end
-						}
-					end
-				}
-			end
-		}
-		policyFunc(mockPolicy)
-	end
-	
-	VFS.Include("luarules/gadgets/team_transfer/game_disable_economic_sharing.lua")
-	
-	self:assertGreaterThan(enemyTransfersDenied, 0, "Enemy transfers should be denied")
-end
 
 function test:testUnitShareStun()
 	self.mockModOptions.unit_share_stun_seconds = 5

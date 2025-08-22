@@ -58,16 +58,6 @@ local options = {
         type    = "separator",
     },
 
-    {
-        key    	= "transfer_to_enemies",
-        name   	= "Transfer To Enemies",
-        desc   	= "Allow transferring resources and units to enemy teams",
-        type   	= "bool",
-        section	= "options_sharing",
-        sharing_category = true,
-        hidden  = true,
-        def    	= false,
-    },
 
     {
         key    	= "unit_share_stun_seconds",
