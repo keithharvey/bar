@@ -82,11 +82,11 @@ local function tablelength(T)
 	return count
 end
 
-local unitSharingMode = GG.TeamTransfer.getUnitSharingMode()
+local unitSharingMode = WG['TeamTransfer'].getUnitSharingMode()
 
 local function countShareableSelection()
 	local selectedUnits = GetSelectedUnits()
-	local shareable, unshareable, total =  GG.TeamTransfer.countUnshareable(selectedUnits, unitSharingMode)
+	local shareable, unshareable, total = WG['TeamTransfer'].countUnshareable(selectedUnits, unitSharingMode)
 	return shareable, total, unshareable
 end
 
@@ -332,17 +332,17 @@ end
 function widget:CommandNotify(cmdID, cmdParams, _)
 	if cmdID == cmdQuickShareToTargetId then
 		if unitSharingMode == "disabled" then
-			Spring.Echo(sharing and sharing.blockMessage(nil, unitSharingMode) or "Unit sharing is disabled")
+			Spring.Echo(WG['TeamTransfer'].blockMessage(nil, unitSharingMode))
 			return true
 		end
 		if unitSharingMode == "t2cons" then
 			local t2count, total, unshareable = countShareableSelection()
 			if total > 0 and t2count == 0 then
-				Spring.Echo(sharing and sharing.blockMessage(unshareable, unitSharingMode) or "Cannot share selected units")
+				Spring.Echo(WG['TeamTransfer'].blockMessage(unshareable, unitSharingMode))
 				return true
 			end
 			if unshareable > 0 then
-				Spring.Echo(sharing and sharing.blockMessage(unshareable, unitSharingMode) or "Cannot share selected units")
+				Spring.Echo(WG['TeamTransfer'].blockMessage(unshareable, unitSharingMode))
 			end
 		end
 		local targetTeamID
@@ -375,7 +375,7 @@ function widget:CommandsChanged()
 	end
 
 	local selectedUnits = GetSelectedUnits()
-	local allow = sharing and sharing.shouldShowShareButton(selectedUnits, unitSharingMode) or false
+	local allow = WG['TeamTransfer'].shouldShowShareButton(selectedUnits, unitSharingMode)
 
 	if allow then
 		local customCommands = widgetHandler.customCommands
