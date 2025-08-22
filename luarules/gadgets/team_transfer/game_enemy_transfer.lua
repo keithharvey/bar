@@ -1,38 +1,22 @@
 local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
 
-local function enemyResourceTransfers(allowCondition)
-	return function(policy)
-		return policy:For(TeamTransfer.PolicyType.ResourceTransfer)
-			:When(function(ctx) return not ctx.areAlliedTeams end)
-			:Use(allowCondition)
-	end
-end
-
-local function enemyUnitTransfers(allowCondition)
-	return function(policy)
-		return policy:For(TeamTransfer.PolicyType.UnitTransfer)
-			:Use(allowCondition)
-	end
-end
-
 TeamTransfer.RegisterPolicy(function(policy)
-	enemyResourceTransfers(function(ctx)
+	enemyResourceTransfers = policy:ForEnemyResourceTransfers()
+	enemyResourceTransfers:Use(function(ctx)
 		if ctx.isCheatingEnabled or ctx.senderIsNonPlayer or ctx.receiverIsNonPlayer then
 			return true
 		end
 		return false
-	end)(policy)
+	end)
 
-	enemyUnitTransfers(function(ctx)
+	enemyUnitTransfers = policy:ForEnemyUnitTransfers()
+	enemyUnitTransfers:Use(function(ctx)
 		if ctx.capture then
 			return true
 		end
-		if not ctx.areAlliedTeams then
-			if ctx.isCheatingEnabled or ctx.fromIsNonPlayer or ctx.toIsNonPlayer then
-				return true
-			end
-			return false
+		if ctx.isCheatingEnabled or ctx.fromIsNonPlayer or ctx.toIsNonPlayer then
+			return true
 		end
-		return nil
-	end)(policy)
+		return false
+	end)
 end)

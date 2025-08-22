@@ -38,28 +38,19 @@ local Units = TeamTransfer.Units
 TeamTransfer.RegisterPolicy(function(policy)
 	unitTransfers = policy:For(TeamTransfer.PolicyType.UnitTransfer)
 	if unitSharingMode == "disabled" then
-		
-		unitTransfers:Use(function(ctx)
-			return { deny = true }
-		end)
+		unitTransfers:Deny()
 	elseif unitSharingMode == "t2cons" then
 		unitTransfers
 		:When(Predicates.Unit.isNotT2Constructor)
-		:Use(function(ctx)
-			return { deny = true }
-		end)
+		:Deny()
 	elseif unitSharingMode == "combat" then
 		unitTransfers
 		:When(Predicates.Unit.isNotCombat)
-		:Use(function(ctx)
-			return { deny = true }
-		end)
+		:Deny()
 	elseif unitSharingMode == "economy" then
 		unitTransfers
 		:When(Predicates.Unit.isNotEconomic)
-		:Use(function(ctx)
-			return { deny = true }
-		end)
+		:Deny()
 	end
 end)
 

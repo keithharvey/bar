@@ -213,6 +213,72 @@ local function newBuilder()
 		return self
 	end
 
+	function builder:ForEnemyResourceTransfers()
+		current = { 
+			policyType = M.PolicyType.ResourceTransfer, 
+			predicates = {
+				function(ctx) return not ctx.areAlliedTeams end
+			}, 
+			handler = nil 
+		}
+		return self
+	end
+
+	function builder:ForAlliedResourceTransfers()
+		current = { 
+			policyType = M.PolicyType.ResourceTransfer, 
+			predicates = {
+				function(ctx) return ctx.areAlliedTeams end
+			}, 
+			handler = nil 
+		}
+		return self
+	end
+
+	function builder:ForEnemyUnitTransfers()
+		current = { 
+			policyType = M.PolicyType.UnitTransfer, 
+			predicates = {
+				function(ctx) return not ctx.areAlliedTeams end
+			}, 
+			handler = nil 
+		}
+		return self
+	end
+
+	function builder:ForEnemyResourceTransfers()
+		current = { 
+			policyType = M.PolicyType.ResourceTransfer, 
+			predicates = {
+				function(ctx) return not ctx.areAlliedTeams end
+			}, 
+			handler = nil 
+		}
+		return self
+	end
+
+	function builder:ForAlliedResourceTransfers()
+		current = { 
+			policyType = M.PolicyType.ResourceTransfer, 
+			predicates = {
+				function(ctx) return ctx.areAlliedTeams end
+			}, 
+			handler = nil 
+		}
+		return self
+	end
+
+	function builder:ForEnemyUnitTransfers()
+		current = { 
+			policyType = M.PolicyType.UnitTransfer, 
+			predicates = {
+				function(ctx) return not ctx.areAlliedTeams end
+			}, 
+			handler = nil 
+		}
+		return self
+	end
+
 	return builder
 end
 

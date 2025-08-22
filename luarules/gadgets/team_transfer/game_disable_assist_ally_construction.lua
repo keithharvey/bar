@@ -36,18 +36,16 @@ end
 
 TeamTransfer.RegisterPolicy(function(policy)
 	if assistMode == "disabled" then
-		policy:ForAlliedGuardCommands():Use(function(ctx)
-			return { deny = true }
-		end)
-		policy:ForAlliedRepairCommands():Use(function(ctx)
-			return { deny = true }
-		end)
+		alliedGuardCommands = policy:ForAlliedGuardCommands()
+		alliedGuardCommands:Deny()
+		
+		alliedRepairCommands = policy:ForAlliedRepairCommands()
+		alliedRepairCommands:Deny()
 	elseif assistMode == "economic" then
-		policy:ForAlliedGuardCommands():When({Predicates.Unit.isNotEconomic}):Use(function(ctx)
-			return { deny = true }
-		end)
-		policy:ForAlliedRepairCommands():When({Predicates.Unit.isNotEconomic}):Use(function(ctx)
-			return { deny = true }
-		end)
+		alliedGuardCommands = policy:ForAlliedGuardCommands()
+		alliedGuardCommands:When(Predicates.Unit.isNotEconomic):Deny()
+		
+		alliedRepairCommands = policy:ForAlliedRepairCommands()
+		alliedRepairCommands:When(Predicates.Unit.isNotEconomic):Deny()
 	end
 end)
