@@ -33,50 +33,21 @@ end
 ----------------------------------------------------------------
 ----------------------------------------------------------------
 
-local function alliedGuardCommands(additionalPredicates)
-	return function(policy)
-		local builder = policy:For(TeamTransfer.PolicyType.Command)
-			:When(Predicates.Command.isGuard)
-			:When(Predicates.Command.targetAllied)
-			:When(Predicates.Command.targetHasAssist)
-		
-		if additionalPredicates then
-			for _, predicate in ipairs(additionalPredicates) do
-				builder = builder:When(predicate)
-			end
-		end
-		
-		return builder:Use(function(ctx)
-			return { deny = true }
-		end)
-	end
-end
-
-local function alliedRepairCommands(additionalPredicates)
-	return function(policy)
-		local builder = policy:For(TeamTransfer.PolicyType.Command)
-			:When(Predicates.Command.isRepair)
-			:When(Predicates.Command.targetAllied)
-			:When(Predicates.Command.targetIsIncomplete)
-		
-		if additionalPredicates then
-			for _, predicate in ipairs(additionalPredicates) do
-				builder = builder:When(predicate)
-			end
-		end
-		
-		return builder:Use(function(ctx)
-			return { deny = true }
-		end)
-	end
-end
 
 TeamTransfer.RegisterPolicy(function(policy)
 	if assistMode == "disabled" then
-		alliedGuardCommands()(policy)
-		alliedRepairCommands()(policy)
+		policy:ForAlliedGuardCommands():Use(function(ctx)
+			return { deny = true }
+		end)
+		policy:ForAlliedRepairCommands():Use(function(ctx)
+			return { deny = true }
+		end)
 	elseif assistMode == "economic" then
-		alliedGuardCommands({Predicates.Unit.isNotEconomic})(policy)
-		alliedRepairCommands({Predicates.Unit.isNotEconomic})(policy)
+		policy:ForAlliedGuardCommands():When({Predicates.Unit.isNotEconomic}):Use(function(ctx)
+			return { deny = true }
+		end)
+		policy:ForAlliedRepairCommands():When({Predicates.Unit.isNotEconomic}):Use(function(ctx)
+			return { deny = true }
+		end)
 	end
 end)
