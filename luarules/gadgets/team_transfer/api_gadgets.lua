@@ -121,6 +121,24 @@ local function newBuilder()
 		return self
 	end
 
+	function builder:Deny()
+		current.handler = function(ctx)
+			return { deny = true }
+		end
+		pushPolicy(current.policyType, { predicates = current.predicates, handler = current.handler })
+		current = { policyType = nil, predicates = {}, handler = nil }
+		return self
+	end
+
+	function builder:Allow()
+		current.handler = function(ctx)
+			return { allow = true }
+		end
+		pushPolicy(current.policyType, { predicates = current.predicates, handler = current.handler })
+		current = { policyType = nil, predicates = {}, handler = nil }
+		return self
+	end
+
 	function builder:ForAlliedGuardCommands()
 		current = { 
 			policyType = M.PolicyType.Command, 

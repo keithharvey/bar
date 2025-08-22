@@ -59,16 +59,8 @@ TeamTransfer.RegisterPolicy(function(policy)
 		}
 	end)
 
-	policy:ForAlliedReclaimCommands():Use(function(ctx)
-		return { deny = true }
-	end)
-	policy:ForEnemyReclaimCommands():Use(function(ctx)
-		return { allow = true }
-	end)
-	policy:ForAlliedGuardReclaimCommands():Use(function(ctx)
-		return { deny = true }
-	end)
-	policy:ForEnemyGuardReclaimCommands():Use(function(ctx)
-		return { allow = true }
-	end)
+	policy:ForAlliedReclaimCommands():Deny()
+	policy:ForEnemyReclaimCommands():Allow()
+	policy:ForAlliedGuardReclaimCommands():Deny()
+	policy:ForEnemyGuardReclaimCommands():Allow()
 end)
