@@ -2,7 +2,7 @@
 function gadget:GetInfo()
 	return {
 		name    = "ModOptions: Tax Resource Sharing",
-		desc    = "Declares mod options for resource sharing tax + metal threshold",
+		desc    = "Policy implementation for resource sharing tax and reclaim restrictions",
 		author  = "BAR",
 		date    = "Aug 2025",
 		license = "GNU GPL, v2 or later",
@@ -28,6 +28,9 @@ if taxRate == 0 then
 	return
 end
 local metalThreshold = modOpts[MODOPTION_KEYS.PLAYER_METAL_SEND_THRESHOLD] or 0
+
+----------------------------------------------------------------
+----------------------------------------------------------------
 
 TeamTransfer.RegisterPolicy(function(policy)
 	policy:For(TeamTransfer.PolicyType.ResourceTransfer)
@@ -56,30 +59,39 @@ TeamTransfer.RegisterPolicy(function(policy)
 		}
 	end)
 
-	policy:For(TeamTransfer.PolicyType.Command)
-	:When(Predicates.Command.isReclaim)
-	:When(Predicates.Command.targetAllied)
-	:Use(function(ctx)
-		return { deny = true }
-	end)
+	local function reclaimCommands(targetAllied, result)
+		return function(policy)
+			local builder = policy:For(TeamTransfer.PolicyType.Command)
+				:When(Predicates.Command.isReclaim)
+			
+			if targetAllied then
+				builder = builder:When(Predicates.Command.targetAllied)
+			end
+			
+			return builder:Use(function(ctx)
+				return result
+			end)
+		end
+	end
 
-	policy:For(TeamTransfer.PolicyType.Command)
-	:When(Predicates.Command.isReclaim)
-	:Use(function(ctx)
-		return { allow = true }
-	end)
+	local function guardReclaimCommands(targetAllied, result)
+		return function(policy)
+			local builder = policy:For(TeamTransfer.PolicyType.Command)
+				:When(Predicates.Command.isGuard)
+			
+			if targetAllied then
+				builder = builder:When(Predicates.Command.targetAllied)
+					:When(Predicates.Command.targetHasReclaim)
+			end
+			
+			return builder:Use(function(ctx)
+				return result
+			end)
+		end
+	end
 
-	policy:For(TeamTransfer.PolicyType.Command)
-	:When(Predicates.Command.isGuard)
-	:When(Predicates.Command.targetAllied)
-	:When(Predicates.Command.targetHasReclaim)
-	:Use(function(ctx)
-		return { deny = true }
-	end)
-
-	policy:For(TeamTransfer.PolicyType.Command)
-	:When(Predicates.Command.isGuard)
-	:Use(function(ctx)
-		return { allow = true }
-	end)
+	reclaimCommands(true, { deny = true })(policy)
+	reclaimCommands(false, { allow = true })(policy)
+	guardReclaimCommands(true, { deny = true })(policy)
+	guardReclaimCommands(false, { allow = true })(policy)
 end)

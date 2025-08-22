@@ -60,6 +60,10 @@
 ---@field When fun(self: PolicyBuilder, predicate: TeamTransferPredicate): PolicyBuilder
 ---@field Use fun(self: PolicyBuilder, handler: TeamTransferHandler)
 
+---@alias PolicyBuilderFactory fun(policy: PolicyBuilder)
+---@alias CommandPolicyFactory fun(targetAllied: boolean, result: table): PolicyBuilderFactory
+---@alias UnitTransferPolicyFactory fun(predicate: TeamTransferPredicate): PolicyBuilderFactory
+
 ---@class TeamTransferAPI
 ---@field PolicyType { ResourceTransfer: string, UnitTransfer: string, Command: string }
 ---@field RegisterPolicy fun(registrar: fun(policy: PolicyBuilder))
