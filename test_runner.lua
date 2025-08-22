@@ -99,6 +99,10 @@ local function createTestEnvironment()
             GetUnitDefID = function(unitID) return 1 end,
             GetUnitTeam = function(unitID) return 0 end,
             ValidUnitID = function(unitID) return true end,
+            Echo = function(...) print(...) end,
+            Log = function(tag, level, msg)
+                print(string.format("[%s][%s] %s", tostring(level or "INFO"), tostring(tag or "Log"), tostring(msg)))
+            end,
         },
         CMD = { 
             GUARD = 10, 
@@ -131,6 +135,9 @@ local function createTestEnvironment()
         },
         
     }
+
+    -- Provide LOG level constants for modules using Spring.Log(tag, LOG.X, msg)
+    env.LOG = { INFO = "INFO", WARNING = "WARNING", ERROR = "ERROR", DEBUG = "DEBUG" }
     
     for k, v in pairs(Assertions) do
         env[k] = v
