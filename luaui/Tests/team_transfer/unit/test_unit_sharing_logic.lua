@@ -109,6 +109,12 @@ function test()
 	Spring.GetModOptions = function() return { unit_sharing_mode = "t2cons" } end
 	assert(sharing.getUnitSharingMode() == "t2cons", "Should detect t2cons mode")
 	
+	Spring.GetModOptions = function() return { unit_sharing_mode = "combat" } end
+	assert(sharing.getUnitSharingMode() == "combat", "Should detect combat mode")
+	
+	Spring.GetModOptions = function() return { unit_sharing_mode = "combat_t2cons" } end
+	assert(sharing.getUnitSharingMode() == "combat_t2cons", "Should detect combat_t2cons mode")
+	
 	Spring.GetModOptions = function() return {} end
 	assert(sharing.getUnitSharingMode() == "enabled", "Should default to enabled when not specified")
 	

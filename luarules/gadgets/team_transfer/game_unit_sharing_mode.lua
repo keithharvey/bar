@@ -30,7 +30,16 @@ TeamTransfer.RegisterPolicy(function(policy)
 		policy.UnitTransfers.Allied:Deny()
 	elseif unitSharingMode == "t2cons" then
 		policy.UnitTransfers.Allied:When(function(ctx)
-			return not sharing.isT2ConstructorDef(ctx.unitDefID)
+			return not sharing.isT2ConstructorDef(UnitDefs[ctx.unitDefID])
+		end):Deny()
+	elseif unitSharingMode == "combat" then
+		policy.UnitTransfers.Allied:When(function(ctx)
+			return sharing.isEconomicUnitDef(UnitDefs[ctx.unitDefID])
+		end):Deny()
+	elseif unitSharingMode == "combat_t2cons" then
+		policy.UnitTransfers.Allied:When(function(ctx)
+			local unitDef = UnitDefs[ctx.unitDefID]
+			return sharing.isEconomicUnitDef(unitDef) and not sharing.isT2ConstructorDef(unitDef)
 		end):Deny()
 	end
 end)
