@@ -15,6 +15,17 @@ function sharing.isT2ConstructorDef(unitDef)
 		and unitDef.customParams and unitDef.customParams.techlevel == "2"
 end
 
+function sharing.isEconomicUnitDef(unitDef)
+	if not unitDef then return false end
+	if unitDef.canAssist or unitDef.isFactory then
+		return true
+	end
+	if unitDef.customParams and (unitDef.customParams.unitgroup == "energy" or unitDef.customParams.unitgroup == "metal") then
+		return true
+	end
+	return false
+end
+
 -- Lazy initialize the cache for a specific mode
 local function ensureCacheInitialized(mode)
 	if validUnitCache[mode] then
@@ -34,6 +45,16 @@ local function ensureCacheInitialized(mode)
 		if mode == "t2cons" then
 			-- Direct check for T2 constructor
 			if sharing.isT2ConstructorDef(unitDef) then
+				validUnitCache[mode][unitDefID] = true
+				cachedCount = cachedCount + 1
+			end
+		elseif mode == "combat" then
+			if not sharing.isEconomicUnitDef(unitDef) then
+				validUnitCache[mode][unitDefID] = true
+				cachedCount = cachedCount + 1
+			end
+		elseif mode == "combat_t2cons" then
+			if not sharing.isEconomicUnitDef(unitDef) or sharing.isT2ConstructorDef(unitDef) then
 				validUnitCache[mode][unitDefID] = true
 				cachedCount = cachedCount + 1
 			end
@@ -71,7 +92,7 @@ function sharing.isUnitShareAllowedByMode(unitDefID, mode)
 	mode = mode or sharing.getUnitSharingMode()
 	if mode == "disabled" then
 		return false
-	elseif mode == "t2cons" then
+	elseif mode == "t2cons" or mode == "combat" or mode == "combat_t2cons" then
 		ensureCacheInitialized(mode)
 		return validUnitCache[mode][unitDefID] == true
 	end
@@ -113,6 +134,10 @@ function sharing.blockMessage(unshareable, mode)
 		return "Unit sharing is disabled"
 	elseif mode == "t2cons" then
 		return "Attempted to share " .. tostring(unshareable or 0) .. " unshareable units. Share mode is T2 constructors only"
+	elseif mode == "combat" then
+		return "Attempted to share " .. tostring(unshareable or 0) .. " economic units. Share mode is combat units only"
+	elseif mode == "combat_t2cons" then
+		return "Attempted to share " .. tostring(unshareable or 0) .. " unshareable units. Share mode is combat units and T2 constructors only"
 	end
 	return nil
 end

@@ -277,6 +277,8 @@ local options = {
 		items	= {
 			{ key = "enabled",     name = "Enabled",                     desc = "All unit sharing allowed" },
 			{ key = "t2cons", name = "T2 Constructor Sharing Only", desc = "Only T2 constructors can be shared between allies" },
+			{ key = "combat",      name = "Combat Units Only",           desc = "Only combat units can be shared (no economic units, factories, or constructors)" },
+			{ key = "combat_t2cons", name = "Combat + T2 Constructors",  desc = "Combat units and T2 constructors can be shared" },
 			{ key = "disabled",    name = "Disabled",                    desc = "No unit sharing allowed" },
 		},
 	},
