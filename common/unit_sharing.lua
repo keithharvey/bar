@@ -33,9 +33,7 @@ local function ensureCacheInitialized(mode)
 	for unitDefID, unitDef in pairs(UnitDefs) do
 		if mode == "t2cons" then
 			-- Direct check for T2 constructor
-			if (not unitDef.isFactory)
-				and #(unitDef.buildOptions or {}) > 0
-				and unitDef.customParams and unitDef.customParams.techlevel == "2" then
+			if sharing.isT2ConstructorDef(unitDef) then
 				validUnitCache[mode][unitDefID] = true
 				cachedCount = cachedCount + 1
 			end
@@ -105,7 +103,8 @@ function sharing.shouldShowShareButton(unitIDs, mode)
 	mode = mode or sharing.getUnitSharingMode()
 	if mode == "disabled" then return false end
 	local shareable, _, total = sharing.countUnshareable(unitIDs, mode)
-	return total > 0 and shareable > 0
+	local result = total > 0 and shareable > 0
+	return result
 end
 
 function sharing.blockMessage(unshareable, mode)
