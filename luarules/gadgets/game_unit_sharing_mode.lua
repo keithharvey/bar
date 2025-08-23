@@ -19,6 +19,7 @@ if not gadgetHandler:IsSyncedCode() then
 	return false
 end
 
+---@type UnitSharing
 local sharing = VFS.Include("common/unit_sharing.lua")
 local unitSharingMode = sharing.getUnitSharingMode()
 local unitMarketEnabled = Spring.GetModOptions().unit_market or false

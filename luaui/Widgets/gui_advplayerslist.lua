@@ -1,5 +1,10 @@
 local widget = widget ---@type Widget
 
+---@type UnitSharing
+local sharing = VFS.Include("common/unit_sharing.lua")
+local unitSharingMode
+local unitSharingEnabled
+
 function widget:GetInfo()
     return {
         name = "AdvPlayersList",
@@ -870,6 +875,10 @@ end
 
 function widget:Initialize()
 	widget:ViewResize()
+
+	-- Initialize unit sharing settings
+	unitSharingMode = sharing.getUnitSharingMode()
+	unitSharingEnabled = unitSharingMode ~= "disabled"
 
 	widgetHandler:RegisterGlobal('ActivityEvent', ActivityEvent)
 	widgetHandler:RegisterGlobal('FpsEvent', FpsEvent)
@@ -2272,11 +2281,7 @@ function DrawPlayer(playerID, leader, vOffset, mouseX, mouseY, onlyMainList, onl
                             end
                         end
                         if m_share.active and not dead and not hideShareIcons then
-                            local showUnits = (function()
-                                local sharing = VFS.Include("common/unit_sharing.lua")
-                                local mode = sharing.getUnitSharingMode()
-                                return sharing.shouldShowShareButton(Spring.GetSelectedUnits(), mode)
-                            end)()
+                            local showUnits = unitSharingEnabled and sharing.shouldShowShareButton(Spring.GetSelectedUnits(), unitSharingMode)
                             DrawShareButtons(posY, needm, neede, showUnits)
                             if tipY then
                                 ShareTip(mouseX, playerID)
@@ -2436,12 +2441,13 @@ end
 
 -- Helpers for unit-share allow/tooltip/draw logic (scoped to this widget)
 function Sharing_GetUnitsShareAllowAndMessage()
-	local sharing = VFS.Include("common/unit_sharing.lua")
-	local mode = sharing.getUnitSharingMode()
+	if not unitSharingEnabled then
+		return false, sharing.blockMessage(nil, unitSharingMode)
+	end
 	local selected = Spring.GetSelectedUnits()
-	local shareable, unshareable, total = sharing.countUnshareable(selected, mode)
+	local shareable, unshareable, total = sharing.countUnshareable(selected, unitSharingMode)
 	local allow = (total > 0 and shareable > 0)
-	local msg = allow and nil or sharing.blockMessage(unshareable, mode)
+	local msg = allow and nil or sharing.blockMessage(unshareable, unitSharingMode)
 	return allow, msg
 end
 
@@ -3373,8 +3379,7 @@ function widget:MousePress(x, y, button)
                         if m_share.active and clickedPlayer.dead ~= true and not hideShareIcons then
                             if IsOnRect(x, y, m_share.posX + widgetPosX + (1*playerScale), posY, m_share.posX + widgetPosX + (17*playerScale), posY + (playerOffset*playerScale)) then
                                 -- share units button
-                                local unitSharingMode = sharing.getUnitSharingMode()
-                                if sharing.shouldShowShareButton(Spring.GetSelectedUnits(), unitSharingMode) then
+                                if unitSharingEnabled and sharing.shouldShowShareButton(Spring.GetSelectedUnits(), unitSharingMode) then
                                     local selected = Spring.GetSelectedUnits()
                                     if #selected > 0 then
                                         local _, _, unshareable = sharing.countUnshareable(selected, unitSharingMode)

@@ -82,6 +82,7 @@ local function tablelength(T)
 	return count
 end
 
+---@type UnitSharing
 local sharing = VFS.Include("common/unit_sharing.lua")
 local unitSharingMode = sharing.getUnitSharingMode()
 
