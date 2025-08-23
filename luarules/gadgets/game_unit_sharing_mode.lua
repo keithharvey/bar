@@ -28,39 +28,17 @@ if unitSharingMode == "enabled" then
 	return false
 end
 
--- Flags for specific transfer types initiated by *other Lua gadgets* (like Unit Market)
--- that should cleanly bypass this gadget's sharing mode restrictions.
--- Other gadgets initiating transfers that need to bypass sharing rules should:
--- 1. Choose a unique, descriptive flag name (string) using snake_case.
--- 2. Add the name to this table.
--- 3. Call Spring.SetUnitRulesParam(unitID, flagName, 1) BEFORE calling TransferUnit.
--- This gadget will detect the flag, allow the transfer, and clear the flag by setting it to nil.
-local transferOverrideFlags = {
-	"transfer_override_market",
-	-- Note: takeCommand logic uses a separate check function due to engine limitations.
-}
-
-local function isT2Constructor(unitDef)
-	return sharing.isT2ConstructorDef(unitDef)
-end
-
 -- Handles the specific condition for allowing /take transfers
 -- Returns true if the transfer should be allowed due to being a /take, false otherwise.
 local function CheckTakeCondition(fromTeamID, toTeamID)
 	-- Check if sender is allied
 	if Spring.AreTeamsAllied(fromTeamID, toTeamID) then
-		-- Loop to see if sender has any active human players
-		for _, playerID in ipairs(Spring.GetPlayerList()) do
-			local _, active, spectator, teamID = Spring.GetPlayerInfo(playerID)
-			if active and not spectator and teamID == fromTeamID then
-				-- Found an active player, so this is NOT the /take condition.
-				-- AllowUnitTransfer should proceed to check sharing rules.
-				return false
-			end
+		-- If fromTeamID has no active players, it's a /take situation from a dead team.
+		-- In this case, we bypass sharing rules by returning true here.
+		local teamPlayers = Spring.GetPlayerList(fromTeamID, true) -- excludes inactive and spectators
+		if next(teamPlayers) == nil then
+			return true
 		end
-		-- If loop finished without finding an active player, it matches the /take condition.
-		-- Allow the transfer, bypassing sharing rules.
-		return true
 	end
 	-- Teams are not allied, not a /take condition.
 	return false
@@ -72,14 +50,8 @@ end
        other gadgets might still block the transfer. Returning false blocks immediately.
 ]]
 function gadget:AllowUnitTransfer(unitID, unitDefID, fromTeamID, toTeamID, capture)
-	-- 1. Check for clean override flags (e.g., Market)
-	for _, flagName in ipairs(transferOverrideFlags) do
-		local flagValue = Spring.GetUnitRulesParam(unitID, flagName)
-		if flagValue and flagValue == 1 then
-			-- Clear the flag after checking
-			Spring.SetUnitRulesParam(unitID, flagName, nil)
-			return true
-		end
+	if capture then
+		return true
 	end
 
 	-- 2. Check for /take command condition (Allied sender, no active players)
@@ -87,12 +59,6 @@ function gadget:AllowUnitTransfer(unitID, unitDefID, fromTeamID, toTeamID, captu
 		return true
 	end
 
-	-- 3. Allow engine-managed transfers (where capture=true is set by engine)
-	if capture then
-		return true
-	end
-
-	-- 4. Delegate to shared rules for final decision
+	-- 3. Delegate to shared rules for final decision
 	return sharing.isUnitShareAllowedByMode(unitDefID)
 end
-
