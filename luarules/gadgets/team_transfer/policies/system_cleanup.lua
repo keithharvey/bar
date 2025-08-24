@@ -27,18 +27,17 @@ end
 
 -- This system policy handles standard cleanup operations that should
 -- almost always happen during transfers and team events to prevent exploits
--- and maintain game integrity
+-- and maintain game integrity.
+-- This is a great list of things to fix in the engine.
 GG.TeamTransfer.RegisterPolicy(function(policy)
-	-- Unit transfer cleanup
 	policy.ForAlliedUnitTransfers.Use(cleanup)
 	policy.ForEnemyUnitTransfers.Use(cleanup)
 	
-	-- Team abandonment cleanup - TODO: Need to implement team events in new API
-	-- policy.TeamEvents.PlayerAbandoned.Use(function(ctx)
-	-- 	return { 
-	-- 		applyCommands = { 
-	-- 			ClearTeamSelfD = { ctx.teamID }  -- Clear all self-destruct orders from abandoned team
-	-- 		} 
-	-- 	}
-	-- end)
+	policy.TeamEvents.PlayerAbandoned.Use(function(ctx)
+		return { 
+			applyCommands = { 
+				ClearTeamSelfD = { ctx.teamID }
+			} 
+		}
+	end)
 end)
