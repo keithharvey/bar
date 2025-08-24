@@ -24,8 +24,8 @@ local enabled, taxRate = GG.TeamTransfer.IsSharingOption(MODOPTION_KEYS.TAX_RESO
 if not enabled or (tonumber(taxRate) or 0) == 0 then
 	return
 end
-local enabled, metalThreshold = GG.TeamTransfer.IsSharingOption(MODOPTION_KEYS.PLAYER_METAL_SEND_THRESHOLD)
-if not enabled then
+local metalEnabled, metalThreshold = GG.TeamTransfer.IsSharingOption(MODOPTION_KEYS.PLAYER_METAL_SEND_THRESHOLD)
+if not metalEnabled then
 	metalThreshold = 0
 end
 
