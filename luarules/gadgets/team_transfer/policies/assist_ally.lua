@@ -22,14 +22,8 @@ end
 local TeamTransfer = GG.TeamTransfer
 local MODOPTION_KEYS = TeamTransfer.MODOPTION_KEYS
 
-local enabled = TeamTransfer.IsSharingOption(MODOPTION_KEYS.ALLY_ASSIST_MODE)
-if not enabled then
-	return
-end
-
-local modOpts = Spring.GetModOptions()
-local assistMode = modOpts[MODOPTION_KEYS.ALLY_ASSIST_MODE] or "enabled"
-if assistMode ~= "disabled" then
+local enabled, assistMode = TeamTransfer.IsSharingOption(MODOPTION_KEYS.ALLY_ASSIST_MODE)
+if not enabled or assistMode == "disabled" then
 	return
 end
 

@@ -17,22 +17,20 @@ if not gadgetHandler:IsSyncedCode() then
 end
 
 local Tax = GG.TeamTransfer.ResourceShareTax
-local MODOPTION_KEYS = GG.TeamTransfer.MODOPTION_KEYS
 local Predicates = GG.TeamTransfer.Predicates
+local MODOPTION_KEYS = GG.TeamTransfer.MODOPTION_KEYS
 
-local enabled = GG.TeamTransfer.IsSharingOption(MODOPTION_KEYS.TAX_RESOURCE_SHARING_AMOUNT)
+local enabled, taxRate = GG.TeamTransfer.IsSharingOption(MODOPTION_KEYS.TAX_RESOURCE_SHARING_AMOUNT)
+if not enabled or (tonumber(taxRate) or 0) == 0 then
+	return
+end
+local enabled, metalThreshold = GG.TeamTransfer.IsSharingOption(MODOPTION_KEYS.PLAYER_METAL_SEND_THRESHOLD)
 if not enabled then
-	return
+	metalThreshold = 0
 end
-
-local modOpts = Spring.GetModOptions()
-local taxRate = modOpts[MODOPTION_KEYS.TAX_RESOURCE_SHARING_AMOUNT] or 0
-if taxRate == 0 then
-	return
-end
-local metalThreshold = modOpts[MODOPTION_KEYS.PLAYER_METAL_SEND_THRESHOLD] or 0
 
 GG.TeamTransfer.RegisterPolicy(function(policy)
+	
 	policy.ForAlliedResourceTransfers.Use(function(ctx)
 		if ctx.amountClamped <= 0 then
 			return { allow = false }

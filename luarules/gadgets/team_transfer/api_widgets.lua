@@ -12,21 +12,12 @@ local UnitSharing = VFS.Include("luarules/gadgets/team_transfer/unit_sharing.lua
 local MODOPTION_KEYS = VFS.Include("luarules/gadgets/team_transfer/sharing_modoption_keys.lua")
 
 -- Unsynced sharing mode check helper
-local function loadSharingModes()
-	local modOpts = Spring.GetModOptions()
-	local sharingModes = modOpts.sharingoptions and VFS.LoadFile("gamedata/sharingoptions.json")
-	return sharingModes and Spring.Utilities.json.decode(sharingModes) or {}
-end
+local sharingModeUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_mode_utils.lua")
 
 local function isSharingOption(modoptionKey)
-	if not modoptionKey then return false end
+	if not modoptionKey then return false, nil end
 	local modOpts = Spring.GetModOptions()
-	local selectedMode = modOpts.selectedsharingmode
-	if not selectedMode then return false end
-	
-	local sharingModes = loadSharingModes()
-	local mode = sharingModes[selectedMode]
-	return mode and mode.options and mode.options[modoptionKey] ~= nil
+	return sharingModeUtils.isOptionEnabledInCurrentMode(modoptionKey), modOpts[modoptionKey]
 end
 
 -- Resource Share Tax helpers
@@ -88,7 +79,7 @@ M.handleShareButtonClick = function(targetTeamID)
 	end
 	
 	Spring.ShareResources(targetTeamID, "units")
-	Spring.PlaySoundFile("beep4", 1, 'ui')
+	Spring.PlaySoundFile("beep4", 1)
 	return true
 end
 

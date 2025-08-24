@@ -8,6 +8,9 @@ local M = {}
 
 
 
+local sharingModeUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_mode_utils.lua")
+local modOpts = Spring.GetModOptions()
+
 M.PolicyType = {
 	ResourceTransfer = "ResourceTransfer",
 	UnitTransfer = "UnitTransfer",
@@ -208,6 +211,22 @@ local function newBuilder()
 		ScopePredicates.Enemy.Transfer
 	})
 
+	---For team event policies
+	---@type table
+	builder.TeamEvents = {}
+
+	---When a player abandons their team (disconnects or goes spec)
+	---@type ActionMethods
+	builder.TeamEvents.PlayerAbandoned = createActionMethods(M.PolicyType.TeamEvent, {
+		function(ctx) return ctx.eventType == "PlayerAbandoned" end
+	})
+
+	---When a player reconnects to their team
+	---@type ActionMethods
+	builder.TeamEvents.PlayerReconnected = createActionMethods(M.PolicyType.TeamEvent, {
+		function(ctx) return ctx.eventType == "PlayerReconnected" end
+	})
+
 	return builder
 end
 
@@ -250,37 +269,12 @@ M.Predicates = VFS.Include("luarules/gadgets/team_transfer/predicates.lua")
 M.Units = VFS.Include("luarules/gadgets/team_transfer/units.lua")
 
 -- Inline sharing mode option check to avoid extra includes and improve discoverability
-local cachedSharingModes
-local function loadSharingModes()
-	if cachedSharingModes then return cachedSharingModes end
-	cachedSharingModes = {}
-	if VFS.FileExists("gamedata/sharingoptions.json") then
-		local jsonStr = VFS.LoadFile("gamedata/sharingoptions.json")
-		if jsonStr then
-			for modeBlock in jsonStr:gmatch('"key"%s*:%s*"([^"]+)".-"options"%s*:%s*{(.-)}') do
-				local key = modeBlock
-				if key then
-					cachedSharingModes[key] = {}
-					for optKey in modeBlock:gmatch('"([^"_][^"]*)"%s*:') do
-						cachedSharingModes[key][optKey] = true
-					end
-				end
-			end
-		end
-	end
-	return cachedSharingModes
-end
-
----Check if a modoption key is enabled in the current sharing mode
+---Check if a modoption key is enabled in the current sharing mode and return its value
 ---@param modoptionKey string The modoption key to check
 ---@return boolean enabled True if the option is enabled in current mode
+---@return any value The current value from Spring.GetModOptions()[modoptionKey] (may be nil)
 function M.IsSharingOption(modoptionKey)
-	local selectedMode = Spring.GetModOptions()._sharing_mode_selected or ""
-	if selectedMode == "" then return true end
-	local modes = loadSharingModes()
-	local modeCfg = modes[selectedMode]
-	if not modeCfg then return true end
-	return modeCfg[modoptionKey] ~= nil
+	return sharingModeUtils.isOptionEnabledInCurrentMode(modoptionKey), modOpts[modoptionKey]
 end
 
 ---@return TeamTransferAPI

@@ -16,17 +16,12 @@ if not gadgetHandler:IsSyncedCode() then
 	return false
 end
 
-local units = GG.TeamTransfer.Units
 local sharing = GG.TeamTransfer.UnitSharing
 local MODOPTION_KEYS = GG.TeamTransfer.MODOPTION_KEYS
+local modoption = MODOPTION_KEYS.UNIT_SHARING_MODE
 
-local enabled = GG.TeamTransfer.IsSharingOption(MODOPTION_KEYS.UNIT_SHARING_MODE)
-if not enabled then
-	return
-end
-
-local unitSharingMode = sharing.getUnitSharingMode()
-if unitSharingMode == "enabled" then
+local enabled, unitSharingMode = GG.TeamTransfer.IsSharingOption(modoption)
+if not enabled or unitSharingMode == "enabled" then
 	return
 end
 
