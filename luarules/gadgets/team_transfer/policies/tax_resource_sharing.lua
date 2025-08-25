@@ -21,13 +21,17 @@ local Predicates = GG.TeamTransfer.Predicates
 local MODOPTION_KEYS = GG.TeamTransfer.MODOPTION_KEYS
 
 local enabled, taxRate = GG.TeamTransfer.IsSharingOption(MODOPTION_KEYS.TAX_RESOURCE_SHARING_AMOUNT)
-if not enabled or (tonumber(taxRate) or 0) == 0 then
+local metalEnabled, metalThreshold = GG.TeamTransfer.IsSharingOption(MODOPTION_KEYS.PLAYER_METAL_SEND_THRESHOLD)
+
+local hasTax = enabled and (tonumber(taxRate) or 0) > 0
+local hasThreshold = metalEnabled and (tonumber(metalThreshold) or 0) > 0
+
+if not hasTax and not hasThreshold then
 	return
 end
-local metalEnabled, metalThreshold = GG.TeamTransfer.IsSharingOption(MODOPTION_KEYS.PLAYER_METAL_SEND_THRESHOLD)
-if not metalEnabled then
-	metalThreshold = 0
-end
+
+taxRate = (tonumber(taxRate) or 0)
+metalThreshold = metalEnabled and (tonumber(metalThreshold) or 0) or 0
 
 GG.TeamTransfer.RegisterPolicy(function(policy)
 	
