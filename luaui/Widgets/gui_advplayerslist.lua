@@ -13,7 +13,7 @@ function widget:GetInfo()
         date = "2008",
         version = 46,
         license = "GNU GPL, v2 or later",
-        layer = 1, -- Load after api_team_transfer.lua (layer -1)
+        layer = -4,
         enabled = true,
     }
 end
