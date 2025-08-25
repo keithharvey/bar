@@ -36,31 +36,26 @@ GG.TeamTransfer.RegisterPolicy(function(policy)
 		end
 
 		local cumulative = ctx.cumulativeMetal or 0
-		local remaining = math.max(0, metalThreshold - cumulative)
+		local taxRate = tonumber(Spring.GetModOptions().tax_resource_sharing_amount) or 0
 		
-		local taxRate = Spring.GetTeamRulesParam(ctx.senderTeamId, "resource_share_tax_rate") or 0
+		local breakdown = Tax.computeTransfer(ctx.resource, ctx.amountClamped, taxRate, metalThreshold, cumulative)
 		
-		local effectiveThreshold = metalThreshold
-		if taxRate > 0 then
-			effectiveThreshold = metalThreshold / (1 + taxRate)
-		end
+		local sent = math.min(breakdown.actualSent or 0, ctx.amount)
+		local received = math.min(breakdown.actualReceived or 0, ctx.amountClamped)
 		
-		local effectiveRemaining = math.max(0, effectiveThreshold - cumulative)
-		local allowedAmount = math.min(ctx.amountClamped, effectiveRemaining)
-		
-		if allowedAmount <= 0 then
-			return { allow = false }
-		end
-		
-		if allowedAmount < ctx.amountClamped then
+		if sent <= 0 then
 			return { allow = false }
 		end
 		
 		return {
+			applyTransfer = {
+				sent = sent,
+				received = received,
+				updateCumulativeMetal = true,
+			},
 			expose = {
 				threshold = metalThreshold,
-				effectiveThreshold = effectiveThreshold,
-				remainingAllowance = effectiveRemaining,
+				taxRate = taxRate,
 			}
 		}
 	end)

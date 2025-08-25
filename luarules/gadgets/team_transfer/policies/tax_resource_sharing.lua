@@ -35,6 +35,12 @@ GG.TeamTransfer.RegisterPolicy(function(policy)
 			return { allow = false }
 		end
 
+		local thresholdEnabled = (tonumber(Spring.GetModOptions().player_metal_send_threshold) or 0) > 0
+		
+		if thresholdEnabled and ctx.resource == "metal" then
+			return nil
+		end
+
 		local cumulative = (ctx.resource == "metal") and (ctx.cumulativeMetal or 0) or 0
 		local breakdown = Tax.computeTransfer(ctx.resource, ctx.amountClamped, taxRate, 0, cumulative)
 
