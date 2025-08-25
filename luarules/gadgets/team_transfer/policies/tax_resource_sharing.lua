@@ -23,7 +23,10 @@ local MODOPTION_KEYS = GG.TeamTransfer.MODOPTION_KEYS
 local enabled, taxRate = GG.TeamTransfer.IsSharingOption(MODOPTION_KEYS.TAX_RESOURCE_SHARING_AMOUNT)
 local metalEnabled, metalThreshold = GG.TeamTransfer.IsSharingOption(MODOPTION_KEYS.PLAYER_METAL_SEND_THRESHOLD)
 
+Spring.Echo("[TAX POLICY INIT] enabled=" .. tostring(enabled) .. ", taxRate=" .. tostring(taxRate) .. ", metalEnabled=" .. tostring(metalEnabled) .. ", metalThreshold=" .. tostring(metalThreshold))
+
 if not enabled and not metalEnabled then
+	Spring.Echo("[TAX POLICY INIT] Policy not registering - both tax and threshold disabled")
 	return
 end
 
@@ -38,6 +41,8 @@ if not metalEnabled or (tonumber(metalThreshold) or 0) == 0 then
 else
 	metalThreshold = tonumber(metalThreshold) or 0
 end
+
+Spring.Echo("[TAX POLICY INIT] Registering policy with taxRate=" .. taxRate .. ", metalThreshold=" .. metalThreshold)
 
 GG.TeamTransfer.RegisterPolicy(function(policy)
 	
