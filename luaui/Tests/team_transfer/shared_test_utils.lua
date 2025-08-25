@@ -55,16 +55,18 @@ function TestUtils.createMockGadgetHandler()
 end
 
 function TestUtils.createMockTeamTransfer(policySpy)
+	local MODOPTION_KEYS = {
+		ALLY_ASSIST_MODE = "game_assist_ally",
+		ENEMY_RESOURCE_TRANSFER = "game_enemy_resource_transfer",
+		ENEMY_UNIT_TRANSFER = "game_enemy_unit_transfer",
+		UNIT_SHARING_MODE = "game_unit_sharing_mode",
+		RESOURCE_SHARE_TAX = "game_resource_share_tax",
+		RESOURCE_SHARE_TAX_THRESHOLD = "game_resource_share_tax_threshold",
+		SYSTEM_CLEANUP = "game_system_cleanup"
+	}
+	
 	return {
-		MODOPTION_KEYS = {
-			ALLY_ASSIST_MODE = "game_assist_ally",
-			ENEMY_RESOURCE_TRANSFER = "game_enemy_resource_transfer",
-			ENEMY_UNIT_TRANSFER = "game_enemy_unit_transfer",
-			UNIT_SHARING_MODE = "game_unit_sharing_mode",
-			RESOURCE_SHARE_TAX = "game_resource_share_tax",
-			RESOURCE_SHARE_TAX_THRESHOLD = "game_resource_share_tax_threshold",
-			SYSTEM_CLEANUP = "game_system_cleanup"
-		},
+		MODOPTION_KEYS = MODOPTION_KEYS,
 		IsSharingOption = function(key)
 			local modOpts = Spring.GetModOptions()
 			local value = modOpts[key]
@@ -205,8 +207,10 @@ function TestUtils.includeRealPolicyFile(policyFileName)
 	_G.gadget = { GetInfo = function() return {} end }
 	_G.gadgetHandler = { IsSyncedCode = function() return true end }
 	
+	local policyPath = "luarules/gadgets/team_transfer/policies/" .. policyFileName
+	
 	local success, result = pcall(function()
-		return dofile("../../../luarules/gadgets/team_transfer/policies/" .. policyFileName)
+		return dofile(policyPath)
 	end)
 	
 	if not success then

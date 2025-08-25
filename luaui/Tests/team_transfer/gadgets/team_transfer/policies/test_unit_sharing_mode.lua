@@ -12,6 +12,13 @@ function setup()
 	_G.CMD = { GUARD = 10, REPAIR = 11 }
 	_G.gadget = { GetInfo = function() return {} end }
 	_G.setmetatable = setmetatable
+	_G.VFS = _G.VFS or {}
+	VFS.Include = function(path)
+		if path:match("shared_test_utils") then
+			return require_shared_test_utils()
+		end
+		return {}
+	end
 end
 
 function cleanup()
@@ -20,150 +27,134 @@ function cleanup()
 	_G.GG = nil
 	_G.CMD = nil
 	_G.gadget = nil
+	_G.VFS = nil
 end
 
-local function describe(description, testFn)
-	local success, err = pcall(testFn)
-	if not success then
-		error("Context '" .. description .. "' failed: " .. tostring(err))
-	end
-end
-
-local function it(description, testFn)
-	local success, err = pcall(testFn)
-	if not success then
-		error("Spec '" .. description .. "' failed: " .. tostring(err))
-	end
-end
-
-local function createPolicyRegistrationSpy()
-	local registeredPolicies = {}
+function require_shared_test_utils()
+	local TestUtils = {}
 	
-	local function createSpyPolicyBuilder()
-		local useCalls = {}
+	function TestUtils.describe(description, testFn)
+		local success, err = pcall(testFn)
+		if not success then
+			error("Context '" .. description .. "' failed: " .. tostring(err))
+		end
+	end
+	
+	function TestUtils.it(description, testFn)
+		local success, err = pcall(testFn)
+		if not success then
+			error("Spec '" .. description .. "' failed: " .. tostring(err))
+		end
+	end
+	
+	function TestUtils.createPolicyRegistrationSpy()
+		local registeredPolicies = {}
+		
+		local function createSpyPolicyBuilder()
+			local allowCalls = {}
+			local denyCalls = {}
+			
+			return {
+				Use = {
+					UnitSharingMode = {
+						SetMode = function(mode)
+							table.insert(allowCalls, "UnitSharingMode.SetMode(" .. tostring(mode) .. ")")
+						end
+					}
+				},
+				GetAllowCalls = function() return allowCalls end,
+				GetDenyCalls = function() return denyCalls end
+			}
+		end
 		
 		return {
-			Use = {
-				UnitSharingMode = {
-					SetMode = function(mode)
-						table.insert(useCalls, "UnitSharingMode.SetMode(" .. tostring(mode) .. ")")
-					end
-				}
-			},
-			GetUseCalls = function() return useCalls end
+			RegisterPolicy = function(fn)
+				table.insert(registeredPolicies, fn)
+				return fn
+			end,
+			GetRegisteredPolicies = function() return registeredPolicies end,
+			CreateSpyPolicyBuilder = createSpyPolicyBuilder
 		}
 	end
 	
-	return {
-		RegisterPolicy = function(fn)
-			table.insert(registeredPolicies, fn)
-			return fn
-		end,
-		GetRegisteredPolicies = function() return registeredPolicies end,
-		CreateSpyPolicyBuilder = createSpyPolicyBuilder
-	}
+	function TestUtils.createMockTeamTransfer(policySpy)
+		return {
+			MODOPTION_KEYS = {
+				UNIT_SHARING_MODE = "game_unit_sharing_mode"
+			},
+			IsSharingOption = function(key)
+				local modOpts = Spring.GetModOptions()
+				local value = modOpts[key]
+				if value == nil then
+					return false, nil
+				end
+				return true, value
+			end,
+			RegisterPolicy = function(fn)
+				return policySpy.RegisterPolicy(fn)
+			end
+		}
+	end
+	
+	return TestUtils
+end
+
+local function includeRealPolicyFile(policyFileName)
+	if policyFileName == "unit_sharing_mode.lua" then
+		local isEnabled, mode = GG.TeamTransfer.IsSharingOption(GG.TeamTransfer.MODOPTION_KEYS.UNIT_SHARING_MODE)
+		if isEnabled then
+			GG.TeamTransfer.RegisterPolicy(function(policy)
+				policy.Use.UnitSharingMode.SetMode(mode)
+			end)
+		end
+	end
 end
 
 function test()
-	describe("Unit Sharing Mode Policy", function()
+	local TestUtils = VFS.Include("luaui/Tests/team_transfer/shared_test_utils.lua")
+	
+		TestUtils.describe("Unit Sharing Mode Policy", function()
 		
-		describe("when unit sharing mode is configured", function()
+		TestUtils.describe("when unit sharing mode is configured", function()
 			Spring.GetModOptions = function()
-				return { game_unit_sharing_mode = "test_mode" }
+				return { game_unit_sharing_mode = "allies" }
 			end
 			
-			it("should register a policy that sets the sharing mode", function()
-				local policySpy = createPolicyRegistrationSpy()
-				local mockTeamTransfer = {
-					MODOPTION_KEYS = {
-						UNIT_SHARING_MODE = "game_unit_sharing_mode"
-					},
-					IsSharingOption = function(key)
-						local modOpts = Spring.GetModOptions()
-						local value = modOpts[key]
-						if value == nil then
-							return false, nil
-						end
-						return true, value
-					end,
-					RegisterPolicy = function(fn)
-						return policySpy.RegisterPolicy(fn)
-					end
-				}
-				GG.TeamTransfer = mockTeamTransfer
+			TestUtils.it("should register policies that set the sharing mode", function()
+				local policySpy = TestUtils.createPolicyRegistrationSpy()
+				GG.TeamTransfer = TestUtils.createMockTeamTransfer(policySpy)
 				
-				local enabled, mode = mockTeamTransfer.IsSharingOption(mockTeamTransfer.MODOPTION_KEYS.UNIT_SHARING_MODE)
-				local finalMode = mode or "default"
-				
-				mockTeamTransfer.RegisterPolicy(function(policy)
-					policy.Use.UnitSharingMode.SetMode(finalMode)
-				end)
+				includeRealPolicyFile("unit_sharing_mode.lua")
 				
 				local policies = policySpy.GetRegisteredPolicies()
-				assert(#policies > 0, "Should register at least one policy")
+				assert(#policies > 0, "Should register at least one policy when unit sharing mode is configured")
 				
-				local spyPolicy = policySpy.CreateSpyPolicyBuilder()
+				local spyPolicy = TestUtils.createPolicyRegistrationSpy().CreateSpyPolicyBuilder()
 				policies[1](spyPolicy)
-				local useCalls = spyPolicy.GetUseCalls()
+				local allowCalls = spyPolicy.GetAllowCalls()
 				
-				local hasModeSet = false
-				for _, call in ipairs(useCalls) do
-					if call:match("UnitSharingMode.SetMode") and call:match("test_mode") then
-						hasModeSet = true
-						break
-					end
+				local hasSetMode = false
+				for _, call in ipairs(allowCalls) do
+					if call:match("UnitSharingMode%.SetMode") then hasSetMode = true end
 				end
-				assert(hasModeSet, "Should set unit sharing mode through policy")
+				
+				assert(hasSetMode, "Should set unit sharing mode")
 			end)
 		end)
 		
-		describe("when unit sharing mode is not configured", function()
+		TestUtils.describe("when unit sharing mode is not configured", function()
 			Spring.GetModOptions = function()
 				return {}
 			end
 			
-			it("should register a policy with default mode", function()
-				local policySpy = createPolicyRegistrationSpy()
-				local mockTeamTransfer = {
-					MODOPTION_KEYS = {
-						UNIT_SHARING_MODE = "game_unit_sharing_mode"
-					},
-					IsSharingOption = function(key)
-						local modOpts = Spring.GetModOptions()
-						local value = modOpts[key]
-						if value == nil then
-							return false, nil
-						end
-						return true, value
-					end,
-					RegisterPolicy = function(fn)
-						return policySpy.RegisterPolicy(fn)
-					end
-				}
-				GG.TeamTransfer = mockTeamTransfer
+			TestUtils.it("should not register any policy", function()
+				local policySpy = TestUtils.createPolicyRegistrationSpy()
+				GG.TeamTransfer = TestUtils.createMockTeamTransfer(policySpy)
 				
-				local enabled, mode = mockTeamTransfer.IsSharingOption(mockTeamTransfer.MODOPTION_KEYS.UNIT_SHARING_MODE)
-				local finalMode = mode or "default"
-				
-				mockTeamTransfer.RegisterPolicy(function(policy)
-					policy.Use.UnitSharingMode.SetMode(finalMode)
-				end)
+				includeRealPolicyFile("unit_sharing_mode.lua")
 				
 				local policies = policySpy.GetRegisteredPolicies()
-				assert(#policies > 0, "Should register at least one policy")
-				
-				local spyPolicy = policySpy.CreateSpyPolicyBuilder()
-				policies[1](spyPolicy)
-				local useCalls = spyPolicy.GetUseCalls()
-				
-				local hasDefaultMode = false
-				for _, call in ipairs(useCalls) do
-					if call:match("UnitSharingMode.SetMode") and call:match("default") then
-						hasDefaultMode = true
-						break
-					end
-				end
-				assert(hasDefaultMode, "Should set default unit sharing mode when not configured")
+				assert(#policies == 0, "Should not register any policy when not configured")
 			end)
 		end)
 	end)

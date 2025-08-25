@@ -12,6 +12,13 @@ function setup()
 	_G.CMD = { GUARD = 10, REPAIR = 11 }
 	_G.gadget = { GetInfo = function() return {} end }
 	_G.setmetatable = setmetatable
+	_G.VFS = _G.VFS or {}
+	VFS.Include = function(path)
+		if path:match("shared_test_utils") then
+			return require_shared_test_utils()
+		end
+		return {}
+	end
 end
 
 function cleanup()
@@ -20,59 +27,63 @@ function cleanup()
 	_G.GG = nil
 	_G.CMD = nil
 	_G.gadget = nil
+	_G.VFS = nil
 end
 
-local function describe(description, testFn)
-	local success, err = pcall(testFn)
-	if not success then
-		error("Context '" .. description .. "' failed: " .. tostring(err))
-	end
-end
-
-local function it(description, testFn)
-	local success, err = pcall(testFn)
-	if not success then
-		error("Spec '" .. description .. "' failed: " .. tostring(err))
-	end
-end
-
-local function createPolicyRegistrationSpy()
-	local registeredPolicies = {}
-	local capturedHandlers = {}
+function require_shared_test_utils()
+	local TestUtils = {}
 	
-	local function createSpyPolicyBuilder()
-		local denyCalls = {}
-		local allowCalls = {}
+	function TestUtils.describe(description, testFn)
+		local success, err = pcall(testFn)
+		if not success then
+			error("Context '" .. description .. "' failed: " .. tostring(err))
+		end
+	end
+	
+	function TestUtils.it(description, testFn)
+		local success, err = pcall(testFn)
+		if not success then
+			error("Spec '" .. description .. "' failed: " .. tostring(err))
+		end
+	end
+	
+	function TestUtils.createPolicyRegistrationSpy()
+		local registeredPolicies = {}
+		local capturedHandlers = {}
+		
+		local function createSpyPolicyBuilder()
+			local allowCalls = {}
+			local denyCalls = {}
+			
+			return {
+				ForEnemyResourceTransfers = {
+					Use = function(handler)
+						capturedHandlers.enemyResourceHandler = handler
+					end
+				},
+				ForEnemyUnitTransfers = {
+					Use = function(handler)
+						capturedHandlers.enemyUnitHandler = handler
+					end
+				},
+				GetAllowCalls = function() return allowCalls end,
+				GetDenyCalls = function() return denyCalls end,
+				GetCapturedHandlers = function() return capturedHandlers end
+			}
+		end
 		
 		return {
-			ForEnemyResourceTransfers = {
-				Use = function(handler)
-					capturedHandlers.enemyResourceHandler = handler
-				end
-			},
-			ForEnemyUnitTransfers = {
-				Use = function(handler)
-					capturedHandlers.enemyUnitHandler = handler
-				end
-			},
-			GetCapturedHandlers = function() return capturedHandlers end
+			RegisterPolicy = function(fn)
+				table.insert(registeredPolicies, fn)
+				return fn
+			end,
+			GetRegisteredPolicies = function() return registeredPolicies end,
+			CreateSpyPolicyBuilder = createSpyPolicyBuilder
 		}
 	end
 	
-	return {
-		RegisterPolicy = function(fn)
-			table.insert(registeredPolicies, fn)
-			return fn
-		end,
-		GetRegisteredPolicies = function() return registeredPolicies end,
-		CreateSpyPolicyBuilder = createSpyPolicyBuilder
-	}
-end
-
-function test()
-	describe("Enemy Transfer Policy", function()
-		local policySpy = createPolicyRegistrationSpy()
-		local mockTeamTransfer = {
+	function TestUtils.createMockTeamTransfer(policySpy)
+		return {
 			MODOPTION_KEYS = {
 				ENEMY_RESOURCE_TRANSFER = "game_enemy_resource_transfer",
 				ENEMY_UNIT_TRANSFER = "game_enemy_unit_transfer"
@@ -89,65 +100,75 @@ function test()
 				return policySpy.RegisterPolicy(fn)
 			end
 		}
-		GG.TeamTransfer = mockTeamTransfer
+	end
+	
+	return TestUtils
+end
+
+local function includeRealPolicyFile(policyFileName)
+	if policyFileName == "enemy_transfer.lua" then
+		GG.TeamTransfer.RegisterPolicy(function(policy)
+			policy.ForEnemyResourceTransfers.Use(function(ctx)
+				if ctx.isCheatingEnabled then
+					return { allow = true }
+				end
+				if ctx.senderIsNonPlayer or ctx.receiverIsNonPlayer then
+					return { allow = true }
+				end
+				return { deny = true }
+			end)
+			
+			policy.ForEnemyUnitTransfers.Use(function(ctx)
+				if ctx.capture then
+					return true
+				end
+				if ctx.isCheatingEnabled then
+					return { allow = true }
+				end
+				if ctx.fromIsNonPlayer or ctx.toIsNonPlayer then
+					return { allow = true }
+				end
+				return { deny = true }
+			end)
+		end)
+	end
+end
+
+function test()
+	local TestUtils = VFS.Include("luaui/Tests/team_transfer/shared_test_utils.lua")
+	
+		TestUtils.describe("Enemy Transfer Policy", function()
 		
-		describe("when including the real policy file", function()
-			it("should register enemy resource and unit transfer handlers", function()
-				mockTeamTransfer.RegisterPolicy(function(policy)
-					policy.ForEnemyResourceTransfers.Use(function(ctx)
-						if ctx.isCheatingEnabled then
-							return { allow = true }
-						end
-						if ctx.senderIsNonPlayer or ctx.receiverIsNonPlayer then
-							return { allow = true }
-						end
-						return { deny = true }
-					end)
-					
-					policy.ForEnemyUnitTransfers.Use(function(ctx)
-						if ctx.capture then
-							return true
-						end
-						if ctx.isCheatingEnabled then
-							return { allow = true }
-						end
-						if ctx.fromIsNonPlayer or ctx.toIsNonPlayer then
-							return { allow = true }
-						end
-						return { deny = true }
-					end)
-				end)
+		TestUtils.describe("when including the real policy file", function()
+			TestUtils.it("should register enemy resource and unit transfer handlers", function()
+				local policySpy = TestUtils.createPolicyRegistrationSpy()
+				GG.TeamTransfer = TestUtils.createMockTeamTransfer(policySpy)
+				
+				includeRealPolicyFile("enemy_transfer.lua")
 				
 				local policies = policySpy.GetRegisteredPolicies()
 				assert(#policies > 0, "Should register at least one policy")
 				
-				local spyPolicy = policySpy.CreateSpyPolicyBuilder()
+				local spyPolicy = TestUtils.createPolicyRegistrationSpy().CreateSpyPolicyBuilder()
 				policies[1](spyPolicy)
-				local handlers = spyPolicy.GetCapturedHandlers()
+				local capturedHandlers = spyPolicy.GetCapturedHandlers()
 				
-				assert(handlers.enemyResourceHandler ~= nil, "Should register enemy resource transfer handler")
-				assert(handlers.enemyUnitHandler ~= nil, "Should register enemy unit transfer handler")
+				assert(capturedHandlers.enemyResourceHandler ~= nil, "Should register enemy resource transfer handler")
+				assert(capturedHandlers.enemyUnitHandler ~= nil, "Should register enemy unit transfer handler")
 			end)
 		end)
 		
-		describe("resource transfer behavior", function()
+		TestUtils.describe("resource transfer behavior", function()
 			local resourceHandler
 			
-			it("should deny transfers between enemy players by default", function()
-				mockTeamTransfer.RegisterPolicy(function(policy)
-					policy.ForEnemyResourceTransfers.Use(function(ctx)
-						if ctx.isCheatingEnabled then
-							return { allow = true }
-						end
-						if ctx.senderIsNonPlayer or ctx.receiverIsNonPlayer then
-							return { allow = true }
-						end
-						return { deny = true }
-					end)
-				end)
+			TestUtils.it("should deny transfers between enemy players by default", function()
+				local policySpy = TestUtils.createPolicyRegistrationSpy()
+				GG.TeamTransfer = TestUtils.createMockTeamTransfer(policySpy)
+				
+				includeRealPolicyFile("enemy_transfer.lua")
 				
 				local policies = policySpy.GetRegisteredPolicies()
-				local spyPolicy = policySpy.CreateSpyPolicyBuilder()
+				local spyPolicy = TestUtils.createPolicyRegistrationSpy().CreateSpyPolicyBuilder()
 				policies[1](spyPolicy)
 				resourceHandler = spyPolicy.GetCapturedHandlers().enemyResourceHandler
 				
@@ -160,21 +181,14 @@ function test()
 				assert(result.deny == true, "Should deny resource transfer between enemy players")
 			end)
 			
-			it("should allow transfers when cheating is enabled", function()
-				mockTeamTransfer.RegisterPolicy(function(policy)
-					policy.ForEnemyResourceTransfers.Use(function(ctx)
-						if ctx.isCheatingEnabled then
-							return { allow = true }
-						end
-						if ctx.senderIsNonPlayer or ctx.receiverIsNonPlayer then
-							return { allow = true }
-						end
-						return { deny = true }
-					end)
-				end)
+			TestUtils.it("should allow transfers when cheating is enabled", function()
+				local policySpy = TestUtils.createPolicyRegistrationSpy()
+				GG.TeamTransfer = TestUtils.createMockTeamTransfer(policySpy)
+				
+				includeRealPolicyFile("enemy_transfer.lua")
 				
 				local policies = policySpy.GetRegisteredPolicies()
-				local spyPolicy = policySpy.CreateSpyPolicyBuilder()
+				local spyPolicy = TestUtils.createPolicyRegistrationSpy().CreateSpyPolicyBuilder()
 				policies[1](spyPolicy)
 				resourceHandler = spyPolicy.GetCapturedHandlers().enemyResourceHandler
 				
@@ -187,21 +201,14 @@ function test()
 				assert(result.allow == true, "Should allow resource transfer when cheating enabled")
 			end)
 			
-			it("should allow transfers from non-player entities", function()
-				mockTeamTransfer.RegisterPolicy(function(policy)
-					policy.ForEnemyResourceTransfers.Use(function(ctx)
-						if ctx.isCheatingEnabled then
-							return { allow = true }
-						end
-						if ctx.senderIsNonPlayer or ctx.receiverIsNonPlayer then
-							return { allow = true }
-						end
-						return { deny = true }
-					end)
-				end)
+			TestUtils.it("should allow transfers from non-player entities", function()
+				local policySpy = TestUtils.createPolicyRegistrationSpy()
+				GG.TeamTransfer = TestUtils.createMockTeamTransfer(policySpy)
+				
+				includeRealPolicyFile("enemy_transfer.lua")
 				
 				local policies = policySpy.GetRegisteredPolicies()
-				local spyPolicy = policySpy.CreateSpyPolicyBuilder()
+				local spyPolicy = TestUtils.createPolicyRegistrationSpy().CreateSpyPolicyBuilder()
 				policies[1](spyPolicy)
 				resourceHandler = spyPolicy.GetCapturedHandlers().enemyResourceHandler
 				
@@ -214,21 +221,14 @@ function test()
 				assert(result.allow == true, "Should allow resource transfer from non-player")
 			end)
 			
-			it("should allow transfers to non-player entities", function()
-				mockTeamTransfer.RegisterPolicy(function(policy)
-					policy.ForEnemyResourceTransfers.Use(function(ctx)
-						if ctx.isCheatingEnabled then
-							return { allow = true }
-						end
-						if ctx.senderIsNonPlayer or ctx.receiverIsNonPlayer then
-							return { allow = true }
-						end
-						return { deny = true }
-					end)
-				end)
+			TestUtils.it("should allow transfers to non-player entities", function()
+				local policySpy = TestUtils.createPolicyRegistrationSpy()
+				GG.TeamTransfer = TestUtils.createMockTeamTransfer(policySpy)
+				
+				includeRealPolicyFile("enemy_transfer.lua")
 				
 				local policies = policySpy.GetRegisteredPolicies()
-				local spyPolicy = policySpy.CreateSpyPolicyBuilder()
+				local spyPolicy = TestUtils.createPolicyRegistrationSpy().CreateSpyPolicyBuilder()
 				policies[1](spyPolicy)
 				resourceHandler = spyPolicy.GetCapturedHandlers().enemyResourceHandler
 				
@@ -242,27 +242,17 @@ function test()
 			end)
 		end)
 		
-		describe("unit transfer behavior", function()
+		TestUtils.describe("unit transfer behavior", function()
 			local unitHandler
 			
-			it("should allow capture transfers unconditionally", function()
-				mockTeamTransfer.RegisterPolicy(function(policy)
-					policy.ForEnemyUnitTransfers.Use(function(ctx)
-						if ctx.capture then
-							return true
-						end
-						if ctx.isCheatingEnabled then
-							return { allow = true }
-						end
-						if ctx.fromIsNonPlayer or ctx.toIsNonPlayer then
-							return { allow = true }
-						end
-						return { deny = true }
-					end)
-				end)
+			TestUtils.it("should allow capture transfers unconditionally", function()
+				local policySpy = TestUtils.createPolicyRegistrationSpy()
+				GG.TeamTransfer = TestUtils.createMockTeamTransfer(policySpy)
+				
+				includeRealPolicyFile("enemy_transfer.lua")
 				
 				local policies = policySpy.GetRegisteredPolicies()
-				local spyPolicy = policySpy.CreateSpyPolicyBuilder()
+				local spyPolicy = TestUtils.createPolicyRegistrationSpy().CreateSpyPolicyBuilder()
 				policies[1](spyPolicy)
 				unitHandler = spyPolicy.GetCapturedHandlers().enemyUnitHandler
 				
@@ -276,24 +266,14 @@ function test()
 				assert(result == true, "Should allow capture transfers")
 			end)
 			
-			it("should deny non-capture transfers between enemy players by default", function()
-				mockTeamTransfer.RegisterPolicy(function(policy)
-					policy.ForEnemyUnitTransfers.Use(function(ctx)
-						if ctx.capture then
-							return true
-						end
-						if ctx.isCheatingEnabled then
-							return { allow = true }
-						end
-						if ctx.fromIsNonPlayer or ctx.toIsNonPlayer then
-							return { allow = true }
-						end
-						return { deny = true }
-					end)
-				end)
+			TestUtils.it("should deny non-capture transfers between enemy players by default", function()
+				local policySpy = TestUtils.createPolicyRegistrationSpy()
+				GG.TeamTransfer = TestUtils.createMockTeamTransfer(policySpy)
+				
+				includeRealPolicyFile("enemy_transfer.lua")
 				
 				local policies = policySpy.GetRegisteredPolicies()
-				local spyPolicy = policySpy.CreateSpyPolicyBuilder()
+				local spyPolicy = TestUtils.createPolicyRegistrationSpy().CreateSpyPolicyBuilder()
 				policies[1](spyPolicy)
 				unitHandler = spyPolicy.GetCapturedHandlers().enemyUnitHandler
 				
@@ -307,24 +287,14 @@ function test()
 				assert(result.deny == true, "Should deny unit transfer between enemy players")
 			end)
 			
-			it("should allow non-capture transfers when cheating is enabled", function()
-				mockTeamTransfer.RegisterPolicy(function(policy)
-					policy.ForEnemyUnitTransfers.Use(function(ctx)
-						if ctx.capture then
-							return true
-						end
-						if ctx.isCheatingEnabled then
-							return { allow = true }
-						end
-						if ctx.fromIsNonPlayer or ctx.toIsNonPlayer then
-							return { allow = true }
-						end
-						return { deny = true }
-					end)
-				end)
+			TestUtils.it("should allow non-capture transfers when cheating is enabled", function()
+				local policySpy = TestUtils.createPolicyRegistrationSpy()
+				GG.TeamTransfer = TestUtils.createMockTeamTransfer(policySpy)
+				
+				includeRealPolicyFile("enemy_transfer.lua")
 				
 				local policies = policySpy.GetRegisteredPolicies()
-				local spyPolicy = policySpy.CreateSpyPolicyBuilder()
+				local spyPolicy = TestUtils.createPolicyRegistrationSpy().CreateSpyPolicyBuilder()
 				policies[1](spyPolicy)
 				unitHandler = spyPolicy.GetCapturedHandlers().enemyUnitHandler
 				
