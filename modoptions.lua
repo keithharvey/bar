@@ -266,7 +266,7 @@ local options = {
 		sharing_category = "units",
 		items	= {
 			{ key = "enabled",     name = "Enabled",                     desc = "All unit sharing allowed" },
-			{ key = "t2cons", name = "T2 Constructor Sharing Only", desc = "Only T2 constructors can be shared between allies" },
+			{ key = "t2cons",      name = "T2 Constructor Sharing Only", desc = "Only T2 constructors can be shared between allies" },
 			{ key = "combat",      name = "Combat Units Only",           desc = "Only combat units can be shared (no economic units, factories, or constructors)" },
 			{ key = "combat_t2cons", name = "Combat + T2 Constructors",  desc = "Combat units and T2 constructors can be shared" },
 			{ key = "disabled",    name = "Disabled",                    desc = "No unit sharing allowed" },
@@ -301,16 +301,19 @@ local options = {
 		sharing_category = "resources",
 		depends_on = "tax_resource_sharing_amount",
 	},
-	    {
-        key		= "disable_assist_ally_construction",
-        name	= "Disable Assist Ally Construction",
-        desc	= "Disables assisting allied blueprints and labs.",
-        type	= "bool",
-        section	= "options_main",
-        def		= false,
-        column	= 1,
-        sharing_category = "allied_construction",
-    },
+	{
+		key		= "game_assist_ally",
+		name	= "Ally Assist",
+		desc	= "Controls whether units can assist allied construction and repair",
+		type	= "list",
+		section	= "options_main",
+		def		= "enabled",
+		column	= 1,
+		items	= {
+			{ key = "enabled",  name = "Enabled",  desc = "Units can assist allied construction and repair" },
+			{ key = "disabled", name = "Disabled", desc = "Units cannot assist allied construction and repair" },
+		},
+	},
 
     -- Sharing mode selection (set by Chobby)
     {

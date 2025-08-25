@@ -1,7 +1,7 @@
 local widget = widget ---@type Widget
 
----@type UnitSharing
-local sharing = VFS.Include("common/unit_sharing.lua")
+---@type TeamTransferAPI
+local sharing = VFS.Include("luarules/gadgets/team_transfer/api_widgets.lua")
 local unitSharingMode
 local unitSharingEnabled
 
@@ -3236,9 +3236,7 @@ end
 
 ---------------------------------------------------------------------------------------------------
 --  Share slider gllist
----------------------------------------------------------------------------------------------------
-
-local ShareTax = VFS.Include('common/luaUtilities/resource_share_tax.lua')
+-------------------------------------------------------------------------------------------------
 
 function CreateShareSlider()
     if ShareSlider then

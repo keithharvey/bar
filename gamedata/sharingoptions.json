@@ -30,8 +30,8 @@
             "max": 0
           }
         },
-        "disable_assist_ally_construction": {
-          "value": true,
+        "game_assist_ally": {
+          "value": "disabled",
           "locked": true
         }
       }
@@ -67,8 +67,8 @@
             "step": 10
           }
         },
-        "disable_assist_ally_construction": {
-          "value": true,
+        "game_assist_ally": {
+          "value": "disabled",
           "locked": true
         }
       }
@@ -99,8 +99,8 @@
           "locked": true,
           "ui": "hidden"
         },
-        "disable_assist_ally_construction": {
-          "value": false,
+        "game_assist_ally": {
+          "value": "enabled",
           "locked": true
         }
       }
@@ -112,7 +112,10 @@
       "allowRanked": false,
       "options": {
         "unit_sharing_mode": {
-          "locked": false
+          "locked": false,
+          "bounds": {
+            "items": ["enabled", "t2cons", "combat", "combat_t2cons", "disabled"]
+          }
         },
         "tax_resource_sharing_amount": {
           "locked": false
@@ -121,7 +124,7 @@
           "value": 0,
           "locked": false
         },
-        "disable_assist_ally_construction": {
+        "game_assist_ally": {
           "locked": false
         }
       }

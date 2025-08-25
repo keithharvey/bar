@@ -1,0 +1,220 @@
+-- Comprehensive type definitions for Team Transfer API
+-- This file is for intellisense only and should not be executed
+-- Covers both synced (gadget) and unsynced (widget) APIs
+
+---Global gadget-to-gadget communication table
+---@class GG
+---@field TeamTransfer TeamTransferAPI
+
+---Global widget-to-widget communication table  
+---@class WG
+---@field TeamTransfer TeamTransferAPI
+
+---@class TeamTransferPolicyContext
+---@field type string
+---@field resource? "metal"|"energy"
+---@field amount? number
+---@field amountClamped? number
+---@field maxShare? number
+---@field receiverCur? number
+---@field cumulativeMetal? number
+---@field senderTeamId? number
+---@field receiverTeamId? number
+---@field fromTeamID? number
+---@field toTeamID? number
+---@field areAlliedTeams? boolean
+---@field isCheatingEnabled? boolean
+---@field senderIsNonPlayer? boolean
+---@field receiverIsNonPlayer? boolean
+---@field fromIsNonPlayer? boolean
+---@field toIsNonPlayer? boolean
+---@field capture? boolean
+---@field takeBypassAllowed? boolean
+---@field unitID? number
+---@field unitDefID? number
+---@field unitTeam? number
+---@field commandID? number
+---@field cmdID? number
+---@field cmdParams? number[]
+---@field cmdOptions? table
+---@field cmdTag? number
+---@field synced? boolean
+---@field targetID? number
+---@field targetTeam? number
+---@field targetUnitDef? table
+---@field targetAllied? boolean
+---@field targetIsComplete? boolean
+---@field teamID? number
+---@field eventType? "PlayerAbandoned"|"TeamDestroyed"|"PlayerReconnected"
+---@field playerID? number
+---@field gameFrame? number
+
+---@class TeamTransferApplyTransfer
+---@field sent number
+---@field received number
+---@field updateCumulativeMetal? boolean
+
+---@class TeamTransferApplyCommands
+---@field ClearLoad? number[] -- unitIDs to clear load orders from
+---@field ClearSelfD? number[] -- unitIDs to clear self-destruct orders from
+---@field ClearTeamSelfD? number[] -- teamIDs to clear all self-destruct orders from
+---@field RemoveCommands? {unitID: number, cmdID: number, options?: string[]}[] -- commands to remove from units
+---@field GiveCommands? {unitID: number, cmdID: number, params?: number[], options?: string[]}[] -- new commands to give to units
+
+---@class TeamTransferExpose
+---@field taxRate? number
+---@field threshold? number
+
+---@class TeamTransferResultTable
+---@field allow? boolean -- explicitly allow the transfer
+---@field deny? boolean -- explicitly deny the transfer
+---@field applyTransfer? TeamTransferApplyTransfer -- modify the transfer amounts
+---@field applyCommands? TeamTransferApplyCommands -- apply commands to units during transfer
+---@field expose? TeamTransferExpose -- expose data to the UI
+
+---@alias TeamTransferResult boolean|TeamTransferResultTable|nil
+---@alias TeamTransferPredicate fun(ctx: TeamTransferPolicyContext): boolean
+---@alias TeamTransferHandler fun(ctx: TeamTransferPolicyContext): TeamTransferResult
+
+---Base policy builder with fluent interface methods
+---@class PolicyBuilderBase
+---Add a condition predicate to the policy
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:39 When() implementation
+---@field When fun(self: PolicyBuilderBase, predicate: TeamTransferPredicate): PolicyBuilderBase
+---Set the handler function for the policy
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:48 Use() implementation
+---@field Use fun(self: PolicyBuilderBase, handler: TeamTransferHandler): PolicyBuilderBase
+---Create an allow policy (shorthand for Use with allow result)
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:53 Allow() implementation
+---@field Allow fun(self: PolicyBuilderBase): PolicyBuilderBase
+---Create a deny policy (shorthand for Use with deny result)
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:58 Deny() implementation
+---@field Deny fun(self: PolicyBuilderBase): PolicyBuilderBase
+
+---Policy builder for commands with Allied/Enemy scope selection
+---@class CommandPolicyContainer
+---Get Allied scope policy builder
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:69 Allied() implementation
+---@field Allied fun(self: CommandPolicyContainer): PolicyBuilderBase
+---Get Enemy scope policy builder
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:70 Enemy() implementation  
+---@field Enemy fun(self: CommandPolicyContainer): PolicyBuilderBase
+
+---Policy builder for transfers with Allied/Enemy scope selection
+---@class TransferPolicyContainer
+---Get Allied scope policy builder
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:69 Allied() implementation
+---@field Allied fun(self: TransferPolicyContainer): PolicyBuilderBase
+---Get Enemy scope policy builder
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:70 Enemy() implementation
+---@field Enemy fun(self: TransferPolicyContainer): PolicyBuilderBase
+
+---Command policy builders organized by command type
+---@class CommandPolicyBuilders
+---Get Guard command policy builder
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:115 Guard definition
+---@field Guard fun(): CommandPolicyContainer
+---Get Repair command policy builder
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:127 Repair definition
+---@field Repair fun(): CommandPolicyContainer
+---Get Reclaim command policy builder
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:134 Reclaim definition
+---@field Reclaim fun(): CommandPolicyContainer
+
+---Team event policy builders organized by event type
+---@class TeamEventPolicyBuilders
+---Get policy builder for player abandonment events
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:161 PlayerAbandoned definition
+---@field PlayerAbandoned fun(): PolicyBuilderBase
+---Get policy builder for team destruction events
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:164 TeamDestroyed definition
+---@field TeamDestroyed fun(): PolicyBuilderBase
+---Get policy builder for player reconnection events
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:167 PlayerReconnected definition
+---@field PlayerReconnected fun(): PolicyBuilderBase
+
+---Main policy builder with all configuration options
+---@class PolicyBuilder
+
+---Flat, scope-specific builder helpers (preferred API for discoverability)
+---Create Guard command policy for Allied scope
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:113 GuardAllied implementation
+---@field GuardAllied PolicyBuilderBase
+---Create Guard command policy for Enemy scope
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:121 GuardEnemy implementation
+---@field GuardEnemy PolicyBuilderBase
+---Create Repair command policy for Allied scope
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:129 RepairAllied implementation
+---@field RepairAllied PolicyBuilderBase
+---Create Repair command policy for Enemy scope
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:137 RepairEnemy implementation
+---@field RepairEnemy PolicyBuilderBase
+---Create Reclaim command policy for Allied scope
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:145 ReclaimAllied implementation
+---@field ReclaimAllied PolicyBuilderBase
+---Create Reclaim command policy for Enemy scope
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:152 ReclaimEnemy implementation
+---@field ReclaimEnemy PolicyBuilderBase
+---Create Resource Transfer policy for Allied scope
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:159 ResourceTransferAllied implementation
+---@field ResourceTransferAllied PolicyBuilderBase
+---Create Resource Transfer policy for Enemy scope
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:165 ResourceTransferEnemy implementation
+---@field ResourceTransferEnemy PolicyBuilderBase
+---Create Unit Transfer policy for Allied scope
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:171 UnitTransferAllied implementation
+---@field UnitTransferAllied PolicyBuilderBase
+---Create Unit Transfer policy for Enemy scope
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:177 UnitTransferEnemy implementation
+---@field UnitTransferEnemy PolicyBuilderBase
+
+---@class TeamTransferAPI
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:8 PolicyType constants
+---@field PolicyType { ResourceTransfer: string, UnitTransfer: string, Command: string, TeamEvent: string }
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:15 Scope constants
+---@field Scope { Allied: string, Enemy: string }
+
+
+---Get all registered policies by type
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:190 Implementation
+---@field GetPolicies fun(): table
+---Get the legacy pipeline callbacks
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:194 Implementation
+---@field GetPipeline fun(): table
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:199 UnitSharing module
+---@field UnitSharing table
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:200 ResourceShareTax module
+---@field ResourceShareTax table
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:201 MODOPTION_KEYS module
+---@field MODOPTION_KEYS table
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:203 Predicates module
+---@field Predicates table
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:204 Units module
+---@field Units table
+---Check if a modoption key is enabled in the current sharing mode
+---@see luarules/gadgets/team_transfer/api_gadgets.lua:228 Implementation
+---@field IsSharingOption fun(modoptionKey: string): boolean
+---Get the current unit sharing mode from modoptions
+---@see luarules/gadgets/team_transfer/unit_sharing.lua UnitSharing.getUnitSharingMode
+---@field getUnitSharingMode fun(): string
+---Count shareable vs unshareable units for a given mode
+---@see luarules/gadgets/team_transfer/unit_sharing.lua UnitSharing.countUnshareable
+---@field countUnshareable fun(unitIDs: number[], mode: string): number, number, number
+---Check if share button should be shown for selected units
+---@see luarules/gadgets/team_transfer/unit_sharing.lua UnitSharing.shouldShowShareButton
+---@field shouldShowShareButton fun(unitIDs: number[], mode: string): boolean
+---Get error message for blocked sharing attempts
+---@see luarules/gadgets/team_transfer/unit_sharing.lua UnitSharing.blockMessage
+---@field blockMessage fun(unshareable: number?, mode: string): string
+---Check if unit sharing is allowed by current mode
+---@see luarules/gadgets/team_transfer/unit_sharing.lua UnitSharing.isUnitShareAllowedByMode
+---@field isUnitShareAllowedByMode fun(unitIDs: number[], mode: string): boolean
+---Compute resource transfer with tax calculations
+---@see luarules/gadgets/team_transfer/resource_share_tax.lua ResourceShareTax.computeTransfer
+---@field computeTransfer fun(...): table
+---Handle share button click with full validation and unit sharing
+---@see luarules/gadgets/team_transfer/api_widgets.lua:71 Implementation
+---@field handleShareButtonClick fun(targetTeamID: number): boolean
+---Validate whether a share command should proceed based on sharing mode
+---@see luarules/gadgets/team_transfer/api_widgets.lua:99 Implementation
+---@field validateShareCommand fun(): boolean

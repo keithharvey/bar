@@ -1,6 +1,8 @@
 -- Shared helper for resource share tax calculations
 -- Usable from both LuaRules (gadgets) and LuaUI (widgets)
 
+---@load-file luaui/types/team_transfer.lua
+
 local Tax = {}
 
 local function sanitizeNumber(n, fallback)
@@ -10,21 +12,14 @@ local function sanitizeNumber(n, fallback)
 	return n
 end
 
--- Calculates transfer breakdown given an intended transfer amount that already respects receiver caps
--- resourceName: 'metal' or 'energy'
--- amount: number (>= 0), already limited by receiver max share/storage rules
--- taxRate: 0..1 (fraction)
--- threshold: for metal only, total amount a sender can send tax-free cumulatively
--- cumulativeSent: current cumulative amount the sender already sent (for metal)
--- Returns table:
--- {
---   actualSent,         -- amount removed from sender
---   actualReceived,     -- amount added to receiver
---   untaxedPortion,     -- portion of amount not taxed (metal within remaining allowance)
---   taxablePortion,     -- portion of amount taxed
---   allowanceRemaining, -- metal allowance left before this transfer
---   newCumulative,      -- updated cumulative (metal only)
--- }
+---Compute resource transfer with tax calculations
+---Calculates transfer breakdown given an intended transfer amount that already respects receiver caps
+---@param resourceName "metal"|"energy"|"m"|"e" Resource type
+---@param amount number Amount to transfer (>= 0), already limited by receiver max share/storage rules
+---@param taxRate number Tax rate as fraction (0..1)
+---@param threshold number For metal only, total amount a sender can send tax-free cumulatively
+---@param cumulativeSent number Current cumulative amount the sender already sent (for metal)
+---@return {actualSent: number, actualReceived: number, untaxedPortion: number, taxablePortion: number, allowanceRemaining: number, newCumulative: number?}
 function Tax.computeTransfer(resourceName, amount, taxRate, threshold, cumulativeSent)
 	resourceName = resourceName == 'm' and 'metal' or (resourceName == 'e' and 'energy' or resourceName)
 	amount = sanitizeNumber(amount, 0)
