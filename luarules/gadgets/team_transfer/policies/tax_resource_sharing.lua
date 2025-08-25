@@ -47,13 +47,29 @@ GG.TeamTransfer.RegisterPolicy(function(policy)
 		end
 
 		local cumulative = (ctx.resource == "metal") and (ctx.cumulativeMetal or 0) or 0
+		
+		if ctx.resource == "metal" then
+			Spring.Echo("[TAX POLICY DEBUG] Transfer attempt: amount=" .. ctx.amountClamped .. ", cumulative=" .. cumulative .. ", taxRate=" .. taxRate .. ", threshold=" .. metalThreshold)
+		end
+		
 		local breakdown = Tax.computeTransfer(ctx.resource, ctx.amountClamped, taxRate, metalThreshold, cumulative)
+
+		if ctx.resource == "metal" then
+			Spring.Echo("[TAX POLICY DEBUG] Breakdown: actualSent=" .. (breakdown.actualSent or 0) .. ", actualReceived=" .. (breakdown.actualReceived or 0) .. ", allowanceRemaining=" .. (breakdown.allowanceRemaining or 0))
+		end
 
 		local sent = math.min(breakdown.actualSent or 0, ctx.amount)
 		local received = math.min(breakdown.actualReceived or 0, ctx.amountClamped)
 
 		if sent <= 0 then
+			if ctx.resource == "metal" then
+				Spring.Echo("[TAX POLICY DEBUG] Transfer DENIED: sent=" .. sent)
+			end
 			return { allow = false }
+		end
+
+		if ctx.resource == "metal" then
+			Spring.Echo("[TAX POLICY DEBUG] Transfer APPROVED: sent=" .. sent .. ", received=" .. received)
 		end
 
 		return {

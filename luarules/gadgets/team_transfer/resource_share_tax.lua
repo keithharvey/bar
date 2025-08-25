@@ -41,6 +41,7 @@ function Tax.computeTransfer(resourceName, amount, taxRate, threshold, cumulativ
 		allowanceRemaining = math.max(0, threshold - cumulativeSent)
 		untaxedPortion = math.min(amount, allowanceRemaining)
 		taxablePortion = amount - untaxedPortion
+		Spring.Echo("[TAX COMPUTE DEBUG] Metal threshold calc: threshold=" .. threshold .. ", cumulative=" .. cumulativeSent .. ", allowance=" .. allowanceRemaining .. ", untaxed=" .. untaxedPortion .. ", taxable=" .. taxablePortion)
 		if taxablePortion > 0 then
 			local taxedPortionReceived = taxablePortion * (1 - taxRate)
 			local taxedPortionSent
