@@ -44,6 +44,16 @@ function gadget:Initialize()
 		VFS.Include(policyFile)
 	end
 	
+	-- Initialize threshold parameters for all teams (restore working 3d92b6cef7 behavior)
+	local sharingTax = Spring.GetModOptions().tax_resource_sharing_amount or 0
+	local metalTaxThreshold = Spring.GetModOptions().player_metal_send_threshold or 0
+	local teamList = Spring.GetTeamList()
+	for _, senderID in ipairs(teamList) do
+		Spring.SetTeamRulesParam(senderID, "metal_share_cumulative_sent", 0)
+		Spring.SetTeamRulesParam(senderID, "metal_share_threshold", metalTaxThreshold)
+		Spring.SetTeamRulesParam(senderID, "resource_share_tax_rate", sharingTax)
+	end
+	
 	-- Initialize player monitoring
 	local players = Spring.GetPlayerList()
 	for _, playerID in pairs(players) do
