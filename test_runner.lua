@@ -325,7 +325,19 @@ local function findTestFiles(pattern)
         "luaui/Tests/team_transfer/unit/test_unit_sharing_logic.lua",
         "luaui/Tests/team_transfer/test_ally_assist.lua",
         "luaui/Tests/team_transfer/test_unit_sharing.lua",
-        "luaui/Tests/team_transfer/test_policies.lua"
+        "luaui/Tests/team_transfer/test_policies.lua",
+        "luaui/Tests/team_transfer/gadgets/team_transfer/policies/test_assist_ally.lua",
+        "luaui/Tests/team_transfer/gadgets/team_transfer/policies/test_enemy_transfer.lua",
+        "luaui/Tests/team_transfer/gadgets/team_transfer/policies/test_unit_sharing_mode.lua",
+        "luaui/Tests/team_transfer/gadgets/team_transfer/policies/test_tax_resource_sharing.lua",
+        "luaui/Tests/team_transfer/gadgets/team_transfer/policies/test_system_cleanup.lua",
+        "luaui/Tests/team_transfer/gadgets/team_transfer/test_pipeline.lua",
+        "luaui/Tests/team_transfer/gadgets/team_transfer/test_resource_share_tax.lua",
+        "luaui/Tests/team_transfer/gadgets/team_transfer/test_unit_sharing.lua",
+        "luaui/Tests/team_transfer/gadgets/team_transfer/test_predicates.lua",
+        "luaui/Tests/team_transfer/gadgets/team_transfer/test_resources.lua",
+        "luaui/Tests/team_transfer/gadgets/team_transfer/test_state.lua",
+        "luaui/Tests/team_transfer/gadgets/team_transfer/test_sharing_mode_utils.lua"
     }
     
     for _, file in ipairs(knownTests) do
