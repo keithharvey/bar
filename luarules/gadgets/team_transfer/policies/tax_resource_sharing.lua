@@ -21,17 +21,12 @@ local Predicates = GG.TeamTransfer.Predicates
 local MODOPTION_KEYS = GG.TeamTransfer.MODOPTION_KEYS
 
 local enabled, taxRate = GG.TeamTransfer.IsSharingOption(MODOPTION_KEYS.TAX_RESOURCE_SHARING_AMOUNT)
-local metalEnabled, metalThreshold = GG.TeamTransfer.IsSharingOption(MODOPTION_KEYS.PLAYER_METAL_SEND_THRESHOLD)
 
-local hasTax = enabled and (tonumber(taxRate) or 0) > 0
-local hasThreshold = metalEnabled and (tonumber(metalThreshold) or 0) > 0
-
-if not hasTax and not hasThreshold then
+if not enabled or (tonumber(taxRate) or 0) == 0 then
 	return
 end
 
-taxRate = (tonumber(taxRate) or 0)
-metalThreshold = metalEnabled and (tonumber(metalThreshold) or 0) or 0
+taxRate = tonumber(taxRate) or 0
 
 GG.TeamTransfer.RegisterPolicy(function(policy)
 	
@@ -41,7 +36,7 @@ GG.TeamTransfer.RegisterPolicy(function(policy)
 		end
 
 		local cumulative = (ctx.resource == "metal") and (ctx.cumulativeMetal or 0) or 0
-		local breakdown = Tax.computeTransfer(ctx.resource, ctx.amountClamped, taxRate, metalThreshold, cumulative)
+		local breakdown = Tax.computeTransfer(ctx.resource, ctx.amountClamped, taxRate, 0, cumulative)
 
 		local sent = math.min(breakdown.actualSent or 0, ctx.amount)
 		local received = math.min(breakdown.actualReceived or 0, ctx.amountClamped)
@@ -54,7 +49,6 @@ GG.TeamTransfer.RegisterPolicy(function(policy)
 			},
 			expose = {
 				taxRate = taxRate,
-				threshold = metalThreshold,
 			}
 		}
 	end)
