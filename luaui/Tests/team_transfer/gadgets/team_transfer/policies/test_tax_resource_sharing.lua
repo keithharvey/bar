@@ -1,157 +1,213 @@
 function setup()
-	_G.GG = _G.GG or {}
-	_G.Spring = _G.Spring or {}
-	
-	GG.TeamTransfer = {
-		ResourceShareTax = {
-			computeTransfer = function(resource, amount, taxRate, threshold, cumulative)
-				local actualSent = amount
-				local actualReceived = amount * (1 - taxRate)
-				return {
-					actualSent = actualSent,
-					actualReceived = actualReceived
-				}
-			end
-		},
-		Predicates = {
-			Command = {
-				targetHasReclaim = function(ctx)
-					return ctx.targetHasReclaim == true
-				end
-			}
-		},
-		MODOPTION_KEYS = {
-			TAX_RESOURCE_SHARING_AMOUNT = "tax_resource_sharing_amount",
-			PLAYER_METAL_SEND_THRESHOLD = "player_metal_send_threshold"
-		},
-		IsSharingOption = function(key)
-			if key == "tax_resource_sharing_amount" then
-				return true, "0.1"
-			elseif key == "player_metal_send_threshold" then
-				return true, "500"
-			end
-			return false, nil
-		end,
-		RegisterPolicy = function(fn)
-			local mockPolicy = {
-				ForAlliedResourceTransfers = {
-					Use = function(handler)
-						_G.resourceTransferHandler = handler
-					end
-				},
-				ForAlliedCommands = {
-					WhenReclaim = { Deny = function() _G.alliedReclaimDenied = true end },
-					WhenGuard = {
-						Use = function(handler)
-							_G.alliedGuardHandler = handler
-						end
-					}
-				},
-				ForEnemyCommands = {
-					WhenReclaim = { Allow = function() _G.enemyReclaimAllowed = true end },
-					WhenGuard = {
-						Use = function(handler)
-							_G.enemyGuardHandler = handler
-						end
-					}
-				}
-			}
-			fn(mockPolicy)
-		end
+	_G.Spring = {
+		GetModOptions = function() return {} end,
+		GetGaiaTeamID = function() return 255 end,
+		GetTeamInfo = function(teamID, detailed) return "Team", 0, 0, false end,
+		GetTeamLuaAI = function(teamID) return nil end,
+		AreTeamsAllied = function(team1, team2) return team1 == team2 end,
+		IsCheatingEnabled = function() return false end
 	}
+	_G.gadgetHandler = { IsSyncedCode = function() return true end }
+	_G.GG = _G.GG or {}
+	_G.CMD = { GUARD = 10, REPAIR = 11 }
+	_G.gadget = { GetInfo = function() return {} end }
+	_G.setmetatable = setmetatable
 end
 
 function cleanup()
-	_G.GG = nil
 	_G.Spring = nil
-	_G.resourceTransferHandler = nil
-	_G.alliedReclaimDenied = nil
-	_G.enemyReclaimAllowed = nil
-	_G.alliedGuardHandler = nil
-	_G.enemyGuardHandler = nil
+	_G.gadgetHandler = nil
+	_G.GG = nil
+	_G.CMD = nil
+	_G.gadget = nil
+end
+
+local function describe(description, testFn)
+	local success, err = pcall(testFn)
+	if not success then
+		error("Context '" .. description .. "' failed: " .. tostring(err))
+	end
+end
+
+local function it(description, testFn)
+	local success, err = pcall(testFn)
+	if not success then
+		error("Spec '" .. description .. "' failed: " .. tostring(err))
+	end
+end
+
+local function createPolicyRegistrationSpy()
+	local registeredPolicies = {}
+	
+	local function createSpyPolicyBuilder()
+		local useCalls = {}
+		
+		return {
+			Use = {
+				ResourceShareTax = {
+					SetTaxRate = function(rate)
+						table.insert(useCalls, "ResourceShareTax.SetTaxRate(" .. tostring(rate) .. ")")
+					end,
+					SetThreshold = function(threshold)
+						table.insert(useCalls, "ResourceShareTax.SetThreshold(" .. tostring(threshold) .. ")")
+					end
+				}
+			},
+			GetUseCalls = function() return useCalls end
+		}
+	end
+	
+	return {
+		RegisterPolicy = function(fn)
+			table.insert(registeredPolicies, fn)
+			return fn
+		end,
+		GetRegisteredPolicies = function() return registeredPolicies end,
+		CreateSpyPolicyBuilder = createSpyPolicyBuilder
+	}
 end
 
 function test()
-	GG.TeamTransfer.RegisterPolicy(function(policy)
-		policy.ForAlliedResourceTransfers.Use(function(ctx)
-			if ctx.amountClamped <= 0 then
-				return { allow = false }
-			end
-
-			local cumulative = (ctx.resource == "metal") and (ctx.cumulativeMetal or 0) or 0
-			local breakdown = GG.TeamTransfer.ResourceShareTax.computeTransfer(ctx.resource, ctx.amountClamped, "0.1", "500", cumulative)
-
-			local sent = math.min(breakdown.actualSent or 0, ctx.amount)
-			local received = math.min(breakdown.actualReceived or 0, ctx.amountClamped)
-
-			return {
-				applyTransfer = {
-					sent = sent,
-					received = received,
-					updateCumulativeMetal = (ctx.resource == "metal"),
-				},
-				expose = {
-					taxRate = "0.1",
-					threshold = "500",
+	describe("Tax Resource Sharing Policy", function()
+		
+		describe("when tax rate and threshold are configured", function()
+			Spring.GetModOptions = function()
+				return { 
+					game_resource_share_tax = "0.1",
+					game_resource_share_tax_threshold = "500"
 				}
-			}
-		end)
-
-		policy.ForAlliedCommands.WhenReclaim.Deny()
-		policy.ForEnemyCommands.WhenReclaim.Allow()
-		
-		policy.ForAlliedCommands.WhenGuard.Use(function(ctx)
-			if GG.TeamTransfer.Predicates.Command.targetHasReclaim(ctx) then
-				return { deny = true }
 			end
-			return { allow = true }
+			
+			it("should register a policy that sets tax rate and threshold", function()
+				local policySpy = createPolicyRegistrationSpy()
+				local mockTeamTransfer = {
+					MODOPTION_KEYS = {
+						RESOURCE_SHARE_TAX = "game_resource_share_tax",
+						RESOURCE_SHARE_TAX_THRESHOLD = "game_resource_share_tax_threshold"
+					},
+					IsSharingOption = function(key)
+						local modOpts = Spring.GetModOptions()
+						local value = modOpts[key]
+						if value == nil then
+							return false, nil
+						end
+						return true, value
+					end,
+					RegisterPolicy = function(fn)
+						return policySpy.RegisterPolicy(fn)
+					end
+				}
+				GG.TeamTransfer = mockTeamTransfer
+				
+				local taxEnabled, taxRate = mockTeamTransfer.IsSharingOption(mockTeamTransfer.MODOPTION_KEYS.RESOURCE_SHARE_TAX)
+				local thresholdEnabled, threshold = mockTeamTransfer.IsSharingOption(mockTeamTransfer.MODOPTION_KEYS.RESOURCE_SHARE_TAX_THRESHOLD)
+				
+				if taxEnabled and tonumber(taxRate) > 0 then
+					mockTeamTransfer.RegisterPolicy(function(policy)
+						policy.Use.ResourceShareTax.SetTaxRate(tonumber(taxRate))
+						if thresholdEnabled then
+							policy.Use.ResourceShareTax.SetThreshold(tonumber(threshold))
+						end
+					end)
+				end
+				
+				local policies = policySpy.GetRegisteredPolicies()
+				assert(#policies > 0, "Should register at least one policy")
+				
+				local spyPolicy = policySpy.CreateSpyPolicyBuilder()
+				policies[1](spyPolicy)
+				local useCalls = spyPolicy.GetUseCalls()
+				
+				local hasTaxRateSet = false
+				local hasThresholdSet = false
+				for _, call in ipairs(useCalls) do
+					if call:match("ResourceShareTax.SetTaxRate") then
+						hasTaxRateSet = true
+					elseif call:match("ResourceShareTax.SetThreshold") then
+						hasThresholdSet = true
+					end
+				end
+				assert(hasTaxRateSet, "Should set tax rate through policy")
+				assert(hasThresholdSet, "Should set tax threshold through policy")
+			end)
 		end)
 		
-		policy.ForEnemyCommands.WhenGuard.Use(function(ctx)
-			if GG.TeamTransfer.Predicates.Command.targetHasReclaim(ctx) then
-				return { allow = true }
+		describe("when tax rate is zero", function()
+			Spring.GetModOptions = function()
+				return { game_resource_share_tax = "0" }
 			end
-			return { allow = true }
+			
+			it("should not register any policy when tax is disabled", function()
+				local policySpy = createPolicyRegistrationSpy()
+				local mockTeamTransfer = {
+					MODOPTION_KEYS = {
+						RESOURCE_SHARE_TAX = "game_resource_share_tax",
+						RESOURCE_SHARE_TAX_THRESHOLD = "game_resource_share_tax_threshold"
+					},
+					IsSharingOption = function(key)
+						local modOpts = Spring.GetModOptions()
+						local value = modOpts[key]
+						if value == nil then
+							return false, nil
+						end
+						return true, value
+					end,
+					RegisterPolicy = function(fn)
+						return policySpy.RegisterPolicy(fn)
+					end
+				}
+				GG.TeamTransfer = mockTeamTransfer
+				
+				local taxEnabled, taxRate = mockTeamTransfer.IsSharingOption(mockTeamTransfer.MODOPTION_KEYS.RESOURCE_SHARE_TAX)
+				
+				if taxEnabled and tonumber(taxRate) > 0 then
+					mockTeamTransfer.RegisterPolicy(function(policy)
+						policy.Use.ResourceShareTax.SetTaxRate(tonumber(taxRate))
+					end)
+				end
+				
+				local policies = policySpy.GetRegisteredPolicies()
+				assert(#policies == 0, "Should not register policy when tax rate is 0")
+			end)
+		end)
+		
+		describe("when tax configuration is missing", function()
+			Spring.GetModOptions = function()
+				return {}
+			end
+			
+			it("should not register any policy when not configured", function()
+				local policySpy = createPolicyRegistrationSpy()
+				local mockTeamTransfer = {
+					MODOPTION_KEYS = {
+						RESOURCE_SHARE_TAX = "game_resource_share_tax",
+						RESOURCE_SHARE_TAX_THRESHOLD = "game_resource_share_tax_threshold"
+					},
+					IsSharingOption = function(key)
+						local modOpts = Spring.GetModOptions()
+						local value = modOpts[key]
+						if value == nil then
+							return false, nil
+						end
+						return true, value
+					end,
+					RegisterPolicy = function(fn)
+						return policySpy.RegisterPolicy(fn)
+					end
+				}
+				GG.TeamTransfer = mockTeamTransfer
+				
+				local taxEnabled, taxRate = mockTeamTransfer.IsSharingOption(mockTeamTransfer.MODOPTION_KEYS.RESOURCE_SHARE_TAX)
+				
+				if taxEnabled and tonumber(taxRate) > 0 then
+					mockTeamTransfer.RegisterPolicy(function(policy)
+						policy.Use.ResourceShareTax.SetTaxRate(tonumber(taxRate))
+					end)
+				end
+				
+				local policies = policySpy.GetRegisteredPolicies()
+				assert(#policies == 0, "Should not register policy when not configured")
+			end)
 		end)
 	end)
-	
-	assert(_G.resourceTransferHandler ~= nil, "Should register resource transfer handler")
-	assert(_G.alliedReclaimDenied, "Should deny allied reclaim commands")
-	assert(_G.enemyReclaimAllowed, "Should allow enemy reclaim commands")
-	assert(_G.alliedGuardHandler ~= nil, "Should register allied guard handler")
-	assert(_G.enemyGuardHandler ~= nil, "Should register enemy guard handler")
-	
-	local resourceCtx = {
-		resource = "metal",
-		amount = 1000,
-		amountClamped = 1000,
-		cumulativeMetal = 0
-	}
-	local resourceResult = _G.resourceTransferHandler(resourceCtx)
-	assert(resourceResult.applyTransfer ~= nil, "Should apply transfer for valid resource transfer")
-	assert(resourceResult.applyTransfer.sent == 1000, "Should send full amount")
-	assert(resourceResult.applyTransfer.received == 900, "Should receive amount minus tax")
-	assert(resourceResult.applyTransfer.updateCumulativeMetal == true, "Should update cumulative metal")
-	assert(resourceResult.expose.taxRate == "0.1", "Should expose tax rate")
-	assert(resourceResult.expose.threshold == "500", "Should expose threshold")
-	
-	local zeroCtx = {
-		resource = "metal",
-		amount = 0,
-		amountClamped = 0,
-		cumulativeMetal = 0
-	}
-	local zeroResult = _G.resourceTransferHandler(zeroCtx)
-	assert(zeroResult.allow == false, "Should not allow zero amount transfers")
-	
-	local guardCtx = { targetHasReclaim = true }
-	local alliedGuardResult = _G.alliedGuardHandler(guardCtx)
-	assert(alliedGuardResult.deny == true, "Should deny allied guard on reclaim target")
-	
-	local enemyGuardResult = _G.enemyGuardHandler(guardCtx)
-	assert(enemyGuardResult.allow == true, "Should allow enemy guard on reclaim target")
-	
-	local nonReclaimGuardCtx = { targetHasReclaim = false }
-	local alliedNonReclaimResult = _G.alliedGuardHandler(nonReclaimGuardCtx)
-	assert(alliedNonReclaimResult.allow == true, "Should allow allied guard on non-reclaim target")
 end

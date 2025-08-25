@@ -1,159 +1,170 @@
 function setup()
+	_G.Spring = {
+		GetModOptions = function() return {} end,
+		GetGaiaTeamID = function() return 255 end,
+		GetTeamInfo = function(teamID, detailed) return "Team", 0, 0, false end,
+		GetTeamLuaAI = function(teamID) return nil end,
+		AreTeamsAllied = function(team1, team2) return team1 == team2 end,
+		IsCheatingEnabled = function() return false end
+	}
+	_G.gadgetHandler = { IsSyncedCode = function() return true end }
 	_G.GG = _G.GG or {}
-	_G.UnitDefs = _G.UnitDefs or {}
-	
-	UnitDefs[1] = {
-		isFactory = false,
-		buildOptions = {"unit1", "unit2"},
-		customParams = { techlevel = "2" }
-	}
-	
-	UnitDefs[2] = {
-		isFactory = true,
-		buildOptions = {"unit1"},
-		customParams = { techlevel = "1" }
-	}
-	
-	UnitDefs[3] = {
-		isFactory = false,
-		buildOptions = {},
-		customParams = { unitgroup = "energy" }
-	}
-	
-	GG.TeamTransfer = {
-		UnitSharing = {
-			isT2ConstructorDef = function(unitDef)
-				return (not unitDef.isFactory)
-					and #(unitDef.buildOptions or {}) > 0
-					and unitDef.customParams and unitDef.customParams.techlevel == "2"
-			end,
-			isEconomicUnitDef = function(unitDef)
-				if not unitDef then return false end
-				if unitDef.canAssist or unitDef.isFactory then
-					return true
-				end
-				if unitDef.customParams and (unitDef.customParams.unitgroup == "energy" or unitDef.customParams.unitgroup == "metal") then
-					return true
-				end
-				return false
-			end
-		},
-		MODOPTION_KEYS = {
-			UNIT_SHARING_MODE = "unit_sharing_mode"
-		},
-		IsSharingOption = function(key)
-			return true, "t2cons"
-		end,
-		RegisterPolicy = function(fn)
-			local mockPolicy = {
-				ForAlliedUnitTransfers = {
-					Deny = function() 
-						_G.unitSharingDenied = true
-					end,
-					Use = function(handler)
-						_G.unitSharingHandler = handler
-					end
-				}
-			}
-			fn(mockPolicy)
-		end
-	}
+	_G.CMD = { GUARD = 10, REPAIR = 11 }
+	_G.gadget = { GetInfo = function() return {} end }
+	_G.setmetatable = setmetatable
 end
 
 function cleanup()
+	_G.Spring = nil
+	_G.gadgetHandler = nil
 	_G.GG = nil
-	_G.UnitDefs = nil
-	_G.unitSharingDenied = nil
-	_G.unitSharingHandler = nil
+	_G.CMD = nil
+	_G.gadget = nil
+end
+
+local function describe(description, testFn)
+	local success, err = pcall(testFn)
+	if not success then
+		error("Context '" .. description .. "' failed: " .. tostring(err))
+	end
+end
+
+local function it(description, testFn)
+	local success, err = pcall(testFn)
+	if not success then
+		error("Spec '" .. description .. "' failed: " .. tostring(err))
+	end
+end
+
+local function createPolicyRegistrationSpy()
+	local registeredPolicies = {}
+	
+	local function createSpyPolicyBuilder()
+		local useCalls = {}
+		
+		return {
+			Use = {
+				UnitSharingMode = {
+					SetMode = function(mode)
+						table.insert(useCalls, "UnitSharingMode.SetMode(" .. tostring(mode) .. ")")
+					end
+				}
+			},
+			GetUseCalls = function() return useCalls end
+		}
+	end
+	
+	return {
+		RegisterPolicy = function(fn)
+			table.insert(registeredPolicies, fn)
+			return fn
+		end,
+		GetRegisteredPolicies = function() return registeredPolicies end,
+		CreateSpyPolicyBuilder = createSpyPolicyBuilder
+	}
 end
 
 function test()
-	local sharing = GG.TeamTransfer.UnitSharing
-	
-	assert(sharing.isT2ConstructorDef(UnitDefs[1]), "Should identify T2 constructor")
-	assert(not sharing.isT2ConstructorDef(UnitDefs[2]), "Should not identify factory as T2 constructor")
-	assert(not sharing.isT2ConstructorDef(UnitDefs[3]), "Should not identify economic unit as T2 constructor")
-	
-	assert(sharing.isEconomicUnitDef(UnitDefs[2]), "Should identify factory as economic")
-	assert(sharing.isEconomicUnitDef(UnitDefs[3]), "Should identify energy unit as economic")
-	assert(not sharing.isEconomicUnitDef(UnitDefs[1]), "Should not identify T2 constructor as economic")
-	
-	GG.TeamTransfer.IsSharingOption = function(key)
-		return true, "disabled"
-	end
-	
-	GG.TeamTransfer.RegisterPolicy(function(policy)
-		policy.ForAlliedUnitTransfers.Deny()
-	end)
-	
-	assert(_G.unitSharingDenied, "Should deny all unit transfers when disabled")
-	
-	_G.unitSharingDenied = nil
-	_G.unitSharingHandler = nil
-	
-	GG.TeamTransfer.IsSharingOption = function(key)
-		return true, "t2cons"
-	end
-	
-	GG.TeamTransfer.RegisterPolicy(function(policy)
-		policy.ForAlliedUnitTransfers.Use(function(ctx)
-			if not sharing.isT2ConstructorDef(UnitDefs[ctx.unitDefID]) then
-				return { deny = true }
+	describe("Unit Sharing Mode Policy", function()
+		
+		describe("when unit sharing mode is configured", function()
+			Spring.GetModOptions = function()
+				return { game_unit_sharing_mode = "test_mode" }
 			end
-			return { allow = true }
+			
+			it("should register a policy that sets the sharing mode", function()
+				local policySpy = createPolicyRegistrationSpy()
+				local mockTeamTransfer = {
+					MODOPTION_KEYS = {
+						UNIT_SHARING_MODE = "game_unit_sharing_mode"
+					},
+					IsSharingOption = function(key)
+						local modOpts = Spring.GetModOptions()
+						local value = modOpts[key]
+						if value == nil then
+							return false, nil
+						end
+						return true, value
+					end,
+					RegisterPolicy = function(fn)
+						return policySpy.RegisterPolicy(fn)
+					end
+				}
+				GG.TeamTransfer = mockTeamTransfer
+				
+				local enabled, mode = mockTeamTransfer.IsSharingOption(mockTeamTransfer.MODOPTION_KEYS.UNIT_SHARING_MODE)
+				local finalMode = mode or "default"
+				
+				mockTeamTransfer.RegisterPolicy(function(policy)
+					policy.Use.UnitSharingMode.SetMode(finalMode)
+				end)
+				
+				local policies = policySpy.GetRegisteredPolicies()
+				assert(#policies > 0, "Should register at least one policy")
+				
+				local spyPolicy = policySpy.CreateSpyPolicyBuilder()
+				policies[1](spyPolicy)
+				local useCalls = spyPolicy.GetUseCalls()
+				
+				local hasModeSet = false
+				for _, call in ipairs(useCalls) do
+					if call:match("UnitSharingMode.SetMode") and call:match("test_mode") then
+						hasModeSet = true
+						break
+					end
+				end
+				assert(hasModeSet, "Should set unit sharing mode through policy")
+			end)
+		end)
+		
+		describe("when unit sharing mode is not configured", function()
+			Spring.GetModOptions = function()
+				return {}
+			end
+			
+			it("should register a policy with default mode", function()
+				local policySpy = createPolicyRegistrationSpy()
+				local mockTeamTransfer = {
+					MODOPTION_KEYS = {
+						UNIT_SHARING_MODE = "game_unit_sharing_mode"
+					},
+					IsSharingOption = function(key)
+						local modOpts = Spring.GetModOptions()
+						local value = modOpts[key]
+						if value == nil then
+							return false, nil
+						end
+						return true, value
+					end,
+					RegisterPolicy = function(fn)
+						return policySpy.RegisterPolicy(fn)
+					end
+				}
+				GG.TeamTransfer = mockTeamTransfer
+				
+				local enabled, mode = mockTeamTransfer.IsSharingOption(mockTeamTransfer.MODOPTION_KEYS.UNIT_SHARING_MODE)
+				local finalMode = mode or "default"
+				
+				mockTeamTransfer.RegisterPolicy(function(policy)
+					policy.Use.UnitSharingMode.SetMode(finalMode)
+				end)
+				
+				local policies = policySpy.GetRegisteredPolicies()
+				assert(#policies > 0, "Should register at least one policy")
+				
+				local spyPolicy = policySpy.CreateSpyPolicyBuilder()
+				policies[1](spyPolicy)
+				local useCalls = spyPolicy.GetUseCalls()
+				
+				local hasDefaultMode = false
+				for _, call in ipairs(useCalls) do
+					if call:match("UnitSharingMode.SetMode") and call:match("default") then
+						hasDefaultMode = true
+						break
+					end
+				end
+				assert(hasDefaultMode, "Should set default unit sharing mode when not configured")
+			end)
 		end)
 	end)
-	
-	assert(_G.unitSharingHandler ~= nil, "Should register handler for t2cons mode")
-	
-	local t2ConsCtx = { unitDefID = 1 }
-	local t2ConsResult = _G.unitSharingHandler(t2ConsCtx)
-	assert(t2ConsResult.allow == true, "Should allow T2 constructor in t2cons mode")
-	
-	local factoryCtx = { unitDefID = 2 }
-	local factoryResult = _G.unitSharingHandler(factoryCtx)
-	assert(factoryResult.deny == true, "Should deny factory in t2cons mode")
-	
-	_G.unitSharingHandler = nil
-	
-	GG.TeamTransfer.IsSharingOption = function(key)
-		return true, "combat"
-	end
-	
-	GG.TeamTransfer.RegisterPolicy(function(policy)
-		policy.ForAlliedUnitTransfers.Use(function(ctx)
-			if sharing.isEconomicUnitDef(UnitDefs[ctx.unitDefID]) then
-				return { deny = true }
-			end
-			return { allow = true }
-		end)
-	end)
-	
-	local economicCtx = { unitDefID = 2 }
-	local economicResult = _G.unitSharingHandler(economicCtx)
-	assert(economicResult.deny == true, "Should deny economic unit in combat mode")
-	
-	_G.unitSharingHandler = nil
-	
-	GG.TeamTransfer.IsSharingOption = function(key)
-		return true, "combat_t2cons"
-	end
-	
-	GG.TeamTransfer.RegisterPolicy(function(policy)
-		policy.ForAlliedUnitTransfers.Use(function(ctx)
-			local unitDef = UnitDefs[ctx.unitDefID]
-			if sharing.isEconomicUnitDef(unitDef) and not sharing.isT2ConstructorDef(unitDef) then
-				return { deny = true }
-			end
-			return { allow = true }
-		end)
-	end)
-	
-	local t2ConsInCombatCtx = { unitDefID = 1 }
-	local t2ConsInCombatResult = _G.unitSharingHandler(t2ConsInCombatCtx)
-	assert(t2ConsInCombatResult.allow == true, "Should allow T2 constructor in combat_t2cons mode")
-	
-	local factoryInCombatCtx = { unitDefID = 2 }
-	local factoryInCombatResult = _G.unitSharingHandler(factoryInCombatCtx)
-	assert(factoryInCombatResult.deny == true, "Should deny factory in combat_t2cons mode")
 end

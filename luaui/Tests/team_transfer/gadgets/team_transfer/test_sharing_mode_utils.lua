@@ -1,4 +1,17 @@
 function setup()
+	_G.Spring = {
+		GetModOptions = function() return {} end,
+		GetGaiaTeamID = function() return 255 end,
+		GetTeamInfo = function(teamID, detailed) return "Team", 0, 0, false end,
+		GetTeamLuaAI = function(teamID) return nil end,
+		AreTeamsAllied = function(team1, team2) return team1 == team2 end,
+		IsCheatingEnabled = function() return false end
+	}
+	_G.gadgetHandler = { IsSyncedCode = function() return true end }
+	_G.GG = _G.GG or {}
+	_G.CMD = { GUARD = 10, REPAIR = 11 }
+	_G.gadget = { GetInfo = function() return {} end }
+	_G.setmetatable = setmetatable
 	_G.VFS = _G.VFS or {}
 	_G.Spring = _G.Spring or {}
 	
@@ -20,14 +33,34 @@ function setup()
 	VFS.Include = function(path)
 		if path:match("sharing_mode_utils") then
 			return require_sharing_mode_utils_module()
+		elseif path:match("shared_test_utils") then
+			return TestUtils
 		end
 		return {}
 	end
 end
 
 function cleanup()
-	_G.VFS = nil
 	_G.Spring = nil
+	_G.gadgetHandler = nil
+	_G.GG = nil
+	_G.CMD = nil
+	_G.gadget = nil
+	_G.VFS = nil
+end
+
+local function describe(description, testFn)
+	local success, err = pcall(testFn)
+	if not success then
+		error("Context '" .. description .. "' failed: " .. tostring(err))
+	end
+end
+
+local function it(description, testFn)
+	local success, err = pcall(testFn)
+	if not success then
+		error("Spec '" .. description .. "' failed: " .. tostring(err))
+	end
 end
 
 function require_sharing_mode_utils_module()
@@ -96,42 +129,62 @@ function require_sharing_mode_utils_module()
 end
 
 function test()
-	local sharingModeUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_mode_utils.lua")
-	
-	assert(sharingModeUtils.shouldGadgetRun("option1"), "Should allow gadget to run for whitelisted option")
-	assert(not sharingModeUtils.shouldGadgetRun("option2"), "Should not allow gadget to run for non-whitelisted option")
-	assert(sharingModeUtils.shouldGadgetRun("option3"), "Should allow gadget to run for another whitelisted option")
-	assert(not sharingModeUtils.shouldGadgetRun("unknown_option"), "Should not allow gadget to run for unknown option")
-	
-	assert(sharingModeUtils.isOptionEnabledInCurrentMode("option1"), "Should enable whitelisted option")
-	assert(not sharingModeUtils.isOptionEnabledInCurrentMode("option2"), "Should not enable non-whitelisted option")
-	assert(sharingModeUtils.isOptionEnabledInCurrentMode("option3"), "Should enable another whitelisted option")
-	assert(not sharingModeUtils.isOptionEnabledInCurrentMode("unknown_option"), "Should not enable unknown option")
-	
-	Spring.GetModOptions = function()
-		return {}
-	end
-	
-	assert(sharingModeUtils.shouldGadgetRun("any_option"), "Should allow gadget to run when no mode selected")
-	assert(sharingModeUtils.isOptionEnabledInCurrentMode("any_option"), "Should enable any option when no mode selected")
-	
-	Spring.GetModOptions = function()
-		return { _sharing_mode_selected = "unknown_mode" }
-	end
-	
-	assert(sharingModeUtils.shouldGadgetRun("any_option"), "Should allow gadget to run for unknown mode")
-	assert(sharingModeUtils.isOptionEnabledInCurrentMode("any_option"), "Should enable any option for unknown mode")
-	
-	VFS.FileExists = function(path)
-		return false
-	end
-	
-	sharingModeUtils.resetCache() -- Reset cache
-	
-	Spring.GetModOptions = function()
-		return { _sharing_mode_selected = "test_mode" }
-	end
-	
-	assert(sharingModeUtils.shouldGadgetRun("any_option"), "Should allow gadget to run when config file missing")
-	assert(sharingModeUtils.isOptionEnabledInCurrentMode("any_option"), "Should enable any option when config file missing")
+	describe("Sharing Mode Utils Module", function()
+		local sharingModeUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_mode_utils.lua")
+		
+		describe("when sharing mode is configured", function()
+			it("should allow whitelisted options", function()
+				assert(sharingModeUtils.shouldGadgetRun("option1"), "Should allow gadget to run for whitelisted option")
+				assert(sharingModeUtils.shouldGadgetRun("option3"), "Should allow gadget to run for another whitelisted option")
+				assert(sharingModeUtils.isOptionEnabledInCurrentMode("option1"), "Should enable whitelisted option")
+				assert(sharingModeUtils.isOptionEnabledInCurrentMode("option3"), "Should enable another whitelisted option")
+			end)
+			
+			it("should deny non-whitelisted options", function()
+				assert(not sharingModeUtils.shouldGadgetRun("option2"), "Should not allow gadget to run for non-whitelisted option")
+				assert(not sharingModeUtils.shouldGadgetRun("unknown_option"), "Should not allow gadget to run for unknown option")
+				assert(not sharingModeUtils.isOptionEnabledInCurrentMode("option2"), "Should not enable non-whitelisted option")
+				assert(not sharingModeUtils.isOptionEnabledInCurrentMode("unknown_option"), "Should not enable unknown option")
+			end)
+		end)
+		
+		describe("when no sharing mode is selected", function()
+			Spring.GetModOptions = function()
+				return {}
+			end
+			
+			it("should allow all options", function()
+				assert(sharingModeUtils.shouldGadgetRun("any_option"), "Should allow gadget to run when no mode selected")
+				assert(sharingModeUtils.isOptionEnabledInCurrentMode("any_option"), "Should enable any option when no mode selected")
+			end)
+		end)
+		
+		describe("when unknown sharing mode is selected", function()
+			Spring.GetModOptions = function()
+				return { _sharing_mode_selected = "unknown_mode" }
+			end
+			
+			it("should allow all options", function()
+				assert(sharingModeUtils.shouldGadgetRun("any_option"), "Should allow gadget to run for unknown mode")
+				assert(sharingModeUtils.isOptionEnabledInCurrentMode("any_option"), "Should enable any option for unknown mode")
+			end)
+		end)
+		
+		describe("when config file is missing", function()
+			VFS.FileExists = function(path)
+				return false
+			end
+			
+			sharingModeUtils.resetCache()
+			
+			Spring.GetModOptions = function()
+				return { _sharing_mode_selected = "test_mode" }
+			end
+			
+			it("should allow all options", function()
+				assert(sharingModeUtils.shouldGadgetRun("any_option"), "Should allow gadget to run when config file missing")
+				assert(sharingModeUtils.isOptionEnabledInCurrentMode("any_option"), "Should enable any option when config file missing")
+			end)
+		end)
+	end)
 end
