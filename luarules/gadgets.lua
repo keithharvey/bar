@@ -333,6 +333,7 @@ function gadgetHandler:Initialize()
 
 	local unsortedGadgets = {}
 	-- get the gadget names
+	-- root: keep original behavior (all *.lua)
 	local gadgetFiles = VFS.DirList(GADGETS_DIR, "*.lua", VFSMODE)
 	--  table.sort(gadgetFiles)
 

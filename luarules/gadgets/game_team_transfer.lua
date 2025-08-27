@@ -1,58 +1,79 @@
+---@class TeamTransferGadget : Gadget
 local gadget = gadget
 
 function gadget:GetInfo()
 	return {
-		name    = 'Team Transfer Framework',
+		name    = 'Team Transfer',
 		desc    = 'Loads TeamTransfer API and policies, handles Allow* callins, exposes via GG.TeamTransfer',
 		author  = 'Devin',
 		layer   = -1001,
 		enabled = true,
 	}
 end
+Spring.Log("team transfer", LOG.ERROR,"[Team Transfer]!!!!!! INSIDE")
 
+
+
+-- Only load in synced context to prevent policy loading in unsynced context
 if not gadgetHandler:IsSyncedCode() then
-	return false
+	return
 end
 
 local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
 local Pipeline = VFS.Include("luarules/gadgets/team_transfer/pipeline.lua")
+local PolicyHooks = VFS.Include("luarules/gadgets/team_transfer/policy_hooks.lua")
 
 -- Spring function shortcuts
 local spGetPlayerInfo = Spring.GetPlayerInfo
 
+-- Player monitoring state
+local monitorPlayers = {}
+
 function gadget:Initialize()
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Initialize starting...")
+	
 	---@type TeamTransferAPI
 	GG.TeamTransfer = {
+		-- External API - what other code actually needs
 		RegisterPolicy = TeamTransfer.RegisterPolicy,
-		PolicyType = TeamTransfer.PolicyType,
-		UnitSharing = TeamTransfer.UnitSharing,
-		ResourceShareTax = TeamTransfer.ResourceShareTax,
-		Predicates = TeamTransfer.Predicates,
-		MODOPTION_KEYS = TeamTransfer.MODOPTION_KEYS,
-		IsSharingOption = TeamTransfer.IsSharingOption,
-		Units = TeamTransfer.Units,
-		getUnitSharingMode = TeamTransfer.UnitSharing.getUnitSharingMode,
-		isT2ConstructorDef = TeamTransfer.UnitSharing.isT2ConstructorDef,
-		countUnshareable = TeamTransfer.UnitSharing.countUnshareable,
-		shouldShowShareButton = TeamTransfer.UnitSharing.shouldShowShareButton,
-		blockMessage = TeamTransfer.UnitSharing.blockMessage,
-		computeTransfer = TeamTransfer.ResourceShareTax.computeTransfer,
+		Enums = TeamTransfer.SharedEnums,
+		UnitSharing = TeamTransfer.UnitSharing, -- Main unit sharing functionality
+		
+		-- Hook registration interface
+		RegisterInitialize = PolicyHooks.RegisterInitialize,
+		RegisterPreProcess = PolicyHooks.RegisterPreProcess,
+		RegisterPostTransfer = PolicyHooks.RegisterPostTransfer,
+		RegisterValidator = PolicyHooks.RegisterValidator,
+		NotifyPostTransfer = PolicyHooks.NotifyPostTransfer,
+		
+		-- Debug interface for console commands
+		Debug = Pipeline.Debug,
 	}
 	
-	local policyFiles = VFS.DirList("luarules/gadgets/team_transfer/policies/", "*.lua")
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "GG.TeamTransfer set up, loading policies...")
+	
+	local policyDir = "luarules/gadgets/team_transfer/policies/"
+	local policyFiles = VFS.DirList(policyDir, "*.lua")
+	Spring.Log("team transfer", LOG.ERROR, "[Team Transfer] policies found=" .. tostring(#policyFiles) .. " dir=" .. policyDir)
 	for _, policyFile in ipairs(policyFiles) do
+		Spring.Log("team transfer", LOG.ERROR, "[Team Transfer] including policy=" .. policyFile)
 		VFS.Include(policyFile)
+		Spring.Log("team transfer", LOG.ERROR, "[Team Transfer] included policy=" .. policyFile)
 	end
 	
-	-- Initialize threshold parameters for all teams (restore working 3d92b6cef7 behavior)
-	local sharingTax = Spring.GetModOptions().tax_resource_sharing_amount or 0
-	local metalTaxThreshold = Spring.GetModOptions().player_metal_send_threshold or 0
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Policies loaded, initializing pipeline...")
+	
+	-- Initialize the pipeline for all active teams
 	local teamList = Spring.GetTeamList()
-	for _, senderID in ipairs(teamList) do
-		Spring.SetTeamRulesParam(senderID, "metal_share_cumulative_sent", 0)
-		Spring.SetTeamRulesParam(senderID, "metal_share_threshold", metalTaxThreshold)
-		Spring.SetTeamRulesParam(senderID, "resource_share_tax_rate", sharingTax)
+	for _, teamID in ipairs(teamList) do
+		local _, _, isDead, isAI = Spring.GetTeamInfo(teamID)
+		if not isDead then
+			-- Initialize both resource and unit transfer pipelines for this team
+			TeamTransfer.InitializeCache(teamID)
+		end
 	end
+	
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Pipeline initialized, setting up player monitoring...")
 	
 	-- Initialize player monitoring
 	local players = Spring.GetPlayerList()
@@ -65,10 +86,96 @@ function gadget:Initialize()
 			end
 		end
 	end
+
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Player monitoring set up, registering commands...")
+	-- Register only the commands this gadget needs to check to avoid CMD.ANY autoregistration
+	gadgetHandler:RegisterAllowCommand(CMD.GUARD)
+	gadgetHandler:RegisterAllowCommand(CMD.REPAIR)
+	gadgetHandler:RegisterAllowCommand(CMD.RECLAIM)
+	
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Initialize completed successfully!")
 end
 
+-- Debug chat command for manual cache initialization
+function gadget:GotChatMsg(msg, playerID)
+	if msg == "!teamtransfer init" then
+		local _, _, _, teamID = Spring.GetPlayerInfo(playerID)
+		Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Manual initialization requested by player " .. playerID .. " (team " .. teamID .. ")")
+		TeamTransfer.InitializeCache() -- Initialize all teams
+		return true
+	elseif msg:match("^!teamtransfer init (%d+)$") then
+		local targetTeam = tonumber(msg:match("^!teamtransfer init (%d+)$"))
+		local _, _, _, teamID = Spring.GetPlayerInfo(playerID)
+		Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Manual initialization for team " .. targetTeam .. " requested by player " .. playerID .. " (team " .. teamID .. ")")
+		TeamTransfer.InitializeCache(targetTeam)
+		return true
+	elseif msg == "!teamtransfer test" then
+		local _, _, _, teamID = Spring.GetPlayerInfo(playerID)
+		Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Manual pipeline test requested by player " .. playerID .. " (team " .. teamID .. ")")
+		-- Test both ResourceTransfer and UnitTransfer pipelines
+		TeamTransfer.QueryTeamState("ResourceTransfer", teamID)
+		TeamTransfer.QueryTeamState("UnitTransfer", teamID)
+		return true
+	end
+	return false
+end
+
+local function updateTeamResourceState(teamID)
+	-- Query team state for both resource and unit transfers
+	-- Policies will expose state for all relevant resources (metal, energy, etc.)
+	TeamTransfer.QueryTeamState(teamID, TeamTransfer.PolicyType.ResourceTransfer)
+	TeamTransfer.QueryTeamState(teamID, TeamTransfer.PolicyType.UnitTransfer)
+end
+
+local function initializeTeamStates()
+	local teamList = Spring.GetTeamList()
+	for _, teamID in ipairs(teamList) do
+		-- Pre-populate resource transfer state for UI
+		updateTeamResourceState(teamID)
+	end
+end
+
+-- Engine hooks to keep cache updated
+function gadget:UnitGiven(unitID, unitDefID, newTeam, oldTeam)
+	-- Unit transfer affects both teams' state
+	updateTeamResourceState(newTeam)
+	if newTeam ~= oldTeam then
+		updateTeamResourceState(oldTeam)
+	end
+end
+
+function gadget:UnitTaken(unitID, unitDefID, oldTeam, newTeam)
+	-- Unit transfer affects both teams' state  
+	updateTeamResourceState(newTeam)
+	if newTeam ~= oldTeam then
+		updateTeamResourceState(oldTeam)
+	end
+end
+
+function gadget:TeamDied(teamID)
+	-- Team death might affect sharing rules
+	updateTeamResourceState(teamID)
+end
+
+-- Functions already defined above, initialization already called
+
+
+
 function gadget:AllowResourceTransfer(senderTeamId, receiverTeamId, resourceType, amount)
-	return Pipeline.RunAllowResourceTransfer(senderTeamId, receiverTeamId, resourceType, amount)
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "AllowResourceTransfer callin triggered: " .. tostring(senderTeamId) .. " -> " .. tostring(receiverTeamId) .. " " .. tostring(resourceType) .. " " .. tostring(amount))
+	
+	-- Run the pipeline for the actual transfer
+	local result = Pipeline.RunAllowResourceTransfer(senderTeamId, receiverTeamId, resourceType, amount)
+	
+	-- Event-driven cache invalidation: update state for affected teams after transfer
+	if result then -- Transfer was allowed
+		updateTeamResourceState(senderTeamId) -- Sender's state changed (resources sent)
+		if senderTeamId ~= receiverTeamId then
+			updateTeamResourceState(receiverTeamId) -- Receiver's state changed (resources received)
+		end
+	end
+	
+	return result
 end
 
 function gadget:AllowUnitTransfer(unitID, unitDefID, fromTeamID, toTeamID, capture)
@@ -83,6 +190,14 @@ end
 local monitorPlayers = {}
 
 function gadget:GameFrame(gameFrame)
+	-- Refresh cache periodically (every 5 seconds) to handle edge cases
+	if gameFrame % 150 == 0 then
+		local teamList = Spring.GetTeamList()
+		for _, teamID in ipairs(teamList) do
+			updateTeamResourceState(teamID)
+		end
+	end
+	
 	-- Check player activity every 30 frames to reduce overhead
 	if gameFrame % 30 == 0 then
 		local active, spec, teamID
@@ -122,4 +237,42 @@ function gadget:PlayerRemoved(playerID, reason)
 		Pipeline.RunTeamEvent("PlayerAbandoned", teamID, playerID, Spring.GetGameFrame())
 	end
 	monitorPlayers[playerID] = nil
+end
+
+-- Console command interface for pipeline debugging
+function gadget:TextCommand(command)
+	if command == "pipeline_topology" then
+		GG.TeamTransfer.Debug.LogTopology()
+		return true
+	elseif command == "pipeline_cache" then
+		GG.TeamTransfer.Debug.LogCacheState()
+		return true
+	elseif command == "pipeline_report" then
+		GG.TeamTransfer.Debug.LogFullReport()
+		return true
+	elseif string.match(command, "^pipeline_entry%s+") then
+		-- Parse: pipeline_entry <scope> <policyType> <senderID> <receiverID>
+		local parts = {}
+		for part in string.gmatch(command, "%S+") do
+			table.insert(parts, part)
+		end
+		
+		if #parts == 5 then
+			local scope = parts[2]
+			local policyType = parts[3]
+			local senderID = tonumber(parts[4])
+			local receiverID = tonumber(parts[5])
+			
+			if senderID and receiverID then
+				GG.TeamTransfer.Debug.LogCacheEntry(scope, policyType, senderID, receiverID)
+				return true
+			end
+		end
+		
+		Spring.Log("PIPELINE DEBUG", "info", "Usage: pipeline_entry <scope> <policyType> <senderID> <receiverID>")
+		Spring.Log("PIPELINE DEBUG", "info", "Example: pipeline_entry allied resource_transfer 0 1")
+		return true
+	end
+	
+	return false
 end

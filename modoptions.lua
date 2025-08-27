@@ -255,7 +255,32 @@ local options = {
         step   	= 1,
     },
 
-
+	{
+		key		= "assist_ally",
+		name	= "Ally Assist",
+		desc	= "Controls whether units can assist allied construction and repair",
+		type	= "list",
+		section	= "options_main",
+		def		= "enabled",
+		column	= 1,
+		items	= {
+			{ key = "enabled",  name = "Enabled",  desc = "Units can assist allied construction and repair" },
+			{ key = "disabled", name = "Disabled", desc = "Units cannot assist allied construction and repair" },
+		},
+	},
+	{
+		key		= "allied_reclaim",
+		name	= "Allied Reclaim",
+		desc	= "Controls whether allied units can perform reclaim commands",
+		type	= "list",
+		section	= "options_main",
+		def		= "disabled",
+		column	= 1.66,
+		items	= {
+			{ key = "enabled",  name = "Enabled",  desc = "Allied units can perform reclaim commands" },
+			{ key = "disabled", name = "Disabled", desc = "Allied units cannot perform reclaim commands" },
+		},
+	},
 	{
 		key		= "unit_sharing_mode",
 		name	= "Unit Sharing",
@@ -301,20 +326,6 @@ local options = {
 		sharing_category = "resources",
 		depends_on = "tax_resource_sharing_amount",
 	},
-	{
-		key		= "game_assist_ally",
-		name	= "Ally Assist",
-		desc	= "Controls whether units can assist allied construction and repair",
-		type	= "list",
-		section	= "options_main",
-		def		= "enabled",
-		column	= 1,
-		items	= {
-			{ key = "enabled",  name = "Enabled",  desc = "Units can assist allied construction and repair" },
-			{ key = "disabled", name = "Disabled", desc = "Units cannot assist allied construction and repair" },
-		},
-	},
-
     -- Sharing mode selection (set by Chobby)
     {
         key     = "_sharing_mode_selected",

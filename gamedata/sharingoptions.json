@@ -30,7 +30,11 @@
             "max": 0
           }
         },
-        "game_assist_ally": {
+        "assist_ally": {
+          "value": "disabled",
+          "locked": true
+        },
+        "allied_reclaim": {
           "value": "disabled",
           "locked": true
         }
@@ -67,7 +71,11 @@
             "step": 10
           }
         },
-        "game_assist_ally": {
+        "assist_ally": {
+          "value": "disabled",
+          "locked": true
+        },
+        "allied_reclaim": {
           "value": "disabled",
           "locked": true
         }
@@ -102,6 +110,10 @@
         "game_assist_ally": {
           "value": "enabled",
           "locked": true
+        },
+        "game_allied_reclaim": {
+          "value": "enabled",
+          "locked": true
         }
       }
     },
@@ -125,6 +137,9 @@
           "locked": false
         },
         "game_assist_ally": {
+          "locked": false
+        },
+        "game_allied_reclaim": {
           "locked": false
         }
       }

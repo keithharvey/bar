@@ -6,19 +6,23 @@
 ---@class TeamTransferAPI
 local M = {}
 
-
+-- Ensure policy pipeline only runs in synced context
+local function requireSyncedContext(functionName)
+	if gadgetHandler and not gadgetHandler:IsSyncedCode() then
+		error("TeamTransfer." .. functionName .. " can only be called from synced context (gadgets), not unsynced context (widgets)")
+	end
+end
 
 local sharingModeUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_mode_utils.lua")
+local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
+local json = VFS.Include("common/luaUtilities/json.lua")
 local modOpts = Spring.GetModOptions()
 
-M.PolicyType = {
-	ResourceTransfer = "ResourceTransfer",
-	UnitTransfer = "UnitTransfer",
-	Command = "Command",
-	TeamEvent = "TeamEvent",
-}
-
-M.Scope = { Allied = "Allied", Enemy = "Enemy" }
+-- Use shared enums for consistency across synced/unsynced contexts
+M.PolicyType = SharedEnums.PolicyType
+M.Policies = SharedEnums.Policies
+M.Scope = SharedEnums.Scope
+M.SharedEnums = SharedEnums
 
 local policies = {
 	[M.PolicyType.ResourceTransfer] = {},
@@ -32,50 +36,12 @@ local function pushPolicy(policyType, entry)
 	list[#list + 1] = entry
 end
 
--- Top-level builder factory to enable Go To Definition into real code
----@param policyType string
----@param predicates table
----@return PolicyBuilderBase
-local function makePolicyBuilder(policyType, predicates)
-    local function _create(policyTypeInner, predicatesInner)
-        local policyBuilder = {}
-
-        function policyBuilder:When(predicateFn)
-            local newPredicates = {}
-            for i = 1, #predicatesInner do
-                newPredicates[i] = predicatesInner[i]
-            end
-            newPredicates[#newPredicates + 1] = predicateFn
-            return _create(policyTypeInner, newPredicates)
-        end
-
-        function policyBuilder:Use(handlerFn)
-            pushPolicy(policyTypeInner, { predicates = predicatesInner, handler = handlerFn })
-            return self
-        end
-
-        function policyBuilder:Allow()
-            pushPolicy(policyTypeInner, { predicates = predicatesInner, handler = function(ctx) return { allow = true } end })
-            return self
-        end
-
-        function policyBuilder:Deny()
-            pushPolicy(policyTypeInner, { predicates = predicatesInner, handler = function(ctx) return { deny = true } end })
-            return self
-        end
-
-        return policyBuilder
-    end
-
-    return _create(policyType, predicates)
-end
-
 -- Flat, scope-specific helpers (top-level for F12 navigation)
 
 
 
 ---@return PolicyBuilder
-local function newBuilder()
+local function newBuilder(policyName, dependencies)
 	---@class PolicyBuilder
 	local builder = {}
 
@@ -94,7 +60,12 @@ local function newBuilder()
 		---Example: policy.ForAlliedCommands.WhenGuard.Allow() - allows guard commands to allied units
 		---@return PolicyBuilder Returns the policy builder for chaining
 		actions.Allow = function()
-			pushPolicy(policyType, { predicates = predicates, handler = function(ctx) return { allow = true } end })
+			pushPolicy(policyType, { 
+				name = policyName,
+				dependencies = dependencies,
+				predicates = predicates, 
+				handler = function(ctx) return { allow = true } end 
+			})
 			return builder
 		end
 		
@@ -103,7 +74,12 @@ local function newBuilder()
 		---Example: policy.ForAlliedCommands.WhenGuard.Deny() - blocks guard commands to allied units
 		---@return PolicyBuilder Returns the policy builder for chaining
 		actions.Deny = function()
-			pushPolicy(policyType, { predicates = predicates, handler = function(ctx) return { deny = true } end })
+			pushPolicy(policyType, { 
+				name = policyName,
+				dependencies = dependencies,
+				predicates = predicates, 
+				handler = function(ctx) return { deny = true } end 
+			})
 			return builder
 		end
 		
@@ -112,7 +88,12 @@ local function newBuilder()
 		---@param handlerFn function Custom handler function that receives context and returns { allow: boolean } or { deny: boolean } or { applyCommands: table }
 		---@return PolicyBuilder Returns the policy builder for chaining
 		actions.Use = function(handlerFn)
-			pushPolicy(policyType, { predicates = predicates, handler = handlerFn })
+			pushPolicy(policyType, { 
+				name = policyName,
+				dependencies = dependencies,
+				predicates = predicates, 
+				handler = handlerFn 
+			})
 			return builder
 		end
 		
@@ -123,11 +104,11 @@ local function newBuilder()
 	local ScopePredicates = {
 		Allied = {
 			Command = M.Predicates.Command.targetAllied,
-			Transfer = function(ctx) return ctx.areAlliedTeams end
+			Transfer = { name = "areAlliedTeams", fn = function(ctx) return ctx.areAlliedTeams end }
 		},
 		Enemy = {
-			Command = function(ctx) return not ctx.targetAllied end,
-			Transfer = function(ctx) return not ctx.areAlliedTeams end
+			Command = M.Predicates.Command.targetEnemy,
+			Transfer = { name = "areEnemyTeams", fn = function(ctx) return not ctx.areAlliedTeams end }
 		}
 	}
 
@@ -168,7 +149,7 @@ local function newBuilder()
 	---@type ActionMethods
 	builder.ForEnemyCommands.WhenGuard = createActionMethods(M.PolicyType.Command, {
 		M.Predicates.Command.isGuard,
-		function(ctx) return not ctx.targetAllied end,
+		M.Predicates.Command.targetEnemy,
 		M.Predicates.Command.targetHasAssist
 	})
 	
@@ -176,7 +157,7 @@ local function newBuilder()
 	---@type ActionMethods
 	builder.ForEnemyCommands.WhenRepair = createActionMethods(M.PolicyType.Command, {
 		M.Predicates.Command.isRepair,
-		function(ctx) return not ctx.targetAllied end,
+		M.Predicates.Command.targetEnemy,
 		M.Predicates.Command.targetIsIncomplete
 	})
 	
@@ -184,7 +165,7 @@ local function newBuilder()
 	---@type ActionMethods
 	builder.ForEnemyCommands.WhenReclaim = createActionMethods(M.PolicyType.Command, {
 		M.Predicates.Command.isReclaim,
-		function(ctx) return not ctx.targetAllied end
+		M.Predicates.Command.targetEnemy
 	})
 	
 	---For allied resource transfer policies - metal/energy transfers to allied teams
@@ -218,35 +199,59 @@ local function newBuilder()
 	---When a player abandons their team (disconnects or goes spec)
 	---@type ActionMethods
 	builder.TeamEvents.PlayerAbandoned = createActionMethods(M.PolicyType.TeamEvent, {
-		function(ctx) return ctx.eventType == "PlayerAbandoned" end
+		M.Predicates.TeamEvent.isPlayerAbandoned
 	})
 
 	---When a player reconnects to their team
 	---@type ActionMethods
 	builder.TeamEvents.PlayerReconnected = createActionMethods(M.PolicyType.TeamEvent, {
-		function(ctx) return ctx.eventType == "PlayerReconnected" end
+		M.Predicates.TeamEvent.isPlayerReconnected
 	})
 
 	return builder
 end
 
 ---Register a new policy with the Team Transfer Framework
----@param registrationFn fun(policy: PolicyBuilder) Function that configures the policy
----@type fun(registrationFn: fun(policy: PolicyBuilder))
-function M.RegisterPolicy(registrationFn)
-	---@type PolicyBuilder
-	local builder = newBuilder()
-	registrationFn(builder)
+---@overload fun(policyName: string, registrationFn: fun(policy: PolicyBuilder))
+---@overload fun(policyName: string, options: table, registrationFn: fun(policy: PolicyBuilder))
+---@param policyName string A unique name for the policy for logging
+---@param options table|fun(policy: PolicyBuilder) Either options table `{ dependsOn = string[] }` or the registration function
+---@param registrationFn fun(policy: PolicyBuilder)? Function that configures the policy (if options is provided)
+function M.RegisterPolicy(policyName, options, registrationFn)
+	requireSyncedContext("RegisterPolicy")
+	
+	-- Handle function overloading: RegisterPolicy(name, fn) or RegisterPolicy(name, options, fn)
+	if type(options) == "function" then
+		registrationFn = options
+		options = {}
+	end
+	options = options or {}
+	local dependencies = options.dependsOn or {}
+
+	-- Pass policy context directly to the builder - much cleaner than global overrides!
+	local builder = newBuilder(policyName, dependencies)
+	if registrationFn then
+		registrationFn(builder)
+	end
 end
 
-local pipeline = {
+local legacyCallbacks = {
 	onAllowResourceTransfer = {},
 	onAllowUnitTransfer = {},
 	onAllowCommand = {},
 }
-function M.RegisterAllowResourceTransfer(fn) pipeline.onAllowResourceTransfer[#pipeline.onAllowResourceTransfer + 1] = fn end
-function M.RegisterAllowUnitTransfer(fn) pipeline.onAllowUnitTransfer[#pipeline.onAllowUnitTransfer + 1] = fn end
-function M.RegisterAllowCommand(fn) pipeline.onAllowCommand[#pipeline.onAllowCommand + 1] = fn end
+function M.RegisterAllowResourceTransfer(fn) 
+	requireSyncedContext("RegisterAllowResourceTransfer")
+	legacyCallbacks.onAllowResourceTransfer[#legacyCallbacks.onAllowResourceTransfer + 1] = fn 
+end
+function M.RegisterAllowUnitTransfer(fn) 
+	requireSyncedContext("RegisterAllowUnitTransfer")
+	legacyCallbacks.onAllowUnitTransfer[#legacyCallbacks.onAllowUnitTransfer + 1] = fn 
+end
+function M.RegisterAllowCommand(fn) 
+	requireSyncedContext("RegisterAllowCommand")
+	legacyCallbacks.onAllowCommand[#legacyCallbacks.onAllowCommand + 1] = fn 
+end
 
 ---Get all registered policies by type
 ---@return table<string, table[]> policies Policies organized by type
@@ -267,6 +272,7 @@ M.MODOPTION_KEYS = VFS.Include("luarules/gadgets/team_transfer/sharing_modoption
 ---@type TeamTransferPredicates
 M.Predicates = VFS.Include("luarules/gadgets/team_transfer/predicates.lua")
 M.Units = VFS.Include("luarules/gadgets/team_transfer/units.lua")
+M.PolicyHooks = VFS.Include("luarules/gadgets/team_transfer/policy_hooks.lua")
 
 -- Inline sharing mode option check to avoid extra includes and improve discoverability
 ---Check if a modoption key is enabled in the current sharing mode and return its value
@@ -275,6 +281,62 @@ M.Units = VFS.Include("luarules/gadgets/team_transfer/units.lua")
 ---@return any value The current value from Spring.GetModOptions()[modoptionKey] (may be nil)
 function M.IsSharingOption(modoptionKey)
 	return sharingModeUtils.isOptionEnabledInCurrentMode(modoptionKey), modOpts[modoptionKey]
+end
+
+---Query the pipeline for current team state (no actual transfer, just state evaluation)
+---@param senderTeamID number
+---@param policyType string "ResourceTransfer" or "UnitTransfer"
+---@return table? exposeData The expose data from pipeline evaluation, or nil if not allowed
+M.QueryTeamState = function(senderTeamID, policyType)
+	requireSyncedContext("QueryTeamState")
+	
+	local pipeline = VFS.Include("luarules/gadgets/team_transfer/pipeline.lua")
+	
+	-- Use Pipeline's cached expose query
+	local exposeData = pipeline.QueryExpose(policyType, senderTeamID)
+	
+	-- Store in global table for widget access (no JSON needed)
+	if exposeData then
+		-- Create global cache if it doesn't exist
+		if not _G.TeamTransferExposeCache then
+			_G.TeamTransferExposeCache = {}
+		end
+		
+		-- Store the data directly (no encoding needed)
+		local cacheKey = tostring(senderTeamID) .. "_" .. tostring(policyType)
+		_G.TeamTransferExposeCache[cacheKey] = exposeData
+		
+		return exposeData
+	end
+	
+	return nil
+end
+
+---Manual command to initialize team transfer cache (for debugging)
+---@param teamID number? Optional specific team ID, or nil for all teams
+M.InitializeCache = function(teamID)
+	requireSyncedContext("InitializeCache")
+	
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Manual cache initialization requested for team: " .. tostring(teamID or "ALL"))
+	
+	local teamsToUpdate = {}
+	if teamID then
+		teamsToUpdate = {teamID}
+	else
+		teamsToUpdate = Spring.GetTeamList()
+	end
+	
+	for _, team in ipairs(teamsToUpdate) do
+		Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Initializing cache for team " .. team)
+		
+		-- Query both resource and unit transfer states
+		local resourceResult = M.QueryTeamState(team, M.PolicyType.ResourceTransfer)
+		local unitResult = M.QueryTeamState(team, M.PolicyType.UnitTransfer)
+		
+		Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Team " .. team .. " - Resource result: " .. tostring(resourceResult ~= nil) .. ", Unit result: " .. tostring(unitResult ~= nil))
+	end
+	
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Manual cache initialization completed")
 end
 
 ---@return TeamTransferAPI

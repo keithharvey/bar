@@ -1,20 +1,9 @@
-local gadget = gadget
+-- Team Transfer Policy: Enemy Transfer
+-- Handles resource and unit transfers between enemy teams
 
-function gadget:GetInfo()
-	return {
-		name    = 'Team Transfer Policy: Enemy Transfer',
-		desc    = 'Handles resource and unit transfers between enemy teams',
-		author  = 'Devin',
-		date    = 'Aug 2025',
-		license = 'GNU GPL, v2 or later',
-		layer   = 0,
-		enabled = true
-	}
-end
+local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
 
-if not gadgetHandler:IsSyncedCode() then
-	return false
-end
+Spring.Log("[ENEMY TRANSFER POLICY]", LOG.ERROR, "Loading enemy transfer policy")
 
 local function shouldAllowResourceTransfer(ctx)
 	return ctx.isCheatingEnabled or ctx.senderIsNonPlayer or ctx.receiverIsNonPlayer
@@ -27,8 +16,9 @@ local function shouldAllowUnitTransfer(ctx)
 	return ctx.isCheatingEnabled or ctx.fromIsNonPlayer or ctx.toIsNonPlayer
 end
 
-GG.TeamTransfer.RegisterPolicy(function(policy)
+GG.TeamTransfer.RegisterPolicy(SharedEnums.Policies.EnemyTransfer, function(policy)
 	policy.ForEnemyResourceTransfers.Use(function(ctx)
+		Spring.Log("[ENEMY TRANSFER POLICY]", LOG.ERROR, "Enemy resource transfer policy called - this should only happen for enemy transfers!")
 		if shouldAllowResourceTransfer(ctx) then
 			return { allow = true }
 		end
@@ -36,6 +26,7 @@ GG.TeamTransfer.RegisterPolicy(function(policy)
 	end)
 
 	policy.ForEnemyUnitTransfers.Use(function(ctx)
+		Spring.Log("[ENEMY TRANSFER POLICY]", LOG.ERROR, "Enemy unit transfer policy called - this should only happen for enemy transfers!")
 		if shouldAllowUnitTransfer(ctx) then
 			return { allow = true }
 		end

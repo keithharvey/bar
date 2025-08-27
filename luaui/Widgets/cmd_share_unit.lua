@@ -84,17 +84,18 @@ local function tablelength(T)
 	return count
 end
 
----@type TeamTransferAPI
-local sharing = VFS.Include("luarules/gadgets/team_transfer/api_widgets.lua")
+---@type TeamTransferWidgetAPI
+local teamTransferAPI = WG.TeamTransfer
 local unitSharingMode
 
 local function isT2Constructor(unitDef)
-	return sharing.UnitSharing.isT2ConstructorDef(unitDef)
+	return WG.TeamTransfer and WG.TeamTransfer.UnitSharing and WG.TeamTransfer.UnitSharing.isT2ConstructorDef(unitDef)
 end
 
 local function countShareableSelection()
 	local selectedUnits = GetSelectedUnits()
-	local shareable, unshareable, total = sharing.countUnshareable(selectedUnits, unitSharingMode)
+	if not WG.TeamTransfer then return 0, 0, selectedUnits end
+	local shareable, unshareable, total = WG.TeamTransfer.countUnshareable(selectedUnits, unitSharingMode)
 	return shareable, total, unshareable
 end
 
@@ -339,16 +340,9 @@ end
 
 function widget:CommandNotify(cmdID, cmdParams, _)
 	if cmdID == cmdQuickShareToTargetId then
-		local teamTransfer = WG['TeamTransfer'] --[[@as TeamTransferAPI]]
-		if not teamTransfer then return true end
-		
-		if not teamTransfer.validateShareCommand() then
-			return true
-		end
+		-- Parse command parameters to find target team
 		local targetTeamID
-		if #cmdParams ~= 1 and #cmdParams ~= 3 then
-			return true
-		elseif #cmdParams == 1 then
+		if #cmdParams == 1 then
 			-- click on unit
 			local targetUnitID = cmdParams[1]
 			targetTeamID = GetUnitTeam(targetUnitID)
@@ -356,15 +350,19 @@ function widget:CommandNotify(cmdID, cmdParams, _)
 			-- click on the ground
 			local mouseX, mouseY = WorldToScreenCoords(cmdParams[1], cmdParams[2], cmdParams[3])
 			targetTeamID = findTeamInArea(mouseX, mouseY)
-		end
-
-		if targetTeamID == nil or targetTeamID == myTeamID or GetTeamAllyTeamID(targetTeamID) ~= myAllyTeamID then
-			-- invalid target, don't do anything
+		else
+			-- Invalid command parameters
 			return true
 		end
 
-		ShareResources(targetTeamID, "units")
-		PlaySoundFile("beep4", 1, 'ui')
+		-- Use unified team transfer system (handles all validation via policies)
+		if WG.TeamTransfer and WG.TeamTransfer.ShareUnits then
+			local selectedUnits = GetSelectedUnits()
+			WG.TeamTransfer.ShareUnits(myTeamID, targetTeamID, selectedUnits, findPlayerName(targetTeamID))
+			PlaySoundFile("beep4", 1, 'ui')
+		else
+			Spring.Echo(Spring.I18N('ui.teamTransfer.apiNotAvailable'))
+		end
 		return false
 	end
 end
@@ -375,10 +373,13 @@ function widget:CommandsChanged()
 	end
 
 	local selectedUnits = GetSelectedUnits()
-	local allow = sharing.shouldShowShareButton(selectedUnits, unitSharingMode)
+	local allow = WG.TeamTransfer and WG.TeamTransfer.shouldShowShareButton and WG.TeamTransfer.shouldShowShareButton(selectedUnits, unitSharingMode)
 
 	if allow then
 		local customCommands = widgetHandler.customCommands
+		if not customCommands then
+			return
+		end
 		customCommands[#customCommands + 1] = {
 			id = cmdQuickShareToTargetId,
 			type = CMDTYPE.ICON_UNIT_OR_MAP,
@@ -399,7 +400,7 @@ function widget:Initialize()
 	setupDisplayLists()
 	
 	-- Initialize unit sharing settings
-	unitSharingMode = sharing.getUnitSharingMode()
+	unitSharingMode = WG.TeamTransfer and WG.TeamTransfer.getUnitSharingMode and WG.TeamTransfer.getUnitSharingMode()
 end
 
 function widget:Shutdown()
