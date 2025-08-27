@@ -73,11 +73,11 @@
         },
         "assist_ally": {
           "value": "disabled",
-          "locked": false
+          "locked": true
         },
         "allied_reclaim": {
           "value": "disabled",
-          "locked": false
+          "locked": true
         }
       }
     },
@@ -96,7 +96,7 @@
         },
         "tax_resource_sharing_amount": {
           "value": 0.0,
-          "locked": false,
+          "locked": true,
           "bounds": {
             "min": 0,
             "max": 0
@@ -104,15 +104,16 @@
         },
         "player_metal_send_threshold": {
           "value": 0,
-          "locked": false
+          "locked": true,
+          "ui": "hidden"
         },
         "game_assist_ally": {
           "value": "enabled",
-          "locked": false
+          "locked": true
         },
         "game_allied_reclaim": {
           "value": "enabled",
-          "locked": false
+          "locked": true
         }
       }
     },
