@@ -19,7 +19,7 @@ end
 local TeamTransferAPI = VFS.Include("luarules/gadgets/team_transfer/api_widgets.lua")
 
 function widget:Initialize()
-	---@type TeamTransferAPI
+	---@type TeamTransferWidgetAPI
 	WG['TeamTransfer'] = TeamTransferAPI
 end
 

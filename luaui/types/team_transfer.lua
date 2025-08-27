@@ -41,30 +41,29 @@
 
 ---Widget API for Team Transfer system - provides read-only access to transfer capabilities
 ---@class TeamTransferWidgetAPI
----@field Enums TeamTransferSharedEnums Clean enum interface
----@see TeamTransferSharedEnums Use WG.TeamTransfer.Enums.PolicyType.ResourceTransfer instead of strings
+---@field Enums TeamTransferSharedEnums ---@see TeamTransferSharedEnums Use WG.TeamTransfer.Enums.PolicyType.ResourceTransfer instead of strings
 ---@field ForAlliedResourceTransfers PredicateUIScope Allied resource transfer queries
 ---@field ForEnemyResourceTransfers PredicateUIScope Enemy resource transfer queries  
 ---@field ForAlliedUnitTransfers PredicateUIScope Allied unit transfer queries
 ---@field ForEnemyUnitTransfers PredicateUIScope Enemy unit transfer queries
----@field CanTransfer fun(senderTeamID: number, receiverTeamID: number, transferCategory: TransferCategory, selectedUnitIDs: number[]?): boolean
----@field CanShareMetal fun(senderTeamID: number, receiverTeamID: number): boolean
----@field CanShareEnergy fun(senderTeamID: number, receiverTeamID: number): boolean
----@field CanShareUnits fun(senderTeamID: number, receiverTeamID: number, selectedUnitIDs: number[]): boolean
----@field GetMaxMetalAmount fun(senderTeamID: number, receiverTeamID: number): number
----@field GetMaxEnergyAmount fun(senderTeamID: number, receiverTeamID: number): number
----@field GetResourceTransferData fun(senderTeamID: number, receiverTeamID: number): ResourceTransferExposeOutput
----@field GetUnitTransferData fun(senderTeamID: number, receiverTeamID: number, selectedUnitIDs: number[]): UnitTransferExposeOutput
----@field handleShareButtonClick fun(targetTeamID: number): boolean
----@field validateShareCommand fun(): boolean
----@field IsSharingOption fun(optionName: string): boolean
+---@field CanTransfer fun(senderTeamID: number, receiverTeamID: number, transferCategory: TransferCategory, selectedUnitIDs: number[]?): boolean @see luarules/gadgets/team_transfer/api_widgets.lua
+---@field CanShareMetal fun(senderTeamID: number, receiverTeamID: number): boolean @see luarules/gadgets/team_transfer/api_widgets.lua
+---@field CanShareEnergy fun(senderTeamID: number, receiverTeamID: number): boolean @see luarules/gadgets/team_transfer/api_widgets.lua
+---@field CanShareUnits fun(senderTeamID: number, receiverTeamID: number, selectedUnitIDs: number[]): boolean @see luarules/gadgets/team_transfer/api_widgets.lua
+---@field GetMaxMetalAmount fun(senderTeamID: number, receiverTeamID: number): number @see luarules/gadgets/team_transfer/api_widgets.lua
+---@field GetMaxEnergyAmount fun(senderTeamID: number, receiverTeamID: number): number @see luarules/gadgets/team_transfer/api_widgets.lua
+---@field GetResourceTransferData fun(senderTeamID: number, receiverTeamID: number): ResourceTransferExposeOutput @see luarules/gadgets/team_transfer/api_widgets.lua
+---@field GetUnitTransferData fun(senderTeamID: number, receiverTeamID: number, selectedUnitIDs: number[]): UnitTransferExposeOutput @see luarules/gadgets/team_transfer/api_widgets.lua
+---@field handleShareButtonClick fun(targetTeamID: number): boolean @see luarules/gadgets/team_transfer/api_widgets.lua
+---@field validateShareCommand fun(): boolean @see luarules/gadgets/team_transfer/api_widgets.lua
+---@field IsSharingOption fun(optionName: string): boolean @see luarules/gadgets/team_transfer/api_widgets.lua
 ---@field MODOPTION_KEYS table
 ---@field Policies table
 ---@field ResourceShareTax table
 ---@field UnitSharing table
----@field ShareEnergy fun(senderTeamID: number, receiverTeamID: number, amount: number, receiverName: string): nil
----@field ShareMetal fun(senderTeamID: number, receiverTeamID: number, amount: number, receiverName: string): nil
----@field ShareUnits fun(senderTeamID: number, receiverTeamID: number, selectedUnitIDs: number[], receiverName: string): nil
+---@field ShareEnergy fun(senderTeamID: number, receiverTeamID: number, amount: number, receiverName: string): nil @see luarules/gadgets/team_transfer/api_widgets.lua
+---@field ShareMetal fun(senderTeamID: number, receiverTeamID: number, amount: number, receiverName: string): nil @see luarules/gadgets/team_transfer/api_widgets.lua
+---@field ShareUnits fun(senderTeamID: number, receiverTeamID: number, selectedUnitIDs: number[], receiverName: string): nil @see luarules/gadgets/team_transfer/api_widgets.lua
 
 ---Global widget-to-widget communication table with Team Transfer API
 ---@class WG
@@ -321,11 +320,3 @@
 ---@class TeamResourcesData
 ---@field metal TeamResourceData Metal resource data
 ---@field energy TeamResourceData Energy resource data
-
----Result returned by prevent excessive share policy (expose-only)
----@class PreventExcessiveShareResult
----@field expose table<string, PreventExcessiveShareExpose> Expose data by transfer category
-
----Result returned by tax resource sharing policy (expose-only)
----@class TaxResourceSharingResult
----@field expose table<string, TaxResourceSharingExpose> Expose data by transfer category

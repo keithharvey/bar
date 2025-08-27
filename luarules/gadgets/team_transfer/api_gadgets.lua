@@ -13,7 +13,7 @@ local function requireSyncedContext(functionName)
 	end
 end
 
-local sharingModeUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_mode_utils.lua")
+local sharingModeUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_utils.lua")
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
 local json = VFS.Include("common/luaUtilities/json.lua")
 local modOpts = Spring.GetModOptions()
@@ -290,21 +290,21 @@ end
 M.QueryTeamState = function(senderTeamID, policyType)
 	requireSyncedContext("QueryTeamState")
 	
-	local pipeline = VFS.Include("luarules/gadgets/team_transfer/pipeline.lua")
+	-- Use the pipeline instance that's already loaded (avoid circular dependency)
+	if not _G.TeamTransferPipeline then
+		Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Pipeline not yet available for QueryTeamState")
+		return nil
+	end
 	
 	-- Use Pipeline's cached expose query
-	local exposeData = pipeline.QueryExpose(policyType, senderTeamID)
+	local exposeData = _G.TeamTransferPipeline.QueryExpose(policyType, senderTeamID)
 	
-	-- Store in global table for widget access (no JSON needed)
+	-- Send expose data to widgets via sync action
 	if exposeData then
-		-- Create global cache if it doesn't exist
-		if not _G.TeamTransferExposeCache then
-			_G.TeamTransferExposeCache = {}
+		-- Send to widgets for their cache
+		if gadgetHandler and gadgetHandler.SyncAction then
+			gadgetHandler:SyncAction("TeamTransferExposeUpdate", senderTeamID, exposeData)
 		end
-		
-		-- Store the data directly (no encoding needed)
-		local cacheKey = tostring(senderTeamID) .. "_" .. tostring(policyType)
-		_G.TeamTransferExposeCache[cacheKey] = exposeData
 		
 		return exposeData
 	end

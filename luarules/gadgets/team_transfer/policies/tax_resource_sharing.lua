@@ -18,7 +18,7 @@ local Predicates = VFS.Include("luarules/gadgets/team_transfer/predicates.lua")
 local PolicyHooks = VFS.Include("luarules/gadgets/team_transfer/policy_hooks.lua")
 
 -- Include sharing utilities for modoption checking
-local SharingUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_mode_utils.lua")
+local SharingUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_utils.lua")
 
 -- Check modoptions to see if this policy should be active
 local enabled, taxRate = SharingUtils.IsSharingOption(SharedEnums.Policies.TaxResourceSharing)

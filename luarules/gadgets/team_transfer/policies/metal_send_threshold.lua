@@ -1,5 +1,5 @@
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
-local SharingUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_mode_utils.lua")
+local SharingUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_utils.lua")
 
 local CUMULATIVE_METAL_PARAM = "metal_share_cumulative_sent"
 

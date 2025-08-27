@@ -20,8 +20,86 @@ if not gadgetHandler:IsSyncedCode() then
 end
 
 local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
-local Pipeline = VFS.Include("luarules/gadgets/team_transfer/pipeline.lua")
-local PolicyHooks = VFS.Include("luarules/gadgets/team_transfer/policy_hooks.lua")
+	local Pipeline = VFS.Include("luarules/gadgets/team_transfer/pipeline.lua")
+	local PolicyHooks = VFS.Include("luarules/gadgets/team_transfer/policy_hooks.lua")
+	local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
+	
+	-- Make pipeline available globally to avoid circular dependencies
+_G.TeamTransferPipeline = Pipeline
+
+-- Handle widget transfer requests via SyncAction
+local function handleWidgetTransferRequest(actionName, data)
+	if actionName == "TeamTransferShareEnergy" then
+		-- Execute energy sharing with policy validation
+		local maxAmount = Pipeline.RunAllowResourceTransfer(
+			data.senderTeamID, data.receiverTeamID, 
+			SharedEnums.ResourceType.ENERGY, data.amount
+		)
+		if maxAmount > 0 then
+			local finalAmount = math.min(data.amount, maxAmount)
+			Spring.ShareResources(data.receiverTeamID, "energy", finalAmount)
+			Spring.SendLuaRulesMsg('msg:ui.playersList.chat.giveEnergy:amount='..finalAmount..':name='..data.receiverName)
+			PolicyHooks.NotifyPostTransfer({
+				senderTeamID = data.senderTeamID,
+				receiverTeamID = data.receiverTeamID,
+				resourceType = "energy",
+				amount = finalAmount
+			})
+		end
+		
+	elseif actionName == "TeamTransferShareMetal" then
+		-- Execute metal sharing with policy validation
+		local maxAmount = Pipeline.RunAllowResourceTransfer(
+			data.senderTeamID, data.receiverTeamID, 
+			SharedEnums.ResourceType.METAL, data.amount
+		)
+		if maxAmount > 0 then
+			local finalAmount = math.min(data.amount, maxAmount)
+			Spring.ShareResources(data.receiverTeamID, "metal", finalAmount)
+			Spring.SendLuaRulesMsg('msg:ui.playersList.chat.giveMetal:amount='..finalAmount..':name='..data.receiverName)
+			PolicyHooks.NotifyPostTransfer({
+				senderTeamID = data.senderTeamID,
+				receiverTeamID = data.receiverTeamID,
+				resourceType = "metal",
+				amount = finalAmount
+			})
+		end
+		
+	elseif actionName == "TeamTransferShareUnits" then
+		-- Execute unit sharing with policy validation
+		local allowedUnits = {}
+		for _, unitID in ipairs(data.selectedUnitIDs) do
+			if Spring.ValidUnitID(unitID) and Spring.GetUnitTeam(unitID) == data.senderTeamID then
+				local allowed = Pipeline.RunAllowUnitTransfer(data.senderTeamID, data.receiverTeamID, unitID)
+				if allowed then
+					allowedUnits[#allowedUnits + 1] = unitID
+				end
+			end
+		end
+		
+		local sharedCount = 0
+		for _, unitID in ipairs(allowedUnits) do
+			if Spring.TransferUnit(unitID, data.receiverTeamID, false) then
+				sharedCount = sharedCount + 1
+			end
+		end
+		
+		if sharedCount > 0 then
+			Spring.SendLuaRulesMsg('msg:ui.playersList.chat.giveUnits:count='..sharedCount..':name='..data.receiverName)
+			PolicyHooks.NotifyPostTransfer({
+				senderTeamID = data.senderTeamID,
+				receiverTeamID = data.receiverTeamID,
+				unitIDs = allowedUnits,
+				sharedCount = sharedCount
+			})
+		end
+	end
+end
+
+-- Register SyncAction handler for widget requests
+if gadgetHandler and gadgetHandler.RegisterSyncAction then
+	gadgetHandler:RegisterSyncAction("TeamTransfer", handleWidgetTransferRequest)
+end
 
 -- Spring function shortcuts
 local spGetPlayerInfo = Spring.GetPlayerInfo
@@ -29,15 +107,19 @@ local spGetPlayerInfo = Spring.GetPlayerInfo
 -- Player monitoring state
 local monitorPlayers = {}
 
+-- Debounced cache invalidation system
+local teamsNeedingCacheUpdate = {}
+local cacheUpdateScheduled = false
+
 function gadget:Initialize()
 	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Initialize starting...")
 	
-	---@type TeamTransferAPI
+	---@type TeamTransferGadgetAPI
 	GG.TeamTransfer = {
 		-- External API - what other code actually needs
 		RegisterPolicy = TeamTransfer.RegisterPolicy,
-		Enums = TeamTransfer.SharedEnums,
-		UnitSharing = TeamTransfer.UnitSharing, -- Main unit sharing functionality
+		Enums = SharedEnums,
+		UnitSharing = TeamTransfer.UnitSharing,
 		
 		-- Hook registration interface
 		RegisterInitialize = PolicyHooks.RegisterInitialize,
@@ -63,15 +145,9 @@ function gadget:Initialize()
 	
 	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Policies loaded, initializing pipeline...")
 	
-	-- Initialize the pipeline for all active teams
-	local teamList = Spring.GetTeamList()
-	for _, teamID in ipairs(teamList) do
-		local _, _, isDead, isAI = Spring.GetTeamInfo(teamID)
-		if not isDead then
-			-- Initialize both resource and unit transfer pipelines for this team
-			TeamTransfer.InitializeCache(teamID)
-		end
-	end
+	-- Skip initialization during loading to prevent circular dependencies
+	-- Cache will be populated lazily on first actual usage
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Deferring team cache initialization until after full load")
 	
 	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Pipeline initialized, setting up player monitoring...")
 	
@@ -82,7 +158,7 @@ function gadget:Initialize()
 		local leaderPlayerID, isDead, isAiTeam = Spring.GetTeamInfo(teamID)
 		if isDead == 0 and not isAiTeam then
 			if active and not spec then
-				monitorPlayers[playerID] = true
+				monitorPlayers[playerID] = true 
 			end
 		end
 	end
@@ -113,48 +189,82 @@ function gadget:GotChatMsg(msg, playerID)
 		local _, _, _, teamID = Spring.GetPlayerInfo(playerID)
 		Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Manual pipeline test requested by player " .. playerID .. " (team " .. teamID .. ")")
 		-- Test both ResourceTransfer and UnitTransfer pipelines
-		TeamTransfer.QueryTeamState("ResourceTransfer", teamID)
-		TeamTransfer.QueryTeamState("UnitTransfer", teamID)
+		queryTeamResourceState(teamID)
+	elseif msg == "!teamtransfer pipeline" then
+		local _, _, _, teamID = Spring.GetPlayerInfo(playerID)
+		Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Pipeline state dump requested by player " .. playerID .. " (team " .. teamID .. ")")
+		GG.TeamTransfer.Debug.LogFullReport()
+		return true
+	elseif msg == "!teamtransfer cache" then
+		local _, _, _, teamID = Spring.GetPlayerInfo(playerID)
+		Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Cache state dump requested by player " .. playerID .. " (team " .. teamID .. ")")
+		GG.TeamTransfer.Debug.LogCacheState()
 		return true
 	end
 	return false
 end
 
-local function updateTeamResourceState(teamID)
+local function queryTeamResourceState(teamID)
 	-- Query team state for both resource and unit transfers
 	-- Policies will expose state for all relevant resources (metal, energy, etc.)
 	TeamTransfer.QueryTeamState(teamID, TeamTransfer.PolicyType.ResourceTransfer)
 	TeamTransfer.QueryTeamState(teamID, TeamTransfer.PolicyType.UnitTransfer)
 end
 
+-- Schedule cache update for a team (debounced)
+local function scheduleTeamCacheUpdate(teamID)
+	teamsNeedingCacheUpdate[teamID] = true
+	if not cacheUpdateScheduled then
+		cacheUpdateScheduled = true
+		-- Update cache in ~1 second to debounce rapid events
+		Spring.Echo("TEAM TRANSFER DEBUG: Scheduled cache update for team " .. teamID .. " in ~1 second")
+	end
+end
+
+-- Process all pending cache updates
+local function processPendingCacheUpdates()
+	if not cacheUpdateScheduled then return end
+	
+	for teamID, _ in pairs(teamsNeedingCacheUpdate) do
+		Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Updating cache for team " .. teamID)
+		-- Invalidate and rebuild cache for this team
+		TeamTransfer.InitializeCache(teamID)
+		queryTeamResourceState(teamID) -- Refresh expose data
+	end
+	
+	-- Clear pending updates
+	teamsNeedingCacheUpdate = {}
+	cacheUpdateScheduled = false
+end
+
 local function initializeTeamStates()
 	local teamList = Spring.GetTeamList()
 	for _, teamID in ipairs(teamList) do
 		-- Pre-populate resource transfer state for UI
-		updateTeamResourceState(teamID)
+		queryTeamResourceState(teamID)
 	end
 end
 
 -- Engine hooks to keep cache updated
 function gadget:UnitGiven(unitID, unitDefID, newTeam, oldTeam)
-	-- Unit transfer affects both teams' state
-	updateTeamResourceState(newTeam)
+	-- Unit transfer affects both teams' cache - schedule debounced update
+	scheduleTeamCacheUpdate(newTeam)
 	if newTeam ~= oldTeam then
-		updateTeamResourceState(oldTeam)
+		scheduleTeamCacheUpdate(oldTeam)
 	end
 end
 
 function gadget:UnitTaken(unitID, unitDefID, oldTeam, newTeam)
-	-- Unit transfer affects both teams' state  
-	updateTeamResourceState(newTeam)
+	-- Unit transfer affects both teams' cache - schedule debounced update
+	scheduleTeamCacheUpdate(newTeam)
 	if newTeam ~= oldTeam then
-		updateTeamResourceState(oldTeam)
+		scheduleTeamCacheUpdate(oldTeam)
 	end
 end
 
 function gadget:TeamDied(teamID)
-	-- Team death might affect sharing rules
-	updateTeamResourceState(teamID)
+	-- Team death affects sharing rules - schedule cache update
+	scheduleTeamCacheUpdate(teamID)
 end
 
 -- Functions already defined above, initialization already called
@@ -167,11 +277,11 @@ function gadget:AllowResourceTransfer(senderTeamId, receiverTeamId, resourceType
 	-- Run the pipeline for the actual transfer
 	local result = Pipeline.RunAllowResourceTransfer(senderTeamId, receiverTeamId, resourceType, amount)
 	
-	-- Event-driven cache invalidation: update state for affected teams after transfer
+	-- Event-driven cache invalidation: schedule updates for affected teams after transfer
 	if result then -- Transfer was allowed
-		updateTeamResourceState(senderTeamId) -- Sender's state changed (resources sent)
+		scheduleTeamCacheUpdate(senderTeamId) -- Sender's state changed (resources sent)
 		if senderTeamId ~= receiverTeamId then
-			updateTeamResourceState(receiverTeamId) -- Receiver's state changed (resources received)
+			scheduleTeamCacheUpdate(receiverTeamId) -- Receiver's state changed (resources received)
 		end
 	end
 	
@@ -190,33 +300,16 @@ end
 local monitorPlayers = {}
 
 function gadget:GameFrame(gameFrame)
+	-- Process debounced cache updates every 30 frames (~1 second at 30 FPS)
+	if gameFrame % 30 == 0 then
+		processPendingCacheUpdates()
+	end
+	
 	-- Refresh cache periodically (every 5 seconds) to handle edge cases
 	if gameFrame % 150 == 0 then
 		local teamList = Spring.GetTeamList()
 		for _, teamID in ipairs(teamList) do
-			updateTeamResourceState(teamID)
-		end
-	end
-	
-	-- Check player activity every 30 frames to reduce overhead
-	if gameFrame % 30 == 0 then
-		local active, spec, teamID
-		for playerID, prevActive in pairs(monitorPlayers) do
-			_, active, spec, teamID = spGetPlayerInfo(playerID, false)
-			if spec then
-				-- Player went spectator - trigger abandonment event
-				Pipeline.RunTeamEvent("PlayerAbandoned", teamID, playerID, gameFrame)
-				monitorPlayers[playerID] = nil
-			elseif active ~= prevActive then
-				if not active then
-					-- Player disconnected - trigger abandonment event
-					Pipeline.RunTeamEvent("PlayerAbandoned", teamID, playerID, gameFrame)
-				elseif active and not prevActive then
-					-- Player reconnected
-					Pipeline.RunTeamEvent("PlayerReconnected", teamID, playerID, gameFrame)
-				end
-				monitorPlayers[playerID] = active
-			end
+			scheduleTeamCacheUpdate(teamID)
 		end
 	end
 end
@@ -275,4 +368,22 @@ function gadget:TextCommand(command)
 	end
 	
 	return false
+end
+
+-- Initialize team caches after game starts (safe from circular dependencies)
+function gadget:GameStart()
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Game started, initializing team caches now")
+	
+	-- Now it's safe to initialize team caches
+	local teamList = Spring.GetTeamList()
+	for _, teamID in ipairs(teamList) do
+		local _, _, isDead, isAI = Spring.GetTeamInfo(teamID)
+		if not isDead then
+			-- Initialize both resource and unit transfer pipelines for this team
+			TeamTransfer.InitializeCache(teamID)
+			Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Initialized cache for team " .. teamID)
+		end
+	end
+	
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Team transfer system fully active")
 end

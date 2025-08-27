@@ -1,9 +1,9 @@
 -- Avoid creating a separate API instance; use GG.TeamTransfer when available
 local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
-local Resources = VFS.Include("luarules/gadgets/team_transfer/resources.lua")
 local State = VFS.Include("luarules/gadgets/team_transfer/state.lua")
 local PolicyHooks = VFS.Include("luarules/gadgets/team_transfer/policy_hooks.lua")
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
+local SharingUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_utils.lua")
 
 local Pipeline = {}
 
@@ -361,7 +361,7 @@ function Pipeline.RunAllowResourceTransfer(senderTeamId, receiverTeamId, resourc
 	local maxShare = 0
 	local receiverCur = 0
 	if resourceName == SharedEnums.ResourceType.METAL or resourceName == SharedEnums.ResourceType.ENERGY then
-		maxShare, receiverCur = Resources.ComputeMaxShare(receiverTeamId, resourceName)
+		maxShare, receiverCur = SharingUtils.ComputeMaxShare(receiverTeamId, resourceName)
 	end
 	local clampedAmount = math.min(math.max(amount, 0), maxShare)
 	local ctx = {
@@ -471,63 +471,7 @@ function Pipeline.RunAllowUnitTransfer(unitID, unitDefID, fromTeamID, toTeamID, 
 
 	local res = evaluatePolicies(SharedEnums.PolicyType.UnitTransfer, ctx)
 	if type(res) == "table" then
-		-- Execute standardized command applications
-		if res.applyCommands then
-			local commands = res.applyCommands
-			
-			-- Clear load orders from specified units
-			if commands.ClearLoad then
-				for _, unitID in ipairs(commands.ClearLoad) do
-					local ok, queue = pcall(Spring.GetUnitCommands, unitID)
-					if ok and queue and #queue > 0 then
-						Spring.GiveOrderToUnit(unitID, CMD.REMOVE, { CMD.LOAD_UNITS }, { 'alt' })
-					end
-				end
-			end
-			
-			-- Clear self-destruct orders from specified units
-			if commands.ClearSelfD then
-				for _, unitID in ipairs(commands.ClearSelfD) do
-					if Spring.GetUnitSelfDTime(unitID) > 0 then
-						Spring.GiveOrderToUnit(unitID, CMD.SELFD, {}, 0)
-					end
-				end
-			end
-			
-			-- Clear self-destruct orders from all units in specified teams
-			if commands.ClearTeamSelfD then
-				for _, teamID in ipairs(commands.ClearTeamSelfD) do
-					local units = Spring.GetTeamUnits(teamID)
-					for i = 1, #units do
-						local unitID = units[i]
-						if Spring.GetUnitSelfDTime(unitID) > 0 then
-							Spring.GiveOrderToUnit(unitID, CMD.SELFD, {}, 0)
-						end
-					end
-				end
-			end
-			
-			-- Remove specific commands from units
-			if commands.RemoveCommands then
-				for _, cmd in ipairs(commands.RemoveCommands) do
-					if cmd.unitID and cmd.cmdID then
-						local options = cmd.options or {}
-						Spring.GiveOrderToUnit(cmd.unitID, CMD.REMOVE, { cmd.cmdID }, options)
-					end
-				end
-			end
-			
-			-- Give new commands to units
-			if commands.GiveCommands then
-				for _, cmd in ipairs(commands.GiveCommands) do
-					if cmd.unitID and cmd.cmdID then
-						local params = cmd.params or {}
-						local options = cmd.options or {}
-						Spring.GiveOrderToUnit(cmd.unitID, cmd.cmdID, params, options)
-					end
-				end
-			end
-		end
+		-- Commands are handled via RegisterPostTransfer hooks in policies
 
 		if res.allow ~= nil then return res.allow end
 		if res.deny ~= nil then return not res.deny end
@@ -576,26 +520,7 @@ function Pipeline.RunAllowCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams,
 	return true
 end
 
-local function executeTeamCommands(commands)
-	-- Clear load orders from specified units
-	if commands.ClearLoad then
-		for _, unitID in ipairs(commands.ClearLoad) do
-			local ok, queue = pcall(Spring.GetUnitCommands, unitID)
-			if ok and queue and #queue > 0 then
-				Spring.GiveOrderToUnit(unitID, CMD.REMOVE, { CMD.LOAD_UNITS }, { 'alt' })
-			end
-		end
-	end
-	
-	-- Clear self-destruct orders from specified units
-	if commands.ClearSelfD then
-		for _, unitID in ipairs(commands.ClearSelfD) do
-			if Spring.GetUnitSelfDTime(unitID) > 0 then
-				Spring.GiveOrderToUnit(unitID, CMD.REMOVE, { CMD.SELFD }, { 'alt' })
-			end
-		end
-	end
-end
+-- Commands are executed directly in policies via RegisterPostTransfer hooks
 
 function Pipeline.RunTeamEvent(eventType, teamID, playerID, gameFrame)
 	local ctx = {
@@ -609,10 +534,7 @@ function Pipeline.RunTeamEvent(eventType, teamID, playerID, gameFrame)
 
 	local res = evaluatePolicies(SharedEnums.PolicyType.TeamEvent, ctx)
 	if type(res) == "table" then
-		-- Execute team-level command applications
-		if res.applyCommands then
-			executeTeamCommands(res.applyCommands)
-		end
+		-- Commands are handled via RegisterPostTransfer hooks in policies
 	end
 end
 
@@ -626,28 +548,16 @@ local function generatePredicateCacheKeyWithResources(predicateScope, policyType
 	local roundedFrame = math.floor(gameFrame / 10) * 10
 	
 	-- Get complete resource data for both teams (single Spring API calls)
-	local sMCur, sMStor, sMPull, sMInc, sMExp, sMShare = Spring.GetTeamResources(senderTeamID, SharedEnums.ResourceType.METAL)
-	local sECur, sEStor, sEPull, sEInc, sEExp, sEShare = Spring.GetTeamResources(senderTeamID, SharedEnums.ResourceType.ENERGY)
-	local rMCur, rMStor, rMPull, rMInc, rMExp, rMShare = Spring.GetTeamResources(receiverTeamID, SharedEnums.ResourceType.METAL)
-	local rECur, rEStor, rEPull, rEInc, rEExp, rEShare = Spring.GetTeamResources(receiverTeamID, SharedEnums.ResourceType.ENERGY)
-	
-	---@type TeamResourcesData
-	local senderResources = {
-		metal = { current = sMCur, storage = sMStor, pull = sMPull, income = sMInc, expense = sMExp, shareSlider = sMShare },
-		energy = { current = sECur, storage = sEStor, pull = sEPull, income = sEInc, expense = sEExp, shareSlider = sEShare }
-	}
-	
-	---@type TeamResourcesData  
-	local receiverResources = {
-		metal = { current = rMCur, storage = rMStor, pull = rMPull, income = rMInc, expense = rMExp, shareSlider = rMShare },
-		energy = { current = rECur, storage = rEStor, pull = rEPull, income = rEInc, expense = rEExp, shareSlider = rEShare }
-	}
+	local senderResources = SharingUtils.GetTeamResourcesData(senderTeamID)
+	local receiverResources = SharingUtils.GetTeamResourcesData(receiverTeamID)
 	
 	-- Create hash of relevant context including both teams
 	local contextStr = string.format("%s_%s_%d_%d_%d_%.0f_%.0f_%.0f_%.0f_%.0f_%.0f_%.0f_%.0f", 
 		predicateScope, policyType, senderTeamID, receiverTeamID, roundedFrame, 
-		sMCur or 0, sMStor or 0, sECur or 0, sEStor or 0,
-		rMCur or 0, rMStor or 0, rECur or 0, rEStor or 0)
+		senderResources.metal.current, senderResources.metal.storage, 
+		senderResources.energy.current, senderResources.energy.storage,
+		receiverResources.metal.current, receiverResources.metal.storage, 
+		receiverResources.energy.current, receiverResources.energy.storage)
 	return contextStr, senderResources, receiverResources
 end
 

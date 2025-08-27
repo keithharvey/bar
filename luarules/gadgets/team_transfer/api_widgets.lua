@@ -5,12 +5,17 @@
 ---@load-file luaui/types/team_transfer.lua
 
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
+local SharingUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_utils.lua")
+
+-- Widget-side API provides expose-driven validation and thin transfer requests
 
 ---@class TeamTransferWidgetAPIImpl : TeamTransferWidgetAPI
 local M = {}
 
 -- Policy expose data cache (receives data from synced gadget)
-local exposeCache = {} -- teamID -> expose data
+local exposeCache = {}
+
+-- teamID -> expose data
 
 -- Flag to prevent spammy logging
 local hasLoggedSystemNotReady = false
@@ -35,7 +40,7 @@ local PolicyType = SharedEnums.PolicyType
 local TransferCategory = SharedEnums.TransferCategory
 
 -- Unsynced sharing mode check helper
-local sharingModeUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_mode_utils.lua")
+local sharingModeUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_utils.lua")
 
 local function isSharingOption(modoptionKey)
 	if not modoptionKey then return false, nil end
@@ -161,21 +166,26 @@ end
 ---@param receiverTeamID number
 ---@return number maxEnergyAmount
 local function calculateMaxEnergyAmount(senderTeamID, receiverTeamID)
-	-- Get receiver's energy storage capacity and current amount
-	local eCur, eStor, ePull, eInc, eExp, eShare = Spring.GetTeamResources(receiverTeamID, SharedEnums.ResourceType.ENERGY)
-	return math.max(0, eStor * eShare - eCur)
+	-- Use shared utility for consistent calculation
+	local maxShare, _ = SharingUtils.ComputeMaxShare(receiverTeamID, SharedEnums.ResourceType.ENERGY)
+	return maxShare
 end
 
 ---@param teamID number
 ---@return ResourceTransferExposeOutput? Direct pipeline output with proper types
 M.GetResourceTransferState = function(teamID)
-	-- Use predicate-based cache query for allied resource transfers (most common UI case)
-	local pipeline = VFS.Include("luarules/gadgets/team_transfer/pipeline.lua")
-	local exposeData = pipeline.QueryExposeByPredicates("allied", SharedEnums.PolicyType.ResourceTransfer, teamID, teamID)
+	-- Use widget cache (never access pipeline directly from widgets)
+	local exposeData = exposeCache[teamID]
+	if exposeData and exposeData.ResourceTransfer then
+		---@type ResourceTransferExposeOutput?
+		return exposeData.ResourceTransfer
+	end
 	
-	-- Return the properly typed pipeline output directly, or nil if not available
-	---@type ResourceTransferExposeOutput?
-	return exposeData
+	-- Return fallback structure if no data available
+	return {
+		metal = { canShareMetal = false, maxMetalShareAmount = 0, blockReason = "No data available" },
+		energy = { canShareEnergy = false, maxEnergyShareAmount = 0, blockReason = "No data available" }
+	}
 end
 
 -- Legacy methods removed - use new simplified API instead
@@ -368,13 +378,84 @@ M.GetUnitTransferData = function(senderTeamID, receiverTeamID, selectedUnitIDs)
 	end
 end
 
--- Include resources module for sharing functionality
-local Resources = VFS.Include("luarules/gadgets/team_transfer/resources.lua")
+-- Thin transfer request layer - sends to gadget for execution
+M.ShareEnergy = function(senderTeamID, receiverTeamID, amount, receiverName)
+	-- Validate inputs
+	if not senderTeamID or not receiverTeamID or not amount or amount <= 0 then
+		return false, "Invalid parameters"
+	end
+	
+	-- Use expose data for client-side validation
+	local canShare, blockReason = M.CanShareEnergy(senderTeamID, receiverTeamID)
+	if not canShare then
+		return false, blockReason or "Energy sharing not allowed"
+	end
+	
+	-- Send request to gadget for execution
+	if gadgetHandler and gadgetHandler.SyncAction then
+		gadgetHandler:SyncAction("TeamTransferShareEnergy", {
+			senderTeamID = senderTeamID,
+			receiverTeamID = receiverTeamID,
+			amount = amount,
+			receiverName = receiverName or "Unknown"
+		})
+		return true, amount
+	else
+		return false, "Team Transfer system not available"
+	end
+end
 
--- Expose resource and unit sharing methods
-M.ShareEnergy = Resources.ShareEnergy
-M.ShareMetal = Resources.ShareMetal
-M.ShareUnits = Resources.ShareUnits
+M.ShareMetal = function(senderTeamID, receiverTeamID, amount, receiverName)
+	-- Validate inputs
+	if not senderTeamID or not receiverTeamID or not amount or amount <= 0 then
+		return false, "Invalid parameters"
+	end
+	
+	-- Use expose data for client-side validation
+	local canShare, blockReason = M.CanShareMetal(senderTeamID, receiverTeamID)
+	if not canShare then
+		return false, blockReason or "Metal sharing not allowed"
+	end
+	
+	-- Send request to gadget for execution
+	if gadgetHandler and gadgetHandler.SyncAction then
+		gadgetHandler:SyncAction("TeamTransferShareMetal", {
+			senderTeamID = senderTeamID,
+			receiverTeamID = receiverTeamID,
+			amount = amount,
+			receiverName = receiverName or "Unknown"
+		})
+		return true, amount
+	else
+		return false, "Team Transfer system not available"
+	end
+end
+
+M.ShareUnits = function(senderTeamID, receiverTeamID, selectedUnitIDs, receiverName)
+	-- Validate inputs
+	if not senderTeamID or not receiverTeamID or not selectedUnitIDs or #selectedUnitIDs == 0 then
+		return false, "Invalid parameters"
+	end
+	
+	-- Use expose data for client-side validation
+	local canShare, blockReason = M.CanShareUnits(senderTeamID, receiverTeamID, selectedUnitIDs)
+	if not canShare then
+		return false, blockReason or "Unit sharing not allowed"
+	end
+	
+	-- Send request to gadget for execution
+	if gadgetHandler and gadgetHandler.SyncAction then
+		gadgetHandler:SyncAction("TeamTransferShareUnits", {
+			senderTeamID = senderTeamID,
+			receiverTeamID = receiverTeamID,
+			selectedUnitIDs = selectedUnitIDs,
+			receiverName = receiverName or "Unknown"
+		})
+		return true, #selectedUnitIDs
+	else
+		return false, "Team Transfer system not available"
+	end
+end
 
 -- Clean enum interface instead of awkward SharedEnums
 M.Enums = SharedEnums
