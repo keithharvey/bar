@@ -1,8 +1,7 @@
 -- Runtime Validator: Prevent Excessive Share
--- UI validation concern - checks if requested amounts exceed policy limits
+-- UI validation concern - checks if requested amounts exceeds any limits set by policies
 
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
-local PolicyHooks = VFS.Include("luarules/gadgets/team_transfer/policy_hooks.lua")
 
 -- Runtime validator with strongly-typed access to transfer results
 GG.TeamTransfer.RegisterValidator({

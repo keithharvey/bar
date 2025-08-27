@@ -40,7 +40,7 @@ local PolicyType = SharedEnums.PolicyType
 local TransferCategory = SharedEnums.TransferCategory
 
 -- Unsynced sharing mode check helper
-local sharingModeUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_utils.lua")
+local sharingModeUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_mode_utils.lua")
 
 local function isSharingOption(modoptionKey)
 	if not modoptionKey then return false, nil end

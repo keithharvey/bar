@@ -12,7 +12,6 @@ end
 -- Policy enum shortcuts for cleaner code
 local UnitSharingMode = GG.TeamTransfer.Policies.UNIT_SHARING_MODE
 local TransferCategory = GG.TeamTransfer.SharedEnums.TransferCategory
-local PolicyHooks = GG.TeamTransfer.PolicyHooks
 
 -- Cached unit sets for efficient lookup
 local allowedUnits = {} -- Set of unitDefIDs that are allowed in current mode

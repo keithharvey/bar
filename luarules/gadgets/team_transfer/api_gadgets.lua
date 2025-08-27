@@ -13,7 +13,7 @@ local function requireSyncedContext(functionName)
 	end
 end
 
-local sharingModeUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_utils.lua")
+local sharingModeUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_mode_utils.lua")
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
 local json = VFS.Include("common/luaUtilities/json.lua")
 local modOpts = Spring.GetModOptions()
