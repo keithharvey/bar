@@ -52,23 +52,73 @@ end
 
 initializeAllowedUnits()
 
--- Register validator for unit sharing mode restrictions
-GG.TeamTransfer.RegisterValidator({
-	dependsOn = { SharedEnums.TransferCategory.UNIT_TRANSFER }
-}, function(ctx)
-	-- Only validate unit transfers
-	if not ctx.unitDefID then
-		return true
-	end
-	
-	-- Check if unit sharing is enabled and this specific unit is allowed
-	local unitAllowed = allowedUnits[ctx.unitDefID] == true
-	
-	if not unitAllowed then
-		-- Provides mode-specific explanations: "Unit sharing is disabled", "Share mode is T2 constructors only", etc.
-		local reason = sharing.blockMessage(1, unitSharingMode)
-		return false, reason
-	end
-	
-	return true
+-- Register policy that exposes unit sharing mode data to UI
+GG.TeamTransfer.RegisterPolicy(SharedEnums.Policies.UnitSharingMode, function(policy)
+	policy.ForAlliedUnitTransfers.Use(function(ctx)
+		-- Count shareable/unshareable units in current selection
+		local shareableCount = 0
+		local unshareableCount = 0
+		local selectedUnitIDs = ctx.selectedUnitIDs or {}
+
+		for _, unitID in ipairs(selectedUnitIDs) do
+			if Spring.ValidUnitID(unitID) and Spring.GetUnitTeam(unitID) == ctx.senderTeamId then
+				local unitDefID = Spring.GetUnitDefID(unitID)
+				if unitDefID and allowedUnits[unitDefID] then
+					shareableCount = shareableCount + 1
+				else
+					unshareableCount = unshareableCount + 1
+				end
+			end
+		end
+
+		local canShareUnits = shareableCount > 0
+		local blockReason = nil
+
+		if unitSharingMode == "disabled" then
+			canShareUnits = false
+			blockReason = "Unit sharing is disabled"
+		elseif not canShareUnits and #selectedUnitIDs > 0 then
+			blockReason = sharing.blockMessage(unshareableCount, unitSharingMode)
+		end
+
+		---@type RawUnitTransferExpose
+		local unitExpose = {
+			canShareUnits = canShareUnits,  -- Required by pipeline converter
+			shareableUnitCount = shareableCount,
+			unshareableUnitCount = unshareableCount,
+			blockReason = blockReason,  -- Required by pipeline converter
+			-- Policy-specific data (not used by pipeline converter)
+			allowedUnits = allowedUnits,
+			sharingMode = unitSharingMode,
+			_policyData = {
+				sharingMode = unitSharingMode
+			}
+		}
+
+		return {
+			expose = {
+				[SharedEnums.TransferCategory.UNIT_TRANSFER] = unitExpose
+			}
+		}
+	end)
+
+	-- Also register validator for unit sharing mode restrictions
+	policy.ForAlliedUnitTransfers.Use(function(ctx)
+		-- Only validate unit transfers
+		if not ctx.unitDefID then
+			return { allow = true }
+		end
+
+		-- Check if unit sharing is enabled and this specific unit is allowed
+		local unitAllowed = allowedUnits[ctx.unitDefID] == true
+
+		if not unitAllowed then
+			return {
+				deny = true,
+				blockReason = sharing.blockMessage(1, unitSharingMode)
+			}
+		end
+
+		return { allow = true }
+	end)
 end)

@@ -565,20 +565,22 @@ end
 local function convertToSharedOutputTypes(rawExpose, policyType, senderTeamID, receiverTeamID, receiverResources)
 	if policyType == SharedEnums.PolicyType.ResourceTransfer then
 		-- Handle both metal and energy transfer data
+		---@type RawMetalTransferExpose
 		local metalData = rawExpose[SharedEnums.TransferCategory.METAL_TRANSFER] or {}
+		---@type RawEnergyTransferExpose
 		local energyData = rawExpose[SharedEnums.TransferCategory.ENERGY_TRANSFER] or {}
-		
+
 		-- Use provided resource data instead of calling Spring APIs
 		-- Share slider determines what portion of storage the receiver is willing to accept
 		local maxMetalShareAmount = math.max(0, (receiverResources.metal.storage * receiverResources.metal.shareSlider) - receiverResources.metal.current)
 		local maxEnergyShareAmount = math.max(0, (receiverResources.energy.storage * receiverResources.energy.shareSlider) - receiverResources.energy.current)
-		
+
 		---@type ResourceTransferExposeOutput
 		return {
 			metal = {
 				maxMetalShareAmount = maxMetalShareAmount,
 				canShareMetal = maxMetalShareAmount > 0 and (metalData.amountSendable or 0) > 0,
-				blockReason = (maxMetalShareAmount <= 0) and "No metal storage space available" or 
+				blockReason = (maxMetalShareAmount <= 0) and "No metal storage space available" or
 							 ((metalData.amountSendable or 0) <= 0) and (metalData.blockReason or "Metal sharing blocked by policy") or nil,
 				taxRate = metalData.taxRate,
 				metalThreshold = metalData.metalThreshold,
@@ -588,7 +590,7 @@ local function convertToSharedOutputTypes(rawExpose, policyType, senderTeamID, r
 			energy = {
 				maxEnergyShareAmount = maxEnergyShareAmount,
 				canShareEnergy = maxEnergyShareAmount > 0 and (energyData.amountSendable or 0) > 0,
-				blockReason = (maxEnergyShareAmount <= 0) and "No energy storage space available" or 
+				blockReason = (maxEnergyShareAmount <= 0) and "No energy storage space available" or
 							 ((energyData.amountSendable or 0) <= 0) and (energyData.blockReason or "Energy sharing blocked by policy") or nil,
 				taxRate = energyData.taxRate,
 				energyThreshold = energyData.energyThreshold,
@@ -596,9 +598,10 @@ local function convertToSharedOutputTypes(rawExpose, policyType, senderTeamID, r
 				amountRemainingAllowance = energyData.amountRemainingAllowance,
 			}
 		}
-	elseif transferType == "unit" then
+	elseif policyType == SharedEnums.PolicyType.UnitTransfer then
+		---@type RawUnitTransferExpose
 		local unitData = rawExpose[SharedEnums.TransferCategory.UNIT_TRANSFER] or {}
-		
+
 		---@type UnitTransferExposeOutput
 		return {
 			canShareUnits = unitData.canShareUnits == true,

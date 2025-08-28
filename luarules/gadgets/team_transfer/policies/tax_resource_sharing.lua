@@ -37,7 +37,7 @@ else
 	taxRate = tonumber(taxRate) or 0
 end
 
-Spring.Log("[TAX POLICY]", LOG.ERROR, "Tax rate: " .. taxRate .. ", Metal threshold: " .. metalThreshold)
+Spring.Log("[TAX POLICY]", LOG.ERROR, "Tax rate: " .. taxRate)
 
 GG.TeamTransfer.RegisterPolicy(TaxResourceSharing, function(policy)
 	policy.ForAlliedResourceTransfers.Use(function(ctx)
@@ -53,21 +53,28 @@ GG.TeamTransfer.RegisterPolicy(TaxResourceSharing, function(policy)
 		
 		local finalMetalAmount = maxMetalAmount
 		
-		---@type TaxResourceSharingResult
+		---@type RawMetalTransferExpose
+		local metalExpose = {
+			amountSendable = finalMetalAmount,  -- Required by pipeline converter
+			taxRate = taxRate,
+			_policyData = {
+				taxRate = taxRate,
+			}
+		}
+
+		---@type RawEnergyTransferExpose
+		local energyExpose = {
+			amountSendable = maxEnergyAmount,  -- Required by pipeline converter
+			taxRate = taxRate,
+			_policyData = {
+				taxRate = taxRate,
+			}
+		}
+
 		return {
 			expose = {
-				[TransferCategory.METAL_TRANSFER] = {
-					maxShareAmount = finalMetalAmount,
-					_policyData = {
-						taxRate = taxRate,
-					}
-				},
-				[TransferCategory.ENERGY_TRANSFER] = {
-					maxShareAmount = maxEnergyAmount,
-					_policyData = {
-						taxRate = taxRate,
-					}
-				}
+				[TransferCategory.METAL_TRANSFER] = metalExpose,
+				[TransferCategory.ENERGY_TRANSFER] = energyExpose
 			}
 		}
 	end)

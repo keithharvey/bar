@@ -20,14 +20,14 @@
 
 ---Gadget API for Team Transfer system - provides policy registration and execution
 ---@class TeamTransferGadgetAPI
----@field RegisterPolicy fun(policyName: string, builderFn: function): void
+---@field RegisterPolicy fun(policyName: string, builderFn: function): nil
 ---@field Enums TeamTransferSharedEnums
 ---@field UnitSharing table
----@field RegisterInitialize fun(initFn: function): void
----@field RegisterPreProcess fun(preProcessFn: function): void
----@field RegisterPostTransfer fun(listenerFn: function): void
----@field RegisterValidator fun(config: table, validatorFn: function): void
----@field NotifyPostTransfer fun(transferData: table): void
+---@field RegisterInitialize fun(initFn: function): nil
+---@field RegisterPreProcess fun(preProcessFn: function): nil
+---@field RegisterPostTransfer fun(listenerFn: function): nil
+---@field RegisterValidator fun(config: table, validatorFn: function): nil
+---@field NotifyPostTransfer fun(transferData: table): nil
 ---@field Debug table
 
 ---Global gadget-to-gadget communication table
@@ -139,6 +139,36 @@
 ---@field wasAmountCapped boolean Whether the original amount was reduced due to storage limits
 ---@field amountSendable number How much can be sent right now (UI-focused)
 ---@field maxPossibleSend number Maximum they could ever send to this receiver (UI-focused)
+
+---Raw expose data types returned by policies (before pipeline conversion)
+---These define the contract between policies and the pipeline converter
+
+---@class RawMetalTransferExpose
+---@field amountSendable number How much metal can be sent right now (required by pipeline)
+---@field taxRate number? Tax rate applied to metal transfers (0.0 to 1.0)
+---@field metalThreshold number? Cumulative metal threshold
+---@field amountAlreadySent number? Metal amount already sent in current period
+---@field amountRemainingAllowance number? Remaining metal allowance before hitting limits
+---@field blockReason string? Reason why metal sharing is blocked
+---@field _policyData table? Internal policy calculation data (not used by pipeline)
+
+---@class RawEnergyTransferExpose
+---@field amountSendable number How much energy can be sent right now (required by pipeline)
+---@field taxRate number? Tax rate applied to energy transfers (0.0 to 1.0)
+---@field energyThreshold number? Cumulative energy threshold
+---@field amountAlreadySent number? Energy amount already sent in current period
+---@field amountRemainingAllowance number? Remaining energy allowance before hitting limits
+---@field blockReason string? Reason why energy sharing is blocked
+---@field _policyData table? Internal policy calculation data (not used by pipeline)
+
+---@class RawUnitTransferExpose
+---@field canShareUnits boolean Whether unit sharing is allowed (required by pipeline)
+---@field shareableUnitCount number? Number of currently selected units that can be shared
+---@field unshareableUnitCount number? Number of currently selected units that cannot be shared
+---@field blockReason string? Reason why sharing is blocked (required by pipeline)
+---@field allowedUnits table? UnitDefID -> boolean mapping (policy-specific, not used by pipeline)
+---@field sharingMode string? Current sharing mode (policy-specific, not used by pipeline)
+---@field _policyData table? Internal policy calculation data (not used by pipeline)
 
 ---@see luarules/gadgets/team_transfer/policies/resource_tax.lua
 ---@class ResourceTaxExpose

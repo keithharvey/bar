@@ -6,23 +6,39 @@
 ---@class TeamTransferAPI
 local M = {}
 
+-- Team Transfer Gadget API Initialization Logging
+Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_GADGETS] Starting api_gadgets.lua initialization")
+
 -- Ensure policy pipeline only runs in synced context
 local function requireSyncedContext(functionName)
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "[API_GADGETS] Checking synced context for " .. functionName)
 	if gadgetHandler and not gadgetHandler:IsSyncedCode() then
-		error("TeamTransfer." .. functionName .. " can only be called from synced context (gadgets), not unsynced context (widgets)")
+		local errorMsg = "TeamTransfer." .. functionName .. " can only be called from synced context (gadgets), not unsynced context (widgets)"
+		Spring.Log("TEAM TRANSFER ERROR", LOG.ERROR, "[API_GADGETS] Context error: " .. errorMsg)
+		error(errorMsg)
 	end
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "[API_GADGETS] Synced context check passed for " .. functionName)
 end
 
+Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_GADGETS] Including dependencies...")
 local sharingModeUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_mode_utils.lua")
+Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_GADGETS] Loaded sharing_mode_utils.lua")
+
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
+Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_GADGETS] Loaded shared_enums.lua")
+
 local json = VFS.Include("common/luaUtilities/json.lua")
+Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_GADGETS] Loaded json.lua")
+
 local modOpts = Spring.GetModOptions()
+Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_GADGETS] Retrieved mod options: " .. tostring(modOpts ~= nil))
 
 -- Use shared enums for consistency across synced/unsynced contexts
 M.PolicyType = SharedEnums.PolicyType
 M.Policies = SharedEnums.Policies
 M.Scope = SharedEnums.Scope
 M.SharedEnums = SharedEnums
+Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_GADGETS] Shared enums assigned to API")
 
 local policies = {
 	[M.PolicyType.ResourceTransfer] = {},
@@ -32,9 +48,14 @@ local policies = {
 }
 
 local function pushPolicy(policyType, entry)
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "[API_GADGETS] Pushing policy to type " .. tostring(policyType) .. " - name: " .. tostring(entry.name))
 	local list = policies[policyType]
+	local oldCount = #list
 	list[#list + 1] = entry
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "[API_GADGETS] Policy added, count: " .. oldCount .. " -> " .. #list)
 end
+
+Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_GADGETS] Policy storage initialized")
 
 -- Flat, scope-specific helpers (top-level for F12 navigation)
 
@@ -42,61 +63,66 @@ end
 
 ---@return PolicyBuilder
 local function newBuilder(policyName, dependencies)
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "[API_GADGETS] Creating policy builder for '" .. tostring(policyName) .. "' with " .. tostring(#(dependencies or {})) .. " dependencies")
 	---@class PolicyBuilder
 	local builder = {}
 
 	-- Create the action methods that can be used at the end of chains
 	---@class ActionMethods
 	---@field Allow fun(): PolicyBuilder Allow this policy to proceed - permits the action when all predicates match
-	---@field Deny fun(): PolicyBuilder Deny this policy from proceeding - blocks the action when all predicates match  
+	---@field Deny fun(): PolicyBuilder Deny this policy from proceeding - blocks the action when all predicates match
 	---@field Use fun(handlerFn: function): PolicyBuilder Use custom handler - run custom logic when all predicates match
-	
+
 	---@return ActionMethods
 	local function createActionMethods(policyType, predicates)
+		Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "[API_GADGETS] Creating action methods for policy type " .. tostring(policyType) .. " with " .. tostring(#predicates) .. " predicates")
 		local actions = {}
-		
+
 		---Allow this policy to proceed
 		---Registers a policy that permits the action when all predicates match
 		---Example: policy.ForAlliedCommands.WhenGuard.Allow() - allows guard commands to allied units
 		---@return PolicyBuilder Returns the policy builder for chaining
 		actions.Allow = function()
-			pushPolicy(policyType, { 
+			Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "[API_GADGETS] Policy '" .. policyName .. "' registered ALLOW action")
+			pushPolicy(policyType, {
 				name = policyName,
 				dependencies = dependencies,
-				predicates = predicates, 
-				handler = function(ctx) return { allow = true } end 
+				predicates = predicates,
+				handler = function(ctx) return { allow = true } end
 			})
 			return builder
 		end
-		
+
 		---Deny this policy from proceeding
 		---Registers a policy that blocks the action when all predicates match
 		---Example: policy.ForAlliedCommands.WhenGuard.Deny() - blocks guard commands to allied units
 		---@return PolicyBuilder Returns the policy builder for chaining
 		actions.Deny = function()
-			pushPolicy(policyType, { 
+			Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "[API_GADGETS] Policy '" .. policyName .. "' registered DENY action")
+			pushPolicy(policyType, {
 				name = policyName,
 				dependencies = dependencies,
-				predicates = predicates, 
-				handler = function(ctx) return { deny = true } end 
+				predicates = predicates,
+				handler = function(ctx) return { deny = true } end
 			})
 			return builder
 		end
-		
+
 		---Use custom handler for this policy
 		---Registers a policy with custom logic when all predicates match
 		---@param handlerFn function Custom handler function that receives context and returns { allow: boolean } or { deny: boolean } or { applyCommands: table }
 		---@return PolicyBuilder Returns the policy builder for chaining
 		actions.Use = function(handlerFn)
-			pushPolicy(policyType, { 
+			Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "[API_GADGETS] Policy '" .. policyName .. "' registered USE action with custom handler")
+			pushPolicy(policyType, {
 				name = policyName,
 				dependencies = dependencies,
-				predicates = predicates, 
-				handler = handlerFn 
+				predicates = predicates,
+				handler = handlerFn
 			})
 			return builder
 		end
-		
+
 		return actions
 	end
 
@@ -218,20 +244,28 @@ end
 ---@param options table|fun(policy: PolicyBuilder) Either options table `{ dependsOn = string[] }` or the registration function
 ---@param registrationFn fun(policy: PolicyBuilder)? Function that configures the policy (if options is provided)
 function M.RegisterPolicy(policyName, options, registrationFn)
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "[API_GADGETS] RegisterPolicy called for '" .. tostring(policyName) .. "'")
 	requireSyncedContext("RegisterPolicy")
-	
+
 	-- Handle function overloading: RegisterPolicy(name, fn) or RegisterPolicy(name, options, fn)
 	if type(options) == "function" then
+		Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "[API_GADGETS] Function overloading detected - options is function")
 		registrationFn = options
 		options = {}
 	end
 	options = options or {}
 	local dependencies = options.dependsOn or {}
 
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "[API_GADGETS] Creating builder for '" .. policyName .. "' with " .. #dependencies .. " dependencies")
+
 	-- Pass policy context directly to the builder - much cleaner than global overrides!
 	local builder = newBuilder(policyName, dependencies)
 	if registrationFn then
+		Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "[API_GADGETS] Calling registration function for '" .. policyName .. "'")
 		registrationFn(builder)
+		Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "[API_GADGETS] Registration function completed for '" .. policyName .. "'")
+	else
+		Spring.Log("TEAM TRANSFER WARN", LOG.ERROR, "[API_GADGETS] No registration function provided for '" .. policyName .. "'")
 	end
 end
 
@@ -337,6 +371,12 @@ M.InitializeCache = function(teamID)
 	end
 	
 	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Manual cache initialization completed")
+end
+
+Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_GADGETS] api_gadgets.lua initialization completed successfully")
+Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "[API_GADGETS] Final policy counts:")
+for policyType, policyList in pairs(policies) do
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "[API_GADGETS]   " .. tostring(policyType) .. ": " .. #policyList .. " policies")
 end
 
 ---@return TeamTransferAPI

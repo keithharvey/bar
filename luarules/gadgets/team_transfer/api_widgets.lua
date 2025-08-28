@@ -2,10 +2,16 @@
 -- This file provides READ-ONLY access to Team Transfer data via expose cache
 -- Policy pipeline execution happens ONLY in synced context (gadgets)
 
+Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Starting api_widgets.lua initialization")
+
 ---@load-file luaui/types/team_transfer.lua
 
+Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Including dependencies...")
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
+Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Loaded shared_enums.lua")
+
 local SharingUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_utils.lua")
+Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Loaded sharing_utils.lua")
 
 -- Widget-side API provides expose-driven validation and thin transfer requests
 
@@ -14,6 +20,7 @@ local M = {}
 
 -- Policy expose data cache (receives data from synced gadget)
 local exposeCache = {}
+Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Expose cache initialized")
 
 -- teamID -> expose data
 
@@ -22,18 +29,38 @@ local hasLoggedSystemNotReady = false
 
 -- Receive policy expose data from synced gadget
 local function updateExposeCache(_, teamID, exposeData)
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "[API_WIDGETS] Received expose data update for team " .. tostring(teamID))
 	exposeCache[teamID] = exposeData
+
+	-- Log what types of data were received
+	local dataTypes = {}
+	if exposeData.ResourceTransfer then dataTypes[#dataTypes+1] = "ResourceTransfer" end
+	if exposeData.UnitTransfer then dataTypes[#dataTypes+1] = "UnitTransfer" end
+	if exposeData.Command then dataTypes[#dataTypes+1] = "Command" end
+	if exposeData.TeamEvent then dataTypes[#dataTypes+1] = "TeamEvent" end
+
+	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "[API_WIDGETS] Expose data contains: " .. table.concat(dataTypes, ", "))
 end
 
 -- Register to receive expose data updates from gadget
+Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Registering sync action handler...")
 if gadgetHandler and gadgetHandler.AddSyncAction then
 	gadgetHandler:AddSyncAction("TeamTransferExposeUpdate", updateExposeCache)
+	Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Sync action handler registered successfully")
+else
+	Spring.Log("TEAM TRANSFER WARN", LOG.ERROR, "[API_WIDGETS] Could not register sync action handler - gadgetHandler not available")
 end
 
 -- Include the core modules directly (these are stateless utility modules)
+Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Including core modules...")
 local ResourceShareTax = VFS.Include("luarules/gadgets/team_transfer/resource_share_tax.lua")
+Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Loaded resource_share_tax.lua")
+
 local UnitSharing = VFS.Include("luarules/gadgets/team_transfer/unit_sharing.lua")
+Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Loaded unit_sharing.lua")
+
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
+Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Loaded shared_enums.lua (second time)")
 
 -- Policy type shortcuts for cleaner code
 local PolicyType = SharedEnums.PolicyType
@@ -364,18 +391,72 @@ end
 ---@param selectedUnitIDs number[] Currently selected unit IDs
 ---@return UnitTransferExposeOutput
 M.GetUnitTransferData = function(senderTeamID, receiverTeamID, selectedUnitIDs)
-	-- Access cached expose data from the bridge widget
-	if WG.TeamTransfer and WG.TeamTransfer.GetUnitTransferData then
-		return WG.TeamTransfer.GetUnitTransferData(senderTeamID, receiverTeamID, selectedUnitIDs)
+	-- Access cached expose data directly (no infinite recursion)
+	local exposeData = exposeCache[senderTeamID]
+	if exposeData and exposeData.UnitTransfer then
+		local unitData = exposeData.UnitTransfer
+
+		-- If we have selectedUnitIDs, update counts based on current selection
+		if selectedUnitIDs and #selectedUnitIDs > 0 then
+			local shareableCount = 0
+			local unshareableCount = 0
+
+			for _, unitID in ipairs(selectedUnitIDs) do
+				if Spring.ValidUnitID(unitID) and Spring.GetUnitTeam(unitID) == senderTeamID then
+					local unitDefID = Spring.GetUnitDefID(unitID)
+					if unitDefID then
+						-- Use the policy's allowedUnits cache if available
+						local allowedUnits = unitData.allowedUnits or {}
+						if allowedUnits[unitDefID] then
+							shareableCount = shareableCount + 1
+						else
+							unshareableCount = unshareableCount + 1
+						end
+					end
+				end
+			end
+
+			-- Return updated data with current selection counts
+			return {
+				canShareUnits = shareableCount > 0,
+				shareableUnitCount = shareableCount,
+				unshareableUnitCount = unshareableCount,
+				blockReason = shareableCount == 0 and "No shareable units selected" or unitData.blockReason,
+				allowedUnits = unitData.allowedUnits,
+				sharingMode = unitData.sharingMode
+			}
+		end
+
+		-- Return cached data as-is
+		return unitData
 	else
-		-- Fallback: return empty structure
+		-- Fallback: return empty structure if no cached data
 		return {
 			canShareUnits = false,
 			shareableUnitCount = 0,
 			unshareableUnitCount = #(selectedUnitIDs or {}),
-			blockReason = "API not available"
+			blockReason = "No unit transfer data available"
 		}
 	end
+end
+
+---Check if a specific unit type is allowed to be shared
+---@param unitDefID number Unit definition ID
+---@param senderTeamID number? Team ID to check (defaults to current team)
+---@return boolean isAllowed True if the unit type can be shared
+M.IsUnitTypeAllowed = function(unitDefID, senderTeamID)
+	local teamID = senderTeamID or Spring.GetLocalTeamID()
+	local exposeData = exposeCache[teamID]
+
+	if exposeData and exposeData.UnitTransfer then
+		local allowedUnits = exposeData.UnitTransfer.allowedUnits
+		if allowedUnits then
+			return allowedUnits[unitDefID] == true
+		end
+	end
+
+	-- Fallback to utility function
+	return UnitSharing.isUnitShareAllowedByMode(unitDefID)
 end
 
 -- Thin transfer request layer - sends to gadget for execution
@@ -459,6 +540,8 @@ end
 
 -- Clean enum interface instead of awkward SharedEnums
 M.Enums = SharedEnums
+
+Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] api_widgets.lua initialization completed successfully")
 
 ---@return TeamTransferWidgetAPI
 return M

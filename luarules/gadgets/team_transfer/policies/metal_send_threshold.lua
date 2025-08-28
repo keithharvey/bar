@@ -39,15 +39,21 @@ GG.TeamTransfer.RegisterPolicy(SharedEnums.Policies.MetalSendThreshold, function
 		local availableAfterThreshold = math.max(0, senderAvailable - metalThreshold)
 		local finalMaxAmount = math.min(baseMaxAmount, availableAfterThreshold)
 		
+		---@type RawMetalTransferExpose
+		local metalExpose = {
+			amountSendable = finalMaxAmount,  -- Required by pipeline converter
+			metalThreshold = metalThreshold,
+			amountAlreadySent = cumulativeMetal,
+			amountRemainingAllowance = math.max(0, metalThreshold - cumulativeMetal),
+			_policyData = {
+				metalThreshold = metalThreshold,
+				cumulativeSent = cumulativeMetal,
+			}
+		}
+
 		return {
 			expose = {
-				[SharedEnums.TransferCategory.METAL_TRANSFER] = {
-					maxShareAmount = finalMaxAmount,
-					_policyData = {
-						metalThreshold = metalThreshold,
-						cumulativeSent = cumulativeMetal,
-					}
-				}
+				[SharedEnums.TransferCategory.METAL_TRANSFER] = metalExpose
 			}
 		}
 	end)
