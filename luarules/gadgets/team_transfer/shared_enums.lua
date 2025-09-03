@@ -16,13 +16,6 @@ M.Policies = {
 	UnitSharingMode = "unit_sharing_mode",
 }
 
-M.PolicyType = {
-	ResourceTransfer = "resource_transfer",
-	UnitTransfer = "unit_transfer",
-	Command = "command",
-	TeamEvent = "team_event",
-}
-
 M.Scope = {
 	Allied = "allied",
 	Enemy = "enemy",
@@ -30,15 +23,15 @@ M.Scope = {
 
 M.TransferCategory = {
 	MetalTransfer = "metal_transfer",
-	EnergyTransfer = "energy_transfer", 
+	EnergyTransfer = "energy_transfer",
 	UnitTransfer = "unit_transfer",
 	CommandValidation = "command_validation",
 	TeamEvents = "team_events",
 }
 
 M.ResourceType = {
-	Metal = "metal",
-	Energy = "energy",
+	METAL = "metal",
+	ENERGY = "energy",
 }
 
 return M

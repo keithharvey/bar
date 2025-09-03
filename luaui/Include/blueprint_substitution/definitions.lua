@@ -16,6 +16,12 @@ DefinitionsModule.UNIT_CATEGORIES = {} -- Enum Name -> Category Name
 DefinitionsModule.categoryUnits = {}   -- Category Name -> { Side -> Unit Name }
 DefinitionsModule.unitCategories = {}  -- Unit Name -> Category Name
 
+BUILDING_CATEGORIES = {
+    METAL_STORAGE = "METAL_STORAGE",
+    ENERGY_STORAGE = "ENERGY_STORAGE",
+    PINPOINTER = "PINPOINTER",
+}
+DefinitionsModule.BUILDING_CATEGORIES = BUILDING_CATEGORIES
 -- ===================================================================
 -- Define Unit Categories
 -- ===================================================================
@@ -52,7 +58,7 @@ function DefinitionsModule.defineUnitCategories()
     DefCat("ADVANCED_EXPLOITER", {[SIDES.ARM]="armmoho", [SIDES.CORE]="cormexp", [SIDES.LEGION]="cormexp"})
     DefCat("UW_EXTRACTOR", {[SIDES.ARM]="armuwmex", [SIDES.CORE]="coruwmex", [SIDES.LEGION]="leguwmex"})
     DefCat("ADVANCED_UW_EXTRACTOR", {[SIDES.ARM]="armuwmme", [SIDES.CORE]="coruwmme", [SIDES.LEGION]="leguwmme"})
-    DefCat("METAL_STORAGE", {[SIDES.ARM]="armmstor", [SIDES.CORE]="cormstor", [SIDES.LEGION]="legmstor"})
+    DefCat(BUILDING_CATEGORIES.METAL_STORAGE, {[SIDES.ARM]="armmstor", [SIDES.CORE]="cormstor", [SIDES.LEGION]="legmstor"})
     DefCat("ADVANCED_METAL_STORAGE", {[SIDES.ARM]="armuwadvms", [SIDES.CORE]="coramstor", [SIDES.LEGION]="legamstor"})
     DefCat("UW_METAL_STORAGE", {[SIDES.ARM]="armuwms", [SIDES.CORE]="coruwms", [SIDES.LEGION]="legamstor"})
     DefCat("UW_ADVANCED_METAL_STORAGE", {[SIDES.ARM]="armuwadvms", [SIDES.CORE]="coruwadvms", [SIDES.LEGION]="coruwadvms"})
@@ -71,7 +77,7 @@ function DefinitionsModule.defineUnitCategories()
     DefCat("GEOTHERMAL", {[SIDES.ARM]="armageo", [SIDES.CORE]="corbhmth", [SIDES.LEGION]="leggeo"})
     DefCat("ADVANCED_GEO", {[SIDES.ARM]="armgmm", [SIDES.CORE]="corgmm", [SIDES.LEGION]="leggmm"})
     DefCat("UW_ADV_GEO", {[SIDES.ARM]="armuwageo", [SIDES.CORE]="coruwageo", [SIDES.LEGION]="leguwageo"})
-    DefCat("ENERGY_STORAGE", {[SIDES.ARM]="armestor", [SIDES.CORE]="corestor", [SIDES.LEGION]="legestor"})
+    DefCat(BUILDING_CATEGORIES.ENERGY_STORAGE, {[SIDES.ARM]="armestor", [SIDES.CORE]="corestor", [SIDES.LEGION]="legestor"})
     DefCat("ADVANCED_ENERGY_STORAGE", {[SIDES.ARM]="armuwadves", [SIDES.CORE]="coradvestore", [SIDES.LEGION]="legadvestore"})
     DefCat("UW_ENERGY_STORAGE", {[SIDES.ARM]="armuwes", [SIDES.CORE]="coruwes", [SIDES.LEGION]="leguwes"})
     DefCat("UW_ADVANCED_ENERGY_STORAGE", {[SIDES.ARM]="armuwadves", [SIDES.CORE]="coruwadves", [SIDES.LEGION]="coruwadves"})
@@ -135,7 +141,7 @@ function DefinitionsModule.defineUnitCategories()
     DefCat("FLOATING_NANO_TOWER", {[SIDES.ARM]="armnanotcplat", [SIDES.CORE]="cornanotcplat", [SIDES.LEGION]="legnanotcplat"})
     DefCat("ADV_NANO_TOWER", {[SIDES.ARM]="armnanotct2", [SIDES.CORE]="cornanotct2", [SIDES.LEGION]="legnanotct2"})
     DefCat("STEALTH_DETECTION", {[SIDES.ARM]="armrsd", [SIDES.CORE]="corrsd", [SIDES.LEGION]="legsd"})
-    DefCat("PINPOINTER", {[SIDES.ARM]="armtarg", [SIDES.CORE]="cortarg", [SIDES.LEGION]="legtarg"})
+    DefCat(BUILDING_CATEGORIES.PINPOINTER, {[SIDES.ARM]="armtarg", [SIDES.CORE]="cortarg", [SIDES.LEGION]="legtarg"})
     DefCat("FLOATING_PINPOINTER", {[SIDES.ARM]="armfatf", [SIDES.CORE]="corfatf", [SIDES.LEGION]="corfatf"})
     DefCat("FLOATING_TORPEDO_LAUNCHER_PG", {[SIDES.ARM]="armtl", [SIDES.CORE]="cortl", [SIDES.LEGION]="cortl"})
     DefCat("FLOATING_RADAR_PG", {[SIDES.ARM]="armfrad", [SIDES.CORE]="corfrad", [SIDES.LEGION]="corfrad"})
@@ -155,6 +161,10 @@ function DefinitionsModule.defineUnitCategories()
     local categoryCount = 0
     for _ in pairs(DefinitionsModule.UNIT_CATEGORIES) do categoryCount = categoryCount + 1 end
     Spring.Log("BlueprintDefs", LOG.INFO, string.format("Defined %d categories covering %d units. END", categoryCount, unitCount))
+end
+
+function DefinitionsModule.getCategory(unitDefID)
+    return DefinitionsModule.unitCategories[unitDefID]
 end
 
 DefinitionsModule.defineUnitCategories() -- Call it once to populate the module table

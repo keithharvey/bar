@@ -1,6 +1,7 @@
 -- Pipeline Hook System for Team Transfer Policies
 -- Allows policies to register lifecycle hooks for complete self-containment
 
+local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
 local M = {}
 
 -- Ensure policy hooks only run in synced context
@@ -15,10 +16,11 @@ local hooks = {
 	initialize = {},     -- RegisterInitialize: Run during gadget initialization
 	preProcess = {},     -- RegisterPreProcess: Run before policy evaluation (context setup)
 	postProcess = {      -- RegisterPostProcess: Run after policy evaluation (cleanup/state updates)
-		ResourceTransfer = {},  -- Hooks specific to resource transfer results
-		UnitTransfer = {},      -- Hooks specific to unit transfer results
-		Command = {},           -- Hooks specific to command results
-		TeamEvent = {},         -- Hooks specific to team event results
+		[SharedEnums.TransferCategory.MetalTransfer] = {},     -- Hooks specific to metal transfer results
+		[SharedEnums.TransferCategory.EnergyTransfer] = {},    -- Hooks specific to energy transfer results
+		[SharedEnums.TransferCategory.UnitTransfer] = {},      -- Hooks specific to unit transfer results
+		[SharedEnums.TransferCategory.CommandValidation] = {}, -- Hooks specific to command validation results
+		[SharedEnums.TransferCategory.TeamEvents] = {},        -- Hooks specific to team event results
 	},
 	postTransfer = {},   -- RegisterPostTransfer: Run after successful transfers
 	validators = {},     -- RegisterValidator: Runtime validation with strongly-typed access
@@ -81,22 +83,11 @@ function M.RunPreProcess(ctx)
 end
 
 function M.RunPostProcess(ctx, result)
-	-- Run policy-type specific hooks with enhanced context
+	-- Run policy-type specific hooks
 	local policyType = ctx.type
 	if hooks.postProcess[policyType] then
-		-- Create enhanced context for resource transfers
-		local enhancedCtx = ctx
-		if policyType == "ResourceTransfer" and result and result.applyTransfer then
-			-- Automatically provide applyTransfer context for resource transfer hooks
-			enhancedCtx = {}
-			for k, v in pairs(ctx) do
-				enhancedCtx[k] = v
-			end
-			enhancedCtx.applyTransfer = result.applyTransfer
-		end
-		
 		for i = 1, #hooks.postProcess[policyType] do
-			hooks.postProcess[policyType][i](enhancedCtx, result)
+			hooks.postProcess[policyType][i](ctx, result)
 		end
 	end
 end
@@ -114,6 +105,7 @@ function M.RunPlayerEvent(eventType, playerID, teamID)
 end
 
 -- Register a runtime validator with strongly-typed access to transfer results
+-- DEPRECATED: Use category-specific RegisterXXXValidator functions instead
 function M.RegisterValidator(config, validatorFn)
 	requireSyncedContext("RegisterValidator")
 	
@@ -129,10 +121,46 @@ function M.RegisterValidator(config, validatorFn)
 	}
 end
 
+-- Category-Specific Validator Registration Functions with Strong Typing
+
+---Register a metal transfer validator with strongly-typed access to metal transfer results
+---@see luaui/types/team_transfer.lua M.RegisterMetalTransferValidator
+---@param validatorFn MetalTransferValidator The validator function
+function M.RegisterMetalTransferValidator(validatorFn)
+	requireSyncedContext("RegisterMetalTransferValidator")
+	
+	hooks.validators[#hooks.validators + 1] = {
+		category = SharedEnums.TransferCategory.MetalTransfer,
+		validator = validatorFn
+	}
+end
+
+---Register an energy transfer validator with strongly-typed access to energy transfer results
+---@see luaui/types/team_transfer.lua M.RegisterEnergyTransferValidator
+---@param validatorFn EnergyTransferValidator The validator function
+function M.RegisterEnergyTransferValidator(validatorFn)
+	requireSyncedContext("RegisterEnergyTransferValidator")
+	
+	hooks.validators[#hooks.validators + 1] = {
+		category = SharedEnums.TransferCategory.EnergyTransfer,
+		validator = validatorFn
+	}
+end
+
+---Register a unit transfer validator with strongly-typed access to unit transfer results
+---@see luaui/types/team_transfer.lua M.RegisterUnitTransferValidator
+---@param validatorFn UnitTransferValidator The validator function
+function M.RegisterUnitTransferValidator(validatorFn)
+	requireSyncedContext("RegisterUnitTransferValidator")
+	
+	hooks.validators[#hooks.validators + 1] = {
+		category = SharedEnums.TransferCategory.UnitTransfer,
+		validator = validatorFn
+	}
+end
+
 -- Run validators with strongly-typed context
 function M.RunValidators(ctx, exposeResults)
-	local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
-	
 	-- Create strongly-typed validator context
 	local validatorCtx = {
 		-- Copy base context
@@ -140,21 +168,49 @@ function M.RunValidators(ctx, exposeResults)
 		receiverTeamId = ctx.receiverTeamId,
 		amount = ctx.amount,
 		resource = ctx.resource,
+		areAlliedTeams = ctx.areAlliedTeams,
+		gameFrame = ctx.gameFrame,
+		isCheatingEnabled = ctx.isCheatingEnabled,
 		
 		-- Strongly-typed access to transfer results
-		MetalTransfer = exposeResults[SharedEnums.TransferCategory.METAL_TRANSFER] or {},
-		EnergyTransfer = exposeResults[SharedEnums.TransferCategory.ENERGY_TRANSFER] or {},
-		UnitTransfer = exposeResults[SharedEnums.TransferCategory.UNIT_TRANSFER] or {},
+		MetalTransfer = exposeResults[SharedEnums.TransferCategory.MetalTransfer] or {},
+		EnergyTransfer = exposeResults[SharedEnums.TransferCategory.EnergyTransfer] or {},
+		UnitTransfer = exposeResults[SharedEnums.TransferCategory.UnitTransfer] or {},
 	}
 	
-	-- Run all validators
+	-- Run category-specific validators and legacy validators
 	for i = 1, #hooks.validators do
 		local entry = hooks.validators[i]
 		
-		-- Check dependencies (simplified - just run all for now)
-		local isValid, reason, suggestedAmount = entry.validator(validatorCtx, exposeResults)
-		if not isValid then
-			return false, reason, suggestedAmount
+		-- If validator has a category, only run it for matching contexts
+		if entry.category then
+			if ctx.type == entry.category then
+				-- Provide category-specific strongly-typed expose results
+				local categoryResults = {}
+				if entry.category == SharedEnums.TransferCategory.MetalTransfer then
+					categoryResults = exposeResults[SharedEnums.TransferCategory.MetalTransfer] or {}
+				elseif entry.category == SharedEnums.TransferCategory.EnergyTransfer then
+					categoryResults = exposeResults[SharedEnums.TransferCategory.EnergyTransfer] or {}
+				elseif entry.category == SharedEnums.TransferCategory.UnitTransfer then
+					categoryResults = exposeResults[SharedEnums.TransferCategory.UnitTransfer] or {}
+				elseif entry.category == SharedEnums.TransferCategory.CommandValidation then
+					categoryResults = exposeResults[SharedEnums.TransferCategory.CommandValidation] or {}
+				elseif entry.category == SharedEnums.TransferCategory.TeamEvents then
+					categoryResults = exposeResults[SharedEnums.TransferCategory.TeamEvents] or {}
+				end
+				
+				-- Run category-specific validator with strongly-typed results
+				local isValid, reason, suggestedAmount = entry.validator(validatorCtx, categoryResults)
+				if not isValid then
+					return false, reason, suggestedAmount
+				end
+			end
+		else
+			-- Legacy validator - run with full expose results
+			local isValid, reason, suggestedAmount = entry.validator(validatorCtx, exposeResults)
+			if not isValid then
+				return false, reason, suggestedAmount
+			end
 		end
 	end
 	
@@ -171,6 +227,25 @@ end
 function M.NotifyPostTransfer(transferData)
 	for i = 1, #hooks.postTransfer do
 		hooks.postTransfer[i](transferData)
+	end
+end
+
+-- Specialized post-transfer hooks with strong typing by resource
+function M.RegisterAfterMetalTransfer(fn)
+	requireSyncedContext("RegisterAfterMetalTransfer")
+	hooks.postTransfer[#hooks.postTransfer + 1] = function(transferData)
+		if transferData and transferData.resource == SharedEnums.ResourceType.METAL then
+			fn(transferData)
+		end
+	end
+end
+
+function M.RegisterAfterEnergyTransfer(fn)
+	requireSyncedContext("RegisterAfterEnergyTransfer")
+	hooks.postTransfer[#hooks.postTransfer + 1] = function(transferData)
+		if transferData and transferData.resource == SharedEnums.ResourceType.ENERGY then
+			fn(transferData)
+		end
 	end
 end
 

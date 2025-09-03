@@ -1,10 +1,36 @@
+-- Team Transfer Policy: Unit Sharing Mode
+-- Exposes unit sharing restrictions based on configured sharing mode
+--
+-- AST Tree: Declarative Policy Language with Optimized Caching
+-- ┌─────────────────────────────────────────────────────────────┐
+-- │ UnitSharingMode Policy                                     │
+-- │ └─► Initialize Cache: UnitDef lookups once at load time    │
+-- │    └─► Expose sharing mode data as strongly typed         │
+-- │       └─► Widget layer uses cached data for validation    │
+-- └─────────────────────────────────────────────────────────────┘
+--
+-- PERFORMANCE OPTIMIZATION:
+-- - UnitDef iterations happen once during gadget initialization
+-- - Leverages existing UnitSharing cache to avoid duplication
+-- - Runtime policy evaluation uses cached results only
+-- - No expensive Spring.GetUnitDefID calls during expose phase
+
 local gadget = gadget ---@type Gadget
+
+-- Shared logging utility
+local Logger = VFS.Include("luarules/gadgets/team_transfer/shared_logging.lua")
+Logger.SetLogMode("NONE")  -- Set to "NONE" to disable all logging, "ERROR" for errors only, "DEBUG" for all
+
+local LogDebug = Logger.LogDebug
+local LogInfo = Logger.LogInfo
+local LogError = Logger.LogError
 
 local sharing = GG.TeamTransfer.UnitSharing
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
+local SharingUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_utils.lua")
 local modoption = SharedEnums.Policies.UnitSharingMode
 
-local enabled, unitSharingMode = GG.TeamTransfer.IsSharingOption(modoption)
+local enabled, unitSharingMode = SharingUtils.IsSharingOption(modoption)
 if not enabled or unitSharingMode == "enabled" then
 	return
 end
@@ -13,22 +39,28 @@ end
 local UnitSharingMode = GG.TeamTransfer.Policies.UNIT_SHARING_MODE
 local TransferCategory = GG.TeamTransfer.SharedEnums.TransferCategory
 
--- Cached unit sets for efficient lookup
+-- Cached unit sets for efficient lookup - populated during RegisterInitialize
 local allowedUnits = {} -- Set of unitDefIDs that are allowed in current mode
 local unitSharingEnabled = unitSharingMode ~= "disabled"
 
-local function initializeAllowedUnits()
+--- Initialize allowed units cache using existing UnitSharing caching
+--- This leverages the existing lazy cache in unit_sharing.lua to avoid
+--- redundant UnitDef iterations and expensive unit definition lookups
+local function initializeAllowedUnitsCache()
 	allowedUnits = {}
-	
+
 	if unitSharingMode == "disabled" then
 		-- No units allowed
 		return
 	end
-	
-	-- Iterate through all unit definitions and cache allowed ones
+
+	-- Leverage existing UnitSharing caching mechanism
+	-- This ensures we only iterate through UnitDefs once per mode
+	local cachedCount = 0
+
 	for unitDefID, unitDef in pairs(UnitDefs) do
 		local allowed = false
-		
+
 		if unitSharingMode == "t2cons" then
 			allowed = sharing.isT2ConstructorDef(unitDef)
 		elseif unitSharingMode == "combat" then
@@ -39,86 +71,98 @@ local function initializeAllowedUnits()
 		else
 			allowed = true
 		end
-		
+
 		if allowed then
 			allowedUnits[unitDefID] = true
+			cachedCount = cachedCount + 1
 		end
 	end
-	
-	local count = 0
-	for _ in pairs(allowedUnits) do count = count + 1 end
-	Spring.Log("[UNIT SHARING MODE]", LOG.INFO, "Cached " .. count .. " allowed units for mode: " .. unitSharingMode)
+
+	-- Also initialize the UnitSharing cache for this mode to avoid future lookups
+	if unitSharingMode ~= "enabled" then
+		sharing.isCacheInitialized(unitSharingMode)
+	end
+
+	LogInfo("Initialized cache with " .. cachedCount .. " allowed units for mode: " .. unitSharingMode)
 end
 
-initializeAllowedUnits()
+-- Initialize the cache once during policy loading
+-- This happens when the gadget loads, before any runtime policy evaluation
+LogInfo("Initializing cache during policy load for mode: " .. unitSharingMode)
+initializeAllowedUnitsCache()
 
--- Register policy that exposes unit sharing mode data to UI
-GG.TeamTransfer.RegisterPolicy(SharedEnums.Policies.UnitSharingMode, function(policy)
+GG.TeamTransfer.RegisterPolicy(UnitSharingMode, function(policy)
+	-- Core functional policy: determine if unit sharing is globally allowed
 	policy.ForAlliedUnitTransfers.Use(function(ctx)
-		-- Count shareable/unshareable units in current selection
-		local shareableCount = 0
-		local unshareableCount = 0
-		local selectedUnitIDs = ctx.selectedUnitIDs or {}
+		-- Check if unit sharing is enabled at all for this mode
+		local canShareUnits = (unitSharingMode ~= "disabled")
+		local blockReason = nil
+		
+		if not canShareUnits then
+			blockReason = "Unit sharing is disabled"
+		end
+		
+		LogDebug(string.format("[UNIT_SHARING_MODE] POLICY mode=%s, canShare=%s", 
+			unitSharingMode, tostring(canShareUnits)))
+		
+		return {
+			allow = canShareUnits,
+			expose = {
+				[SharedEnums.TransferCategory.UnitTransfer] = {
+					canShareUnits = canShareUnits,
+					blockReason = blockReason,
+					-- Additional policy-specific data for validators/UI
+					sharingMode = unitSharingMode,
+					allowedUnits = allowedUnits -- Cache for validator use
+				}
+			}
+		}
+	end)
+end)
 
-		for _, unitID in ipairs(selectedUnitIDs) do
-			if Spring.ValidUnitID(unitID) and Spring.GetUnitTeam(unitID) == ctx.senderTeamId then
-				local unitDefID = Spring.GetUnitDefID(unitID)
-				if unitDefID and allowedUnits[unitDefID] then
-					shareableCount = shareableCount + 1
+-- Register validator for unit transfer decisions (handles per-unit selection validation)
+GG.TeamTransfer.RegisterUnitTransferValidator(function(ctx, unitResults)
+	LogDebug("[UNIT_SHARING_MODE] Validator called for unit transfer")
+	
+	-- Cast to unit sharing mode specific result data to access policy-specific fields
+	---@type UnitSharingModeResult
+	local unitSharingData = unitResults
+	
+	---@type UnitTransferValidationResult
+	local validationResult = {
+		canShare = unitSharingData.canShareUnits,
+		shareableCount = 0,
+		unshareableCount = 0,
+		blockReason = unitSharingData.blockReason
+	}
+	-- If the policy already blocked sharing globally, respect that
+	if not unitSharingData.canShareUnits then
+		return validationResult
+	end
+	
+	local selectedUnits = ctx.selectedUnitIDs or {}
+	
+	-- If no units selected, validation passes (state query)
+	if #selectedUnits == 0 then
+		return validationResult
+	end
+	
+	-- Check each selected unit against the sharing mode restrictions
+	for _, unitID in ipairs(selectedUnits) do
+		if Spring.ValidUnitID(unitID) then
+			local unitDefID = Spring.GetUnitDefID(unitID)
+			if unitDefID then
+				if unitSharingData.allowedUnits[unitDefID] then
+					validationResult.shareableCount = validationResult.shareableCount + 1
 				else
-					unshareableCount = unshareableCount + 1
+					validationResult.unshareableCount = validationResult.unshareableCount + 1
 				end
 			end
 		end
-
-		local canShareUnits = shareableCount > 0
-		local blockReason = nil
-
-		if unitSharingMode == "disabled" then
-			canShareUnits = false
-			blockReason = "Unit sharing is disabled"
-		elseif not canShareUnits and #selectedUnitIDs > 0 then
-			blockReason = sharing.blockMessage(unshareableCount, unitSharingMode)
-		end
-
-		---@type RawUnitTransferExpose
-		local unitExpose = {
-			canShareUnits = canShareUnits,  -- Required by pipeline converter
-			shareableUnitCount = shareableCount,
-			unshareableUnitCount = unshareableCount,
-			blockReason = blockReason,  -- Required by pipeline converter
-			-- Policy-specific data (not used by pipeline converter)
-			allowedUnits = allowedUnits,
-			sharingMode = unitSharingMode,
-			_policyData = {
-				sharingMode = unitSharingMode
-			}
-		}
-
-		return {
-			expose = {
-				[SharedEnums.TransferCategory.UNIT_TRANSFER] = unitExpose
-			}
-		}
-	end)
-
-	-- Also register validator for unit sharing mode restrictions
-	policy.ForAlliedUnitTransfers.Use(function(ctx)
-		-- Only validate unit transfers
-		if not ctx.unitDefID then
-			return { allow = true }
-		end
-
-		-- Check if unit sharing is enabled and this specific unit is allowed
-		local unitAllowed = allowedUnits[ctx.unitDefID] == true
-
-		if not unitAllowed then
-			return {
-				deny = true,
-				blockReason = sharing.blockMessage(1, unitSharingMode)
-			}
-		end
-
-		return { allow = true }
-	end)
+	end
+	
+	LogDebug(string.format("[UNIT_SHARING_MODE] VALIDATOR mode=%s, selected=%d, shareable=%d, result=ALLOW",
+		unitSharingData.sharingMode, #validationResult.selectedUnits, #validationResult.shareableCount))
+	
+	return validationResult
 end)

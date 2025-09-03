@@ -1,389 +1,280 @@
----@class TeamTransferGadget : Gadget
-local gadget = gadget
+local gadget = gadget ---@type Gadget
 
 function gadget:GetInfo()
 	return {
-		name    = 'Team Transfer',
-		desc    = 'Loads TeamTransfer API and policies, handles Allow* callins, exposes via GG.TeamTransfer',
-		author  = 'Devin',
-		layer   = -1001,
+		name = "Team Transfer Main",
+		desc = "Manages team resource and unit transfer policies and coordination",
+		author = "BAR Team",
+		date = "2025",
+		license = "GNU GPL, v2 or later",
+		layer = 0,
 		enabled = true,
 	}
 end
-Spring.Log("team transfer", LOG.ERROR,"[Team Transfer]!!!!!! INSIDE")
 
+Spring.Echo("[TEAMTRANSFER] About to check synced code")
 
+if gadgetHandler:IsSyncedCode() then
+	Spring.Echo("[TEAMTRANSFER] SYNCED - Entering synced block")
 
--- Only load in synced context to prevent policy loading in unsynced context
-if not gadgetHandler:IsSyncedCode() then
-	return
-end
+	-- Load logging functions
+	local Logger = VFS.Include("luarules/gadgets/team_transfer/shared_logging.lua")
+	local LogDebug = Logger.LogDebug
+	local LogError = Logger.LogError
 
-local TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
-	local Pipeline = VFS.Include("luarules/gadgets/team_transfer/pipeline.lua")
-	local PolicyHooks = VFS.Include("luarules/gadgets/team_transfer/policy_hooks.lua")
-	local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
+	-- Synced variables
+	local TeamTransfer
+
+	function gadget:Initialize()
+		LogError("[TEAMTRANSFER] SYNCED - Initialize called")
+		
+		-- Load the main API and Pipeline
+		LogDebug("[TEAMTRANSFER] SYNCED - Loading API and Pipeline modules")
+		TeamTransfer = VFS.Include("luarules/gadgets/team_transfer/api_gadgets.lua")
+		local Pipeline = VFS.Include("luarules/gadgets/team_transfer/pipeline.lua")
+		
+		-- Expose both API and Pipeline globally
+		LogDebug("[TEAMTRANSFER] SYNCED - Exposing API and Pipeline globally")
+		_G.TeamTransfer = TeamTransfer
+		_G.TeamTransferPipeline = Pipeline
+		GG.TeamTransfer = TeamTransfer
+		GG.TeamTransferPipeline = Pipeline
+		
+		-- Expose AllowedUnits cache for widgets to access
+		if TeamTransfer and TeamTransfer.UnitSharing then
+			GG.TeamTransfer.AllowedUnits = TeamTransfer.UnitSharing.getAllowedUnits and TeamTransfer.UnitSharing.getAllowedUnits() or {}
+			LogDebug("[TEAMTRANSFER] SYNCED - Exposed AllowedUnits cache to GG.TeamTransfer.AllowedUnits")
+		end
+		
+		-- Set up SendToUnsynced function for the API
+		if TeamTransfer and TeamTransfer.SetSendToUnsynced then
+			LogDebug("[TEAMTRANSFER] SYNCED - Setting up SendToUnsynced function")
+			-- Use the global SendToUnsynced function available in synced gadget context
+			TeamTransfer.SetSendToUnsynced(SendToUnsynced)
+		else
+			LogError("[TEAMTRANSFER] SYNCED - SetSendToUnsynced method not available")
+		end
+		
+		-- Initialize the system
+		if TeamTransfer and TeamTransfer.InitializeCache then
+			LogDebug("[TEAMTRANSFER] SYNCED - Initialize cache")
+			-- Force initialization for all teams to ensure GUI has data for all possible receivers
+			local allTeams = Spring.GetTeamList()
+			LogError(string.format("[TEAMTRANSFER] CACHE DEBUG - Forcing cache init for all teams: [%s]", table.concat(allTeams, ", ")))
+			-- Call InitializeCache() without parameters to initialize for all teams
+			TeamTransfer.InitializeCache()
+		else
+			LogError("[TEAMTRANSFER] SYNCED - Initialize cache failed - TeamTransfer or InitializeCache method not available")
+		end
+		
+		-- Load policies (simplified for now)
+		LogDebug("[TEAMTRANSFER] SYNCED - Loading policies")
+		
+		-- Load policies with error handling
+		local policies = {
+			"luarules/gadgets/team_transfer/policies/unit_sharing_mode.lua",
+			"luarules/gadgets/team_transfer/policies/allied_reclaim.lua", 
+			"luarules/gadgets/team_transfer/policies/enemy_transfer.lua"
+		}
+		
+		for _, policyPath in ipairs(policies) do
+			LogDebug("[TEAMTRANSFER] SYNCED - Loading policy: " .. policyPath)
+			local success, err = pcall(function()
+				VFS.Include(policyPath)
+			end)
+			if success then
+				LogDebug("[TEAMTRANSFER] SYNCED - Successfully loaded: " .. policyPath)
+			else
+				LogError("[TEAMTRANSFER] SYNCED - Failed to load policy: " .. policyPath .. " - Error: " .. tostring(err))
+			end
+		end
+		
+		LogError("[TEAMTRANSFER] SYNCED - Initialize complete")
+	end
 	
-	-- Make pipeline available globally to avoid circular dependencies
-_G.TeamTransferPipeline = Pipeline
-
--- Handle widget transfer requests via SyncAction
-local function handleWidgetTransferRequest(actionName, data)
-	if actionName == "TeamTransferShareEnergy" then
-		-- Execute energy sharing with policy validation
-		local maxAmount = Pipeline.RunAllowResourceTransfer(
-			data.senderTeamID, data.receiverTeamID, 
-			SharedEnums.ResourceType.ENERGY, data.amount
-		)
-		if maxAmount > 0 then
-			local finalAmount = math.min(data.amount, maxAmount)
-			Spring.ShareResources(data.receiverTeamID, "energy", finalAmount)
-			Spring.SendLuaRulesMsg('msg:ui.playersList.chat.giveEnergy:amount='..finalAmount..':name='..data.receiverName)
-			PolicyHooks.NotifyPostTransfer({
-				senderTeamID = data.senderTeamID,
-				receiverTeamID = data.receiverTeamID,
-				resourceType = "energy",
-				amount = finalAmount
-			})
-		end
-		
-	elseif actionName == "TeamTransferShareMetal" then
-		-- Execute metal sharing with policy validation
-		local maxAmount = Pipeline.RunAllowResourceTransfer(
-			data.senderTeamID, data.receiverTeamID, 
-			SharedEnums.ResourceType.METAL, data.amount
-		)
-		if maxAmount > 0 then
-			local finalAmount = math.min(data.amount, maxAmount)
-			Spring.ShareResources(data.receiverTeamID, "metal", finalAmount)
-			Spring.SendLuaRulesMsg('msg:ui.playersList.chat.giveMetal:amount='..finalAmount..':name='..data.receiverName)
-			PolicyHooks.NotifyPostTransfer({
-				senderTeamID = data.senderTeamID,
-				receiverTeamID = data.receiverTeamID,
-				resourceType = "metal",
-				amount = finalAmount
-			})
-		end
-		
-	elseif actionName == "TeamTransferShareUnits" then
-		-- Execute unit sharing with policy validation
-		local allowedUnits = {}
-		for _, unitID in ipairs(data.selectedUnitIDs) do
-			if Spring.ValidUnitID(unitID) and Spring.GetUnitTeam(unitID) == data.senderTeamID then
-				local allowed = Pipeline.RunAllowUnitTransfer(data.senderTeamID, data.receiverTeamID, unitID)
-				if allowed then
-					allowedUnits[#allowedUnits + 1] = unitID
+	-- Cache refresh tracking
+	local lastCacheRefresh = 0
+	local CACHE_REFRESH_INTERVAL = 300 -- Refresh cache every 5 seconds (300 frames)
+	local lastTeamCount = 0
+	local lastAllianceState = {}
+	
+	function gadget:GameFrame(frameNum)
+		-- Periodically refresh cache to pick up team/alliance changes
+		if frameNum > 0 and frameNum - lastCacheRefresh > CACHE_REFRESH_INTERVAL then
+			local currentTeams = Spring.GetTeamList()
+			local teamCountChanged = #currentTeams ~= lastTeamCount
+			
+			-- Check if alliances have changed
+			local allianceChanged = false
+			local currentAlliances = {}
+			for i, teamA in ipairs(currentTeams) do
+				for j, teamB in ipairs(currentTeams) do
+					if i ~= j then
+						local key = teamA .. "_" .. teamB
+						local allied = Spring.AreTeamsAllied(teamA, teamB)
+						if lastAllianceState[key] ~= allied then
+							allianceChanged = true
+						end
+						currentAlliances[key] = allied
+					end
 				end
 			end
-		end
-		
-		local sharedCount = 0
-		for _, unitID in ipairs(allowedUnits) do
-			if Spring.TransferUnit(unitID, data.receiverTeamID, false) then
-				sharedCount = sharedCount + 1
-			end
-		end
-		
-		if sharedCount > 0 then
-			Spring.SendLuaRulesMsg('msg:ui.playersList.chat.giveUnits:count='..sharedCount..':name='..data.receiverName)
-			PolicyHooks.NotifyPostTransfer({
-				senderTeamID = data.senderTeamID,
-				receiverTeamID = data.receiverTeamID,
-				unitIDs = allowedUnits,
-				sharedCount = sharedCount
-			})
-		end
-	end
-end
-
--- Register SyncAction handler for widget requests
-if gadgetHandler and gadgetHandler.RegisterSyncAction then
-	gadgetHandler:RegisterSyncAction("TeamTransfer", handleWidgetTransferRequest)
-end
-
--- Spring function shortcuts
-local spGetPlayerInfo = Spring.GetPlayerInfo
-
--- Player monitoring state
-local monitorPlayers = {}
-
--- Debounced cache invalidation system
-local teamsNeedingCacheUpdate = {}
-local cacheUpdateScheduled = false
-
-function gadget:Initialize()
-	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Initialize starting...")
-	
-	---@type TeamTransferGadgetAPI
-	GG.TeamTransfer = {
-		-- External API - what other code actually needs
-		RegisterPolicy = TeamTransfer.RegisterPolicy,
-		Enums = SharedEnums,
-		UnitSharing = TeamTransfer.UnitSharing,
-		
-		-- Hook registration interface
-		RegisterInitialize = PolicyHooks.RegisterInitialize,
-		RegisterPreProcess = PolicyHooks.RegisterPreProcess,
-		RegisterPostTransfer = PolicyHooks.RegisterPostTransfer,
-		RegisterValidator = PolicyHooks.RegisterValidator,
-		NotifyPostTransfer = PolicyHooks.NotifyPostTransfer,
-		
-		-- Debug interface for console commands
-		Debug = Pipeline.Debug,
-	}
-	
-	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "GG.TeamTransfer set up, loading policies...")
-	
-	local policyDir = "luarules/gadgets/team_transfer/policies/"
-	local policyFiles = VFS.DirList(policyDir, "*.lua")
-	Spring.Log("team transfer", LOG.ERROR, "[Team Transfer] policies found=" .. tostring(#policyFiles) .. " dir=" .. policyDir)
-	for _, policyFile in ipairs(policyFiles) do
-		Spring.Log("team transfer", LOG.ERROR, "[Team Transfer] including policy=" .. policyFile)
-		VFS.Include(policyFile)
-		Spring.Log("team transfer", LOG.ERROR, "[Team Transfer] included policy=" .. policyFile)
-	end
-	
-	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Policies loaded, initializing pipeline...")
-	
-	-- Skip initialization during loading to prevent circular dependencies
-	-- Cache will be populated lazily on first actual usage
-	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Deferring team cache initialization until after full load")
-	
-	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Pipeline initialized, setting up player monitoring...")
-	
-	-- Initialize player monitoring
-	local players = Spring.GetPlayerList()
-	for _, playerID in pairs(players) do
-		local _, active, spec, teamID = spGetPlayerInfo(playerID, false)
-		local leaderPlayerID, isDead, isAiTeam = Spring.GetTeamInfo(teamID)
-		if isDead == 0 and not isAiTeam then
-			if active and not spec then
-				monitorPlayers[playerID] = true 
-			end
-		end
-	end
-
-	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Player monitoring set up, registering commands...")
-	-- Register only the commands this gadget needs to check to avoid CMD.ANY autoregistration
-	gadgetHandler:RegisterAllowCommand(CMD.GUARD)
-	gadgetHandler:RegisterAllowCommand(CMD.REPAIR)
-	gadgetHandler:RegisterAllowCommand(CMD.RECLAIM)
-	
-	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Initialize completed successfully!")
-end
-
--- Debug chat command for manual cache initialization
-function gadget:GotChatMsg(msg, playerID)
-	if msg == "!teamtransfer init" then
-		local _, _, _, teamID = Spring.GetPlayerInfo(playerID)
-		Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Manual initialization requested by player " .. playerID .. " (team " .. teamID .. ")")
-		TeamTransfer.InitializeCache() -- Initialize all teams
-		return true
-	elseif msg:match("^!teamtransfer init (%d+)$") then
-		local targetTeam = tonumber(msg:match("^!teamtransfer init (%d+)$"))
-		local _, _, _, teamID = Spring.GetPlayerInfo(playerID)
-		Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Manual initialization for team " .. targetTeam .. " requested by player " .. playerID .. " (team " .. teamID .. ")")
-		TeamTransfer.InitializeCache(targetTeam)
-		return true
-	elseif msg == "!teamtransfer test" then
-		local _, _, _, teamID = Spring.GetPlayerInfo(playerID)
-		Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Manual pipeline test requested by player " .. playerID .. " (team " .. teamID .. ")")
-		-- Test both ResourceTransfer and UnitTransfer pipelines
-		queryTeamResourceState(teamID)
-	elseif msg == "!teamtransfer pipeline" then
-		local _, _, _, teamID = Spring.GetPlayerInfo(playerID)
-		Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Pipeline state dump requested by player " .. playerID .. " (team " .. teamID .. ")")
-		GG.TeamTransfer.Debug.LogFullReport()
-		return true
-	elseif msg == "!teamtransfer cache" then
-		local _, _, _, teamID = Spring.GetPlayerInfo(playerID)
-		Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Cache state dump requested by player " .. playerID .. " (team " .. teamID .. ")")
-		GG.TeamTransfer.Debug.LogCacheState()
-		return true
-	end
-	return false
-end
-
-local function queryTeamResourceState(teamID)
-	-- Query team state for both resource and unit transfers
-	-- Policies will expose state for all relevant resources (metal, energy, etc.)
-	TeamTransfer.QueryTeamState(teamID, TeamTransfer.PolicyType.ResourceTransfer)
-	TeamTransfer.QueryTeamState(teamID, TeamTransfer.PolicyType.UnitTransfer)
-end
-
--- Schedule cache update for a team (debounced)
-local function scheduleTeamCacheUpdate(teamID)
-	teamsNeedingCacheUpdate[teamID] = true
-	if not cacheUpdateScheduled then
-		cacheUpdateScheduled = true
-		-- Update cache in ~1 second to debounce rapid events
-		Spring.Echo("TEAM TRANSFER DEBUG: Scheduled cache update for team " .. teamID .. " in ~1 second")
-	end
-end
-
--- Process all pending cache updates
-local function processPendingCacheUpdates()
-	if not cacheUpdateScheduled then return end
-	
-	for teamID, _ in pairs(teamsNeedingCacheUpdate) do
-		Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Updating cache for team " .. teamID)
-		-- Invalidate and rebuild cache for this team
-		TeamTransfer.InitializeCache(teamID)
-		queryTeamResourceState(teamID) -- Refresh expose data
-	end
-	
-	-- Clear pending updates
-	teamsNeedingCacheUpdate = {}
-	cacheUpdateScheduled = false
-end
-
-local function initializeTeamStates()
-	local teamList = Spring.GetTeamList()
-	for _, teamID in ipairs(teamList) do
-		-- Pre-populate resource transfer state for UI
-		queryTeamResourceState(teamID)
-	end
-end
-
--- Engine hooks to keep cache updated
-function gadget:UnitGiven(unitID, unitDefID, newTeam, oldTeam)
-	-- Unit transfer affects both teams' cache - schedule debounced update
-	scheduleTeamCacheUpdate(newTeam)
-	if newTeam ~= oldTeam then
-		scheduleTeamCacheUpdate(oldTeam)
-	end
-end
-
-function gadget:UnitTaken(unitID, unitDefID, oldTeam, newTeam)
-	-- Unit transfer affects both teams' cache - schedule debounced update
-	scheduleTeamCacheUpdate(newTeam)
-	if newTeam ~= oldTeam then
-		scheduleTeamCacheUpdate(oldTeam)
-	end
-end
-
-function gadget:TeamDied(teamID)
-	-- Team death affects sharing rules - schedule cache update
-	scheduleTeamCacheUpdate(teamID)
-end
-
--- Functions already defined above, initialization already called
-
-
-
-function gadget:AllowResourceTransfer(senderTeamId, receiverTeamId, resourceType, amount)
-	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "AllowResourceTransfer callin triggered: " .. tostring(senderTeamId) .. " -> " .. tostring(receiverTeamId) .. " " .. tostring(resourceType) .. " " .. tostring(amount))
-	
-	-- Run the pipeline for the actual transfer
-	local result = Pipeline.RunAllowResourceTransfer(senderTeamId, receiverTeamId, resourceType, amount)
-	
-	-- Event-driven cache invalidation: schedule updates for affected teams after transfer
-	if result then -- Transfer was allowed
-		scheduleTeamCacheUpdate(senderTeamId) -- Sender's state changed (resources sent)
-		if senderTeamId ~= receiverTeamId then
-			scheduleTeamCacheUpdate(receiverTeamId) -- Receiver's state changed (resources received)
-		end
-	end
-	
-	return result
-end
-
-function gadget:AllowUnitTransfer(unitID, unitDefID, fromTeamID, toTeamID, capture)
-	return Pipeline.RunAllowUnitTransfer(unitID, unitDefID, fromTeamID, toTeamID, capture)
-end
-
-function gadget:AllowCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOptions, cmdTag, synced)
-	return Pipeline.RunAllowCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOptions, cmdTag, synced)
-end
-
--- Player monitoring for team abandonment events
-local monitorPlayers = {}
-
-function gadget:GameFrame(gameFrame)
-	-- Process debounced cache updates every 30 frames (~1 second at 30 FPS)
-	if gameFrame % 30 == 0 then
-		processPendingCacheUpdates()
-	end
-	
-	-- Refresh cache periodically (every 5 seconds) to handle edge cases
-	if gameFrame % 150 == 0 then
-		local teamList = Spring.GetTeamList()
-		for _, teamID in ipairs(teamList) do
-			scheduleTeamCacheUpdate(teamID)
-		end
-	end
-end
-
-function gadget:PlayerAdded(playerID)
-	local _, active, spec, teamID = spGetPlayerInfo(playerID, false)
-	local leaderPlayerID, isDead, isAiTeam = Spring.GetTeamInfo(teamID)
-	if isDead == 0 and not isAiTeam then
-		if active and not spec then
-			monitorPlayers[playerID] = true
-		end
-	end
-end
-
-function gadget:PlayerRemoved(playerID, reason)
-	local _, _, spec, teamID = spGetPlayerInfo(playerID, false)
-	if monitorPlayers[playerID] and not spec then
-		Pipeline.RunTeamEvent("PlayerAbandoned", teamID, playerID, Spring.GetGameFrame())
-	end
-	monitorPlayers[playerID] = nil
-end
-
--- Console command interface for pipeline debugging
-function gadget:TextCommand(command)
-	if command == "pipeline_topology" then
-		GG.TeamTransfer.Debug.LogTopology()
-		return true
-	elseif command == "pipeline_cache" then
-		GG.TeamTransfer.Debug.LogCacheState()
-		return true
-	elseif command == "pipeline_report" then
-		GG.TeamTransfer.Debug.LogFullReport()
-		return true
-	elseif string.match(command, "^pipeline_entry%s+") then
-		-- Parse: pipeline_entry <scope> <policyType> <senderID> <receiverID>
-		local parts = {}
-		for part in string.gmatch(command, "%S+") do
-			table.insert(parts, part)
-		end
-		
-		if #parts == 5 then
-			local scope = parts[2]
-			local policyType = parts[3]
-			local senderID = tonumber(parts[4])
-			local receiverID = tonumber(parts[5])
 			
-			if senderID and receiverID then
-				GG.TeamTransfer.Debug.LogCacheEntry(scope, policyType, senderID, receiverID)
+			-- TESTING: Force cache refresh every 5 seconds to test communication
+			local forceRefresh = true  -- Remove this line once communication is verified
+			
+			if teamCountChanged or allianceChanged or forceRefresh then
+				LogError(string.format("[TEAMTRANSFER] SYNCED - Cache refresh triggered - frame=%d, teamCount=%s, alliance=%s, forced=%s", 
+					frameNum, tostring(teamCountChanged), tostring(allianceChanged), tostring(forceRefresh)))
+				if TeamTransfer and TeamTransfer.InitializeCache then
+					TeamTransfer.InitializeCache()
+				end
+				lastTeamCount = #currentTeams
+				lastAllianceState = currentAlliances
+			end
+			
+			lastCacheRefresh = frameNum
+		end
+	end
+	
+	function gadget:PlayerChanged(playerID)
+		LogDebug(string.format("[TEAMTRANSFER] SYNCED - PlayerChanged %d, refreshing cache", playerID))
+		-- Player changes can affect team composition, refresh cache
+		if TeamTransfer and TeamTransfer.InitializeCache then
+			TeamTransfer.InitializeCache()
+		end
+	end
+	
+	function gadget:PlayerAdded(playerID)
+		LogDebug(string.format("[TEAMTRANSFER] SYNCED - PlayerAdded %d, refreshing cache", playerID))
+		if TeamTransfer and TeamTransfer.InitializeCache then
+			TeamTransfer.InitializeCache()
+		end
+	end
+	
+	function gadget:PlayerRemoved(playerID, reason)
+		LogDebug(string.format("[TEAMTRANSFER] SYNCED - PlayerRemoved %d, refreshing cache", playerID))
+		if TeamTransfer and TeamTransfer.InitializeCache then
+			TeamTransfer.InitializeCache()
+		end
+	end
+
+else -- UNSYNCED
+	Spring.Echo("[TEAMTRANSFER] UNSYNCED - Unsynced side loading")
+
+	-- Load logging functions for unsynced side
+	local Logger = VFS.Include("luarules/gadgets/team_transfer/shared_logging.lua")
+	local LogDebug = Logger.LogDebug
+	local LogError = Logger.LogError
+
+	function gadget:Initialize()
+		LogDebug("[TEAMTRANSFER] UNSYNCED - Initialize called")
+		
+		-- Set up sync action to receive cache updates from synced side
+		gadgetHandler:AddSyncAction("TeamTransferExposeUpdate", function(_, teamID, exposeData)
+			LogError(string.format("[TEAMTRANSFER] UNSYNCED - Received TeamTransferExposeUpdate for team %d", teamID))
+			
+			-- Forward to widgets using Script.LuaUI (the correct pattern!)
+			if Script.LuaUI("TeamTransferExposeUpdate") then
+				LogError(string.format("[TEAMTRANSFER] UNSYNCED - Forwarding to widgets via Script.LuaUI"))
+				Script.LuaUI.TeamTransferExposeUpdate(teamID, exposeData)
+			else
+				LogError("[TEAMTRANSFER] UNSYNCED - Script.LuaUI.TeamTransferExposeUpdate not available")
+			end
+		end)
+		
+		LogError("[TEAMTRANSFER] UNSYNCED - AddSyncAction registered for TeamTransferExposeUpdate")
+	end
+
+	-- Gadget callbacks (outside the if/else blocks)
+	function gadget:RecvLuaMsg(msg, playerID)
+		LogDebug(string.format("[TEAMTRANSFER] RecvLuaMsg called - playerID=%s, msg=%s", tostring(playerID), tostring(msg)))
+		if not msg or type(msg) ~= "string" then
+			LogDebug("[TEAMTRANSFER] RecvLuaMsg - Invalid message format")
+			return false
+		end
+
+		-- Manual cache test function
+		if msg == "test_cache_refresh" then
+			LogError("[TEAMTRANSFER] MANUAL - Cache refresh test triggered by player " .. playerID)
+			if TeamTransfer and TeamTransfer.InitializeCache then
+				TeamTransfer.InitializeCache()
+				LogError("[TEAMTRANSFER] MANUAL - Cache refresh completed")
+			else
+				LogError("[TEAMTRANSFER] MANUAL - TeamTransfer.InitializeCache not available")
+			end
+			return true
+		end
+
+		local msgType, data = msg:match("^(%w+):(.+)$")
+		LogDebug(string.format("[TEAMTRANSFER] RecvLuaMsg - msgType=%s, data=%s", tostring(msgType), tostring(data)))
+		if msgType == "query_unit_pair" then
+			local senderTeamID, receiverTeamID = data:match("^(%d+),(%d+)$")
+			if senderTeamID and receiverTeamID then
+				senderTeamID = tonumber(senderTeamID)
+				receiverTeamID = tonumber(receiverTeamID)
+				LogDebug(string.format("[TEAMTRANSFER] RecvLuaMsg - Processing query_unit_pair %d->%d", senderTeamID, receiverTeamID))
+				
+				-- Store dummy result for now
+				if not GG.TeamTransferCache then
+					GG.TeamTransferCache = {}
+				end
+				
+				local cacheKey = string.format("team_%d_to_%d", senderTeamID, receiverTeamID)
+				GG.TeamTransferCache[cacheKey] = {
+					canShareMetal = false,
+					canShareEnergy = false,
+					canShareUnits = false,
+					blockReason = senderTeamID == receiverTeamID and "Invalid: self-transfer" or "Test data"
+				}
+				LogDebug(string.format("[TEAMTRANSFER] RecvLuaMsg - Cached result for %s", cacheKey))
+				
+				-- CRITICAL CACHE DEBUGGING: Log the dummy cache creation
+				LogError(string.format("[TEAMTRANSFER] CACHE DEBUG - Created DUMMY cache entry %s with test data", cacheKey))
 				return true
 			end
 		end
 		
-		Spring.Log("PIPELINE DEBUG", "info", "Usage: pipeline_entry <scope> <policyType> <senderID> <receiverID>")
-		Spring.Log("PIPELINE DEBUG", "info", "Example: pipeline_entry allied resource_transfer 0 1")
+		LogDebug("[TEAMTRANSFER] RecvLuaMsg - Message not handled")
+		return false
+	end
+
+	function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions, cmdTag, playerID, fromSynced, fromLua)
+		LogDebug(string.format("[TEAMTRANSFER] AllowCommand called - unitID=%s, teamID=%s, cmdID=%s, playerID=%s", 
+			tostring(unitID), tostring(teamID), tostring(cmdID), tostring(playerID)))
+		if TeamTransfer and TeamTransfer.AllowCommand then
+			return TeamTransfer.AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions, cmdTag, playerID, fromSynced, fromLua)
+		end
 		return true
 	end
-	
-	return false
-end
 
--- Initialize team caches after game starts (safe from circular dependencies)
-function gadget:GameStart()
-	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Game started, initializing team caches now")
-	
-	-- Now it's safe to initialize team caches
-	local teamList = Spring.GetTeamList()
-	for _, teamID in ipairs(teamList) do
-		local _, _, isDead, isAI = Spring.GetTeamInfo(teamID)
-		if not isDead then
-			-- Initialize both resource and unit transfer pipelines for this team
-			TeamTransfer.InitializeCache(teamID)
-			Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Initialized cache for team " .. teamID)
+	function gadget:AllowResourceTransfer(oldTeamID, newTeamID, resourceType, amount)
+		LogDebug(string.format("[TEAMTRANSFER] AllowResourceTransfer called - %s->%s, type=%s, amount=%s", 
+			tostring(oldTeamID), tostring(newTeamID), tostring(resourceType), tostring(amount)))
+		
+		-- Use validator pattern: let policies decide based on current context
+		if TeamTransfer and TeamTransfer.AllowResourceTransfer then
+			local allowed = TeamTransfer.AllowResourceTransfer(oldTeamID, newTeamID, resourceType, amount)
+			LogDebug(string.format("[TEAMTRANSFER] AllowResourceTransfer result: %s", tostring(allowed)))
+			return allowed
 		end
+		return true
 	end
-	
-	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "Team transfer system fully active")
+
+	function gadget:AllowUnitTransfer(unitID, unitDefID, oldTeamID, newTeamID, capture)
+		LogDebug(string.format("[TEAMTRANSFER] AllowUnitTransfer called - unitID=%s, %s->%s, capture=%s", 
+			tostring(unitID), tostring(oldTeamID), tostring(newTeamID), tostring(capture)))
+		
+		if capture then
+			return true  -- Captures always allowed
+		end
+		
+		-- Use validator pattern: let policies decide based on current context
+		if TeamTransfer and TeamTransfer.AllowUnitTransfer then
+			local allowed = TeamTransfer.AllowUnitTransfer(unitID, unitDefID, oldTeamID, newTeamID, capture)
+			LogDebug(string.format("[TEAMTRANSFER] AllowUnitTransfer result: %s", tostring(allowed)))
+			return allowed
+		end
+		return true
+	end
 end

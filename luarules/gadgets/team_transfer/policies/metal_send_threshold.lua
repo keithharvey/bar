@@ -22,38 +22,33 @@ end)
 
 -- Register the policy
 GG.TeamTransfer.RegisterPolicy(SharedEnums.Policies.MetalSendThreshold, function(policy)
-	policy.ForAlliedResourceTransfers.Use(function(ctx)
-		if ctx.resource ~= SharedEnums.ResourceType.METAL then
-			return { allow = true }
+	policy.ForAlliedMetalTransfers.Use(function(ctx)
+
+		-- Use pre-calculated default metal transfer data from pipeline context
+		local baseMaxAmount = ctx.defaultMetalTransfer.amountSendable
+
+		-- Get cumulative metal sent (internal to this policy) - with defensive check
+		local cumulativeMetal = 0
+		if ctx.senderTeamId and ctx.senderTeamId >= 0 then
+			cumulativeMetal = Spring.GetTeamRulesParam(ctx.senderTeamId, CUMULATIVE_METAL_PARAM) or 0
 		end
-		
-		-- Calculate our own limits using context data
-		local senderAvailable = ctx.senderResources.metal.current
-		local receiverCapacity = math.max(0, ctx.receiverResources.metal.storage - ctx.receiverResources.metal.current)
-		local baseMaxAmount = math.min(senderAvailable, receiverCapacity)
-		
-		-- Get cumulative metal sent (internal to this policy)
-		local cumulativeMetal = Spring.GetTeamRulesParam(ctx.senderTeamId, CUMULATIVE_METAL_PARAM) or 0
-		
+
 		-- Apply threshold logic: only allow sending if sender has more than threshold
-		local availableAfterThreshold = math.max(0, senderAvailable - metalThreshold)
+		local senderMetal = Spring.GetTeamResources(ctx.senderTeamId, "metal")
+		local availableAfterThreshold = math.max(0, senderMetal - metalThreshold)
 		local finalMaxAmount = math.min(baseMaxAmount, availableAfterThreshold)
 		
-		---@type RawMetalTransferExpose
+		---@type MetalSendThresholdResult
 		local metalExpose = {
-			amountSendable = finalMaxAmount,  -- Required by pipeline converter
-			metalThreshold = metalThreshold,
-			amountAlreadySent = cumulativeMetal,
-			amountRemainingAllowance = math.max(0, metalThreshold - cumulativeMetal),
-			_policyData = {
-				metalThreshold = metalThreshold,
-				cumulativeSent = cumulativeMetal,
-			}
+			canShare = finalMaxAmount > 0,
+			amountSendable = finalMaxAmount,  -- Required by DefaultMetalTransferResult
+			blockReason = (finalMaxAmount <= 0) and "Metal threshold reached or no metal available" or nil,
+			amountRemainingAllowance = math.max(0, availableAfterThreshold) -- Common concept on base type
 		}
 
 		return {
 			expose = {
-				[SharedEnums.TransferCategory.METAL_TRANSFER] = metalExpose
+				[SharedEnums.TransferCategory.MetalTransfer] = metalExpose
 			}
 		}
 	end)
@@ -62,8 +57,13 @@ end)
 -- Update cumulative tracking after successful transfers
 GG.TeamTransfer.RegisterPostTransfer(function(transferData)
 	if transferData.resource == SharedEnums.ResourceType.METAL then
-		local currentCumulative = Spring.GetTeamRulesParam(transferData.senderTeamID, CUMULATIVE_METAL_PARAM) or 0
-		local newCumulative = currentCumulative + transferData.amount
-		Spring.SetTeamRulesParam(transferData.senderTeamID, CUMULATIVE_METAL_PARAM, newCumulative)
+		-- Defensive check: ensure valid team ID
+		if transferData.senderTeamID and transferData.senderTeamID >= 0 then
+			local currentCumulative = Spring.GetTeamRulesParam(transferData.senderTeamID, CUMULATIVE_METAL_PARAM) or 0
+			local newCumulative = currentCumulative + (transferData.amount or 0)
+			Spring.SetTeamRulesParam(transferData.senderTeamID, CUMULATIVE_METAL_PARAM, newCumulative)
+		else
+			Spring.Log("TeamTransfer", LOG.ERROR, "Invalid senderTeamID in PostTransfer: " .. tostring(transferData.senderTeamID))
+		end
 	end
 end)

@@ -41,6 +41,30 @@
       }
     },
     {
+      "key": "building_unlocks",
+      "name": "Building Unlocks",
+      "desc": "Unlock sharing via buildings; per-unit limits via Unit Sharing Mode. Tax configurable.",
+      "allowRanked": true,
+      "options": {
+        "building_unlocks_sharing": {
+          "value": true,
+          "locked": true
+        },
+        "unit_sharing_mode": {
+          "value": "enabled",
+          "locked": false,
+          "bounds": {
+            "items": ["enabled", "t2cons", "combat", "combat_t2cons", "disabled"]
+          }
+        },
+        "tax_resource_sharing_amount": {
+          "value": 0.0,
+          "locked": false,
+          "bounds": { "min": 0, "max": 0.99, "step": 0.01 }
+        }
+      }
+    },
+    {
       "key": "limited_sharing",
       "name": "Limited Sharing",
       "desc": "Allow T2 constructor trades, otherwise restrict; 30% tax; 440m threshold.",

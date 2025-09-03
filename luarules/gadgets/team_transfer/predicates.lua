@@ -54,8 +54,8 @@ P.Command = {
 ---@class TeamTransferPredicatesResource
 ---@type table<string, Predicate>
 P.Resource = {
-	isMetalTransfer = definePredicate("isMetalTransfer", function(ctx) return ctx.resource == "metal" end),
-	isEnergyTransfer = definePredicate("isEnergyTransfer", function(ctx) return ctx.resource == "energy" end),
+	isMetalTransfer = definePredicate("isMetalTransfer", function(ctx) return ctx.resource == SharedEnums.ResourceType.METAL end),
+	isEnergyTransfer = definePredicate("isEnergyTransfer", function(ctx) return ctx.resource == SharedEnums.ResourceType.ENERGY end),
 	areAlliedTeams = definePredicate("areAlliedTeams", function(ctx) return ctx.areAlliedTeams end),
 	isCheatingEnabled = definePredicate("isCheatingEnabled", function(ctx) return ctx.isCheatingEnabled end),
 }

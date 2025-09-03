@@ -297,6 +297,16 @@ local options = {
 			{ key = "disabled",    name = "Disabled",                    desc = "No unit sharing allowed" },
 		},
 	},
+	{
+		key     = "building_unlocks_sharing",
+		name    = "Building Unlocks: Sharing",
+		desc    = "Unlock Guard/Repair and Unit Sharing based on structures you build (Energy/Metal Storage; Pinpointer).",
+		type    = "bool",
+		section = "options_sharing",
+		sharing_category = "units",
+		def     = true,
+		column  = 1,
+	},
     
     {
         key     = "sub_header",

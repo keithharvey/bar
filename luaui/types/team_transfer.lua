@@ -6,7 +6,8 @@
 -- These provide IntelliSense autocomplete and type checking for enum values
 -- Use these instead of generic 'string' types where enum values are expected
 
----Policy types for the Team Transfer system (PascalCase keys, snake_case values)
+---Legacy policy types - DEPRECATED, use TransferCategory instead
+---@deprecated Use TransferCategory instead
 ---@alias PolicyType "resource_transfer" | "unit_transfer" | "command" | "team_event"
 
 ---Transfer categories for expose data organization (PascalCase keys, snake_case values)
@@ -36,7 +37,7 @@
 
 ---UI scope for querying transfer capabilities
 ---@class PredicateUIScope
----@field GetExposeData fun(senderTeamID: number, receiverTeamID: number): ResourceTransferExposeOutput|UnitTransferExposeOutput
+---@field GetExposeData fun(senderTeamID: number, receiverTeamID: number): ResourceTransferResult|UnitTransferResult
 
 
 ---Widget API for Team Transfer system - provides read-only access to transfer capabilities
@@ -52,8 +53,8 @@
 ---@field CanShareUnits fun(senderTeamID: number, receiverTeamID: number, selectedUnitIDs: number[]): boolean @see luarules/gadgets/team_transfer/api_widgets.lua
 ---@field GetMaxMetalAmount fun(senderTeamID: number, receiverTeamID: number): number @see luarules/gadgets/team_transfer/api_widgets.lua
 ---@field GetMaxEnergyAmount fun(senderTeamID: number, receiverTeamID: number): number @see luarules/gadgets/team_transfer/api_widgets.lua
----@field GetResourceTransferData fun(senderTeamID: number, receiverTeamID: number): ResourceTransferExposeOutput @see luarules/gadgets/team_transfer/api_widgets.lua
----@field GetUnitTransferData fun(senderTeamID: number, receiverTeamID: number, selectedUnitIDs: number[]): UnitTransferExposeOutput @see luarules/gadgets/team_transfer/api_widgets.lua
+---@field GetResourceTransferData fun(senderTeamID: number, receiverTeamID: number): ResourceTransferResult @see luarules/gadgets/team_transfer/api_widgets.lua
+---@field GetUnitTransferData fun(senderTeamID: number, receiverTeamID: number, selectedUnitIDs: number[]): UnitTransferResult @see luarules/gadgets/team_transfer/api_widgets.lua
 ---@field handleShareButtonClick fun(targetTeamID: number): boolean @see luarules/gadgets/team_transfer/api_widgets.lua
 ---@field validateShareCommand fun(): boolean @see luarules/gadgets/team_transfer/api_widgets.lua
 ---@field IsSharingOption fun(optionName: string): boolean @see luarules/gadgets/team_transfer/api_widgets.lua
@@ -69,60 +70,38 @@
 ---@class WG
 ---@field TeamTransfer TeamTransferWidgetAPI
 
----Legacy unified resource transfer UI state (abstracts away policy hierarchy)
----@deprecated Use ResourceTransferExposeOutput instead
----@class ResourceTransferUIState
----@field maxMetalAmount number Maximum metal amount that can be sent right now
----@field metalThreshold number? Metal threshold (if applicable)
----@field taxRate number Tax rate (0 if no tax policy active)
----@field amountSendable number Amount that can be sent right now (legacy)
----@field amountAlreadySent number Amount already sent (cumulative, legacy)
----@field amountRemainingAllowance number Amount remaining in allowance/threshold (legacy)
----@field maxPossibleSend number Maximum possible send amount (legacy)
+---Default Result data calculated by pipeline for each transfer category
+---@class DefaultUnitTransferResult
+---@field canShareUnits boolean Whether unit sharing is possible (based on sharing mode and team relationship)
+---@field takeBypass boolean Whether take bypass is available for this team pair
+
+---Default Result data calculated by pipeline for each transfer category
+---@class DefaultCommandValidationResult
+---@field allowGuardCommands boolean Whether guard commands are allowed
+---@field allowRepairCommands boolean Whether repair commands are allowed
+---@field allowReclaimCommands boolean Whether reclaim commands are allowed
+
+---Default Result data calculated by pipeline for each transfer category
+---@class DefaultTeamEventsResult
+---@field canProcessEvent boolean Whether the event can be processed
 
 ---@class TeamTransferPolicyContext
----@field type string
----@field resource? "metal"|"energy"
----@field amount? number
----@field amountClamped? number
----@field maxShare? number
----@field receiverCur? number
----@field cumulativeMetal? number
----@field lastResult? TeamTransferResultTable -- Result from previous policy in the dependency chain
----@field senderTeamId? number
----@field receiverTeamId? number
----@field fromTeamID? number
----@field toTeamID? number
----@field areAlliedTeams? boolean
----@field isCheatingEnabled? boolean
----@field senderIsNonPlayer? boolean
----@field receiverIsNonPlayer? boolean
----@field fromIsNonPlayer? boolean
----@field toIsNonPlayer? boolean
----@field capture? boolean
----@field takeBypassAllowed? boolean
----@field unitID? number
----@field unitDefID? number
----@field unitTeam? number
----@field commandID? number
----@field cmdID? number
----@field cmdParams? number[]
----@field cmdOptions? table
----@field cmdTag? number
----@field synced? boolean
----@field targetID? number
----@field targetTeam? number
----@field targetUnitDef? table
----@field targetAllied? boolean
----@field targetIsComplete? boolean
----@field teamID? number
----@field eventType? "PlayerAbandoned"|"TeamDestroyed"|"PlayerReconnected"
----@field playerID? number
----@field gameFrame? number
-
----@class TeamTransferApplyTransfer
----@field sent number
----@field received number
+---@field type TransferCategory Transfer category this context is for
+---@field lastResult? TeamTransferResultTable Result from previous policy in dependency chain
+---@field senderTeamId number Sender team ID
+---@field receiverTeamId number Receiver team ID
+---@field areAlliedTeams boolean Whether sender and receiver are allied
+---@field isCheatingEnabled boolean Whether cheating is enabled
+---@field senderIsNonPlayer boolean Whether sender is AI/non-player team
+---@field receiverIsNonPlayer boolean Whether receiver is AI/non-player team
+---@field gameFrame number Current game frame
+---@field playerID? number Player ID for team events
+---Default Result data pre-calculated by pipeline - policies can use or override these
+---@field defaultMetalTransfer DefaultMetalTransferResult Default metal transfer calculations
+---@field defaultEnergyTransfer DefaultEnergyTransferResult Default energy transfer calculations  
+---@field defaultUnitTransfer DefaultUnitTransferResult Default unit transfer calculations
+---@field defaultCommandValidation DefaultCommandValidationResult Default command validation
+---@field defaultTeamEvents DefaultTeamEventsResult Default team event processing
 
 ---@class TeamTransferApplyCommands
 ---@field ClearLoad? number[] -- unitIDs to clear load orders from
@@ -131,44 +110,47 @@
 ---@field RemoveCommands? {unitID: number, cmdID: number, options?: string[]}[] -- commands to remove from units
 ---@field GiveCommands? {unitID: number, cmdID: number, params?: number[], options?: string[]}[] -- new commands to give to units
 
----Policy-specific expose types for strongly typed policy chaining
----@see luarules/gadgets/team_transfer/policies/game_prevent_excessive_share.lua
----@class PreventExcessiveShareExpose
----@field maxShareAmount number The maximum amount that can be shared based on receiver's storage capacity
----@field cappedAmount number The actual amount after applying the storage cap
----@field wasAmountCapped boolean Whether the original amount was reduced due to storage limits
----@field amountSendable number How much can be sent right now (UI-focused)
----@field maxPossibleSend number Maximum they could ever send to this receiver (UI-focused)
+-- Default Policy Result Types - All policies must extend these base types
+-- These define the minimum required fields that every policy must provide
+---Default metal transfer policy result - all metal transfer policies must extend this
 
----Raw expose data types returned by policies (before pipeline conversion)
----These define the contract between policies and the pipeline converter
+---Default energy transfer policy result - all energy transfer policies must extend this
 
----@class RawMetalTransferExpose
----@field amountSendable number How much metal can be sent right now (required by pipeline)
----@field taxRate number? Tax rate applied to metal transfers (0.0 to 1.0)
----@field metalThreshold number? Cumulative metal threshold
----@field amountAlreadySent number? Metal amount already sent in current period
----@field amountRemainingAllowance number? Remaining metal allowance before hitting limits
----@field blockReason string? Reason why metal sharing is blocked
----@field _policyData table? Internal policy calculation data (not used by pipeline)
+---@class DefaultResourceTransferResult
+---@field amountSendable number Maximum metal that can be sent based on sender resources and receiver capacity
+---@field canShare boolean Whether metal sharing is possible (based on amounts > 0)
+---Default expose data calculated by pipeline for each transfer category
+---@see luarules/gadgets/team_transfer/default_policies/metal_transfer.lua
+---@class DefaultMetalTransferResult : DefaultResourceTransferResult
 
----@class RawEnergyTransferExpose
----@field amountSendable number How much energy can be sent right now (required by pipeline)
----@field taxRate number? Tax rate applied to energy transfers (0.0 to 1.0)
----@field energyThreshold number? Cumulative energy threshold
----@field amountAlreadySent number? Energy amount already sent in current period
----@field amountRemainingAllowance number? Remaining energy allowance before hitting limits
----@field blockReason string? Reason why energy sharing is blocked
----@field _policyData table? Internal policy calculation data (not used by pipeline)
+---@see luarules/gadgets/team_transfer/default_policies/energy_transfer.lua
+---@class DefaultEnergyTransferResult : DefaultResourceTransferResult
 
----@class RawUnitTransferExpose
+
+---Default unit transfer policy result - all unit transfer policies must extend this
+---@see luarules/gadgets/team_transfer/default_policies/unit_transfer.lua
+---@class DefaultUnitTransferResult
 ---@field canShareUnits boolean Whether unit sharing is allowed (required by pipeline)
----@field shareableUnitCount number? Number of currently selected units that can be shared
----@field unshareableUnitCount number? Number of currently selected units that cannot be shared
----@field blockReason string? Reason why sharing is blocked (required by pipeline)
----@field allowedUnits table? UnitDefID -> boolean mapping (policy-specific, not used by pipeline)
----@field sharingMode string? Current sharing mode (policy-specific, not used by pipeline)
----@field _policyData table? Internal policy calculation data (not used by pipeline)
+---@field blockReason string? Reason why sharing is blocked (if blocked)
+
+---Default command validation policy result - all command policies must extend this
+---@see luarules/gadgets/team_transfer/default_policies/command_validation.lua
+---@class DefaultCommandValidationResult
+---@field allowGuardCommands boolean Whether guard commands are allowed (required by pipeline)
+---@field allowRepairCommands boolean Whether repair commands are allowed (required by pipeline)
+---@field allowReclaimCommands boolean Whether reclaim commands are allowed (required by pipeline)
+---@field blockReason string? Reason why commands are blocked (if blocked)
+
+---Default team events policy result - all team event policies must extend this
+---@see luarules/gadgets/team_transfer/default_policies/team_events.lua
+---@class DefaultTeamEventsResult
+---@field canProcessEvent boolean Whether the event can be processed (required by pipeline)
+---@field blockReason string? Reason why event processing is blocked (if blocked)
+
+---@see luarules/gadgets/team_transfer/policies/unit_sharing_mode.lua
+---@class UnitSharingModeResult : DefaultUnitTransferResult
+---@field sharingMode string Current sharing mode (for UI/validator use)
+---@field allowedUnits table<number, boolean> UnitDefID -> boolean mapping (for validator use)
 
 ---@see luarules/gadgets/team_transfer/policies/resource_tax.lua
 ---@class ResourceTaxExpose
@@ -177,20 +159,31 @@
 ---@field taxCollected number The amount collected as tax
 
 ---@see luarules/gadgets/team_transfer/policies/metal_send_threshold.lua
----@class MetalSendThresholdExpose
----@field metalThreshold number The cumulative threshold for metal sending
----@field cumulativeSent number Current cumulative amount sent
----@field allowanceRemaining number How much more can be sent before hitting threshold
+---@class MetalSendThresholdResult : DefaultMetalTransferResult
 
 ---@see luarules/gadgets/team_transfer/policies/tax_resource_sharing.lua
----@class TaxResourceSharingExpose
----@field maxShareAmount number Maximum amount that can be shared after tax constraints
----@field _policyData {taxRate: number} Internal policy calculation data
+---@class TaxResourceSharing
+---@field UseTaxResourceCheck fun(ctx: TeamTransferPolicyContext, teamField: string, transferType: string): table Reusable handler for tax resource checks
 
--- Shared Output Types - Used by both policies and UI
+---@see luarules/gadgets/team_transfer/policies/tax_resource_sharing.lua
+---@class TaxResourceSharingMetalResult : DefaultMetalTransferResult
+---@field taxRate number Tax rate applied to metal transfers (0.0 to 1.0)
+
+---@see luarules/gadgets/team_transfer/policies/tax_resource_sharing.lua
+---@class TaxResourceSharingEnergyResult : DefaultEnergyTransferResult
+---@field taxRate number Tax rate applied to energy transfers (0.0 to 1.0)
+
+---@see luarules/gadgets/team_transfer/policies/enemy_transfer.lua
+---@class EnemyMetalTransferResult : DefaultMetalTransferResult
+
+---@see luarules/gadgets/team_transfer/policies/enemy_transfer.lua
+---@class EnemyEnergyTransferResult : DefaultEnergyTransferResult
+
+---@see luarules/gadgets/team_transfer/policies/enemy_transfer.lua
+---@class EnemyUnitTransferResult : DefaultUnitTransferResult-- Shared Output Types - Used by both policies and UI
 -- These provide strongly-typed interfaces for expose data rollup
 
----@class MetalTransferExposeOutput
+---@class MetalTransferResult
 ---@field maxMetalShareAmount number Maximum metal that can be shared to this specific receiver
 ---@field canShareMetal boolean Whether metal sharing is allowed to this receiver
 ---@field blockReason string? Reason why metal sharing is blocked (if blocked)
@@ -199,7 +192,7 @@
 ---@field amountAlreadySent number? Metal amount already sent in current period
 ---@field amountRemainingAllowance number? Remaining metal allowance before hitting limits
 
----@class EnergyTransferExposeOutput
+---@class EnergyTransferResult
 ---@field maxEnergyShareAmount number Maximum energy that can be shared to this specific receiver
 ---@field canShareEnergy boolean Whether energy sharing is allowed to this receiver
 ---@field blockReason string? Reason why energy sharing is blocked (if blocked)
@@ -208,20 +201,24 @@
 ---@field amountAlreadySent number? Energy amount already sent in current period
 ---@field amountRemainingAllowance number? Remaining energy allowance before hitting limits
 
----@class ResourceTransferExposeOutput
----@field metal MetalTransferExposeOutput Metal-specific transfer data
----@field energy EnergyTransferExposeOutput Energy-specific transfer data
+---@class ResourceTransferResult
+---@field metal MetalTransferResult Metal-specific transfer data
+---@field energy EnergyTransferResult Energy-specific transfer data
 
----@class UnitTransferExposeOutput  
+---@class UnitTransferResult
 ---@field canShareUnits boolean Whether unit sharing is allowed to this receiver
 ---@field shareableUnitCount number? Number of currently selected units that can be shared
 ---@field unshareableUnitCount number? Number of currently selected units that cannot be shared
 ---@field blockReason string? Reason why sharing is blocked (if canShareUnits is false)
 
----@class CommandExposeOutput
+---@class CommandResult
 ---@field allowGuardCommands boolean Whether guard commands to allies are allowed
 ---@field allowRepairCommands boolean Whether repair commands to allies are allowed  
 ---@field allowReclaimCommands boolean Whether reclaim commands to allies are allowed
+
+---@class UnitTransferValidationResult : UnitTransferResult
+---@field shareableUnitCount number? Number of currently selected units that can be shared
+---@field unshareableUnitCount number? Number of currently selected units that cannot be shared
 
 ---@class TeamTransferResultTable
 ---@field allow? boolean -- explicitly allow the transfer
@@ -350,3 +347,86 @@
 ---@class TeamResourcesData
 ---@field metal TeamResourceData Metal resource data
 ---@field energy TeamResourceData Energy resource data
+
+---@class UnitTransferValidationResult
+---@field canShare boolean Whether unit sharing is possible
+---@field shareableCount number Number of currently selected units that can be shared
+---@field unshareableCount number Number of currently selected units that cannot be shared
+---@field blockReason string? Reason why sharing is blocked (if blocked)
+
+-- Pipeline Function Signatures with Strong Typing
+
+---Pipeline initialization function
+---@see luarules/gadgets/team_transfer/pipeline.lua Pipeline.Initialize
+---@param transferCategory TransferCategory The transfer category to initialize
+---@param senderTeamID number The sender team ID
+---@param receiverTeamID number The receiver team ID
+---@param options table? Optional parameters (amount, unitIDs, etc.)
+---@return table Pipeline evaluation result with expose data
+
+---Pipeline resource transfer evaluation
+---@see luarules/gadgets/team_transfer/pipeline.lua Pipeline.RunResourceTransfer
+---@param senderTeamId number The sender team ID
+---@param receiverTeamId number The receiver team ID
+---@param resourceType "metal"|"energy" The resource type
+---@param amount number The transfer amount
+---@return table? Expose data or nil if transfer not allowed
+
+---Pipeline team event processing
+---@see luarules/gadgets/team_transfer/pipeline.lua Pipeline.RunTeamEvent
+---@param eventType "PlayerAbandoned"|"TeamDestroyed"|"PlayerReconnected" The event type
+---@param teamID number The team ID affected by the event
+---@param playerID number? The player ID (if applicable)
+---@param gameFrame number The current game frame
+---@return table? Event processing result
+
+---Pipeline expose data query by predicates
+---@see luarules/gadgets/team_transfer/pipeline.lua Pipeline.QueryExposeByPredicates
+---@param predicateScope "allied"|"enemy" The predicate scope
+---@param transferCategory TransferCategory The transfer category
+---@param senderTeamID number The sender team ID
+---@param receiverTeamID number The receiver team ID
+---@return MetalTransferResult|EnergyTransferResult|UnitTransferResult? Strongly-typed expose output
+
+---Pipeline unit transfer validation
+---@see luarules/gadgets/team_transfer/pipeline.lua Pipeline.ValidateUnitTransfer
+---@param senderTeamID number The sender team ID
+---@param receiverTeamID number The receiver team ID
+---@param unitID number? The unit ID being transferred
+---@param unitDefID number? The unit definition ID
+---@return boolean isValid Whether the transfer is valid
+
+-- Validator Types for Category-Specific Registration
+
+---Metal transfer validator function signature
+---@alias MetalTransferValidator fun(ctx: TeamTransferPolicyContext, exposeResults: table<string, PolicyMetalTransferExpose>): boolean, string?, number?
+
+---Energy transfer validator function signature  
+---@alias EnergyTransferValidator fun(ctx: TeamTransferPolicyContext, exposeResults: table<string, PolicyEnergyTransferExpose>): boolean, string?, number?
+
+---Unit transfer validator function signature
+---@alias UnitTransferValidator fun(ctx: TeamTransferPolicyContext, exposeResults: table<string, PolicyUnitTransferExpose>): boolean, string?, number?
+
+---Command validation validator function signature
+---@alias CommandValidationValidator fun(ctx: TeamTransferPolicyContext, exposeResults: table<string, table>): boolean, string?, number?
+
+---Team events validator function signature
+---@alias TeamEventsValidator fun(ctx: TeamTransferPolicyContext, exposeResults: table<string, table>): boolean, string?, number?
+
+-- Category-Specific Validator Registration Functions
+
+---Register a metal transfer validator
+---@see luarules/gadgets/team_transfer/policy_hooks.lua M.RegisterMetalTransferValidator
+---@param validatorFn MetalTransferValidator The validator function
+---@return nil
+
+---Register an energy transfer validator
+---@see luarules/gadgets/team_transfer/policy_hooks.lua M.RegisterEnergyTransferValidator
+---@param validatorFn EnergyTransferValidator The validator function
+---@return nil
+
+---Register a unit transfer validator
+---@see luarules/gadgets/team_transfer/policy_hooks.lua M.RegisterUnitTransferValidator
+---@param validatorFn UnitTransferValidator The validator function
+---@return nil
+

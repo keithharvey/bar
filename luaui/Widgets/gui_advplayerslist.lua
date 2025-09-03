@@ -2296,10 +2296,16 @@ function DrawPlayer(playerID, leader, vOffset, mouseX, mouseY, onlyMainList, onl
                             local selectedUnits = Spring.GetSelectedUnits()
                             local canShareUnits, canShareMetal, canShareEnergy = false, false, false
                             
-                            if WG.TeamTransfer and WG.TeamTransfer.CanShareUnits and WG.TeamTransfer.CanShareMetal and WG.TeamTransfer.CanShareEnergy then
-                                canShareUnits = WG.TeamTransfer.CanShareUnits(myTeamID, team, selectedUnits)
-                                canShareMetal = WG.TeamTransfer.CanShareMetal(myTeamID, team)
-                                canShareEnergy = WG.TeamTransfer.CanShareEnergy(myTeamID, team)
+                            if WG.TeamTransfer then
+                                canShareUnits = WG.TeamTransfer.CanShareUnits(team, selectedUnits)
+                                canShareMetal = WG.TeamTransfer.CanShareMetal(team)
+                                canShareEnergy = WG.TeamTransfer.CanShareEnergy(team)
+                                
+                                -- CRITICAL GUI DEBUGGING: Log what the GUI is getting
+                                Spring.Log("TeamTransfer", LOG.ERROR, string.format("[ADVPLAYERSLIST] DrawShareButtons for team %d - units=%s, metal=%s, energy=%s", 
+                                    team, tostring(canShareUnits), tostring(canShareMetal), tostring(canShareEnergy)))
+                            else
+                                Spring.Log("TeamTransfer", LOG.ERROR, string.format("[ADVPLAYERSLIST] WG.TeamTransfer not available"))
                             end
                             
                             DrawShareButtons(posY, needm, neede, canShareUnits, canShareMetal, canShareEnergy)
@@ -3092,16 +3098,40 @@ function ShareTip(mouseX, playerID)
 	local targetTeamID = player[playerID].team
 	local selectedUnits = Spring.GetSelectedUnits()
 	
-	-- Check if API is available first
-	if not WG.TeamTransfer or not WG.TeamTransfer.GetResourceTransferData or not WG.TeamTransfer.GetUnitTransferData then
-		tipText = "We screwed up one of our core modules loading order so sorry we can't decide anything right now"
-		tipTextTime = os.clock()
-		return
-	end
+	-- Use WG.TeamTransfer API (provided by api_team_transfer.lua widget)
+	local resourceTransferData = nil
+	local unitTransferData = nil
 	
-	-- Get strongly-typed transfer data from our API
-	local resourceTransferData = WG.TeamTransfer.GetResourceTransferData(myTeamID, targetTeamID)
-	local unitTransferData = WG.TeamTransfer.GetUnitTransferData(myTeamID, targetTeamID, selectedUnits)
+	if WG.TeamTransfer then
+		Spring.Log("TeamTransfer", LOG.ERROR, string.format("[ADVPLAYERSLIST] Using WG.TeamTransfer API for team %d", targetTeamID))
+		resourceTransferData = WG.TeamTransfer.GetResourceTransferData(targetTeamID)
+		unitTransferData = WG.TeamTransfer.GetUnitTransferData(targetTeamID, selectedUnits)
+	else
+		Spring.Log("TeamTransfer", LOG.ERROR, "[ADVPLAYERSLIST] WG.TeamTransfer not available")
+		-- Return fallback data
+		resourceTransferData = {
+			metal = { canShareMetal = false, maxMetalShareAmount = 0, blockReason = "API not available" },
+			energy = { canShareEnergy = false, maxEnergyShareAmount = 0, blockReason = "API not available" }
+		}
+		unitTransferData = {
+			canShareUnits = false,
+			blockReason = "API not available"
+		}
+	end
+
+	-- Debug logging
+	Spring.Log("TeamTransfer", LOG.ERROR, string.format("[ADVPLAYERSLIST] Got data - Resource: %s, Unit: %s",
+		tostring(resourceTransferData ~= nil), tostring(unitTransferData ~= nil)))
+
+	if resourceTransferData then
+		Spring.Log("TeamTransfer", LOG.ERROR, string.format("[ADVPLAYERSLIST] Resource data: metal=%s, energy=%s",
+			tostring(resourceTransferData.metal ~= nil), tostring(resourceTransferData.energy ~= nil)))
+	end
+
+	if unitTransferData then
+		Spring.Log("TeamTransfer", LOG.ERROR, string.format("[ADVPLAYERSLIST] Unit data: canShareUnits=%s, blockReason='%s'",
+			tostring(unitTransferData.canShareUnits), tostring(unitTransferData.blockReason)))
+	end
 	
 	-- Units tooltip
 	if mouseX >= widgetPosX + (m_share.posX + (1*playerScale)) * widgetScale and mouseX <= widgetPosX + (m_share.posX + (17*playerScale)) * widgetScale then
@@ -3473,9 +3503,9 @@ function widget:MousePress(x, y, button)
                         if m_share.active and clickedPlayer.dead ~= true and not hideShareIcons then
                             -- Check sharing permissions using simple API
                             local selectedUnits = Spring.GetSelectedUnits()
-                            local canShareUnits = WG.TeamTransfer and WG.TeamTransfer.CanShareUnits and WG.TeamTransfer.CanShareUnits(myTeamID, clickedPlayer.team, selectedUnits)
-                            local canShareMetal = WG.TeamTransfer and WG.TeamTransfer.CanShareMetal and WG.TeamTransfer.CanShareMetal(myTeamID, clickedPlayer.team)
-                            local canShareEnergy = WG.TeamTransfer and WG.TeamTransfer.CanShareEnergy and WG.TeamTransfer.CanShareEnergy(myTeamID, clickedPlayer.team)
+                            local canShareUnits = WG.TeamTransfer and WG.TeamTransfer.CanShareUnits and WG.TeamTransfer.CanShareUnits(clickedPlayer.team, selectedUnits)
+                            local canShareMetal = WG.TeamTransfer and WG.TeamTransfer.CanShareMetal and WG.TeamTransfer.CanShareMetal(clickedPlayer.team)
+                            local canShareEnergy = WG.TeamTransfer and WG.TeamTransfer.CanShareEnergy and WG.TeamTransfer.CanShareEnergy(clickedPlayer.team)
                             
                             if canShareUnits and IsOnRect(x, y, m_share.posX + widgetPosX + (1*playerScale), posY, m_share.posX + widgetPosX + (17*playerScale), posY + (playerOffset*playerScale)) then
                                 -- share units button - use clean Team Transfer API

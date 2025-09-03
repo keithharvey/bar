@@ -81,7 +81,7 @@ local function ensureCacheInitialized(mode)
 		end
 	end
 	
-	Spring.Log("UnitSharing", LOG.INFO, "Lazy initialized cache for mode '" .. mode .. "' with " .. cachedCount .. " shareable units")
+	Spring.Log("UnitSharing", LOG.ERROR, "Lazy initialized cache for mode '" .. mode .. "' with " .. cachedCount .. " shareable units")
 end
 
 -- Clear the cache (useful if sharing mode changes)

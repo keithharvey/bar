@@ -2,68 +2,105 @@
 -- This file provides READ-ONLY access to Team Transfer data via expose cache
 -- Policy pipeline execution happens ONLY in synced context (gadgets)
 
-Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Starting api_widgets.lua initialization")
+-- Shared logging utility
+local Logger = VFS.Include("luarules/gadgets/team_transfer/shared_logging.lua")
+Logger.SetLogMode("NONE")  -- Set to "NONE" to disable all logging, "ERROR" for errors only, "DEBUG" for all
+
+local LogDebug = Logger.LogDebug
+local LogInfo = Logger.LogInfo
+local LogError = Logger.LogError
+
+LogDebug("[API_WIDGETS] Starting api_widgets.lua initialization")
 
 ---@load-file luaui/types/team_transfer.lua
 
-Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Including dependencies...")
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
-Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Loaded shared_enums.lua")
 
 local SharingUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_utils.lua")
-Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Loaded sharing_utils.lua")
+
+-- Helper function to get table keys (since Lua doesn't have table.keys)
+local function tableKeys(t)
+	if not t then return {} end
+	local keys = {}
+	for k, _ in pairs(t) do
+		table.insert(keys, tostring(k))
+	end
+	return keys
+end
 
 -- Widget-side API provides expose-driven validation and thin transfer requests
 
 ---@class TeamTransferWidgetAPIImpl : TeamTransferWidgetAPI
 local M = {}
 
--- Policy expose data cache (receives data from synced gadget)
 local exposeCache = {}
-Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Expose cache initialized")
+
+-- Verify we're in unsynced context
+if Spring.GetGameFrame then
+	LogError("[API_WIDGETS] WARNING: Detected synced context functions in unsynced widget!")
+end
 
 -- teamID -> expose data
 
 -- Flag to prevent spammy logging
 local hasLoggedSystemNotReady = false
 
+-- Cache of recent query timestamps to prevent spam
+local lastQueryTime = {}
+local QUERY_COOLDOWN = 1000 -- 1 second cooldown between queries for the same team
+
+-- Simplified cache structure: direct data by team ID
+local resourceCache = {}  -- resourceCache[teamID] = ResourceTransfer data
+local unitCache = {}      -- unitCache[teamID] = UnitTransfer data
+
 -- Receive policy expose data from synced gadget
 local function updateExposeCache(_, teamID, exposeData)
-	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "[API_WIDGETS] Received expose data update for team " .. tostring(teamID))
-	exposeCache[teamID] = exposeData
+	LogDebug(string.format("[API_WIDGETS] Received expose data update for team %d", teamID))
 
-	-- Log what types of data were received
-	local dataTypes = {}
-	if exposeData.ResourceTransfer then dataTypes[#dataTypes+1] = "ResourceTransfer" end
-	if exposeData.UnitTransfer then dataTypes[#dataTypes+1] = "UnitTransfer" end
-	if exposeData.Command then dataTypes[#dataTypes+1] = "Command" end
-	if exposeData.TeamEvent then dataTypes[#dataTypes+1] = "TeamEvent" end
+	if not exposeData then
+		LogError(string.format("[API_WIDGETS] Received nil expose data for team %d", teamID))
+		return
+	end
 
-	Spring.Log("TEAM TRANSFER DEBUG", LOG.ERROR, "[API_WIDGETS] Expose data contains: " .. table.concat(dataTypes, ", "))
+	LogDebug(string.format("[API_WIDGETS] ExposeData keys: %s", exposeData and table.concat(tableKeys(exposeData), ", ") or "none"))
+
+	-- Store data in simplified cache structure
+	if exposeData.ResourceTransfer then
+		resourceCache[teamID] = exposeData.ResourceTransfer
+		LogDebug(string.format("[API_WIDGETS] Cached ResourceTransfer data for team %d: %s", teamID, table.concat(tableKeys(exposeData.ResourceTransfer), ", ")))
+	end
+	
+	if exposeData.UnitTransfer then
+		unitCache[teamID] = exposeData.UnitTransfer
+		LogDebug(string.format("[API_WIDGETS] Cached UnitTransfer data for team %d: %s", teamID, table.concat(tableKeys(exposeData.UnitTransfer), ", ")))
+	end
+
+	-- CRITICAL CACHE DEBUGGING: Log simplified cache state
+	LogError(string.format("[API_WIDGETS] CACHE DEBUG - Team %d data received", teamID))
+	LogError(string.format("[API_WIDGETS] CACHE DEBUG - Resource cache keys: [%s]", table.concat(tableKeys(resourceCache), ", ")))
+	LogError(string.format("[API_WIDGETS] CACHE DEBUG - Unit cache keys: [%s]", table.concat(tableKeys(unitCache), ", ")))
+
+	-- Reset the logging flag since we now have data
+	hasLoggedSystemNotReady = false
 end
 
--- Register to receive expose data updates from gadget
-Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Registering sync action handler...")
-if gadgetHandler and gadgetHandler.AddSyncAction then
-	gadgetHandler:AddSyncAction("TeamTransferExposeUpdate", updateExposeCache)
-	Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Sync action handler registered successfully")
-else
-	Spring.Log("TEAM TRANSFER WARN", LOG.ERROR, "[API_WIDGETS] Could not register sync action handler - gadgetHandler not available")
-end
+-- Public function for bridge widget to call
+M.UpdateExposeCache = updateExposeCache
+
+-- Note: RecvFromSynced is handled by the bridge widget, not this module
 
 -- Include the core modules directly (these are stateless utility modules)
-Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Including core modules...")
+LogInfo("[API_WIDGETS] Including core modules...")
 local ResourceShareTax = VFS.Include("luarules/gadgets/team_transfer/resource_share_tax.lua")
-Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Loaded resource_share_tax.lua")
+LogDebug("[API_WIDGETS] Loaded resource_share_tax.lua")
 
 local UnitSharing = VFS.Include("luarules/gadgets/team_transfer/unit_sharing.lua")
-Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Loaded unit_sharing.lua")
+LogDebug("[API_WIDGETS] Loaded unit_sharing.lua")
 
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
-Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] Loaded shared_enums.lua (second time)")
+LogDebug("[API_WIDGETS] Loaded shared_enums.lua (second time)")
 
--- Policy type shortcuts for cleaner code
-local PolicyType = SharedEnums.PolicyType
+-- Transfer category shortcuts for cleaner code
 local TransferCategory = SharedEnums.TransferCategory
 
 -- Unsynced sharing mode check helper
@@ -170,7 +207,15 @@ end
 ---@param teamID number
 ---@return table
 M.GetTeamExposeData = function(teamID)
-	return exposeCache[teamID] or {}
+	-- Return combined data from both caches
+	local result = {}
+	if resourceCache[teamID] then
+		result.ResourceTransfer = resourceCache[teamID]
+	end
+	if unitCache[teamID] then
+		result.UnitTransfer = unitCache[teamID]
+	end
+	return result
 end
 
 ---Get expose data from a specific policy for a team
@@ -178,13 +223,20 @@ end
 ---@param policyName string Policy name (use M.Policies.* constants)
 ---@return any Policy-specific expose data
 M.GetPolicyExpose = function(teamID, policyName)
-	local teamData = exposeCache[teamID] or {}
-	local expose = teamData.expose or {}
+	-- Map policy names to appropriate cache
+	if policyName == "ResourceTransfer" or policyName == "resource_transfer" then
+		-- Legacy compatibility: return resource cache for backward compatibility
+		return resourceCache[teamID]
+	elseif policyName == "MetalTransfer" or policyName == "metal_transfer" then
+		return resourceCache[teamID] -- Metal data is part of resource cache
+	elseif policyName == "EnergyTransfer" or policyName == "energy_transfer" then
+		return resourceCache[teamID] -- Energy data is part of resource cache
+	elseif policyName == "UnitTransfer" or policyName == "unit_transfer" then
+		return unitCache[teamID]
+	end
 	
-	-- Use the policy enum value directly as the field name
-	local policies = SharedEnums.Policies
-	local fieldName = policies[policyName] or policyName
-	return expose[fieldName]
+	-- Fallback for other policy types
+	return nil
 end
 
 ---Get unified resource transfer state for UI (reads current cached state)
@@ -201,11 +253,10 @@ end
 ---@param teamID number
 ---@return ResourceTransferExposeOutput? Direct pipeline output with proper types
 M.GetResourceTransferState = function(teamID)
-	-- Use widget cache (never access pipeline directly from widgets)
-	local exposeData = exposeCache[teamID]
-	if exposeData and exposeData.ResourceTransfer then
-		---@type ResourceTransferExposeOutput?
-		return exposeData.ResourceTransfer
+	-- Use simplified resource cache
+	local resourceData = resourceCache[teamID]
+	if resourceData then
+		return resourceData
 	end
 	
 	-- Return fallback structure if no data available
@@ -260,7 +311,7 @@ local function createPredicateUIScope(predicateScope, transferType)
 	end
 	
 	-- Only add GetTransferState for resource transfers
-	if transferType == SharedEnums.PolicyType.ResourceTransfer then
+	if transferType == SharedEnums.TransferCategory.MetalTransfer or transferType == SharedEnums.TransferCategory.EnergyTransfer then
 		---Get resource transfer state for this predicate combination to a specific receiver
 		---@param senderTeamID number
 		---@param receiverTeamID number
@@ -276,18 +327,6 @@ local function createPredicateUIScope(predicateScope, transferType)
 	end
 	
 	return scope
-end
-
--- Add predicate-based UI scopes to the main API
-
----@param senderTeamID number
----@param receiverTeamID number  
----@param transferCategory TransferCategory Use SharedEnums.TransferCategory values
----@param selectedUnitIDs number[]? Required for unit transfers
----@return ResourceTransferExposeOutput|UnitTransferExposeOutput
-local function queryTransfer(senderTeamID, receiverTeamID, transferCategory, selectedUnitIDs)
-	-- This function should not exist - widgets should use WG.TeamTransfer directly
-	error("queryTransfer is deprecated - use WG.TeamTransfer API methods directly")
 end
 
 ---Check if a transfer is allowed
@@ -315,9 +354,9 @@ end
 ---@param receiverTeamID number
 ---@return boolean canShareMetal
 ---@return string? blockReason Reason why sharing is blocked (if blocked)
-M.CanShareMetal = function(senderTeamID, receiverTeamID)
+M.CanShareMetal = function(receiverTeamID)
 	-- Access expose data directly from cache/state
-	local exposeData = M.GetResourceTransferData(senderTeamID, receiverTeamID)
+	local exposeData = M.GetResourceTransferData(receiverTeamID)
 	if exposeData and exposeData.metal then
 		return exposeData.metal.canShareMetal, exposeData.metal.blockReason
 	else
@@ -330,9 +369,9 @@ end
 ---@param receiverTeamID number
 ---@return boolean canShareEnergy
 ---@return string? blockReason Reason why sharing is blocked (if blocked)
-M.CanShareEnergy = function(senderTeamID, receiverTeamID)
+M.CanShareEnergy = function(receiverTeamID)
 	-- Access expose data directly from cache/state
-	local exposeData = M.GetResourceTransferData(senderTeamID, receiverTeamID)
+	local exposeData = M.GetResourceTransferData(receiverTeamID)
 	if exposeData and exposeData.energy then
 		return exposeData.energy.canShareEnergy, exposeData.energy.blockReason
 	else
@@ -345,8 +384,8 @@ end
 ---@param receiverTeamID number
 ---@param selectedUnitIDs number[] Currently selected unit IDs
 ---@return boolean canShareUnits
-M.CanShareUnits = function(senderTeamID, receiverTeamID, selectedUnitIDs)
-	local exposeData = M.GetUnitTransferData(senderTeamID, receiverTeamID, selectedUnitIDs)
+M.CanShareUnits = function(receiverTeamID, selectedUnitIDs)
+	local exposeData = M.GetUnitTransferData(receiverTeamID, selectedUnitIDs)
 	return exposeData and exposeData.canShareUnits == true
 end
 
@@ -372,15 +411,67 @@ end
 ---@param senderTeamID number
 ---@param receiverTeamID number
 ---@return ResourceTransferExposeOutput
-M.GetResourceTransferData = function(senderTeamID, receiverTeamID)
-	-- Access cached expose data from the bridge widget
-	if WG.TeamTransfer and WG.TeamTransfer.GetResourceTransferData then
-		return WG.TeamTransfer.GetResourceTransferData(senderTeamID, receiverTeamID)
-	else
-		-- Fallback: return empty structure
+M.GetResourceTransferData = function(receiverTeamID)
+	LogDebug(string.format("[API_WIDGETS] GetResourceTransferData called - receiverTeamID=%s", tostring(receiverTeamID)))
+	
+	local myTeamID = Spring.GetLocalTeamID()
+	
+	-- Handle self-transfers for resources (these are resource requests, not transfers)
+	if myTeamID == receiverTeamID then
+		LogDebug(string.format("[API_WIDGETS] Self-request query: team %d requesting resources", myTeamID))
+		-- For self-transfers, get current storage capacity as max request amount
+		local _, metalStorage = Spring.GetTeamResources(myTeamID, "metal")
+		local _, energyStorage = Spring.GetTeamResources(myTeamID, "energy")
+		
+		-- Use storage capacity or reasonable defaults for resource requests
+		local maxMetal = metalStorage and math.max(metalStorage, 5000) or 5000
+		local maxEnergy = energyStorage and math.max(energyStorage, 5000) or 5000
+		
 		return {
-			metal = { canShareMetal = false, maxMetalShareAmount = 0, blockReason = "API not available" },
-			energy = { canShareEnergy = false, maxEnergyShareAmount = 0, blockReason = "API not available" }
+			metal = { canShareMetal = true, maxMetalShareAmount = maxMetal, blockReason = nil },
+			energy = { canShareEnergy = true, maxEnergyShareAmount = maxEnergy, blockReason = nil }
+		}
+	end
+	
+	-- SIMPLIFIED CACHE: Look up ResourceTransfer data directly by receiverTeamID
+	local resourceData = resourceCache[receiverTeamID]
+	
+	-- CRITICAL CACHE DEBUGGING: Log what we're looking for vs what we have
+	LogError(string.format("[API_WIDGETS] CACHE DEBUG - GetResourceTransferData looking for receiverTeamID=%d", receiverTeamID))
+	LogError(string.format("[API_WIDGETS] CACHE DEBUG - Resource cache keys: [%s]", table.concat(tableKeys(resourceCache), ", ")))
+	
+	if resourceData then
+		LogDebug(string.format("[API_WIDGETS] Found cached ResourceTransfer data for team %d", receiverTeamID))
+		LogDebug(string.format("[API_WIDGETS] ResourceTransfer result keys: %s", table.concat(tableKeys(resourceData), ", ")))
+		if resourceData.energy then
+			LogDebug(string.format("[API_WIDGETS] Energy data - canShare: %s, maxAmount: %s, blockReason: %s",
+				tostring(resourceData.energy.canShareEnergy), tostring(resourceData.energy.maxEnergyShareAmount), tostring(resourceData.energy.blockReason)))
+		end
+		if resourceData.metal then
+			LogDebug(string.format("[API_WIDGETS] Metal data - canShare: %s, maxAmount: %s, blockReason: %s",
+				tostring(resourceData.metal.canShareMetal), tostring(resourceData.metal.maxMetalShareAmount), tostring(resourceData.metal.blockReason)))
+		end
+		return resourceData
+	else
+		LogInfo(string.format("[API_WIDGETS] No cached ResourceTransfer data for team %d", receiverTeamID))
+		-- If no cached data, trigger on-demand query from synced side (with cooldown)
+		local currentTime = Spring.GetTimer()
+		local lastQuery = lastQueryTime["resource_" .. myTeamID]
+
+		if not lastQuery or Spring.DiffTimers(currentTime, lastQuery) > QUERY_COOLDOWN then
+			LogInfo("[API_WIDGETS] Requesting resource data for team " .. tostring(myTeamID))
+			Spring.SendLuaRulesMsg("query_resource_data:" .. myTeamID)
+			lastQueryTime["resource_" .. myTeamID] = currentTime
+		else
+			local remaining = QUERY_COOLDOWN - Spring.DiffTimers(currentTime, lastQuery)
+			LogDebug("[API_WIDGETS] Resource query cooldown active for team " .. tostring(myTeamID) ..
+				" (" .. string.format("%.1f", remaining/1000) .. "s remaining)")
+		end
+
+		-- Return fallback structure while we wait for data
+		return {
+			metal = { canShareMetal = false, maxMetalShareAmount = 0, blockReason = "Data requested" },
+			energy = { canShareEnergy = false, maxEnergyShareAmount = 0, blockReason = "Data requested" }
 		}
 	end
 end
@@ -390,11 +481,51 @@ end
 ---@param receiverTeamID number
 ---@param selectedUnitIDs number[] Currently selected unit IDs
 ---@return UnitTransferExposeOutput
-M.GetUnitTransferData = function(senderTeamID, receiverTeamID, selectedUnitIDs)
-	-- Access cached expose data directly (no infinite recursion)
-	local exposeData = exposeCache[senderTeamID]
-	if exposeData and exposeData.UnitTransfer then
-		local unitData = exposeData.UnitTransfer
+M.GetUnitTransferData = function(receiverTeamID, selectedUnitIDs)
+	LogDebug(string.format("[API_WIDGETS] GetUnitTransferData called - receiverTeamID=%s, selectedUnitCount=%s",
+		tostring(receiverTeamID), selectedUnitIDs and tostring(#selectedUnitIDs) or "none"))
+	
+	local myTeamID = Spring.GetLocalTeamID()
+	
+	-- Reject self-transfers - they don't make logical sense
+	if myTeamID == receiverTeamID then
+		LogError(string.format("[API_WIDGETS] Invalid self-transfer query: team %d -> %d", myTeamID, receiverTeamID))
+		return {
+			canShareUnits = false,
+			shareableUnitCount = 0,
+			unshareableUnitCount = #(selectedUnitIDs or {}),
+			blockReason = "Invalid: self-transfer"
+		}
+	end
+	
+	-- For team-pair queries, we need to query the synced side directly since cache is single-team based
+	Spring.SendLuaRulesMsg(string.format("query_unit_pair:%d,%d", myTeamID, receiverTeamID))
+	
+	-- Check GG.TeamTransferCache for the team pair result
+	local cacheKey = string.format("team_%d_to_%d", myTeamID, receiverTeamID)
+	local exposeData = nil
+	if GG and GG.TeamTransferCache then
+		exposeData = GG.TeamTransferCache[cacheKey]
+		LogDebug(string.format("[API_WIDGETS] Checking GG.TeamTransferCache for key=%s - cache exists: %s",
+			cacheKey, tostring(exposeData ~= nil)))
+	else
+		LogDebug("[API_WIDGETS] GG.TeamTransferCache not available")
+	end
+	LogDebug(string.format("[API_WIDGETS] Checking exposeCache for myTeamID=%d - cache exists: %s",
+		myTeamID, tostring(exposeData ~= nil)))
+	
+	-- CRITICAL CACHE DEBUGGING: Log what we're looking for vs what we have  
+	LogError(string.format("[API_WIDGETS] CACHE DEBUG - GetUnitTransferData looking for receiverTeamID=%d", receiverTeamID))
+	LogError(string.format("[API_WIDGETS] CACHE DEBUG - Unit cache keys: [%s]", table.concat(tableKeys(unitCache), ", ")))
+	
+	-- SIMPLIFIED CACHE: Look up UnitTransfer data directly by receiverTeamID
+	local unitData = unitCache[receiverTeamID]
+	
+	if unitData then
+		LogDebug(string.format("[API_WIDGETS] Found cached UnitTransfer data for team %d", receiverTeamID))
+		LogDebug(string.format("[API_WIDGETS] UnitTransfer data keys: %s", table.concat(tableKeys(unitData), ", ")))
+		LogDebug(string.format("[API_WIDGETS] UnitTransfer - canShare: %s, blockReason: %s",
+			tostring(unitData.canShareUnits), tostring(unitData.blockReason)))
 
 		-- If we have selectedUnitIDs, update counts based on current selection
 		if selectedUnitIDs and #selectedUnitIDs > 0 then
@@ -402,7 +533,7 @@ M.GetUnitTransferData = function(senderTeamID, receiverTeamID, selectedUnitIDs)
 			local unshareableCount = 0
 
 			for _, unitID in ipairs(selectedUnitIDs) do
-				if Spring.ValidUnitID(unitID) and Spring.GetUnitTeam(unitID) == senderTeamID then
+				if Spring.ValidUnitID(unitID) and Spring.GetUnitTeam(unitID) == myTeamID then
 					local unitDefID = Spring.GetUnitDefID(unitID)
 					if unitDefID then
 						-- Use the policy's allowedUnits cache if available
@@ -430,12 +561,27 @@ M.GetUnitTransferData = function(senderTeamID, receiverTeamID, selectedUnitIDs)
 		-- Return cached data as-is
 		return unitData
 	else
+		LogInfo(string.format("[API_WIDGETS] No cached UnitTransfer data for team %d", receiverTeamID))
+		-- If no cached data, trigger on-demand query from synced side (with cooldown)
+		local currentTime = Spring.GetTimer()
+		local lastQuery = lastQueryTime["unit_" .. myTeamID]
+
+		if not lastQuery or Spring.DiffTimers(currentTime, lastQuery) > QUERY_COOLDOWN then
+			LogInfo("[API_WIDGETS] Requesting unit data for team " .. tostring(myTeamID))
+			Spring.SendLuaRulesMsg("query_unit_data:" .. myTeamID)
+			lastQueryTime["unit_" .. myTeamID] = currentTime
+		else
+			local remaining = QUERY_COOLDOWN - Spring.DiffTimers(currentTime, lastQuery)
+			LogDebug("[API_WIDGETS] Unit query cooldown active for team " .. tostring(myTeamID) ..
+				" (" .. string.format("%.1f", remaining/1000) .. "s remaining)")
+		end
+
 		-- Fallback: return empty structure if no cached data
 		return {
 			canShareUnits = false,
 			shareableUnitCount = 0,
 			unshareableUnitCount = #(selectedUnitIDs or {}),
-			blockReason = "No unit transfer data available"
+			blockReason = "Data requested"
 		}
 	end
 end
@@ -446,18 +592,17 @@ end
 ---@return boolean isAllowed True if the unit type can be shared
 M.IsUnitTypeAllowed = function(unitDefID, senderTeamID)
 	local teamID = senderTeamID or Spring.GetLocalTeamID()
-	local exposeData = exposeCache[teamID]
+	local unitData = unitCache[teamID]
 
-	if exposeData and exposeData.UnitTransfer then
-		local allowedUnits = exposeData.UnitTransfer.allowedUnits
-		if allowedUnits then
-			return allowedUnits[unitDefID] == true
-		end
+	if unitData and unitData.allowedUnits then
+		return unitData.allowedUnits[unitDefID] == true
 	end
 
 	-- Fallback to utility function
 	return UnitSharing.isUnitShareAllowedByMode(unitDefID)
 end
+
+
 
 -- Thin transfer request layer - sends to gadget for execution
 M.ShareEnergy = function(senderTeamID, receiverTeamID, amount, receiverName)
@@ -541,7 +686,7 @@ end
 -- Clean enum interface instead of awkward SharedEnums
 M.Enums = SharedEnums
 
-Spring.Log("TEAM TRANSFER INIT", LOG.ERROR, "[API_WIDGETS] api_widgets.lua initialization completed successfully")
+LogInfo("[API_WIDGETS] api_widgets.lua initialization completed successfully")
 
 ---@return TeamTransferWidgetAPI
 return M
