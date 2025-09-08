@@ -29,9 +29,10 @@ GG.TeamTransfer.RegisterPolicy(SharedEnums.Policies.EnemyTransfer, function(poli
 		LogDebug("Enemy metal transfer policy called")
 		if shouldAllowResourceTransfer(ctx) then
 			-- Use default calculations but cap at 1000 for enemy transfers
-			local maxAmount = math.min(ctx.defaultMetalTransfer.amountSendable, 1000)
+			local maxAmount = ctx.defaultMetalTransfer.amountSendable
 			---@type EnemyMetalTransferResult
 			local metalExpose = {
+				canShare = maxAmount > 0,
 				amountSendable = maxAmount,  -- Required by DefaultMetalTransferResult
 				blockReason = nil,
 				amountRemainingAllowance = maxAmount -- Common concept on base type
@@ -46,6 +47,7 @@ GG.TeamTransfer.RegisterPolicy(SharedEnums.Policies.EnemyTransfer, function(poli
 		end
 		---@type EnemyMetalTransferResult
 		local metalExpose = {
+			canShare = false,
 			amountSendable = 0,  -- Required by DefaultMetalTransferResult
 			blockReason = "Enemy metal transfer not allowed",
 			amountRemainingAllowance = 0 -- Common concept on base type
@@ -64,8 +66,9 @@ GG.TeamTransfer.RegisterPolicy(SharedEnums.Policies.EnemyTransfer, function(poli
 		if shouldAllowResourceTransfer(ctx) then
 			-- Use default calculations but cap at 1000 for enemy transfers
 			local maxAmount = math.min(ctx.defaultEnergyTransfer.amountSendable, 1000)
-			---@type EnemyEnergyTransferResult
+			---@type DefaultEnergyTransferResult
 			local energyExpose = {
+				canShare = maxAmount > 0,
 				amountSendable = maxAmount,  -- Required by DefaultEnergyTransferResult
 				blockReason = nil,
 				amountRemainingAllowance = maxAmount -- Common concept on base type
@@ -78,7 +81,7 @@ GG.TeamTransfer.RegisterPolicy(SharedEnums.Policies.EnemyTransfer, function(poli
 				}
 			}
 		end
-		---@type EnemyEnergyTransferResult
+		---@type DefaultEnergyTransferResult
 		local energyExpose = {
 			canShare = false,
 			amountSendable = 0,  -- Required by DefaultEnergyTransferResult

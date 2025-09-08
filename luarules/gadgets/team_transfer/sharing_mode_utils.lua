@@ -2,6 +2,7 @@
 -- Provides functions for gadgets to check if they should run based on the selected sharing mode
 
 local sharingModeUtils = {}
+local json = VFS.Include("common/luaUtilities/json.lua")
 
 -- Cached sharing modes configuration
 local cachedSharingModes = nil
@@ -11,22 +12,27 @@ local function loadSharingModes()
 	if cachedSharingModes then
 		return cachedSharingModes
 	end
-	
+
 	if VFS.FileExists("gamedata/sharingoptions.json") then
 		local jsonStr = VFS.LoadFile("gamedata/sharingoptions.json")
 		if jsonStr then
-			local modes = {}
-			for key, optionsBlock in jsonStr:gmatch('"key"%s*:%s*"([^"]+)"%s*,%s*"options"%s*:%s*{(.-)}') do
-				modes[key] = {}
-				for optKey in optionsBlock:gmatch('"([^"_][^"]*)"%s*:') do
-					modes[key][optKey] = true
+			local success, data = pcall(json.decode, jsonStr)
+			if success and type(data) == "table" then
+				local modes = {}
+				for modeKey, modeData in pairs(data) do
+					if modeData.key and modeData.options then
+						modes[modeData.key] = {}
+						for optKey, _ in pairs(modeData.options) do
+							modes[modeData.key][optKey] = true
+						end
+					end
 				end
+				cachedSharingModes = modes
+				return modes
 			end
-			cachedSharingModes = modes
-			return modes
 		end
 	end
-	
+
 	cachedSharingModes = {}
 	return cachedSharingModes
 end

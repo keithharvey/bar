@@ -7,6 +7,7 @@ local M = {}
 M.Policies = {
 	AlliedReclaim = "allied_reclaim",
 	AssistAlly = "assist_ally",
+	BuildingUnlocksSharing = "building_unlocks_sharing",
 	EnemyTransfer = "enemy_transfer",
 	IdlePlayersCheck = "idle_players_check",
 	MetalSendThreshold = "metal_send_threshold",
@@ -29,9 +30,28 @@ M.TransferCategory = {
 	TeamEvents = "team_events",
 }
 
+function M.TransferCategoryToString(category)
+	local map = {
+		[M.TransferCategory.MetalTransfer] = "MetalTransfer",
+		[M.TransferCategory.EnergyTransfer] = "EnergyTransfer",
+		[M.TransferCategory.UnitTransfer] = "UnitTransfer",
+		[M.TransferCategory.CommandValidation] = "CommandValidation",
+		[M.TransferCategory.TeamEvents] = "TeamEvents",
+	}
+	return map[category] or "Unknown"
+end
+
 M.ResourceType = {
 	METAL = "metal",
 	ENERGY = "energy",
+}
+
+M.SharingOptions = {
+	NoSharing = "no_sharing",
+	BuildingUnlocks = "building_unlocks",
+	LimitedSharing = "limited_sharing",
+	Enabled = "enabled",
+	Customize = "customize",
 }
 
 return M

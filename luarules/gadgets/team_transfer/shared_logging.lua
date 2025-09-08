@@ -4,7 +4,7 @@
 local M = {}
 
 -- Configuration - CENTRALIZED CONTROL
-local GLOBAL_LOG_MODE = "DEBUG"  -- Change this single line to control ALL TeamTransfer logging
+local GLOBAL_LOG_MODE = "NONE"  -- Change this single line to control ALL TeamTransfer logging
 local TEAM_TRANSFER_LOG_SECTION = "TeamTransfer"
 
 -- Core logging function
@@ -23,7 +23,13 @@ local function TeamTransferLog(level, message, ...)
 	end
 
 	if shouldLog then
-		Spring.Log(TEAM_TRANSFER_LOG_SECTION, LOG.ERROR, "[" .. level .. "] " .. message, ...)
+		-- Check if Spring is available (handles test environments where Spring isn't mocked yet)
+		if Spring and Spring.Log and LOG and LOG.ERROR then
+			Spring.Log(TEAM_TRANSFER_LOG_SECTION, LOG.ERROR, "[" .. level .. "] " .. message, ...)
+		else
+			-- Fallback to print for test environments
+			print("[" .. TEAM_TRANSFER_LOG_SECTION .. ":" .. level .. "] " .. message)
+		end
 	end
 end
 

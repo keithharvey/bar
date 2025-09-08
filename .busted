@@ -1,0 +1,28 @@
+return {
+  -- Default configuration
+  verbose = true,
+  output = "utfTerminal",
+  pattern = "_spec",
+  ROOT = { "common/unitTesting/" },
+  
+  -- Named tasks
+  _all = {
+    verbose = true,
+    output = "utfTerminal",
+    pattern = "_spec",
+    helper = "common/unitTesting/spec_helper.lua",
+    ROOT = { "common/unitTesting/" }
+  },
+  unit = {
+    verbose = true,
+    ROOT = { "common/unitTesting/" }
+  },
+  coverage = {
+    verbose = true,
+    output = "utfTerminal",
+    pattern = "_spec",
+    helper = "common/unitTesting/spec_helper.lua",
+    coverage = true,
+    ROOT = { "common/unitTesting/" }
+  }
+}

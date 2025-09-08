@@ -21,15 +21,6 @@
 
 ---Gadget API for Team Transfer system - provides policy registration and execution
 ---@class TeamTransferGadgetAPI
----@field RegisterPolicy fun(policyName: string, builderFn: function): nil
----@field Enums TeamTransferSharedEnums
----@field UnitSharing table
----@field RegisterInitialize fun(initFn: function): nil
----@field RegisterPreProcess fun(preProcessFn: function): nil
----@field RegisterPostTransfer fun(listenerFn: function): nil
----@field RegisterValidator fun(config: table, validatorFn: function): nil
----@field NotifyPostTransfer fun(transferData: table): nil
----@field Debug table
 
 ---Global gadget-to-gadget communication table
 ---@class GG
@@ -77,7 +68,7 @@
 
 ---Default Result data calculated by pipeline for each transfer category
 ---@class DefaultCommandValidationResult
----@field allowGuardCommands boolean Whether guard commands are allowed
+---@field allowGuardComm    nds boolean Whether guard commands are allowed
 ---@field allowRepairCommands boolean Whether repair commands are allowed
 ---@field allowReclaimCommands boolean Whether reclaim commands are allowed
 
@@ -136,10 +127,10 @@
 ---Default command validation policy result - all command policies must extend this
 ---@see luarules/gadgets/team_transfer/default_policies/command_validation.lua
 ---@class DefaultCommandValidationResult
----@field allowGuardCommands boolean Whether guard commands are allowed (required by pipeline)
----@field allowRepairCommands boolean Whether repair commands are allowed (required by pipeline)
----@field allowReclaimCommands boolean Whether reclaim commands are allowed (required by pipeline)
----@field blockReason string? Reason why commands are blocked (if blocked)
+---@field allowGuardCommands boolean Whether guard commands are allowed (required by pipeline) @see luarules/gadgets/team_transfer/pipeline.lua Pipeline.GetAllowGuardCommands
+---@field allowRepairCommands boolean Whether repair commands are allowed (required by pipeline) @see luarules/gadgets/team_transfer/pipeline.lua Pipeline.GetAllowRepairCommands
+---@field allowReclaimCommands boolean Whether reclaim commands are allowed (required by pipeline) @see luarules/gadgets/team_transfer/pipeline.lua Pipeline.GetAllowReclaimCommands
+---@field blockReason string? Reason why commands are blocked (if blocked) @see luarules/gadgets/team_transfer/pipeline.lua Pipeline.GetBlockReason
 
 ---Default team events policy result - all team event policies must extend this
 ---@see luarules/gadgets/team_transfer/default_policies/team_events.lua
@@ -174,14 +165,7 @@
 ---@field taxRate number Tax rate applied to energy transfers (0.0 to 1.0)
 
 ---@see luarules/gadgets/team_transfer/policies/enemy_transfer.lua
----@class EnemyMetalTransferResult : DefaultMetalTransferResult
-
----@see luarules/gadgets/team_transfer/policies/enemy_transfer.lua
----@class EnemyEnergyTransferResult : DefaultEnergyTransferResult
-
----@see luarules/gadgets/team_transfer/policies/enemy_transfer.lua
----@class EnemyUnitTransferResult : DefaultUnitTransferResult-- Shared Output Types - Used by both policies and UI
--- These provide strongly-typed interfaces for expose data rollup
+---@class EnemyUnitTransferResult : UnitTransferResult
 
 ---@class MetalTransferResult
 ---@field maxMetalShareAmount number Maximum metal that can be shared to this specific receiver
@@ -197,9 +181,7 @@
 ---@field canShareEnergy boolean Whether energy sharing is allowed to this receiver
 ---@field blockReason string? Reason why energy sharing is blocked (if blocked)
 ---@field taxRate number? Tax rate applied to energy transfers (if applicable)
----@field energyThreshold number? Cumulative energy threshold (if applicable)
----@field amountAlreadySent number? Energy amount already sent in current period
----@field amountRemainingAllowance number? Remaining energy allowance before hitting limits
+---@field energyThreshold number? Cumulative energy threshold (if applicable)hitting limits
 
 ---@class ResourceTransferResult
 ---@field metal MetalTransferResult Metal-specific transfer data
@@ -207,8 +189,6 @@
 
 ---@class UnitTransferResult
 ---@field canShareUnits boolean Whether unit sharing is allowed to this receiver
----@field shareableUnitCount number? Number of currently selected units that can be shared
----@field unshareableUnitCount number? Number of currently selected units that cannot be shared
 ---@field blockReason string? Reason why sharing is blocked (if canShareUnits is false)
 
 ---@class CommandResult
@@ -217,22 +197,21 @@
 ---@field allowReclaimCommands boolean Whether reclaim commands to allies are allowed
 
 ---@class UnitTransferValidationResult : UnitTransferResult
----@field shareableUnitCount number? Number of currently selected units that can be shared
----@field unshareableUnitCount number? Number of currently selected units that cannot be shared
+---@field shareableUnitCount number
+---@field unshareableUnitCount number
+
+---Combined expose output for all transfer types - used by QueryExposeByPredicates
+---@class CombinedExposeOutput
+---@field CommandValidation DefaultCommandValidationResult
+---@field UnitTransfer DefaultUnitTransferResult
+---@field MetalTransfer DefaultMetalTransferResult
+---@field EnergyTransfer DefaultEnergyTransferResult
 
 ---@class TeamTransferResultTable
----@field allow? boolean -- explicitly allow the transfer
----@field deny? boolean -- explicitly deny the transfer
----@field applyTransfer? TeamTransferApplyTransfer -- modify the transfer amounts
----@field applyCommands? TeamTransferApplyCommands -- apply commands to units during transfer
----@field expose? table -- expose data to the UI (specific structure depends on policy)
+---@field allow? boolean
+---@field deny? boolean
+---@field expose? table
 
--- Specific policy result types - each policy defines its own strongly-typed result
----@class PreventExcessiveShareResult : TeamTransferResultTable
----@field expose {preventExcessiveShare: PreventExcessiveShareExpose}
-
----@class TaxResourceSharingResult : TeamTransferResultTable  
----@field expose {taxResourceSharing: TaxResourceSharingExpose}
 
 ---@alias TeamTransferResult boolean|TeamTransferResultTable|nil
 ---@alias TeamTransferPredicate fun(ctx: TeamTransferPolicyContext): boolean
@@ -274,13 +253,13 @@
 ---Command policy builders organized by command type
 ---@class CommandPolicyBuilders
 ---Get Guard command policy builder
----@see luarules/gadgets/team_transfer/api_gadgets.lua:115 Guard definition
+---@see luarules/gadgets/team_transfer/fluent_policy.lua Guard definition
 ---@field Guard fun(): CommandPolicyContainer
 ---Get Repair command policy builder
----@see luarules/gadgets/team_transfer/api_gadgets.lua:127 Repair definition
+---@see luarules/gadgets/team_transfer/fluent_policy.lua Repair definition
 ---@field Repair fun(): CommandPolicyContainer
 ---Get Reclaim command policy builder
----@see luarules/gadgets/team_transfer/api_gadgets.lua:134 Reclaim definition
+---@see luarules/gadgets/team_transfer/fluent_policy.lua Reclaim definition
 ---@field Reclaim fun(): CommandPolicyContainer
 
 ---Team event policy builders organized by event type
@@ -299,34 +278,34 @@
 ---@class PolicyBuilder
 ---Flat, scope-specific builder helpers (preferred API for discoverability)
 ---Create Guard command policy for Allied scope
----@see luarules/gadgets/team_transfer/api_gadgets.lua:113 GuardAllied implementation
+---@see luarules/gadgets/team_transfer/fluent_policy.lua GuardAllied implementation
 ---@field GuardAllied PolicyBuilderBase
 ---Create Guard command policy for Enemy scope
----@see luarules/gadgets/team_transfer/api_gadgets.lua:121 GuardEnemy implementation
+---@see luarules/gadgets/team_transfer/fluent_policy.lua GuardEnemy implementation
 ---@field GuardEnemy PolicyBuilderBase
 ---Create Repair command policy for Allied scope
----@see luarules/gadgets/team_transfer/api_gadgets.lua:129 RepairAllied implementation
+---@see luarules/gadgets/team_transfer/fluent_policy.lua RepairAllied implementation
 ---@field RepairAllied PolicyBuilderBase
 ---Create Repair command policy for Enemy scope
----@see luarules/gadgets/team_transfer/api_gadgets.lua:137 RepairEnemy implementation
+---@see luarules/gadgets/team_transfer/fluent_policy.lua RepairEnemy implementation
 ---@field RepairEnemy PolicyBuilderBase
 ---Create Reclaim command policy for Allied scope
----@see luarules/gadgets/team_transfer/api_gadgets.lua:145 ReclaimAllied implementation
+---@see luarules/gadgets/team_transfer/fluent_policy.lua ReclaimAllied implementation
 ---@field ReclaimAllied PolicyBuilderBase
 ---Create Reclaim command policy for Enemy scope
----@see luarules/gadgets/team_transfer/api_gadgets.lua:152 ReclaimEnemy implementation
+---@see luarules/gadgets/team_transfer/fluent_policy.lua ReclaimEnemy implementation
 ---@field ReclaimEnemy PolicyBuilderBase
 ---Create Resource Transfer policy for Allied scope
----@see luarules/gadgets/team_transfer/api_gadgets.lua:159 ResourceTransferAllied implementation
+---@see luarules/gadgets/team_transfer/fluent_policy.lua ResourceTransferAllied implementation
 ---@field ResourceTransferAllied PolicyBuilderBase
 ---Create Resource Transfer policy for Enemy scope
----@see luarules/gadgets/team_transfer/api_gadgets.lua:165 ResourceTransferEnemy implementation
+---@see luarules/gadgets/team_transfer/fluent_policy.lua ResourceTransferEnemy implementation
 ---@field ResourceTransferEnemy PolicyBuilderBase
 ---Create Unit Transfer policy for Allied scope
----@see luarules/gadgets/team_transfer/api_gadgets.lua:171 UnitTransferAllied implementation
+---@see luarules/gadgets/team_transfer/fluent_policy.lua UnitTransferAllied implementation
 ---@field UnitTransferAllied PolicyBuilderBase
 ---Create Unit Transfer policy for Enemy scope
----@see luarules/gadgets/team_transfer/api_gadgets.lua:177 UnitTransferEnemy implementation
+---@see luarules/gadgets/team_transfer/fluent_policy.lua UnitTransferEnemy implementation
 ---@field UnitTransferEnemy PolicyBuilderBase
 
 
@@ -386,7 +365,7 @@
 ---@param transferCategory TransferCategory The transfer category
 ---@param senderTeamID number The sender team ID
 ---@param receiverTeamID number The receiver team ID
----@return MetalTransferResult|EnergyTransferResult|UnitTransferResult? Strongly-typed expose output
+---@return CombinedExposeOutput? Strongly-typed expose data for all transfer categories
 
 ---Pipeline unit transfer validation
 ---@see luarules/gadgets/team_transfer/pipeline.lua Pipeline.ValidateUnitTransfer

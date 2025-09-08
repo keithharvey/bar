@@ -16,6 +16,7 @@ local LogError = Logger.LogError
 
 -- Include policy hooks for RegisterInitialize and other hook methods
 local PolicyHooks = VFS.Include("luarules/gadgets/team_transfer/policy_hooks.lua")
+local FluentPolicy = VFS.Include("luarules/gadgets/team_transfer/fluent_policy.lua")
 
 -- Store SendToUnsynced function reference passed from main gadget
 local _sendToUnsynced
@@ -106,33 +107,6 @@ local function newBuilder(policyName, dependencies)
 	---@field Deny fun(): PolicyBuilder Deny this policy from proceeding - blocks the action when all predicates match
 	---@field Use fun(handlerFn: function): PolicyBuilder Use custom handler - run custom logic when all predicates match
 
-	local function teamHasBuiltCategories(teamId, categories)
-		local required = {}
-		for i = 1, #categories do
-			required[categories[i]] = true
-		end
-		local seen = {}
-		local units = Spring.GetTeamUnits(teamId) or {}
-		for i = 1, #units do
-			local unitID = units[i]
-			local unitDefID = Spring.GetUnitDefID(unitID)
-			if unitDefID then
-				local ud = UnitDefs[unitDefID]
-				if ud and ud.name then
-					local catName = BuildingCategoryDefinitions.unitCategories[ud.name:lower()]
-					if catName and required[catName] then
-						seen[catName] = true
-					end
-				end
-			end
-		end
-		for cat, _ in pairs(required) do
-			if not seen[cat] then
-				return false
-			end
-		end
-		return true
-	end
 
 	---@return ActionMethods
 	local function createActionMethods(policyType, predicates, commandFlag)
@@ -151,12 +125,12 @@ local function newBuilder(policyName, dependencies)
 					dependencies = dependencies,
 					predicates = predicates,
 					handler = function(ctx)
-						local expose = {
-							allowGuardCommands = ctx.defaultCommandValidation.allowGuardCommands,
-							allowRepairCommands = ctx.defaultCommandValidation.allowRepairCommands,
-							allowReclaimCommands = ctx.defaultCommandValidation.allowReclaimCommands,
-							blockReason = nil,
-						}
+						local expose = _G.TeamTransferPipeline.CreateCommandValidationResult(
+							ctx.defaultCommandValidation.allowGuardCommands,
+							ctx.defaultCommandValidation.allowRepairCommands,
+							ctx.defaultCommandValidation.allowReclaimCommands,
+							nil
+						)
 						expose[commandFlag] = true
 						return { expose = { [M.TransferCategory.CommandValidation] = expose } }
 					end
@@ -184,12 +158,12 @@ local function newBuilder(policyName, dependencies)
 					dependencies = dependencies,
 					predicates = predicates,
 					handler = function(ctx)
-						local expose = {
-							allowGuardCommands = ctx.defaultCommandValidation.allowGuardCommands,
-							allowRepairCommands = ctx.defaultCommandValidation.allowRepairCommands,
-							allowReclaimCommands = ctx.defaultCommandValidation.allowReclaimCommands,
-							blockReason = "Blocked by policy: " .. tostring(policyName),
-						}
+						local expose = _G.TeamTransferPipeline.CreateCommandValidationResult(
+							ctx.defaultCommandValidation.allowGuardCommands,
+							ctx.defaultCommandValidation.allowRepairCommands,
+							ctx.defaultCommandValidation.allowReclaimCommands,
+							"Blocked by policy: " .. tostring(policyName)
+						)
 						expose[commandFlag] = false
 						return { expose = { [M.TransferCategory.CommandValidation] = expose } }
 					end
@@ -343,123 +317,6 @@ local function newBuilder(policyName, dependencies)
 		M.Predicates.TeamEvent.isPlayerReconnected
 	})
 
-	-- Fluent predicate wrapper: AfterBuildingCategories with implied denial
-	function builder.AfterBuildingCategories(...)
-		local requiredCategories = { ... }
-		local function built(ctx) return teamHasBuiltCategories(ctx.senderTeamId, requiredCategories) end
-		local function notBuilt(ctx) return not built(ctx) end
-		local reasonText
-		do
-			local names = {}
-			for i = 1, #requiredCategories do names[#names+1] = tostring(requiredCategories[i]) end
-			reasonText = (#names == 2 and ("Requires " .. names[1] .. " + " .. names[2])) or ("Requires " .. table.concat(names, ", "))
-		end
-
-		local scoped = {}
-		scoped.ForAlliedCommands = {}
-		-- Guard
-		scoped.ForAlliedCommands.WhenGuard = {
-			Allow = function()
-				pushPolicy(M.TransferCategory.CommandValidation, {
-					name = policyName,
-					dependencies = dependencies,
-					predicates = { M.Predicates.Command.isGuard, M.Predicates.Command.targetHasAssist, built },
-					handler = function(ctx)
-						local expose = {
-							allowGuardCommands = true,
-							allowRepairCommands = ctx.defaultCommandValidation.allowRepairCommands,
-							allowReclaimCommands = ctx.defaultCommandValidation.allowReclaimCommands,
-							blockReason = nil,
-						}
-						return { expose = { [M.TransferCategory.CommandValidation] = expose } }
-					end
-				})
-				pushPolicy(M.TransferCategory.CommandValidation, {
-					name = policyName,
-					dependencies = dependencies,
-					predicates = { M.Predicates.Command.isGuard, M.Predicates.Command.targetHasAssist, notBuilt },
-					handler = function(ctx)
-						local expose = {
-							allowGuardCommands = false,
-							allowRepairCommands = ctx.defaultCommandValidation.allowRepairCommands,
-							allowReclaimCommands = ctx.defaultCommandValidation.allowReclaimCommands,
-							blockReason = reasonText,
-						}
-						return { expose = { [M.TransferCategory.CommandValidation] = expose } }
-					end
-				})
-				return builder
-			end
-		}
-		-- Repair
-		scoped.ForAlliedCommands.WhenRepair = {
-			Allow = function()
-				pushPolicy(M.TransferCategory.CommandValidation, {
-					name = policyName,
-					dependencies = dependencies,
-					predicates = { M.Predicates.Command.isRepair, M.Predicates.Command.targetIsIncomplete, built },
-					handler = function(ctx)
-						local expose = {
-							allowGuardCommands = ctx.defaultCommandValidation.allowGuardCommands,
-							allowRepairCommands = true,
-							allowReclaimCommands = ctx.defaultCommandValidation.allowReclaimCommands,
-							blockReason = nil,
-						}
-						return { expose = { [M.TransferCategory.CommandValidation] = expose } }
-					end
-				})
-				pushPolicy(M.TransferCategory.CommandValidation, {
-					name = policyName,
-					dependencies = dependencies,
-					predicates = { M.Predicates.Command.isRepair, M.Predicates.Command.targetIsIncomplete, notBuilt },
-					handler = function(ctx)
-						local expose = {
-							allowGuardCommands = ctx.defaultCommandValidation.allowGuardCommands,
-							allowRepairCommands = false,
-							allowReclaimCommands = ctx.defaultCommandValidation.allowReclaimCommands,
-							blockReason = reasonText,
-						}
-						return { expose = { [M.TransferCategory.CommandValidation] = expose } }
-					end
-				})
-				return builder
-			end
-		}
-		-- Unit transfers
-		scoped.ForAlliedUnitTransfers = {
-			Allow = function()
-				pushPolicy(M.TransferCategory.UnitTransfer, {
-					name = policyName,
-					dependencies = dependencies,
-					predicates = { ScopePredicates.Allied.Transfer, built },
-					handler = function(ctx)
-						return { expose = { [M.TransferCategory.UnitTransfer] = {
-							canShareUnits = true,
-							blockReason = nil,
-							takeBypass = ctx.defaultUnitTransfer.takeBypass,
-							allowedUnits = {},
-						} } }
-					end
-				})
-				pushPolicy(M.TransferCategory.UnitTransfer, {
-					name = policyName,
-					dependencies = dependencies,
-					predicates = { ScopePredicates.Allied.Transfer, notBuilt },
-					handler = function(ctx)
-						return { expose = { [M.TransferCategory.UnitTransfer] = {
-							canShareUnits = false,
-							blockReason = reasonText,
-							takeBypass = ctx.defaultUnitTransfer.takeBypass,
-							allowedUnits = {},
-						} } }
-					end
-				})
-				return builder
-			end
-		}
-
-		return scoped
-	end
 
 	return builder
 end
@@ -496,6 +353,45 @@ function M.RegisterPolicy(policyName, options, registrationFn)
 	end
 end
 
+---Load policies conditionally based on mod options (inverted approach)
+---@param policyLoaders table Array of policy loader configurations
+function M.LoadPolicies(policyLoaders)
+	LogDebug("[API_GADGETS] LoadPolicies called with " .. tostring(#policyLoaders) .. " policies")
+	requireSyncedContext("LoadPolicies")
+
+	for _, loader in ipairs(policyLoaders) do
+		local shouldLoad = true
+
+		-- Check mod option if specified
+		if loader.modOption then
+			local modOptions = Spring.GetModOptions()
+			local optionValue = modOptions[loader.modOption]
+			shouldLoad = optionValue ~= nil and optionValue ~= false and optionValue ~= "false" and optionValue ~= 0
+
+			LogDebug(string.format("[API_GADGETS] Policy '%s': mod option '%s' = %s, shouldLoad = %s",
+				loader.name, loader.modOption, tostring(optionValue), tostring(shouldLoad)))
+		end
+
+		if shouldLoad then
+			LogDebug("[API_GADGETS] Loading policy: " .. loader.name)
+			local success, err = pcall(function()
+				local registerPolicy = VFS.Include(loader.path)
+				if type(registerPolicy) == "function" then
+					registerPolicy()
+					LogDebug("[API_GADGETS] Successfully loaded policy: " .. loader.name)
+				else
+					LogError("[API_GADGETS] Policy file '" .. loader.path .. "' did not return a function")
+				end
+			end)
+			if not success then
+				LogError("[API_GADGETS] Failed to load policy '" .. loader.name .. "': " .. tostring(err))
+			end
+		else
+			LogDebug("[API_GADGETS] Skipping policy '" .. loader.name .. "' - mod option not enabled")
+		end
+	end
+end
+
 local legacyCallbacks = {
 	onAllowResourceTransfer = {},
 	onAllowUnitTransfer = {},
@@ -517,7 +413,25 @@ end
 ---Get all registered policies by type
 ---@return table<string, table[]> policies Policies organized by type
 function M.GetPolicies()
-	return policies
+	-- Merge fluent policy registry with API-registered policies so pipeline sees both
+	local combined = {
+		[M.TransferCategory.MetalTransfer] = {},
+		[M.TransferCategory.EnergyTransfer] = {},
+		[M.TransferCategory.UnitTransfer] = {},
+		[M.TransferCategory.CommandValidation] = {},
+		[M.TransferCategory.TeamEvents] = {},
+	}
+	local function appendAll(dst, src)
+		if not src then return end
+		for i = 1, #src do dst[#dst + 1] = src[i] end
+	end
+	local fluent = (FluentPolicy and FluentPolicy.GetPolicies and FluentPolicy.GetPolicies()) or {}
+	appendAll(combined[M.TransferCategory.MetalTransfer], fluent[M.TransferCategory.MetalTransfer])
+	appendAll(combined[M.TransferCategory.EnergyTransfer], fluent[M.TransferCategory.EnergyTransfer])
+	appendAll(combined[M.TransferCategory.UnitTransfer], fluent[M.TransferCategory.UnitTransfer])
+	appendAll(combined[M.TransferCategory.CommandValidation], fluent[M.TransferCategory.CommandValidation])
+	appendAll(combined[M.TransferCategory.TeamEvents], fluent[M.TransferCategory.TeamEvents])
+	return combined
 end
 
 ---Get the legacy pipeline callbacks
@@ -528,7 +442,6 @@ end
 
 -- Expose shared helpers and constants for gadgets/widgets
 M.UnitSharing = VFS.Include("luarules/gadgets/team_transfer/unit_sharing.lua")
-M.ResourceShareTax = VFS.Include("luarules/gadgets/team_transfer/resource_share_tax.lua")
 M.MODOPTION_KEYS = VFS.Include("luarules/gadgets/team_transfer/sharing_modoption_keys.lua")
 ---@type TeamTransferPredicates
 M.Predicates = VFS.Include("luarules/gadgets/team_transfer/predicates.lua")

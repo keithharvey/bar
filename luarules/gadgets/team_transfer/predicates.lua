@@ -30,7 +30,14 @@ P.Command = {
 		return ctx.cmdID == CMD.RECLAIM and ctx.targetID ~= nil and ctx.targetID < Game.maxUnits
 	end),
 	targetAllied = definePredicate("targetAllied", function(ctx)
-		return ctx.targetAllied == true
+		if ctx.targetTeamId then
+			return Spring.AreTeamsAllied(ctx.senderTeamId, ctx.targetTeamId)
+		elseif ctx.targetUnitID then
+			local targetTeamId = Spring.GetUnitTeam(ctx.targetUnitID)
+			return Spring.AreTeamsAllied(ctx.senderTeamId, targetTeamId)
+		else
+			return ctx.areAlliedTeams  -- fallback
+		end
 	end),
 	targetEnemy = definePredicate("targetEnemy", function(ctx)
 		return ctx.targetAllied == false

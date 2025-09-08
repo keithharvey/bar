@@ -67,25 +67,57 @@ if gadgetHandler:IsSyncedCode() then
 			LogError("[TEAMTRANSFER] SYNCED - Initialize cache failed - TeamTransfer or InitializeCache method not available")
 		end
 		
-		-- Load policies (simplified for now)
-		LogDebug("[TEAMTRANSFER] SYNCED - Loading policies")
-		
-		-- Load policies with error handling
-		local policies = {
-			"luarules/gadgets/team_transfer/policies/unit_sharing_mode.lua",
-			"luarules/gadgets/team_transfer/policies/allied_reclaim.lua", 
-			"luarules/gadgets/team_transfer/policies/enemy_transfer.lua"
+		-- Load policies based on mod options (inverted approach)
+		LogDebug("[TEAMTRANSFER] SYNCED - Loading policies based on mod options")
+
+		-- Load policies conditionally based on mod options
+		local policyLoaders = {
+			{
+				name = "building_unlocks_sharing",
+				path = "luarules/gadgets/team_transfer/policies/building_unlocks_sharing.lua",
+				modOption = "building_unlocks_sharing"  -- This would be checked by the loader
+			},
+			{
+				name = "unit_sharing_mode",
+				path = "luarules/gadgets/team_transfer/policies/unit_sharing_mode.lua",
+				modOption = "unit_sharing_mode"
+			},
+			{
+				name = "allied_reclaim",
+				path = "luarules/gadgets/team_transfer/policies/allied_reclaim.lua",
+				modOption = "allied_reclaim"
+			},
+			{
+				name = "enemy_transfer",
+				path = "luarules/gadgets/team_transfer/policies/enemy_transfer.lua",
+				modOption = "enemy_transfer"
+			}
 		}
-		
-		for _, policyPath in ipairs(policies) do
-			LogDebug("[TEAMTRANSFER] SYNCED - Loading policy: " .. policyPath)
+
+		-- API gadget handles the conditional loading based on mod options
+		if TeamTransfer and TeamTransfer.LoadPolicies then
 			local success, err = pcall(function()
-				VFS.Include(policyPath)
+				TeamTransfer.LoadPolicies(policyLoaders)
 			end)
-			if success then
-				LogDebug("[TEAMTRANSFER] SYNCED - Successfully loaded: " .. policyPath)
-			else
-				LogError("[TEAMTRANSFER] SYNCED - Failed to load policy: " .. policyPath .. " - Error: " .. tostring(err))
+			if not success then
+				LogError("[TEAMTRANSFER] SYNCED - Failed to load policies via API: " .. tostring(err))
+			end
+		else
+			-- Fallback: load all policies (for backward compatibility)
+			LogDebug("[TEAMTRANSFER] SYNCED - API LoadPolicies not available, using fallback")
+			for _, policyInfo in ipairs(policyLoaders) do
+				LogDebug("[TEAMTRANSFER] SYNCED - Loading policy: " .. policyInfo.name)
+				local success, err = pcall(function()
+					local registerPolicy = VFS.Include(policyInfo.path)
+					if type(registerPolicy) == "function" then
+						registerPolicy()
+					end
+				end)
+				if success then
+					LogDebug("[TEAMTRANSFER] SYNCED - Successfully loaded: " .. policyInfo.name)
+				else
+					LogError("[TEAMTRANSFER] SYNCED - Failed to load policy: " .. policyInfo.name .. " - Error: " .. tostring(err))
+				end
 			end
 		end
 		

@@ -15,7 +15,9 @@
     "library": [
       "recoil-lua-library",
       "luarules/",
-      "luaui/"
+      "luaui/",
+      "./types/busted/library",
+      "./types/luassert/library"
     ],
     "userThirdParty": [
       "types"
@@ -38,11 +40,18 @@
       "GG",
       "WG",
       "gadgetHandler",
-      "widgetHandler"
+      "widgetHandler",
+      "describe",
+      "it",
+      "before_each",
+      "after_each",
+      "setup",
+      "teardown",
+      "assert"
     ],
     "type": {
       "definition": [
-        "luaui/types/"
+        "luaui/types/",
       ]
     },
     "workspaceDelay": 0
