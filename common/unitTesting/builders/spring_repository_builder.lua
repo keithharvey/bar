@@ -1,6 +1,3 @@
--- Spring Repository Builder
--- Builds SpringRepository with mocked Spring API for testing
-
 ---@class SpringRepositoryBuilder
 ---@field modOptions table
 ---@field teamRulesParams table
@@ -21,7 +18,6 @@
 local SpringRepositoryBuilder = {}
 SpringRepositoryBuilder.__index = SpringRepositoryBuilder
 
----Create a new SpringRepositoryBuilder instance
 ---@return SpringRepositoryBuilder
 function SpringRepositoryBuilder.new()
     return setmetatable({
@@ -35,8 +31,6 @@ function SpringRepositoryBuilder.new()
         cheatingEnabled = false
     }, SpringRepositoryBuilder)
 end
-
--- Concrete colon methods for IntelliSense and navigation
 
 ---@param self SpringRepositoryBuilder
 ---@param options table
@@ -56,25 +50,6 @@ function SpringRepositoryBuilder:WithModOption(key, value)
 end
 
 ---@param self SpringRepositoryBuilder
----@param teams number[]
----@return SpringRepositoryBuilder
-function SpringRepositoryBuilder:WithTeamList(teams)
-    self.teamList = teams
-    return self
-end
-
----@param self SpringRepositoryBuilder
----@param teamID number
----@param paramName string
----@param value any
----@return SpringRepositoryBuilder
-function SpringRepositoryBuilder:WithTeamRulesParam(teamID, paramName, value)
-    self.teamRulesParams[teamID] = self.teamRulesParams[teamID] or {}
-    self.teamRulesParams[teamID][paramName] = value
-    return self
-end
-
----@param self SpringRepositoryBuilder
 ---@param teamID number
 ---@param resource string
 ---@param amount number
@@ -85,38 +60,12 @@ function SpringRepositoryBuilder:WithTeamResources(teamID, resource, amount)
     return self
 end
 
-local function resolveTeamId(team)
-    if type(team) == "number" then return team end
-    if type(team) == "table" then
-        if type(team.Build) == "function" then
-            local built = team:Build()
-            return built and built.id or team.id
-        end
-        return team.id
-    end
-    return team
-end
-
----@param self SpringRepositoryBuilder
----@param a any
----@param b any
----@return SpringRepositoryBuilder
-function SpringRepositoryBuilder:WithAlliance(a, b)
-    local aId = resolveTeamId(a)
-    local bId = resolveTeamId(b)
-    self.alliances[aId] = self.alliances[aId] or {}
-    self.alliances[bId] = self.alliances[bId] or {}
-    self.alliances[aId][bId] = true
-    self.alliances[bId][aId] = true
-    return self
-end
-
 ---Build creates the final SpringRepository mock from the current configuration
 ---@param self SpringRepositoryBuilder
 ---@return SpringRepositoryMock
 function SpringRepositoryBuilder:Build()
     local instance = self
-    return {
+    local springRepo = {
         GetModOptions = function()
             return instance.modOptions
         end,
@@ -128,10 +77,30 @@ function SpringRepositoryBuilder:Build()
         end,
         Log = function(tag, level, msg)
             table.insert(instance.logMessages, {tag = tag, level = level, msg = msg})
+            -- Respect LOG_LEVEL filtering directly
+            local LOG_LEVELS = {
+                DEBUG = 0,
+                INFO = 1,
+                WARNING = 2,
+                ERROR = 3
+            }
+            local LOG_LEVEL = LOG_LEVELS.INFO
+            local levelValue = LOG_LEVELS[level] or LOG_LEVELS.INFO
+            if levelValue >= LOG_LEVEL then
+                print(string.format("[%s:%s] %s", tag, level, msg))
+            end
         end,
         GetLoggedMessages = function()
             return instance.logMessages
         end
     }
+
+    -- Setup _G.Spring globals when building
+    _G.Spring.GetGameFrame = springRepo.GetGameFrame
+    _G.Spring.IsCheatingEnabled = springRepo.IsCheatingEnabled
+    _G.Spring.GetModOptions = springRepo.GetModOptions
+    _G.Spring.Log = springRepo.Log
+
+    return springRepo
 end
 return SpringRepositoryBuilder

@@ -4,10 +4,8 @@
 local PipelineBuilder = require("common/unitTesting/builders/pipeline_builder")
 local SpringBuilder = require("common/unitTesting/builders/spring_builder")
 local TeamBuilder = require("common/unitTesting/builders/team_builder")
-local BaseBuilder = require("common/unitTesting/builders/base_builder")
-local createBuilderInstance = BaseBuilder.createInstance
 
----@class TeamTransferBuilder : BaseBuilder<TeamTransferAPI>
+---@class TeamTransferBuilder
 ---@field WithPolicy fun(policyName: string): TeamTransferBuilder
 ---@field WithSharingMode fun(mode: string): TeamTransferBuilder
 ---@field WithModOption fun(key: string, value: any): TeamTransferBuilder
@@ -133,16 +131,43 @@ local buildFunction = function(instance)
     }
 end
 
-local BaseBuilder = require("common/unitTesting/builders/base_builder")
-local TeamTransferBuilder = BaseBuilder.createBuilder({
-    defaultData = defaultData,
-    methods = methods,
-    buildFunction = buildFunction,
-    className = "TeamTransferBuilder"
-})
+-- Create the builder using traditional metatable approach like other builders
+local TeamTransferBuilder = {}
+TeamTransferBuilder.__index = TeamTransferBuilder
 
-TeamTransferBuilder.From = function(pipeline)
-    return createBuilderInstance(defaultData, methods, buildFunction, {customPipeline = pipeline})
+-- Copy methods to TeamTransferBuilder table
+for methodName, methodFn in pairs(methods) do
+    TeamTransferBuilder[methodName] = methodFn
+end
+
+-- Add Build method
+TeamTransferBuilder.Build = function(instance)
+    return buildFunction(instance)
+end
+
+-- Static factory methods
+function TeamTransferBuilder.new()
+    local instance = {}
+
+    -- Copy default data
+    for k, v in pairs(defaultData) do
+        instance[k] = v
+    end
+
+    return setmetatable(instance, TeamTransferBuilder)
+end
+
+function TeamTransferBuilder.From(pipeline)
+    local instance = {}
+
+    -- Copy default data
+    for k, v in pairs(defaultData) do
+        instance[k] = v
+    end
+
+    instance.customPipeline = pipeline
+
+    return setmetatable(instance, TeamTransferBuilder)
 end
 
 return TeamTransferBuilder

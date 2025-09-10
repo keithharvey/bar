@@ -1,45 +1,42 @@
-local policy = require("luarules/gadgets/team_transfer/policies/building_unlocks_sharing")
-
 local Builders = require("common/unitTesting/builders/index")
 local SharedEnums = require("luarules/gadgets/team_transfer/shared_enums")
-local Sides = require("gamedata/sides_enum")
-local BuildingCategoryDefinitions = VFS.Include("luaui/Include/blueprint_substitution/definitions.lua")
+local BuildingCategoryDefinitions = require("luaui/Include/blueprint_substitution/definitions")
 local BuildingCategories = BuildingCategoryDefinitions.BUILDING_CATEGORIES
 
-describe(SharedEnums.Policies.BuildingUnlocksSharing .. " policy #bu", function()
-    local me = Builders.Team.Human().PoorButNotBroke()
-    local ally = Builders.Team.Human().Rich()
+local PipelineLogger = require("luarules/gadgets/team_transfer/pipeline_logger")
 
-    local meData = me.Build()
-    local allyData = ally.Build()
+describe(SharedEnums.Policies.BuildingUnlocksSharing .. " policy", function()
+    local me = Builders.Team.Human():PoorButNotBroke():Build()
+    local ally = Builders.Team.Rich():Build()
 
 	local spring = Builders.SpringRepository.new()
         :WithModOption(SharedEnums.Policies.BuildingUnlocksSharing, true)
-        :WithAlliance(meData.id, allyData.id)
 
     local teamRepository = Builders.TeamRepository.new()
-        :WithAlliedPlayers(meData, allyData)
+        :WithAlliedPlayers(me, ally)
 
     local pipelineBuilder = Builders.Pipeline.new()
         :WithSpringRepository(spring)
         :WithTeamRepository(teamRepository)
-        :WithPolicy(policy)
-    
+        :WithPolicy(SharedEnums.Policies.BuildingUnlocksSharing)
 
 	describe("WHEN no buildings exist", function()
-        local pipeline = pipelineBuilder:Build()
-        ---@type CombinedExposeOutput
-        local result = pipeline.QueryExpose(
-            meData.id,
-            allyData.id
-        )
+        local result, plan
+        before_each(function()
+            local pipeline = pipelineBuilder:Build()
+            ---@type CombinedExposeOutput
+            result, plan = pipeline:QueryExpose(
+                me.id,
+                ally.id
+            )
+        end)
 
 		it("should DENY commands", function()
             assert.is_false(result.CommandValidation.allowGuardCommands)
             assert.is_false(result.CommandValidation.allowRepairCommands)
             assert.is_false(result.CommandValidation.allowReclaimCommands)
 		end)
-        it("should DENY resource sharing #focus", function()
+        it("should DENY resource sharing", function()
             assert.is_false(result.MetalTransfer.canShare)
             assert.is_false(result.EnergyTransfer.canShare)
         end)
@@ -49,24 +46,21 @@ describe(SharedEnums.Policies.BuildingUnlocksSharing .. " policy #bu", function(
 	end)
     
     describe("WHEN a " .. BuildingCategories.METAL_STORAGE .. " and " .. BuildingCategories.ENERGY_STORAGE .. " exist", function()
+        local result, plan
         ---@type UnitRepositoryBuilder
         local unitRepository = Builders.UnitRepository.new()
-        unitRepository:WithUnitFromCategory(
-            BuildingCategories.METAL_STORAGE,
-            Sides.ARM
-        )
-        unitRepository:WithUnitFromCategory(
-            BuildingCategories.ENERGY_STORAGE,
-            Sides.ARM
-        )
-        local pipeline = pipelineBuilder:WithUnitRepository(unitRepository):Build()
-        ---@type CombinedExposeOutput
-        local result = pipeline.QueryExpose(
-            meData.id,
-            allyData.id
-        )
+        unitRepository:WithUnitFromCategory(BuildingCategories.METAL_STORAGE, me.id)
+        unitRepository:WithUnitFromCategory(BuildingCategories.ENERGY_STORAGE, me.id)
+        before_each(function()
+            local pipeline = pipelineBuilder:WithUnitRepository(unitRepository):Build()
+            ---@type CombinedExposeOutput
+            result, plan = pipeline:QueryExpose(
+                me.id,
+                ally.id
+            )
+        end)
 
-		it("should ALLOW commands", function()
+		it("should ALLOW comman", function()
             assert.is_true(result.CommandValidation.allowGuardCommands)
             assert.is_true(result.CommandValidation.allowRepairCommands)
             assert.is_true(result.CommandValidation.allowReclaimCommands)
@@ -85,17 +79,17 @@ describe(SharedEnums.Policies.BuildingUnlocksSharing .. " policy #bu", function(
         ---@type UnitRepositoryBuilder
         local unitRepository = Builders.UnitRepository.new()
         unitRepository:WithUnitFromCategory(
-            BuildingCategories.PINPOINTER,
-            Sides.ARM
+            BuildingCategories.PINPOINTER
         )
         local pipeline = pipelineBuilder:WithUnitRepository(unitRepository):Build()
         ---@type CombinedExposeOutput
-        local result = pipeline.QueryExpose(
-            meData.id,
-            allyData.id
+        local result, plan = pipeline:QueryExpose(
+            me.id,
+            ally.id
         )
 
 		it("should DENY commands", function()
+            -- PipelineLogger.LogPlan(plan, result)
             assert.is_false(result.CommandValidation.allowGuardCommands)
             assert.is_false(result.CommandValidation.allowRepairCommands)
             assert.is_false(result.CommandValidation.allowReclaimCommands)

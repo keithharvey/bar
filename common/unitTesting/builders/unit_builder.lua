@@ -10,7 +10,7 @@ local SharedUnitDefs = require("common/unitTesting/shared_unit_defs")
 ---@field canMove boolean
 ---@field health number
 
----@class UnitBuilder : BaseBuilder<UnitDef>
+---@class UnitBuilder
 ---@field From fun(unitDefID: string): UnitDef
 ---@field GetAllRealUnitDefs fun(): table<string, UnitDef>
 local UnitBuilder = {}

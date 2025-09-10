@@ -77,16 +77,13 @@
 ---@field canProcessEvent boolean Whether the event can be processed
 
 ---@class TeamTransferPolicyContext
----@field type TransferCategory Transfer category this context is for
 ---@field lastResult? TeamTransferResultTable Result from previous policy in dependency chain
 ---@field senderTeamId number Sender team ID
 ---@field receiverTeamId number Receiver team ID
 ---@field areAlliedTeams boolean Whether sender and receiver are allied
 ---@field isCheatingEnabled boolean Whether cheating is enabled
----@field senderIsNonPlayer boolean Whether sender is AI/non-player team
----@field receiverIsNonPlayer boolean Whether receiver is AI/non-player team
 ---@field gameFrame number Current game frame
----@field playerID? number Player ID for team events
+---@field resources { sender: TeamResourcesData, receiver: TeamResourcesData }
 ---Default Result data pre-calculated by pipeline - policies can use or override these
 ---@field defaultMetalTransfer DefaultMetalTransferResult Default metal transfer calculations
 ---@field defaultEnergyTransfer DefaultEnergyTransferResult Default energy transfer calculations  
@@ -154,7 +151,8 @@
 
 ---@see luarules/gadgets/team_transfer/policies/tax_resource_sharing.lua
 ---@class TaxResourceSharing
----@field UseTaxResourceCheck fun(ctx: TeamTransferPolicyContext, teamField: string, transferType: string): table Reusable handler for tax resource checks
+
+---@class 
 
 ---@see luarules/gadgets/team_transfer/policies/tax_resource_sharing.lua
 ---@class TaxResourceSharingMetalResult : DefaultMetalTransferResult
@@ -167,14 +165,8 @@
 ---@see luarules/gadgets/team_transfer/policies/enemy_transfer.lua
 ---@class EnemyUnitTransferResult : UnitTransferResult
 
----@class MetalTransferResult
----@field maxMetalShareAmount number Maximum metal that can be shared to this specific receiver
----@field canShareMetal boolean Whether metal sharing is allowed to this receiver
----@field blockReason string? Reason why metal sharing is blocked (if blocked)
----@field taxRate number? Tax rate applied to metal transfers (if applicable)
----@field metalThreshold number? Cumulative metal threshold (if applicable)
----@field amountAlreadySent number? Metal amount already sent in current period
----@field amountRemainingAllowance number? Remaining metal allowance before hitting limits
+---@class MetalTransferResult : TaxResourceSharingMetalResult
+---@field metalThreshold number Cumulative metal threshold
 
 ---@class EnergyTransferResult
 ---@field maxEnergyShareAmount number Maximum energy that can be shared to this specific receiver
@@ -366,6 +358,13 @@
 ---@param senderTeamID number The sender team ID
 ---@param receiverTeamID number The receiver team ID
 ---@return CombinedExposeOutput? Strongly-typed expose data for all transfer categories
+
+---Pipeline expose data query for specific transfer category (automatically determines scope)
+---@see luarules/gadgets/team_transfer/pipeline.lua Pipeline.GetExpose
+---@param senderTeamID number The sender team ID
+---@param receiverTeamID number The receiver team ID
+---@param transferCategory TransferCategory The transfer category to query
+---@return table The strongly-typed expose result based on transferCategory and active policies
 
 ---Pipeline unit transfer validation
 ---@see luarules/gadgets/team_transfer/pipeline.lua Pipeline.ValidateUnitTransfer

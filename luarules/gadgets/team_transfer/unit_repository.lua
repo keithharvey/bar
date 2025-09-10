@@ -1,17 +1,11 @@
+---@class UnitRepository
+---@field unitAdded fun(self: UnitRepository, unitID: number, unitDefID: string|number, teamID: number)
+---@field unitRemoved fun(self: UnitRepository, unitID: number, teamID: number)
+---@field getTeamUnits fun(self: UnitRepository, teamID: number): table<number, string|number>
+---@field hasBuiltUnits fun(self: UnitRepository, teamID: number, requiredUnitDefIDs: string[]): boolean
 local M = {}
 
 local cumulativeMetalSent = {}
-
-function M.GetCumulativeMetalSent(teamID)
-	return cumulativeMetalSent[teamID] or 0
-end
-
-function M.AddCumulativeMetalSent(teamID, amount)
-	local cur = cumulativeMetalSent[teamID] or 0
-	local newVal = cur + (amount or 0)
-	cumulativeMetalSent[teamID] = newVal
-	return newVal
-end
 
 -- Unit State Tracking for efficient building category checks
 local teamUnits = {} -- teamUnits[teamID][unitID] = unitDefID
@@ -28,7 +22,7 @@ end
 ---@param unitID number
 ---@param unitDefID string|number
 ---@param teamID number
-function M.unitAdded(unitID, unitDefID, teamID)
+function M:unitAdded(unitID, unitDefID, teamID)
 	initTeamUnits(teamID)
 	teamUnits[teamID][unitID] = unitDefID
 end
@@ -36,7 +30,7 @@ end
 ---Remove a unit from team tracking
 ---@param unitID number
 ---@param teamID number
-function M.unitRemoved(unitID, teamID)
+function M:unitRemoved(unitID, teamID)
 	initTeamUnits(teamID)
 	teamUnits[teamID][unitID] = nil
 end
@@ -44,7 +38,7 @@ end
 ---Get all units for a team
 ---@param teamID number
 ---@return table<number, string|number> unitID -> unitDefID mapping
-function M.getTeamUnits(teamID)
+function M:getTeamUnits(teamID)
 	initTeamUnits(teamID)
 	return teamUnits[teamID]
 end
@@ -53,7 +47,7 @@ end
 ---@param teamID number
 ---@param requiredUnitDefIDs string[]
 ---@return boolean hasAll
-function M.hasBuiltUnits(teamID, requiredUnitDefIDs)
+function M:hasBuiltUnits(teamID, requiredUnitDefIDs)
 	initTeamUnits(teamID)
 	
 	local required = {}

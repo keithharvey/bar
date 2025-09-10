@@ -19,6 +19,7 @@ local policyPaths = {
 }
 
 local loadedPolicies = {}
+local loadedPoliciesByPath = {}
 
 -- Cached sorted policies by type
 local sortedPoliciesCache = {}
@@ -89,7 +90,23 @@ function PolicyRepository.LoadAllPolicies()
     end
 end
 
--- Store policies directly in repository
+---Load all policies gated by a set of enabled modoption keys (convenience for api_gadgets)
+---@param enabledKeys table<string, boolean>|fun(key:string):boolean
+function PolicyRepository.LoadAllPoliciesByModOptions(enabledKeys)
+    local isEnabled
+    if type(enabledKeys) == "function" then
+        isEnabled = enabledKeys
+    else
+        isEnabled = function(key) return enabledKeys and enabledKeys[key] end
+    end
+    for policyEnum, _ in pairs(policyPaths) do
+        if isEnabled(policyEnum) then
+            PolicyRepository.LoadPolicy(policyEnum)
+        end
+    end
+end
+
+-- Store policies directly in repository (source of truth for orchestrator)
 local policies = {
     [SharedEnums.TransferCategory.MetalTransfer] = {},
     [SharedEnums.TransferCategory.EnergyTransfer] = {},
@@ -98,9 +115,9 @@ local policies = {
     [SharedEnums.TransferCategory.TeamEvents] = {}
 }
 
----Register a policy action (called by FluentPolicy)
----@param category string Policy category
----@param policyAction table Policy action entry
+---Register a policy action (called by FluentPolicy during registration)
+---@param category string
+---@param policyAction table
 function PolicyRepository.RegisterPolicyAction(category, policyAction)
     local list = policies[category]
     if list then
@@ -109,7 +126,6 @@ function PolicyRepository.RegisterPolicyAction(category, policyAction)
         policies[category] = { policyAction }
     end
 end
-
 ---Get all registered policies by type
 ---@return table<string, table[]> policies Policies organized by type
 function PolicyRepository.GetPolicies()
@@ -120,18 +136,13 @@ end
 ---@param category string The policy category
 ---@return table[] sortedPolicies Policies sorted by dependencies
 function PolicyRepository.GetSortedPolicies(category)
-    if not sortedPoliciesCache[category] then
-        local allPolicies = PolicyRepository.GetPolicies()
-        local categoryPolicies = allPolicies[category] or {}
-        sortedPoliciesCache[category] = topologicalSort(categoryPolicies)
-    end
-    return sortedPoliciesCache[category]
+    local allPolicies = PolicyRepository.GetPolicies()
+    local categoryPolicies = allPolicies[category] or {}
+    return topologicalSort(categoryPolicies)
 end
 
 ---Clear policy cache (for testing)
-function PolicyRepository.ClearCache()
-    sortedPoliciesCache = {}
-end
+function PolicyRepository.ClearCache() end
 
 ---Get policy module by enum
 ---@param policyEnum string Policy enum from SharedEnums.Policies

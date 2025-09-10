@@ -3,14 +3,10 @@
 -- Policy pipeline execution happens ONLY in synced context (gadgets)
 
 -- Shared logging utility
-local Logger = VFS.Include("luarules/gadgets/team_transfer/shared_logging.lua")
-Logger.SetLogMode("NONE")  -- Set to "NONE" to disable all logging, "ERROR" for errors only, "DEBUG" for all
+-- Removed shared_logging dependency
+-- Removed Logger dependencies - using Spring.Log directly
 
-local LogDebug = Logger.LogDebug
-local LogInfo = Logger.LogInfo
-local LogError = Logger.LogError
-
-LogDebug("[API_WIDGETS] Starting api_widgets.lua initialization")
+Spring.Log("[API_WIDGETS]", "debug","[API_WIDGETS] Starting api_widgets.lua initialization")
 
 ---@load-file luaui/types/team_transfer.lua
 
@@ -37,7 +33,7 @@ local exposeCache = {}
 
 -- Verify we're in unsynced context
 if Spring.GetGameFrame then
-	LogError("[API_WIDGETS] WARNING: Detected synced context functions in unsynced widget!")
+	Spring.Log("[API_WIDGETS]", "error","[API_WIDGETS] WARNING: Detected synced context functions in unsynced widget!")
 end
 
 -- teamID -> expose data
@@ -55,30 +51,30 @@ local unitCache = {}      -- unitCache[teamID] = UnitTransfer data
 
 -- Receive policy expose data from synced gadget
 local function updateExposeCache(_, teamID, exposeData)
-	LogDebug(string.format("[API_WIDGETS] Received expose data update for team %d", teamID))
+	Spring.Log("[API_WIDGETS]", "debug",string.format("[API_WIDGETS] Received expose data update for team %d", teamID))
 
 	if not exposeData then
-		LogError(string.format("[API_WIDGETS] Received nil expose data for team %d", teamID))
+		Spring.Log("[API_WIDGETS]", "error",string.format("[API_WIDGETS] Received nil expose data for team %d", teamID))
 		return
 	end
 
-	LogDebug(string.format("[API_WIDGETS] ExposeData keys: %s", exposeData and table.concat(tableKeys(exposeData), ", ") or "none"))
+	Spring.Log("[API_WIDGETS]", "debug",string.format("[API_WIDGETS] ExposeData keys: %s", exposeData and table.concat(tableKeys(exposeData), ", ") or "none"))
 
 	-- Store data in simplified cache structure
 	if exposeData.ResourceTransfer then
 		resourceCache[teamID] = exposeData.ResourceTransfer
-		LogDebug(string.format("[API_WIDGETS] Cached ResourceTransfer data for team %d: %s", teamID, table.concat(tableKeys(exposeData.ResourceTransfer), ", ")))
+		Spring.Log("[API_WIDGETS]", "debug",string.format("[API_WIDGETS] Cached ResourceTransfer data for team %d: %s", teamID, table.concat(tableKeys(exposeData.ResourceTransfer), ", ")))
 	end
 	
 	if exposeData.UnitTransfer then
 		unitCache[teamID] = exposeData.UnitTransfer
-		LogDebug(string.format("[API_WIDGETS] Cached UnitTransfer data for team %d: %s", teamID, table.concat(tableKeys(exposeData.UnitTransfer), ", ")))
+		Spring.Log("[API_WIDGETS]", "debug",string.format("[API_WIDGETS] Cached UnitTransfer data for team %d: %s", teamID, table.concat(tableKeys(exposeData.UnitTransfer), ", ")))
 	end
 
 	-- CRITICAL CACHE DEBUGGING: Log simplified cache state
-	LogError(string.format("[API_WIDGETS] CACHE DEBUG - Team %d data received", teamID))
-	LogError(string.format("[API_WIDGETS] CACHE DEBUG - Resource cache keys: [%s]", table.concat(tableKeys(resourceCache), ", ")))
-	LogError(string.format("[API_WIDGETS] CACHE DEBUG - Unit cache keys: [%s]", table.concat(tableKeys(unitCache), ", ")))
+	Spring.Log("[API_WIDGETS]", "error",string.format("[API_WIDGETS] CACHE DEBUG - Team %d data received", teamID))
+	Spring.Log("[API_WIDGETS]", "error",string.format("[API_WIDGETS] CACHE DEBUG - Resource cache keys: [%s]", table.concat(tableKeys(resourceCache), ", ")))
+	Spring.Log("[API_WIDGETS]", "error",string.format("[API_WIDGETS] CACHE DEBUG - Unit cache keys: [%s]", table.concat(tableKeys(unitCache), ", ")))
 
 	-- Reset the logging flag since we now have data
 	hasLoggedSystemNotReady = false
@@ -90,15 +86,15 @@ M.UpdateExposeCache = updateExposeCache
 -- Note: RecvFromSynced is handled by the bridge widget, not this module
 
 -- Include the core modules directly (these are stateless utility modules)
-LogInfo("[API_WIDGETS] Including core modules...")
+Spring.Log("[API_WIDGETS]", "info","[API_WIDGETS] Including core modules...")
 local ResourceShareTax = VFS.Include("luarules/gadgets/team_transfer/resource_share_tax.lua")
-LogDebug("[API_WIDGETS] Loaded resource_share_tax.lua")
+Spring.Log("[API_WIDGETS]", "debug","[API_WIDGETS] Loaded resource_share_tax.lua")
 
 local UnitSharing = VFS.Include("luarules/gadgets/team_transfer/unit_sharing.lua")
-LogDebug("[API_WIDGETS] Loaded unit_sharing.lua")
+Spring.Log("[API_WIDGETS]", "debug","[API_WIDGETS] Loaded unit_sharing.lua")
 
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
-LogDebug("[API_WIDGETS] Loaded shared_enums.lua (second time)")
+Spring.Log("[API_WIDGETS]", "debug","[API_WIDGETS] Loaded shared_enums.lua (second time)")
 
 -- Transfer category shortcuts for cleaner code
 local TransferCategory = SharedEnums.TransferCategory
@@ -412,13 +408,13 @@ end
 ---@param receiverTeamID number
 ---@return ResourceTransferExposeOutput
 M.GetResourceTransferData = function(receiverTeamID)
-	LogDebug(string.format("[API_WIDGETS] GetResourceTransferData called - receiverTeamID=%s", tostring(receiverTeamID)))
+	Spring.Log("[API_WIDGETS]", "debug",string.format("[API_WIDGETS] GetResourceTransferData called - receiverTeamID=%s", tostring(receiverTeamID)))
 	
 	local myTeamID = Spring.GetLocalTeamID()
 	
 	-- Handle self-transfers for resources (these are resource requests, not transfers)
 	if myTeamID == receiverTeamID then
-		LogDebug(string.format("[API_WIDGETS] Self-request query: team %d requesting resources", myTeamID))
+		Spring.Log("[API_WIDGETS]", "debug",string.format("[API_WIDGETS] Self-request query: team %d requesting resources", myTeamID))
 		-- For self-transfers, get current storage capacity as max request amount
 		local _, metalStorage = Spring.GetTeamResources(myTeamID, "metal")
 		local _, energyStorage = Spring.GetTeamResources(myTeamID, "energy")
@@ -437,34 +433,34 @@ M.GetResourceTransferData = function(receiverTeamID)
 	local resourceData = resourceCache[receiverTeamID]
 	
 	-- CRITICAL CACHE DEBUGGING: Log what we're looking for vs what we have
-	LogError(string.format("[API_WIDGETS] CACHE DEBUG - GetResourceTransferData looking for receiverTeamID=%d", receiverTeamID))
-	LogError(string.format("[API_WIDGETS] CACHE DEBUG - Resource cache keys: [%s]", table.concat(tableKeys(resourceCache), ", ")))
+	Spring.Log("[API_WIDGETS]", "error",string.format("[API_WIDGETS] CACHE DEBUG - GetResourceTransferData looking for receiverTeamID=%d", receiverTeamID))
+	Spring.Log("[API_WIDGETS]", "error",string.format("[API_WIDGETS] CACHE DEBUG - Resource cache keys: [%s]", table.concat(tableKeys(resourceCache), ", ")))
 	
 	if resourceData then
-		LogDebug(string.format("[API_WIDGETS] Found cached ResourceTransfer data for team %d", receiverTeamID))
-		LogDebug(string.format("[API_WIDGETS] ResourceTransfer result keys: %s", table.concat(tableKeys(resourceData), ", ")))
+		Spring.Log("[API_WIDGETS]", "debug",string.format("[API_WIDGETS] Found cached ResourceTransfer data for team %d", receiverTeamID))
+		Spring.Log("[API_WIDGETS]", "debug",string.format("[API_WIDGETS] ResourceTransfer result keys: %s", table.concat(tableKeys(resourceData), ", ")))
 		if resourceData.energy then
-			LogDebug(string.format("[API_WIDGETS] Energy data - canShare: %s, maxAmount: %s, blockReason: %s",
+			Spring.Log("[API_WIDGETS]", "debug",string.format("[API_WIDGETS] Energy data - canShare: %s, maxAmount: %s, blockReason: %s",
 				tostring(resourceData.energy.canShareEnergy), tostring(resourceData.energy.maxEnergyShareAmount), tostring(resourceData.energy.blockReason)))
 		end
 		if resourceData.metal then
-			LogDebug(string.format("[API_WIDGETS] Metal data - canShare: %s, maxAmount: %s, blockReason: %s",
+			Spring.Log("[API_WIDGETS]", "debug",string.format("[API_WIDGETS] Metal data - canShare: %s, maxAmount: %s, blockReason: %s",
 				tostring(resourceData.metal.canShareMetal), tostring(resourceData.metal.maxMetalShareAmount), tostring(resourceData.metal.blockReason)))
 		end
 		return resourceData
 	else
-		LogInfo(string.format("[API_WIDGETS] No cached ResourceTransfer data for team %d", receiverTeamID))
+		Spring.Log("[API_WIDGETS]", "info",string.format("[API_WIDGETS] No cached ResourceTransfer data for team %d", receiverTeamID))
 		-- If no cached data, trigger on-demand query from synced side (with cooldown)
 		local currentTime = Spring.GetTimer()
 		local lastQuery = lastQueryTime["resource_" .. myTeamID]
 
 		if not lastQuery or Spring.DiffTimers(currentTime, lastQuery) > QUERY_COOLDOWN then
-			LogInfo("[API_WIDGETS] Requesting resource data for team " .. tostring(myTeamID))
+			Spring.Log("[API_WIDGETS]", "info","[API_WIDGETS] Requesting resource data for team " .. tostring(myTeamID))
 			Spring.SendLuaRulesMsg("query_resource_data:" .. myTeamID)
 			lastQueryTime["resource_" .. myTeamID] = currentTime
 		else
 			local remaining = QUERY_COOLDOWN - Spring.DiffTimers(currentTime, lastQuery)
-			LogDebug("[API_WIDGETS] Resource query cooldown active for team " .. tostring(myTeamID) ..
+			Spring.Log("[API_WIDGETS]", "debug","[API_WIDGETS] Resource query cooldown active for team " .. tostring(myTeamID) ..
 				" (" .. string.format("%.1f", remaining/1000) .. "s remaining)")
 		end
 
@@ -482,14 +478,14 @@ end
 ---@param selectedUnitIDs number[] Currently selected unit IDs
 ---@return UnitTransferExposeOutput
 M.GetUnitTransferData = function(receiverTeamID, selectedUnitIDs)
-	LogDebug(string.format("[API_WIDGETS] GetUnitTransferData called - receiverTeamID=%s, selectedUnitCount=%s",
+	Spring.Log("[API_WIDGETS]", "debug",string.format("[API_WIDGETS] GetUnitTransferData called - receiverTeamID=%s, selectedUnitCount=%s",
 		tostring(receiverTeamID), selectedUnitIDs and tostring(#selectedUnitIDs) or "none"))
 	
 	local myTeamID = Spring.GetLocalTeamID()
 	
 	-- Reject self-transfers - they don't make logical sense
 	if myTeamID == receiverTeamID then
-		LogError(string.format("[API_WIDGETS] Invalid self-transfer query: team %d -> %d", myTeamID, receiverTeamID))
+		Spring.Log("[API_WIDGETS]", "error",string.format("[API_WIDGETS] Invalid self-transfer query: team %d -> %d", myTeamID, receiverTeamID))
 		return {
 			canShareUnits = false,
 			shareableUnitCount = 0,
@@ -506,25 +502,25 @@ M.GetUnitTransferData = function(receiverTeamID, selectedUnitIDs)
 	local exposeData = nil
 	if GG and GG.TeamTransferCache then
 		exposeData = GG.TeamTransferCache[cacheKey]
-		LogDebug(string.format("[API_WIDGETS] Checking GG.TeamTransferCache for key=%s - cache exists: %s",
+		Spring.Log("[API_WIDGETS]", "debug",string.format("[API_WIDGETS] Checking GG.TeamTransferCache for key=%s - cache exists: %s",
 			cacheKey, tostring(exposeData ~= nil)))
 	else
-		LogDebug("[API_WIDGETS] GG.TeamTransferCache not available")
+		Spring.Log("[API_WIDGETS]", "debug","[API_WIDGETS] GG.TeamTransferCache not available")
 	end
-	LogDebug(string.format("[API_WIDGETS] Checking exposeCache for myTeamID=%d - cache exists: %s",
+	Spring.Log("[API_WIDGETS]", "debug",string.format("[API_WIDGETS] Checking exposeCache for myTeamID=%d - cache exists: %s",
 		myTeamID, tostring(exposeData ~= nil)))
 	
 	-- CRITICAL CACHE DEBUGGING: Log what we're looking for vs what we have  
-	LogError(string.format("[API_WIDGETS] CACHE DEBUG - GetUnitTransferData looking for receiverTeamID=%d", receiverTeamID))
-	LogError(string.format("[API_WIDGETS] CACHE DEBUG - Unit cache keys: [%s]", table.concat(tableKeys(unitCache), ", ")))
+	Spring.Log("[API_WIDGETS]", "error",string.format("[API_WIDGETS] CACHE DEBUG - GetUnitTransferData looking for receiverTeamID=%d", receiverTeamID))
+	Spring.Log("[API_WIDGETS]", "error",string.format("[API_WIDGETS] CACHE DEBUG - Unit cache keys: [%s]", table.concat(tableKeys(unitCache), ", ")))
 	
 	-- SIMPLIFIED CACHE: Look up UnitTransfer data directly by receiverTeamID
 	local unitData = unitCache[receiverTeamID]
 	
 	if unitData then
-		LogDebug(string.format("[API_WIDGETS] Found cached UnitTransfer data for team %d", receiverTeamID))
-		LogDebug(string.format("[API_WIDGETS] UnitTransfer data keys: %s", table.concat(tableKeys(unitData), ", ")))
-		LogDebug(string.format("[API_WIDGETS] UnitTransfer - canShare: %s, blockReason: %s",
+		Spring.Log("[API_WIDGETS]", "debug",string.format("[API_WIDGETS] Found cached UnitTransfer data for team %d", receiverTeamID))
+		Spring.Log("[API_WIDGETS]", "debug",string.format("[API_WIDGETS] UnitTransfer data keys: %s", table.concat(tableKeys(unitData), ", ")))
+		Spring.Log("[API_WIDGETS]", "debug",string.format("[API_WIDGETS] UnitTransfer - canShare: %s, blockReason: %s",
 			tostring(unitData.canShareUnits), tostring(unitData.blockReason)))
 
 		-- If we have selectedUnitIDs, update counts based on current selection
@@ -561,18 +557,18 @@ M.GetUnitTransferData = function(receiverTeamID, selectedUnitIDs)
 		-- Return cached data as-is
 		return unitData
 	else
-		LogInfo(string.format("[API_WIDGETS] No cached UnitTransfer data for team %d", receiverTeamID))
+		Spring.Log("[API_WIDGETS]", "info",string.format("[API_WIDGETS] No cached UnitTransfer data for team %d", receiverTeamID))
 		-- If no cached data, trigger on-demand query from synced side (with cooldown)
 		local currentTime = Spring.GetTimer()
 		local lastQuery = lastQueryTime["unit_" .. myTeamID]
 
 		if not lastQuery or Spring.DiffTimers(currentTime, lastQuery) > QUERY_COOLDOWN then
-			LogInfo("[API_WIDGETS] Requesting unit data for team " .. tostring(myTeamID))
+			Spring.Log("[API_WIDGETS]", "info","[API_WIDGETS] Requesting unit data for team " .. tostring(myTeamID))
 			Spring.SendLuaRulesMsg("query_unit_data:" .. myTeamID)
 			lastQueryTime["unit_" .. myTeamID] = currentTime
 		else
 			local remaining = QUERY_COOLDOWN - Spring.DiffTimers(currentTime, lastQuery)
-			LogDebug("[API_WIDGETS] Unit query cooldown active for team " .. tostring(myTeamID) ..
+			Spring.Log("[API_WIDGETS]", "debug","[API_WIDGETS] Unit query cooldown active for team " .. tostring(myTeamID) ..
 				" (" .. string.format("%.1f", remaining/1000) .. "s remaining)")
 		end
 
@@ -686,7 +682,7 @@ end
 -- Clean enum interface instead of awkward SharedEnums
 M.Enums = SharedEnums
 
-LogInfo("[API_WIDGETS] api_widgets.lua initialization completed successfully")
+Spring.Log("[API_WIDGETS]", "info","[API_WIDGETS] api_widgets.lua initialization completed successfully")
 
 ---@return TeamTransferWidgetAPI
 return M

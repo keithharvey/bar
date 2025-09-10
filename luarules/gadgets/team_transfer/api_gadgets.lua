@@ -6,14 +6,6 @@
 ---@class TeamTransferAPI
 local M = {}
 
--- Shared logging utility
-local Logger = VFS.Include("luarules/gadgets/team_transfer/shared_logging.lua")
-Logger.SetLogMode("NONE")  -- Set to "NONE" to disable all logging, "ERROR" for errors only, "DEBUG" for all
-
-local LogDebug = Logger.LogDebug
-local LogInfo = Logger.LogInfo
-local LogError = Logger.LogError
-
 -- Include policy hooks for RegisterInitialize and other hook methods
 local PolicyHooks = VFS.Include("luarules/gadgets/team_transfer/policy_hooks.lua")
 local FluentPolicy = VFS.Include("luarules/gadgets/team_transfer/fluent_policy.lua")
@@ -24,25 +16,25 @@ local _sendToUnsynced
 -- Function to set the SendToUnsynced function reference from main gadget
 function M.SetSendToUnsynced(sendFunc)
 	_sendToUnsynced = sendFunc
-	LogDebug(string.format("[API_GADGETS] SendToUnsynced function set successfully: %s", tostring(sendFunc ~= nil)))
+	Spring.Log("[API_GADGETS]", "debug",string.format("[API_GADGETS] SendToUnsynced function set successfully: %s", tostring(sendFunc ~= nil)))
 end
 
 -- Team Transfer Gadget API Initialization Logging
-LogDebug("[API_GADGETS] Starting api_gadgets.lua initialization")
+Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Starting api_gadgets.lua initialization")
 
 -- Ensure policy pipeline only runs in synced context
 local function requireSyncedContext(functionName)
-	LogDebug("[API_GADGETS] Checking synced context for " .. functionName)
+	Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Checking synced context for " .. functionName)
 	local handler = _sendToUnsynced and gadgetHandler or gadgetHandler
 	if handler and not handler:IsSyncedCode() then
 		local errorMsg = "TeamTransfer." .. functionName .. " can only be called from synced context (gadgets), not unsynced context (widgets)"
-		LogError("[API_GADGETS] Context error: " .. errorMsg)
+		Spring.Log("[API_GADGETS]", "error","[API_GADGETS] Context error: " .. errorMsg)
 		error(errorMsg)
 	end
-	LogDebug("[API_GADGETS] Synced context check passed for " .. functionName)
+	Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Synced context check passed for " .. functionName)
 end
 
-LogDebug("[API_GADGETS] Including dependencies...")
+Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Including dependencies...")
 local sharingModeUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_mode_utils.lua")
 
 
@@ -82,14 +74,14 @@ local policies = {
 }
 
 local function pushPolicy(policyType, entry)
-	LogDebug("[API_GADGETS] Pushing policy to type " .. tostring(policyType) .. " - name: " .. tostring(entry.name))
+	Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Pushing policy to type " .. tostring(policyType) .. " - name: " .. tostring(entry.name))
 	local list = policies[policyType]
 	local oldCount = #list
 	list[#list + 1] = entry
-	LogDebug("[API_GADGETS] Policy added, count: " .. oldCount .. " -> " .. #list)
+	Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Policy added, count: " .. oldCount .. " -> " .. #list)
 end
 
-LogDebug("[API_GADGETS] Policy storage initialized")
+Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Policy storage initialized")
 
 -- Flat, scope-specific helpers (top-level for F12 navigation)
 
@@ -97,7 +89,7 @@ LogDebug("[API_GADGETS] Policy storage initialized")
 
 ---@return PolicyBuilder
 local function newBuilder(policyName, dependencies)
-	LogDebug("[API_GADGETS] Creating policy builder for '" .. tostring(policyName) .. "' with " .. tostring(#(dependencies or {})) .. " dependencies")
+	Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Creating policy builder for '" .. tostring(policyName) .. "' with " .. tostring(#(dependencies or {})) .. " dependencies")
 	---@class PolicyBuilder
 	local builder = {}
 
@@ -110,7 +102,7 @@ local function newBuilder(policyName, dependencies)
 
 	---@return ActionMethods
 	local function createActionMethods(policyType, predicates, commandFlag)
-		LogDebug("[API_GADGETS] Creating action methods for policy type " .. tostring(policyType) .. " with " .. tostring(#predicates) .. " predicates")
+		Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Creating action methods for policy type " .. tostring(policyType) .. " with " .. tostring(#predicates) .. " predicates")
 		local actions = {}
 
 		---Allow this policy to proceed
@@ -118,7 +110,7 @@ local function newBuilder(policyName, dependencies)
 		---Example: policy.ForAlliedCommands.WhenGuard.Allow() - allows guard commands to allied units
 		---@return PolicyBuilder Returns the policy builder for chaining
 		actions.Allow = function()
-			LogDebug("[API_GADGETS] Policy '" .. policyName .. "' registered ALLOW action")
+			Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Policy '" .. policyName .. "' registered ALLOW action")
 			if policyType == M.TransferCategory.CommandValidation and commandFlag then
 				pushPolicy(policyType, {
 					name = policyName,
@@ -151,7 +143,7 @@ local function newBuilder(policyName, dependencies)
 		---Example: policy.ForAlliedCommands.WhenGuard.Deny() - blocks guard commands to allied units
 		---@return PolicyBuilder Returns the policy builder for chaining
 		actions.Deny = function()
-			LogDebug("[API_GADGETS] Policy '" .. policyName .. "' registered DENY action")
+			Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Policy '" .. policyName .. "' registered DENY action")
 			if policyType == M.TransferCategory.CommandValidation and commandFlag then
 				pushPolicy(policyType, {
 					name = policyName,
@@ -184,7 +176,7 @@ local function newBuilder(policyName, dependencies)
 		---@param handlerFn function Custom handler function that receives context and returns { allow: boolean } or { deny: boolean } or { applyCommands: table }
 		---@return PolicyBuilder Returns the policy builder for chaining
 		actions.Use = function(handlerFn)
-			LogDebug("[API_GADGETS] Policy '" .. policyName .. "' registered USE action with custom handler")
+			Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Policy '" .. policyName .. "' registered USE action with custom handler")
 			pushPolicy(policyType, {
 				name = policyName,
 				dependencies = dependencies,
@@ -328,35 +320,35 @@ end
 ---@param options table|fun(policy: PolicyBuilder) Either options table `{ dependsOn = string[] }` or the registration function
 ---@param registrationFn fun(policy: PolicyBuilder)? Function that configures the policy (if options is provided)
 function M.RegisterPolicy(policyName, options, registrationFn)
-	LogDebug("[API_GADGETS] RegisterPolicy called for '" .. tostring(policyName) .. "'")
+	Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] RegisterPolicy called for '" .. tostring(policyName) .. "'")
 	requireSyncedContext("RegisterPolicy")
 
 	-- Handle function overloading: RegisterPolicy(name, fn) or RegisterPolicy(name, options, fn)
 	if type(options) == "function" then
-		LogDebug("[API_GADGETS] Function overloading detected - options is function")
+		Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Function overloading detected - options is function")
 		registrationFn = options
 		options = {}
 	end
 	options = options or {}
 	local dependencies = options.dependsOn or {}
 
-	LogDebug("[API_GADGETS] Creating builder for '" .. policyName .. "' with " .. #dependencies .. " dependencies")
+	Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Creating builder for '" .. policyName .. "' with " .. #dependencies .. " dependencies")
 
 	-- Pass policy context directly to the builder - much cleaner than global overrides!
 	local builder = newBuilder(policyName, dependencies)
 	if registrationFn then
-		LogDebug("[API_GADGETS] Calling registration function for '" .. policyName .. "'")
+		Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Calling registration function for '" .. policyName .. "'")
 		registrationFn(builder)
-		LogDebug("[API_GADGETS] Registration function completed for '" .. policyName .. "'")
+		Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Registration function completed for '" .. policyName .. "'")
 	else
-		LogDebug("[API_GADGETS] No registration function provided for '" .. policyName .. "'")
+		Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] No registration function provided for '" .. policyName .. "'")
 	end
 end
 
 ---Load policies conditionally based on mod options (inverted approach)
 ---@param policyLoaders table Array of policy loader configurations
 function M.LoadPolicies(policyLoaders)
-	LogDebug("[API_GADGETS] LoadPolicies called with " .. tostring(#policyLoaders) .. " policies")
+	Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] LoadPolicies called with " .. tostring(#policyLoaders) .. " policies")
 	requireSyncedContext("LoadPolicies")
 
 	for _, loader in ipairs(policyLoaders) do
@@ -368,26 +360,26 @@ function M.LoadPolicies(policyLoaders)
 			local optionValue = modOptions[loader.modOption]
 			shouldLoad = optionValue ~= nil and optionValue ~= false and optionValue ~= "false" and optionValue ~= 0
 
-			LogDebug(string.format("[API_GADGETS] Policy '%s': mod option '%s' = %s, shouldLoad = %s",
+			Spring.Log("[API_GADGETS]", "debug",string.format("[API_GADGETS] Policy '%s': mod option '%s' = %s, shouldLoad = %s",
 				loader.name, loader.modOption, tostring(optionValue), tostring(shouldLoad)))
 		end
 
 		if shouldLoad then
-			LogDebug("[API_GADGETS] Loading policy: " .. loader.name)
+			Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Loading policy: " .. loader.name)
 			local success, err = pcall(function()
 				local registerPolicy = VFS.Include(loader.path)
 				if type(registerPolicy) == "function" then
 					registerPolicy()
-					LogDebug("[API_GADGETS] Successfully loaded policy: " .. loader.name)
+					Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Successfully loaded policy: " .. loader.name)
 				else
-					LogError("[API_GADGETS] Policy file '" .. loader.path .. "' did not return a function")
+					Spring.Log("[API_GADGETS]", "error","[API_GADGETS] Policy file '" .. loader.path .. "' did not return a function")
 				end
 			end)
 			if not success then
-				LogError("[API_GADGETS] Failed to load policy '" .. loader.name .. "': " .. tostring(err))
+				Spring.Log("[API_GADGETS]", "error","[API_GADGETS] Failed to load policy '" .. loader.name .. "': " .. tostring(err))
 			end
 		else
-			LogDebug("[API_GADGETS] Skipping policy '" .. loader.name .. "' - mod option not enabled")
+			Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Skipping policy '" .. loader.name .. "' - mod option not enabled")
 		end
 	end
 end
@@ -466,26 +458,26 @@ M.QueryTeamState = function(senderTeamID, policyType)
 
 	-- Validate inputs
 	if not senderTeamID or senderTeamID < 0 then
-		LogError("[API_GADGETS] QueryTeamState called with invalid senderTeamID: " .. tostring(senderTeamID))
+		Spring.Log("[API_GADGETS]", "error","[API_GADGETS] QueryTeamState called with invalid senderTeamID: " .. tostring(senderTeamID))
 		return nil
 	end
 
 	if not policyType then
-		LogError("[API_GADGETS] QueryTeamState called with invalid policyType: " .. tostring(policyType))
+		Spring.Log("[API_GADGETS]", "error","[API_GADGETS] QueryTeamState called with invalid policyType: " .. tostring(policyType))
 		return nil
 	end
 
-	LogDebug("[API_GADGETS] QueryTeamState called for team " .. senderTeamID .. " with policy type " .. tostring(policyType))
+	Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] QueryTeamState called for team " .. senderTeamID .. " with policy type " .. tostring(policyType))
 
 	-- Use the pipeline instance that's already loaded (avoid circular dependency)
 	if not _G.TeamTransferPipeline then
-		LogError("[API_GADGETS] Pipeline not yet available for QueryTeamState")
+		Spring.Log("[API_GADGETS]", "error","[API_GADGETS] Pipeline not yet available for QueryTeamState")
 		return nil
 	end
 
 	-- Use Pipeline's cached expose query
 	local exposeData = _G.TeamTransferPipeline.QueryExpose(policyType, senderTeamID)
-	LogInfo(string.format("[API_GADGETS] QueryExpose returned for team %d, policyType %s: %s", 
+	Spring.Log("[API_GADGETS]", "info",string.format("[API_GADGETS] QueryExpose returned for team %d, policyType %s: %s", 
 		senderTeamID, policyType, tostring(exposeData ~= nil)))
 
 	-- Send expose data to widgets via sync action
@@ -502,19 +494,19 @@ M.QueryTeamState = function(senderTeamID, policyType)
 		end
 
 		-- Send to widgets for their cache
-		LogInfo(string.format("[API_GADGETS] Sending expose data to widgets - senderTeamID=%d, policyType=%s, hasData=%s",
+		Spring.Log("[API_GADGETS]", "info",string.format("[API_GADGETS] Sending expose data to widgets - senderTeamID=%d, policyType=%s, hasData=%s",
 			senderTeamID, policyType, tostring(widgetData ~= nil)))
 		if _sendToUnsynced then
-			LogInfo(string.format("[API_GADGETS] Calling SendToUnsynced via stored function for team %d", senderTeamID))
+			Spring.Log("[API_GADGETS]", "info",string.format("[API_GADGETS] Calling SendToUnsynced via stored function for team %d", senderTeamID))
 			_sendToUnsynced("TeamTransferExposeUpdate", senderTeamID, widgetData)
-			LogInfo(string.format("[API_GADGETS] SendToUnsynced call completed for senderTeamID %d", senderTeamID))
+			Spring.Log("[API_GADGETS]", "info",string.format("[API_GADGETS] SendToUnsynced call completed for senderTeamID %d", senderTeamID))
 		else
-			LogError("[API_GADGETS] ERROR: _sendToUnsynced is nil!")
+			Spring.Log("[API_GADGETS]", "error","[API_GADGETS] ERROR: _sendToUnsynced is nil!")
 		end
 
 		return exposeData
 	else
-		LogInfo(string.format("[API_GADGETS] No expose data to send for team %d, policyType %s", senderTeamID, policyType))
+		Spring.Log("[API_GADGETS]", "info",string.format("[API_GADGETS] No expose data to send for team %d, policyType %s", senderTeamID, policyType))
 	end
 
 	return nil
@@ -530,65 +522,59 @@ M.QueryTeamStateForPair = function(senderTeamID, receiverTeamID, policyType)
 
 	-- Validate inputs
 	if not senderTeamID or senderTeamID < 0 then
-		LogError("[API_GADGETS] QueryTeamStateForPair called with invalid senderTeamID: " .. tostring(senderTeamID))
+		Spring.Log("[API_GADGETS]", "error","[API_GADGETS] QueryTeamStateForPair called with invalid senderTeamID: " .. tostring(senderTeamID))
 		return nil
 	end
 
 	if not receiverTeamID or receiverTeamID < 0 then
-		LogError("[API_GADGETS] QueryTeamStateForPair called with invalid receiverTeamID: " .. tostring(receiverTeamID))
+		Spring.Log("[API_GADGETS]", "error","[API_GADGETS] QueryTeamStateForPair called with invalid receiverTeamID: " .. tostring(receiverTeamID))
 		return nil
 	end
 
 	if not policyType then
-		LogError("[API_GADGETS] QueryTeamStateForPair called with invalid policyType: " .. tostring(policyType))
+		Spring.Log("[API_GADGETS]", "error","[API_GADGETS] QueryTeamStateForPair called with invalid policyType: " .. tostring(policyType))
 		return nil
 	end
 
-	LogInfo("[API_GADGETS] QueryTeamStateForPair called for " .. senderTeamID .. "->" .. receiverTeamID .. " with policy type " .. tostring(policyType))
+	Spring.Log("[API_GADGETS]", "info","[API_GADGETS] QueryTeamStateForPair called for " .. senderTeamID .. "->" .. receiverTeamID .. " with policy type " .. tostring(policyType))
 
 	-- Use the pipeline instance that's already loaded
 	if not _G.TeamTransferPipeline then
-		LogError("[API_GADGETS] Pipeline not yet available for QueryTeamStateForPair")
+		Spring.Log("[API_GADGETS]", "error","[API_GADGETS] Pipeline not yet available for QueryTeamStateForPair")
 		return nil
 	end
 
-	-- Determine scope based on team alliance status
-	local scope = SharedEnums.Scope.Enemy
-	if Spring.AreTeamsAllied(senderTeamID, receiverTeamID) then
-		scope = SharedEnums.Scope.Allied
-	end
+	-- Use Pipeline's cached expose query for team pairs (automatically determines scope)
+	local exposeData = _G.TeamTransferPipeline.GetExpose(senderTeamID, receiverTeamID, policyType)
 
-	-- Use Pipeline's cached expose query for team pairs
-	local exposeData = _G.TeamTransferPipeline.QueryExposeByPredicates(scope, policyType, senderTeamID, receiverTeamID)
-
-	LogInfo(string.format("[API_GADGETS] QueryExposeByPredicates result - sender=%d, receiver=%d, policy=%s, result=%s",
+	Spring.Log("[API_GADGETS]", "info",string.format("[API_GADGETS] GetExpose result - sender=%d, receiver=%d, policy=%s, result=%s",
 		senderTeamID, receiverTeamID, tostring(policyType), tostring(exposeData ~= nil)))
 
 	-- Send expose data to widgets via sync action
 	if exposeData then
-		LogDebug(string.format("[API_GADGETS] ExposeData keys: %s", exposeData and table.concat(tableKeys(exposeData), ", ") or "none"))
+		Spring.Log("[API_GADGETS]", "debug",string.format("[API_GADGETS] ExposeData keys: %s", exposeData and table.concat(tableKeys(exposeData), ", ") or "none"))
 
 		-- Wrap the data with the appropriate camelCase key for widget compatibility
 		local widgetData = {}
 		if policyType == SharedEnums.TransferCategory.MetalTransfer or policyType == SharedEnums.TransferCategory.EnergyTransfer then
 			widgetData.ResourceTransfer = exposeData
-			LogDebug("[API_GADGETS] Wrapped as ResourceTransfer")
+			Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Wrapped as ResourceTransfer")
 		elseif policyType == SharedEnums.TransferCategory.UnitTransfer then
 			widgetData.UnitTransfer = exposeData
-			LogDebug("[API_GADGETS] Wrapped as UnitTransfer")
+			Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Wrapped as UnitTransfer")
 		else
 			-- For other policy types, use the raw data
 			widgetData = exposeData
-			LogDebug("[API_GADGETS] Using raw data (other policy type)")
+			Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Using raw data (other policy type)")
 		end
 
-		LogDebug(string.format("[API_GADGETS] WidgetData keys: %s", widgetData and table.concat(tableKeys(widgetData), ", ") or "none"))
+		Spring.Log("[API_GADGETS]", "debug",string.format("[API_GADGETS] WidgetData keys: %s", widgetData and table.concat(tableKeys(widgetData), ", ") or "none"))
 		if _sendToUnsynced then
-			LogInfo(string.format("[API_GADGETS] Calling SendToUnsynced via stored function for team %d", senderTeamID))
+			Spring.Log("[API_GADGETS]", "info",string.format("[API_GADGETS] Calling SendToUnsynced via stored function for team %d", senderTeamID))
 			_sendToUnsynced("TeamTransferExposeUpdate", receiverTeamID, widgetData)
-			LogInfo(string.format("[API_GADGETS] SendToUnsynced call completed for receiverTeamID %d", receiverTeamID))
+			Spring.Log("[API_GADGETS]", "info",string.format("[API_GADGETS] SendToUnsynced call completed for receiverTeamID %d", receiverTeamID))
 		else
-			LogError("[API_GADGETS] ERROR: _sendToUnsynced is nil!")
+			Spring.Log("[API_GADGETS]", "error","[API_GADGETS] ERROR: _sendToUnsynced is nil!")
 		end
 
 		return exposeData
@@ -600,7 +586,7 @@ end
 ---Manual command to initialize team transfer cache (for debugging)
 ---@param teamID number? Optional specific team ID, or nil for all teams
 M.InitializeCache = function(teamID)
-	LogError("[API_GADGETS] Manual cache initialization requested for team: " .. tostring(teamID or "ALL"))
+	Spring.Log("[API_GADGETS]", "error","[API_GADGETS] Manual cache initialization requested for team: " .. tostring(teamID or "ALL"))
 	requireSyncedContext("InitializeCache")
 
 	-- Only initialize cache for the local player's team sharing TO other teams
@@ -609,38 +595,38 @@ M.InitializeCache = function(teamID)
 	
 	if teamID then
 		-- Initialize for specific team only
-		LogError(string.format("[API_GADGETS] CACHE DEBUG - InitializeCache for specific team %d sharing to teams: [%s]", 
+		Spring.Log("[API_GADGETS]", "error",string.format("[API_GADGETS] CACHE DEBUG - InitializeCache for specific team %d sharing to teams: [%s]", 
 			teamID, table.concat(allTeams, ", ")))
 		local myTeamID = teamID
 	else
 		-- Initialize for all teams as senders (but optimized to skip self-transfers)
-		LogError(string.format("[API_GADGETS] CACHE DEBUG - InitializeCache for ALL teams sharing to teams: [%s]", 
+		Spring.Log("[API_GADGETS]", "error",string.format("[API_GADGETS] CACHE DEBUG - InitializeCache for ALL teams sharing to teams: [%s]", 
 			table.concat(allTeams, ", ")))
 		
 		-- Process each team as a potential sender
 		for _, senderTeam in ipairs(allTeams) do
 			if senderTeam and senderTeam >= 0 then
-				LogDebug("[API_GADGETS] Initializing cache for sender team " .. senderTeam)
+				Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Initializing cache for sender team " .. senderTeam)
 				
 				-- Only generate cache entries for "sender team → other teams" (skip self-transfers)
 				for _, receiverTeam in ipairs(allTeams) do
 					if receiverTeam and receiverTeam >= 0 and receiverTeam ~= senderTeam then
-						LogDebug("[API_GADGETS] Initializing cache for " .. senderTeam .. " -> " .. receiverTeam)
+						Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Initializing cache for " .. senderTeam .. " -> " .. receiverTeam)
 
 						-- Query metal, energy, and unit transfer states for this team pair
 						local metalResult = M.QueryTeamStateForPair(senderTeam, receiverTeam, M.TransferCategory.MetalTransfer)
 						local energyResult = M.QueryTeamStateForPair(senderTeam, receiverTeam, M.TransferCategory.EnergyTransfer)
 						local unitResult = M.QueryTeamStateForPair(senderTeam, receiverTeam, M.TransferCategory.UnitTransfer)
 
-						LogDebug("[API_GADGETS] Team pair " .. senderTeam .. "->" .. receiverTeam .. " - Metal result: " .. tostring(metalResult ~= nil) .. ", Energy result: " .. tostring(energyResult ~= nil) .. ", Unit result: " .. tostring(unitResult ~= nil))
+						Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Team pair " .. senderTeam .. "->" .. receiverTeam .. " - Metal result: " .. tostring(metalResult ~= nil) .. ", Energy result: " .. tostring(energyResult ~= nil) .. ", Unit result: " .. tostring(unitResult ~= nil))
 					elseif receiverTeam == senderTeam then
-						LogDebug("[API_GADGETS] Skipping self-transfer cache for " .. senderTeam .. " -> " .. receiverTeam)
+						Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Skipping self-transfer cache for " .. senderTeam .. " -> " .. receiverTeam)
 					end
 				end
 			end
 		end
 		
-		LogDebug("[API_GADGETS] Manual cache initialization completed for all teams")
+		Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Manual cache initialization completed for all teams")
 		return
 	end
 
@@ -649,27 +635,27 @@ M.InitializeCache = function(teamID)
 	-- Only generate cache entries for "my team → other teams" (skip self-transfers)
 	for _, receiverTeam in ipairs(allTeams) do
 		if receiverTeam and receiverTeam >= 0 and receiverTeam ~= myTeamID then
-			LogDebug("[API_GADGETS] Initializing cache for " .. myTeamID .. " -> " .. receiverTeam)
+			Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Initializing cache for " .. myTeamID .. " -> " .. receiverTeam)
 
 			-- Query metal, energy, and unit transfer states for this team pair
 			local metalResult = M.QueryTeamStateForPair(myTeamID, receiverTeam, M.TransferCategory.MetalTransfer)
 			local energyResult = M.QueryTeamStateForPair(myTeamID, receiverTeam, M.TransferCategory.EnergyTransfer)
 			local unitResult = M.QueryTeamStateForPair(myTeamID, receiverTeam, M.TransferCategory.UnitTransfer)
 
-			LogDebug("[API_GADGETS] Team pair " .. myTeamID .. "->" .. receiverTeam .. " - Metal result: " .. tostring(metalResult ~= nil) .. ", Energy result: " .. tostring(energyResult ~= nil) .. ", Unit result: " .. tostring(unitResult ~= nil))
+			Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Team pair " .. myTeamID .. "->" .. receiverTeam .. " - Metal result: " .. tostring(metalResult ~= nil) .. ", Energy result: " .. tostring(energyResult ~= nil) .. ", Unit result: " .. tostring(unitResult ~= nil))
 		elseif receiverTeam == myTeamID then
-			LogDebug("[API_GADGETS] Skipping self-transfer cache for " .. myTeamID .. " -> " .. receiverTeam)
+			Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Skipping self-transfer cache for " .. myTeamID .. " -> " .. receiverTeam)
 		else
-			LogError("[API_GADGETS] Skipping cache initialization for invalid receiver team: " .. tostring(receiverTeam))
+			Spring.Log("[API_GADGETS]", "error","[API_GADGETS] Skipping cache initialization for invalid receiver team: " .. tostring(receiverTeam))
 		end
 	end
 
-	LogDebug("[API_GADGETS] Manual cache initialization completed for local team " .. myTeamID)
+	Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Manual cache initialization completed for local team " .. myTeamID)
 end
 
 -- Manual test function to send dummy data to unsynced side
 function M.TestSendToUnsynced()
-	LogError("[API_GADGETS] MANUAL TEST - Sending dummy data to unsynced side")
+	Spring.Log("[API_GADGETS]", "error","[API_GADGETS] MANUAL TEST - Sending dummy data to unsynced side")
 	
 	-- Create dummy expose data for testing
 	local testData = {
@@ -685,11 +671,11 @@ function M.TestSendToUnsynced()
 	
 	-- Send test data for team 3 (the team the GUI is querying)
 	if _sendToUnsynced then
-		LogError("[API_GADGETS] MANUAL TEST - Sending test data for team 3")
+		Spring.Log("[API_GADGETS]", "error","[API_GADGETS] MANUAL TEST - Sending test data for team 3")
 		_sendToUnsynced("TeamTransferExposeUpdate", 3, testData)
-		LogError("[API_GADGETS] MANUAL TEST - Test data sent")
+		Spring.Log("[API_GADGETS]", "error","[API_GADGETS] MANUAL TEST - Test data sent")
 	else
-		LogError("[API_GADGETS] MANUAL TEST - SendToUnsynced not available")
+		Spring.Log("[API_GADGETS]", "error","[API_GADGETS] MANUAL TEST - SendToUnsynced not available")
 	end
 end
 
@@ -712,7 +698,7 @@ end
 
 function M.AllowResourceTransfer(oldTeamID, newTeamID, resourceType, amount)
 	-- Use cached expose data from previous cache initialization
-	LogDebug(string.format("[API_GADGETS] AllowResourceTransfer called - %d->%d, type=%s, amount=%s", 
+	Spring.Log("[API_GADGETS]", "debug",string.format("[API_GADGETS] AllowResourceTransfer called - %d->%d, type=%s, amount=%s", 
 		oldTeamID, newTeamID, tostring(resourceType), tostring(amount)))
 	
 	-- Look up cached expose data for this team pair based on resource type
@@ -720,21 +706,21 @@ function M.AllowResourceTransfer(oldTeamID, newTeamID, resourceType, amount)
 	local exposeData = M.QueryTeamStateForPair(oldTeamID, newTeamID, transferCategory)
 	if exposeData then
 		if resourceType == "metal" and exposeData.metal then
-			LogDebug(string.format("[API_GADGETS] AllowResourceTransfer - metal policy: %s", tostring(exposeData.metal.canShareMetal)))
+			Spring.Log("[API_GADGETS]", "debug",string.format("[API_GADGETS] AllowResourceTransfer - metal policy: %s", tostring(exposeData.metal.canShareMetal)))
 			return exposeData.metal.canShareMetal
 		elseif resourceType == "energy" and exposeData.energy then
-			LogDebug(string.format("[API_GADGETS] AllowResourceTransfer - energy policy: %s", tostring(exposeData.energy.canShareEnergy)))
+			Spring.Log("[API_GADGETS]", "debug",string.format("[API_GADGETS] AllowResourceTransfer - energy policy: %s", tostring(exposeData.energy.canShareEnergy)))
 			return exposeData.energy.canShareEnergy
 		end
 	end
 	
 	-- Default to allow if no cached policy data available
-	LogDebug("[API_GADGETS] AllowResourceTransfer - no cached data, defaulting to allow")
+	Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] AllowResourceTransfer - no cached data, defaulting to allow")
 	return true
 end
 
 function M.AllowUnitTransfer(unitID, unitDefID, oldTeamID, newTeamID, capture)
-	LogDebug(string.format("[API_GADGETS] AllowUnitTransfer called - unitID=%s, %d->%d, capture=%s", 
+	Spring.Log("[API_GADGETS]", "debug",string.format("[API_GADGETS] AllowUnitTransfer called - unitID=%s, %d->%d, capture=%s", 
 		tostring(unitID), oldTeamID, newTeamID, tostring(capture)))
 	
 	if capture then
@@ -749,7 +735,7 @@ end
 for methodName, methodFunc in pairs(PolicyHooks) do
 	if type(methodFunc) == "function" then
 		M[methodName] = methodFunc
-		LogDebug("[API_GADGETS] Exposed PolicyHooks method: " .. methodName)
+		Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Exposed PolicyHooks method: " .. methodName)
 	end
 end
 
@@ -758,10 +744,10 @@ M.RegisterMetalTransferValidator = PolicyHooks.RegisterMetalTransferValidator
 M.RegisterEnergyTransferValidator = PolicyHooks.RegisterEnergyTransferValidator
 M.RegisterUnitTransferValidator = PolicyHooks.RegisterUnitTransferValidator
 
-LogInfo("[API_GADGETS] api_gadgets.lua initialization completed successfully")
-LogDebug("[API_GADGETS] Final policy counts:")
+Spring.Log("[API_GADGETS]", "info","[API_GADGETS] api_gadgets.lua initialization completed successfully")
+Spring.Log("[API_GADGETS]", "debug","[API_GADGETS] Final policy counts:")
 for policyType, policyList in pairs(policies) do
-	LogDebug("[API_GADGETS]   " .. tostring(policyType) .. ": " .. #policyList .. " policies")
+	Spring.Log("[API_GADGETS]", "debug","[API_GADGETS]   " .. tostring(policyType) .. ": " .. #policyList .. " policies")
 end
 
 ---@return TeamTransferAPI

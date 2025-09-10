@@ -1,12 +1,10 @@
 local FluentPolicy = VFS.Include("luarules/gadgets/team_transfer/fluent_policy.lua")
-local UnitRepository = VFS.Include("luarules/gadgets/team_transfer/unit_repository.lua")
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
 local BuildingCategoryDefinitions = VFS.Include("luaui/Include/blueprint_substitution/definitions.lua")
 local BuildingCategories = BuildingCategoryDefinitions.BUILDING_CATEGORIES
 
--- there is a few weak points to this system. Mostly because we have to cache EVERY team unit, but I guess that's probably a reasonable expectation for other features so I'm leaving it for now.
--- alternate design: we could simply track building categories in Repository and various variants of that. Allowing the Repository to abstract UnitCreated into a policy hook, or allow api_gadgets to do that
-    local function hasBuiltCategories(teamId, categories)
+
+local function hasBuiltCategories(teamId, categories, unitRepo)
     local required = {}
     for i = 1, #categories do
         required[categories[i]] = true
@@ -14,7 +12,12 @@ local BuildingCategories = BuildingCategoryDefinitions.BUILDING_CATEGORIES
 
     local seen = {}
 
-    local teamUnits = UnitRepository.getTeamUnits(teamId)
+    local repo = unitRepo
+    local teamUnits = {}
+    if repo and repo.getTeamUnits then
+        teamUnits = repo:getTeamUnits(teamId)
+    end
+
     for unitID, unitDefID in pairs(teamUnits) do
         local unitName
         if type(unitDefID) == "string" then
@@ -40,9 +43,8 @@ local BuildingCategories = BuildingCategoryDefinitions.BUILDING_CATEGORIES
 end
 
 FluentPolicy.RegisterPolicy(SharedEnums.Policies.BuildingUnlocksSharing, function(policy)
-    local modOptions = Spring.GetModOptions()
-    local buildingUnlocksSharing = modOptions and modOptions[SharedEnums.Policies.BuildingUnlocksSharing]
-    if not buildingUnlocksSharing then
+    -- Short-circuit if policy is not enabled
+    if not policy.mod_option then
         return
     end
 
@@ -53,22 +55,39 @@ FluentPolicy.RegisterPolicy(SharedEnums.Policies.BuildingUnlocksSharing, functio
 
     -- -- Building both Metal Storage and Energy Storage enables you to assist teammates through buildpower (which is effectively M+E sharing)
     local bothStorages = function(ctx)
+        local unitRepo = ctx.repositories and ctx.repositories.UnitRepository
         return hasBuiltCategories(ctx.senderTeamId, {
             BuildingCategories.METAL_STORAGE,
             BuildingCategories.ENERGY_STORAGE
-        })
+        }, unitRepo)
     end
+
     -- Commands policy - allow when both storages exist
-    policy:Allied():Guard():When(bothStorages):Allow()
-    policy:Allied():Repair():When(bothStorages):Allow()
-    policy:Allied():Reclaim():When(bothStorages):Allow()
-    policy:Allied():MetalTransfers():When(bothStorages):Allow()
-    policy:Allied():EnergyTransfers():When(bothStorages):Allow()
+    policy:Allied():Guard()
+        :When(bothStorages)
+        :Allow()
+
+    policy:Allied():Repair()
+        :When(bothStorages)
+        :Allow()
+
+    policy:Allied():Reclaim()
+        :When(bothStorages)
+        :Allow()
+
+    policy:Allied():MetalTransfers()
+        :When(bothStorages)
+        :Allow()
+
+    policy:Allied():EnergyTransfers()
+        :When(bothStorages)
+        :Allow()
 
     -- Unit transfer policy - allow when pinpointer built
-    policy:Allied():UnitTransfers():When(function(ctx)
-        return hasBuiltCategories(ctx.senderTeamId, {
-            BuildingCategories.PINPOINTER
-        })
-    end):Allow()
+    policy:Allied():UnitTransfers()
+        :When(function(ctx)
+            local unitRepo = ctx.repositories.UnitRepository
+            return hasBuiltCategories(ctx.senderTeamId, { BuildingCategories.PINPOINTER }, unitRepo)
+        end)
+        :Allow()
 end)

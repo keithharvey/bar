@@ -5,18 +5,13 @@ _G.unpack = _G.unpack or table.unpack or function(t, i, j)
     return t[i], _G.unpack(t, i+1, j)
 end
 
-_G.pp = function(o, indent)
-    indent = indent or 0
-    local pad = string.rep("  ", indent)
-    local t = type(o)
-    if t ~= "table" then return tostring(o) end
-    local out = {"{"}
-    for k, v in pairs(o) do
-      out[#out+1] = string.format("%s  %s: %s", pad, tostring(k), pp(v, indent+1))
-    end
-    out[#out+1] = pad .. "}"
-    return table.concat(out, "\n")
-  end
+-- to enable, `luarocks install inspect`
+_G.inspect = (function()
+  local ok, mod = pcall(require, "inspect")
+  if ok and mod then return mod end
+  -- fallback: no-op string (won't break prints/concats)
+  return function(_) return _ end
+end)()
 
 -- VFS.Include mock for testing - caches loaded modules
 _G.VFS = _G.VFS or {}
@@ -46,11 +41,23 @@ _G.LogDebug = _G.LogDebug or function(msg) end -- Silent debug
 _G.LogInfo = _G.LogInfo or function(msg) end -- Silent info  
 _G.LogError = _G.LogError or function(msg) print("[ERROR] " .. msg) end
 
+-- Log level filter
+local LOG_LEVELS = {
+    DEBUG = 0,
+    INFO = 1,
+    WARNING = 2,
+    ERROR = 3
+}
+local LOG_LEVEL = LOG_LEVELS.INFO
+
 -- Basic Spring mock for testing (will be replaced by SpringRepository)
 _G.Spring = _G.Spring or {
     Log = function(section, level, message, ...)
-        -- Simple logging for tests
-        print(string.format("[%s:%s] %s", section, level, message))
+        -- Simple logging for tests with level filtering
+        local levelValue = LOG_LEVELS[level] or LOG_LEVELS.INFO
+        if levelValue >= LOG_LEVEL then
+            print(string.format("[%s:%s] %s", section, level, message))
+        end
     end
 }
   

@@ -1,4 +1,3 @@
-local BaseBuilder = require("common/unitTesting/builders/base_builder")
 local TeamBuilder = require("common/unitTesting/builders/team_builder")
 local SpringBuilder = require("common/unitTesting/builders/spring_builder")
 local PipelineBuilder = require("common/unitTesting/builders/pipeline_builder")
@@ -7,9 +6,9 @@ local UnitRepositoryBuilder = require("common/unitTesting/builders/unit_reposito
 local TeamRepositoryBuilder = require("common/unitTesting/builders/team_repository_builder")
 local SpringRepositoryBuilder = require("common/unitTesting/builders/spring_repository_builder")
 local TeamTransferBuilder = require("common/unitTesting/builders/team_transfer_builder")
+local PolicyRepositoryBuilder = require("common/unitTesting/builders/policy_repository_builder")
 
 ---@class Builders
----@field BaseBuilder BaseBuilder
 ---@field Team TeamBuilder
 ---@field Spring SpringBuilder
 ---@field Pipeline PipelineBuilder
@@ -18,8 +17,9 @@ local TeamTransferBuilder = require("common/unitTesting/builders/team_transfer_b
 ---@field TeamRepository TeamRepositoryBuilder
 ---@field SpringRepository SpringRepositoryBuilder
 ---@field TeamTransfer TeamTransferBuilder
+---@field Policy PolicyBuilder
+---@field PolicyRepository PolicyRepositoryBuilder
 local Builders = {
-    BaseBuilder = BaseBuilder,
     Team = TeamBuilder,
     Spring = SpringBuilder,
     Pipeline = PipelineBuilder,
@@ -27,7 +27,8 @@ local Builders = {
     UnitRepository = UnitRepositoryBuilder,
     TeamRepository = TeamRepositoryBuilder,
     SpringRepository = SpringRepositoryBuilder,
-    TeamTransfer = TeamTransferBuilder
+    TeamTransfer = TeamTransferBuilder,
+    PolicyRepository = PolicyRepositoryBuilder
 }
 
 return Builders

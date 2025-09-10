@@ -18,12 +18,8 @@
 local gadget = gadget ---@type Gadget
 
 -- Shared logging utility
-local Logger = VFS.Include("luarules/gadgets/team_transfer/shared_logging.lua")
-Logger.SetLogMode("NONE")  -- Set to "NONE" to disable all logging, "ERROR" for errors only, "DEBUG" for all
-
-local LogDebug = Logger.LogDebug
-local LogInfo = Logger.LogInfo
-local LogError = Logger.LogError
+-- Removed shared_logging dependency
+-- Removed Logger dependencies - using Spring.Log directly
 
 local sharing = GG.TeamTransfer.UnitSharing
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
@@ -83,12 +79,12 @@ local function initializeAllowedUnitsCache()
 		sharing.isCacheInitialized(unitSharingMode)
 	end
 
-	LogInfo("Initialized cache with " .. cachedCount .. " allowed units for mode: " .. unitSharingMode)
+	Spring.Log("[UNIT_SHARING_MODE]", "info","Initialized cache with " .. cachedCount .. " allowed units for mode: " .. unitSharingMode)
 end
 
 -- Initialize the cache once during policy loading
 -- This happens when the gadget loads, before any runtime policy evaluation
-LogInfo("Initializing cache during policy load for mode: " .. unitSharingMode)
+Spring.Log("[UNIT_SHARING_MODE]", "info","Initializing cache during policy load for mode: " .. unitSharingMode)
 initializeAllowedUnitsCache()
 
 GG.TeamTransfer.RegisterPolicy(UnitSharingMode, function(policy)
@@ -102,7 +98,7 @@ GG.TeamTransfer.RegisterPolicy(UnitSharingMode, function(policy)
 			blockReason = "Unit sharing is disabled"
 		end
 		
-		LogDebug(string.format("[UNIT_SHARING_MODE] POLICY mode=%s, canShare=%s", 
+		Spring.Log("[UNIT_SHARING_MODE]", "debug",string.format("[UNIT_SHARING_MODE] POLICY mode=%s, canShare=%s", 
 			unitSharingMode, tostring(canShareUnits)))
 		
 		return {
@@ -122,7 +118,7 @@ end)
 
 -- Register validator for unit transfer decisions (handles per-unit selection validation)
 GG.TeamTransfer.RegisterUnitTransferValidator(function(ctx, unitResults)
-	LogDebug("[UNIT_SHARING_MODE] Validator called for unit transfer")
+	Spring.Log("[UNIT_SHARING_MODE]", "debug","[UNIT_SHARING_MODE] Validator called for unit transfer")
 	
 	-- Cast to unit sharing mode specific result data to access policy-specific fields
 	---@type UnitSharingModeResult
@@ -161,7 +157,7 @@ GG.TeamTransfer.RegisterUnitTransferValidator(function(ctx, unitResults)
 		end
 	end
 	
-	LogDebug(string.format("[UNIT_SHARING_MODE] VALIDATOR mode=%s, selected=%d, shareable=%d, result=ALLOW",
+	Spring.Log("[UNIT_SHARING_MODE]", "debug",string.format("[UNIT_SHARING_MODE] VALIDATOR mode=%s, selected=%d, shareable=%d, result=ALLOW",
 		unitSharingData.sharingMode, #validationResult.selectedUnits, #validationResult.shareableCount))
 	
 	return validationResult

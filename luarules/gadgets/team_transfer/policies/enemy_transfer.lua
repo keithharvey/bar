@@ -4,14 +4,10 @@
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
 
 -- Shared logging utility
-local Logger = VFS.Include("luarules/gadgets/team_transfer/shared_logging.lua")
-Logger.SetLogMode("NONE")  -- Set to "NONE" to disable all logging, "ERROR" for errors only, "DEBUG" for all
+-- Removed shared_logging dependency
+-- Removed Logger dependencies - using Spring.Log directly
 
-local LogDebug = Logger.LogDebug
-local LogInfo = Logger.LogInfo
-local LogError = Logger.LogError
-
-LogDebug("Loading enemy transfer policy")
+Spring.Log("[ENEMY_TRANSFER]", "debug"("Loading enemy transfer policy")
 
 local function shouldAllowResourceTransfer(ctx)
 	return ctx.isCheatingEnabled or ctx.senderIsNonPlayer or ctx.receiverIsNonPlayer
@@ -26,7 +22,7 @@ end
 
 GG.TeamTransfer.RegisterPolicy(SharedEnums.Policies.EnemyTransfer, function(policy)
 	policy.ForEnemyMetalTransfers.Use(function(ctx)
-		LogDebug("Enemy metal transfer policy called")
+		Spring.Log("[ENEMY_TRANSFER]", "debug"("Enemy metal transfer policy called")
 		if shouldAllowResourceTransfer(ctx) then
 			-- Use default calculations but cap at 1000 for enemy transfers
 			local maxAmount = ctx.defaultMetalTransfer.amountSendable
@@ -62,7 +58,7 @@ GG.TeamTransfer.RegisterPolicy(SharedEnums.Policies.EnemyTransfer, function(poli
 	end)
 	
 	policy.ForEnemyEnergyTransfers.Use(function(ctx)
-		LogDebug("Enemy energy transfer policy called")
+		Spring.Log("[ENEMY_TRANSFER]", "debug"("Enemy energy transfer policy called")
 		if shouldAllowResourceTransfer(ctx) then
 			-- Use default calculations but cap at 1000 for enemy transfers
 			local maxAmount = math.min(ctx.defaultEnergyTransfer.amountSendable, 1000)
@@ -98,7 +94,7 @@ GG.TeamTransfer.RegisterPolicy(SharedEnums.Policies.EnemyTransfer, function(poli
 	end)
 
 	policy.ForEnemyUnitTransfers.Use(function(ctx)
-		LogDebug("Enemy unit transfer policy called")
+		Spring.Log("[ENEMY_TRANSFER]", "debug"("Enemy unit transfer policy called")
 		if shouldAllowUnitTransfer(ctx) then
 			-- Use default unit transfer calculations for enemy transfers
 			---@type EnemyUnitTransferResult

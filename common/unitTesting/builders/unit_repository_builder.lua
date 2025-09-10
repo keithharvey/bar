@@ -1,5 +1,5 @@
--- Unit Repository Builder
--- Builds UnitRepository with mocked unit tracking for testing
+local Definitions = require("luaui/Include/blueprint_substitution/definitions")
+local Sides = require("gamedata/sides_enum")
 
 ---@class UnitRepositoryBuilder
 ---@field teamUnits table
@@ -14,14 +14,39 @@
 ---@class UnitRepositoryBuilder
 local UnitRepositoryBuilder = {}
 UnitRepositoryBuilder.__index = UnitRepositoryBuilder
-local Definitions = VFS.Include("luaui/Include/blueprint_substitution/definitions.lua")
+
+local function resolveTeamId(team)
+    if type(team) == "number" then return team end
+    if type(team) == "table" then
+        if type(team.Build) == "function" then
+            local built = team:Build()
+            return built and built.id or team.id
+        end
+        return team.id
+    end
+    return team
+end
+
+-- Default data for UnitRepositoryBuilder instances (mirrors PipelineBuilder pattern)
+local defaultData = {
+    teamUnits = {},
+    nextAutoUnitId = 100000,
+}
 
 ---@return UnitRepositoryBuilder
 function UnitRepositoryBuilder.new()
-    return setmetatable({
-        teamUnits = {},
-        nextAutoUnitId = 100000,
-    }, UnitRepositoryBuilder)
+    local instance = setmetatable({}, UnitRepositoryBuilder)
+    -- Copy default data (keep structure stable across instances)
+    for k, v in pairs(defaultData) do
+        if type(v) == "table" then
+            local t = {}
+            for k2, v2 in pairs(v) do t[k2] = v2 end
+            instance[k] = t
+        else
+            instance[k] = v
+        end
+    end
+    return instance
 end
 
 -- Fluent methods that mutate the instance
@@ -33,8 +58,9 @@ end
 ---@param teamID number
 ---@return UnitRepositoryBuilder
 function UnitRepositoryBuilder:WithUnit(unitID, unitDefID, teamID)
-    self.teamUnits[teamID] = self.teamUnits[teamID] or {}
-    self.teamUnits[teamID][unitID] = unitDefID
+    local tID = resolveTeamId(teamID)
+    self.teamUnits[tID] = self.teamUnits[tID] or {}
+    self.teamUnits[tID][unitID] = unitDefID
     return self
 end
 
@@ -43,22 +69,25 @@ end
 ---@param units table<number, string|number>
 ---@return UnitRepositoryBuilder
 function UnitRepositoryBuilder:WithUnits(teamID, units)
-    self.teamUnits[teamID] = self.teamUnits[teamID] or {}
+    local tID = resolveTeamId(teamID)
+    self.teamUnits[tID] = self.teamUnits[tID] or {}
     for unitID, unitDefID in pairs(units) do
-        self.teamUnits[teamID][unitID] = unitDefID
+        self.teamUnits[tID][unitID] = unitDefID
     end
     return self
 end
 
 ---@param self UnitRepositoryBuilder
 ---@param category string
----@param side any
 ---@param teamID number|nil
+---@param side string?
 ---@return UnitRepositoryBuilder
-function UnitRepositoryBuilder:WithUnitFromCategory(category, side, teamID)
-    local unitName = Definitions.getUnitByCategory(category, side)
+function UnitRepositoryBuilder:WithUnitFromCategory(category, teamID, side)
+    -- Default to ARM side if not specified
+    local actualSide = side or Sides.ARM
+    local unitName = Definitions.getUnitByCategory(category, actualSide)
     if not unitName then
-        error("WithUnitFromCategory: getUnitByCategory returned nil for category '" .. tostring(category) .. "' and side '" .. tostring(side) .. "'")
+        error("WithUnitFromCategory: getUnitByCategory returned nil for category '" .. tostring(category) .. "' and side '" .. tostring(actualSide) .. "'")
     end
 
     local tID = teamID or 0
@@ -72,24 +101,24 @@ end
 ---@return UnitRepositoryMock
 function UnitRepositoryBuilder:Build()
     local instance = self
-    return {
-        unitAdded = function(unitID, unitDefID, teamID)
+    return setmetatable({
+        unitAdded = function(self, unitID, unitDefID, teamID)
             instance.teamUnits[teamID] = instance.teamUnits[teamID] or {}
             instance.teamUnits[teamID][unitID] = unitDefID
         end,
 
-        unitRemoved = function(unitID, teamID)
+        unitRemoved = function(self, unitID, teamID)
             if instance.teamUnits[teamID] then
                 instance.teamUnits[teamID][unitID] = nil
             end
         end,
 
-        getTeamUnits = function(teamID)
+        getTeamUnits = function(self, teamID)
             instance.teamUnits[teamID] = instance.teamUnits[teamID] or {}
             return instance.teamUnits[teamID]
         end,
 
-        hasBuiltUnits = function(teamID, requiredUnitDefIDs)
+        hasBuiltUnits = function(self, teamID, requiredUnitDefIDs)
             instance.teamUnits[teamID] = instance.teamUnits[teamID] or {}
 
             local required = {}
@@ -111,7 +140,12 @@ function UnitRepositoryBuilder:Build()
             end
             return true
         end,
-    }
+    }, { __index = {
+        unitAdded = function(self, unitID, unitDefID, teamID) end,
+        unitRemoved = function(self, unitID, teamID) end,
+        getTeamUnits = function(self, teamID) return instance.teamUnits[teamID] or {} end,
+        hasBuiltUnits = function(self, teamID, requiredUnitDefIDs) return false end,
+    }})
 end
 
 return UnitRepositoryBuilder

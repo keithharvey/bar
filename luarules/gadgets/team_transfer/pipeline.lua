@@ -3,14 +3,14 @@
 ---@field ValidateUnitTransfer fun(senderTeamID: number, receiverTeamID: number, unitID: number?, unitDefID: number?): boolean
 ---@field RunTeamEvent fun(eventType: string, teamID: number, playerID: number?, gameFrame: number): table?
 ---@field QueryExpose fun(senderTeamID: number, receiverTeamID: number): CombinedExposeOutput
----@field QueryExposeByPredicates fun(predicateScope: PredicateScope, policyType: TransferCategory, senderTeamID: number, receiverTeamID: number): CombinedExposeOutput?
+---@field GetExpose fun(senderTeamID: number, receiverTeamID: number, transferCategory: TransferCategory): table?, table?
 ---@field Initialize fun(policyType: TransferCategory, senderTeamID: number, receiverTeamID: number, options: table?): table
 
 -- Avoid creating a separate API instance; use GG.TeamTransfer when available
 -- All VFS.Includes at the top
 local ServiceRegistry = VFS.Include("luarules/gadgets/team_transfer/service_registry.lua")
-local Logger = VFS.Include("luarules/gadgets/team_transfer/shared_logging.lua")
-local Repository = VFS.Include("luarules/gadgets/team_transfer/unit_repository.lua")
+-- Removed shared_logging dependency
+local Repository = ServiceRegistry.UnitRepository()
 local PolicyHooks = VFS.Include("luarules/gadgets/team_transfer/policy_hooks.lua")
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
 local SharingUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_utils.lua")
@@ -18,17 +18,54 @@ local FluentPolicy = VFS.Include("luarules/gadgets/team_transfer/fluent_policy.l
 local ResultDefaults = VFS.Include("luarules/gadgets/team_transfer/result_defaults.lua")
 
 -- Shared logging utility
-Logger.SetLogMode("NONE")  -- Set to "NONE" to disable all logging, "ERROR" for errors only, "DEBUG" for all
+-- Removed Logger dependencies - using Spring.Log directly
 
-local LogDebug = Logger.LogDebug
-local LogInfo = Logger.LogInfo
-local LogError = Logger.LogError
-
-LogDebug("[PIPELINE] Starting pipeline.lua initialization")
-LogDebug("[PIPELINE] Including dependencies...")
-
+---@class TeamTransferPipeline
+---@field springRepo table
+---@field teamRepo table
+---@field unitRepo table
+---@field policyRepo table
 local Pipeline = {}
-LogDebug("[PIPELINE] Pipeline object created")
+Pipeline.__index = Pipeline
+
+-- Track if deferred policies have been executed
+local deferredPoliciesExecuted = false
+
+---Create a new pipeline instance with proper service registry lookups
+---@return TeamTransferPipeline
+function Pipeline.new()
+    local springRepo = ServiceRegistry.SpringRepository()
+    local teamRepo = ServiceRegistry.TeamRepository()
+    local unitRepo = ServiceRegistry.UnitRepository()
+    local policyRepo = ServiceRegistry.PolicyRepository()
+
+    -- Execute deferred policies on first pipeline creation
+    if not deferredPoliciesExecuted and FluentPolicy.HasDeferredPolicies() then
+        local context = {
+            Spring = _G.Spring,
+            VFS = _G.VFS,
+            UnitDefs = _G.UnitDefs,
+            repositories = {
+                SpringRepository = springRepo,
+                TeamRepository = teamRepo,
+                UnitRepository = unitRepo
+            }
+        }
+        FluentPolicy.ExecuteDeferredPolicies(context)
+        deferredPoliciesExecuted = true
+    end
+
+    local instance = setmetatable({
+        springRepo = springRepo,
+        teamRepo = teamRepo,
+        unitRepo = unitRepo,
+        policyRepo = policyRepo
+    }, Pipeline)
+
+    Spring.Log("[PIPELINE]", "DEBUG", "[PIPELINE] Pipeline instance created")
+    return instance
+end
+
 
 -- PolicyRepository handles all policy access
 
@@ -87,7 +124,12 @@ end
 ---@return DefaultCommandValidationResult Default command validation
 local function calculateDefaultCommandValidation(senderTeamID, receiverTeamID)
 	-- Default to deny all commands - policies must explicitly allow them
-	return Pipeline.CreateCommandValidationResult(false, false, false, "No policies allowed these commands")
+	return {
+		allowGuardCommands = false,
+		allowRepairCommands = false,
+		allowReclaimCommands = false,
+		blockReason = "No policies allowed these commands"
+	}
 end
 
 ---Calculate default team events data for pipeline context
@@ -99,6 +141,55 @@ local function calculateDefaultTeamEvents(teamID)
 	return {
 		canProcessEvent = true -- Default: all events can be processed
 	}
+end
+
+-- Build a common policy context used across pipeline entry points
+-- predicateScope is optional; when provided, it determines areAlliedTeams
+---@return TeamTransferPolicyContext
+---Build policy context for evaluation
+---@param self TeamTransferPipeline
+---@param senderTeamID number
+---@param receiverTeamID number
+---@return TeamTransferPolicyContext
+function Pipeline:buildPolicyContext(senderTeamID, receiverTeamID)
+	local defaultMetalTransfer = calculateDefaultMetalTransfer(senderTeamID, receiverTeamID)
+	local defaultEnergyTransfer = calculateDefaultEnergyTransfer(senderTeamID, receiverTeamID)
+	local defaultUnitTransfer = calculateDefaultUnitTransfer(senderTeamID, receiverTeamID)
+	local defaultCommandValidation = calculateDefaultCommandValidation(senderTeamID, receiverTeamID)
+	local defaultTeamEvents = calculateDefaultTeamEvents(senderTeamID)
+
+	local areAllied = self.teamRepo.AreAlliedTeams(senderTeamID, receiverTeamID)
+
+	local senderResources = self.teamRepo.GetTeamResourcesData(senderTeamID)
+	local receiverResources = self.teamRepo.GetTeamResourcesData(receiverTeamID)
+
+	---@type TeamTransferPolicyContext
+	local ctx = {
+		senderTeamId = senderTeamID,
+		receiverTeamId = receiverTeamID,
+		gameFrame = self.springRepo.GetGameFrame(),
+		areAlliedTeams = areAllied,
+		isCheatingEnabled = self.springRepo.IsCheatingEnabled(),
+		defaultMetalTransfer = defaultMetalTransfer,
+		defaultEnergyTransfer = defaultEnergyTransfer,
+		defaultUnitTransfer = defaultUnitTransfer,
+		defaultCommandValidation = defaultCommandValidation,
+		defaultTeamEvents = defaultTeamEvents,
+		resources = {
+			sender = senderResources, receiver = receiverResources
+		},
+		repositories = {
+			SpringRepository = self.springRepo,
+			TeamRepository = self.teamRepo,
+			UnitRepository = self.unitRepo
+		}
+	}
+
+	if senderResources or receiverResources then
+		ctx.resources = { sender = senderResources, receiver = receiverResources }
+	end
+
+	return ctx
 end
 
 -- Helper function to get table keys (since Lua doesn't have table.keys)
@@ -117,24 +208,22 @@ local PipelineLogger = {}
 -- Analyze and log the current pipeline topology
 function PipelineLogger.LogTopology()
 	local TT = (GG and GG.TeamTransfer) or TeamTransfer
-	LogInfo("=== Team Transfer Pipeline Architecture ===")
-
 	-- Log policy types and their registered policies
 	for policyType, policies in pairs(TT.GetPolicies()) do
-		LogInfo(string.format("Policy Type: %s (%d policies)", policyType, #policies))
+		Spring.Log("[PIPELINE]", "DEBUG", string.format("Policy Type: %s (%d policies)", policyType, #policies))
 
 		-- Sort policies by dependencies for display
 		local sortedPolicies = topologicalSort(policies)
 		for i, entry in ipairs(sortedPolicies) do
 			local deps = entry.dependsOn and table.concat(entry.dependsOn, ", ") or "none"
-			LogInfo(string.format("  %d. %s (depends on: %s)", i, entry.name, deps))
+			Spring.Log("[PIPELINE]", "DEBUG", string.format("  %d. %s (depends on: %s)", i, entry.name, deps))
 		end
 	end
 end
 
 -- Analyze and log the current cache state
 function PipelineLogger.LogCacheState()
-	LogInfo("=== Predicate Cache Analysis ===")
+	Spring.Log("[PIPELINE]", "DEBUG", "=== Predicate Cache Analysis ===")
 
 	local cacheCount = 0
 	local cacheByFrame = {}
@@ -162,22 +251,22 @@ function PipelineLogger.LogCacheState()
 		end
 	end
 
-	LogInfo(string.format("Total cache entries: %d", cacheCount))
+	Spring.Log("[PIPELINE]", "INFO",string.format("Total cache entries: %d", cacheCount))
 
 	-- Log cache distribution
-	LogInfo("Cache by scope:")
+	Spring.Log("[PIPELINE]", "INFO","Cache by scope:")
 	for scope, count in pairs(cacheByScope) do
-		LogInfo(string.format("  %s: %d entries", scope, count))
+		Spring.Log("[PIPELINE]", "INFO",string.format("  %s: %d entries", scope, count))
 	end
 
-	LogInfo("Cache by policy type:")
+	Spring.Log("[PIPELINE]", "INFO","Cache by policy type:")
 	for policyType, count in pairs(cacheByType) do
-		LogInfo(string.format("  %s: %d entries", policyType, count))
+		Spring.Log("[PIPELINE]", "INFO",string.format("  %s: %d entries", policyType, count))
 	end
 
-	LogInfo("Cache by frame:")
+	Spring.Log("[PIPELINE]", "INFO","Cache by frame:")
 	for frame, count in pairs(cacheByFrame) do
-		LogInfo(string.format("  Frame %s: %d entries", frame, count))
+		Spring.Log("[PIPELINE]", "INFO",string.format("  Frame %s: %d entries", frame, count))
 	end
 end
 
@@ -187,37 +276,37 @@ function PipelineLogger.LogCacheEntry(predicateScope, policyType, senderTeamID, 
 	local gameFrame = springRepo.GetGameFrame()
 	local cacheKey, senderResources, receiverResources = generatePredicateCacheKeyWithResources(predicateScope, policyType, senderTeamID, receiverTeamID, gameFrame)
 
-	LogInfo(string.format("=== Cache Entry Analysis: %s ===", cacheKey))
+	Spring.Log("[PIPELINE]", "DEBUG", string.format("=== Cache Entry Analysis: %s ===", cacheKey))
 
 	local cacheData = predicateExposeCache[cacheKey]
 	if cacheData then
-		LogInfo("Cache HIT - Entry exists")
+		Spring.Log("[PIPELINE]", "DEBUG", "Cache HIT - Entry exists")
 
 		-- Log expose data structure
 		if cacheData.metal then
-			LogInfo(string.format("Metal: canShare=%s, maxAmount=%.1f, blockReason=%s",
+			Spring.Log("[PIPELINE]", "DEBUG", string.format("Metal: canShare=%s, maxAmount=%.1f, blockReason=%s",
 				tostring(cacheData.metal.canShareMetal), cacheData.metal.maxMetalShareAmount or 0, cacheData.metal.blockReason or "none"))
 		end
 		if cacheData.energy then
-			LogInfo(string.format("Energy: canShare=%s, maxAmount=%.1f, blockReason=%s",
+			Spring.Log("[PIPELINE]", "DEBUG", string.format("Energy: canShare=%s, maxAmount=%.1f, blockReason=%s",
 				tostring(cacheData.energy.canShareEnergy), cacheData.energy.maxEnergyShareAmount or 0, cacheData.energy.blockReason or "none"))
 		end
 		if cacheData.canShareUnits ~= nil then
-			LogInfo(string.format("Units: canShare=%s, blockReason=%s",
+			Spring.Log("[PIPELINE]", "DEBUG", string.format("Units: canShare=%s, blockReason=%s",
 				tostring(cacheData.canShareUnits), cacheData.blockReason or "none"))
 		end
 	else
-		LogInfo("Cache MISS - Entry would be generated")
+		Spring.Log("[PIPELINE]", "DEBUG", "Cache MISS - Entry would be generated")
 
 		-- Log the context that would be used
-		LogInfo(string.format("Context: %s %s transfer from team %d to team %d",
+		Spring.Log("[PIPELINE]", "DEBUG", string.format("Context: %s %s transfer from team %d to team %d",
 			predicateScope, policyType, senderTeamID, receiverTeamID))
 
 		if senderResources and receiverResources then
-			LogInfo(string.format("Sender resources: Metal=%.1f/%.1f, Energy=%.1f/%.1f",
+			Spring.Log("[PIPELINE]", "DEBUG", string.format("Sender resources: Metal=%.1f/%.1f, Energy=%.1f/%.1f",
 				senderResources.metal.current, senderResources.metal.storage,
 				senderResources.energy.current, senderResources.energy.storage))
-			LogInfo(string.format("Receiver resources: Metal=%.1f/%.1f (slider=%.2f), Energy=%.1f/%.1f (slider=%.2f)",
+			Spring.Log("[PIPELINE]", "DEBUG", string.format("Receiver resources: Metal=%.1f/%.1f (slider=%.2f), Energy=%.1f/%.1f (slider=%.2f)",
 				receiverResources.metal.current, receiverResources.metal.storage, receiverResources.metal.shareSlider,
 				receiverResources.energy.current, receiverResources.energy.storage, receiverResources.energy.shareSlider))
 		end
@@ -226,123 +315,15 @@ end
 
 -- Generate a comprehensive pipeline report
 function PipelineLogger.LogFullReport()
-	LogInfo("=== COMPREHENSIVE TEAM TRANSFER TeamTransfer ===")
+	Spring.Log("[PIPELINE]", "DEBUG", "=== COMPREHENSIVE TEAM TRANSFER TeamTransfer ===")
 	local springRepo = ServiceRegistry.SpringRepository()
-	LogInfo(string.format("Generated at game frame: %d", springRepo.GetGameFrame()))
+	Spring.Log("[PIPELINE]", "DEBUG", string.format("Generated at game frame: %d", springRepo.GetGameFrame()))
 
 	PipelineLogger.LogTopology()
-	LogInfo("")
+	Spring.Log("[PIPELINE]", "DEBUG", "")
 	PipelineLogger.LogCacheState()
 
-	LogInfo("=== END TeamTransfer ===")
-end
-
--- Helper function to get player name for a team
-local function getPlayerNameForTeam(teamID)
-	local playerList = Spring.GetPlayerList()
-	for i = 1, #playerList do
-		local playerID = playerList[i]
-		local name, active, spectator, playerTeamID = Spring.GetPlayerInfo(playerID)
-		if active and not spectator and playerTeamID == teamID then
-			return name
-		end
-	end
-	return nil
-end
-
--- Topological sort moved to PolicyRepository
-
-local function logPipelinePlan(policyType, ctx, sortedEntries)
-	local entries = sortedEntries
-	
-	LogDebug("=== TeamTransfer for " .. tostring(policyType) .. " ===")
-	-- Show relevant context fields based on policy type
-	local contextStr = "Context: "
-	if policyType == SharedEnums.TransferCategory.MetalTransfer or policyType == SharedEnums.TransferCategory.EnergyTransfer or policyType == SharedEnums.TransferCategory.UnitTransfer then
-		contextStr = contextStr .. "areAlliedTeams=" .. tostring(ctx.areAlliedTeams) .. ", senderTeamId=" .. tostring(ctx.senderTeamId) .. ", receiverTeamId=" .. tostring(ctx.receiverTeamId)
-	elseif policyType == SharedEnums.TransferCategory.CommandValidation then
-		contextStr = contextStr .. "unitID=" .. tostring(ctx.unitID) .. ", cmdID=" .. tostring(ctx.cmdID) .. ", teamID=" .. tostring(ctx.teamID)
-	else
-		contextStr = contextStr .. "type=" .. tostring(policyType)
-	end
-	LogDebug(contextStr)
-	LogDebug("")
-	
-	-- Get team and player info for context
-	local teamInfo = ""
-	if ctx.senderTeamId then
-		local playerList = Spring.GetPlayerList(ctx.senderTeamId, true)
-		local playerName = playerList and playerList[1] and Spring.GetPlayerInfo(playerList[1], false) or "Unknown"
-		teamInfo = " (Team " .. ctx.senderTeamId .. " - " .. playerName .. ")"
-	end
-	
-	-- Show dependency tree structure
-	LogDebug("DEPENDENCY TREE" .. teamInfo .. ":")
-	for i = 1, #entries do
-		local entry = entries[i]
-		local policyName = entry.name or ("policy_" .. i)
-
-		-- Create tree visualization (ASCII-safe)
-		local treePrefix = ""
-		if i == #entries then
-			treePrefix = "+-- "
-		else
-			treePrefix = "|-- "
-		end
-
-		-- Show dependencies with arrows
-		local depsStr = ""
-		if entry.dependencies and #entry.dependencies > 0 then
-			depsStr = " <- [" .. table.concat(entry.dependencies, ", ") .. "]"
-		end
-
-		LogDebug(treePrefix .. policyName .. depsStr)
-	end
-	LogDebug("")
-	
-	-- Show execution plan with predicates
-	LogDebug("EXECUTION PLAN" .. teamInfo .. ":")
-	for i = 1, #entries do
-		local entry = entries[i]
-		local preds = entry.predicates
-		local policyName = entry.name or ("policy_" .. i)
-		
-		-- Simple predicate description
-		local predNames = {}
-		for j = 1, #preds do
-			local pred = preds[j]
-			if type(pred) == "function" then
-				predNames[j] = "predicate_" .. j
-			else
-				predNames[j] = pred.name or ("predicate_" .. j)
-			end
-		end
-		
-		LogDebug("Policy " .. i .. " (" .. policyName .. "): " .. #preds .. " predicates [" .. table.concat(predNames, ", ") .. "]")
-		
-		-- Check if predicates match
-		local ok = true
-		for j = 1, #preds do
-			local pred = preds[j]
-			local predFn = type(pred) == "function" and pred or pred.fn
-			local predName = type(pred) == "function" and ("predicate_" .. j) or (pred.name or "anon")
-			
-			if not predFn(ctx) then
-				ok = false
-				LogDebug("  -> [X] Predicate " .. j .. " (" .. predName .. ") = FALSE")
-				break
-			else
-				LogDebug("  -> [OK] Predicate " .. j .. " (" .. predName .. ") = TRUE")
-			end
-		end
-		
-		if ok then
-			LogDebug("  -> [GO] Policy " .. i .. " (" .. policyName .. ") WILL EXECUTE")
-		else
-			LogDebug("  -> [SKIP] Policy " .. i .. " (" .. policyName .. ") SKIPPED (predicate failed)")
-		end
-	end
-	LogDebug("=== END TeamTransfer ===")
+	Spring.Log("[PIPELINE]", "DEBUG", "=== END TeamTransfer ===")
 end
 
 local function isNonPlayerTeam(teamID)
@@ -454,47 +435,19 @@ local function evaluatePolicies(policyType, ctx)
 end
 
 ---@see luaui/types/team_transfer.lua Pipeline.RunResourceTransfer
-function Pipeline.RunAllowResourceTransfer(senderTeamId, receiverTeamId, resourceType, amount)
+function Pipeline:RunAllowResourceTransfer(senderTeamId, receiverTeamId, resourceType, amount)
 	local resourceName = (resourceType == SharedEnums.ResourceType.METAL) and SharedEnums.ResourceType.METAL or SharedEnums.ResourceType.ENERGY
 	local maxShare = 0
 	local receiverCur = 0
 	if resourceName == SharedEnums.ResourceType.METAL or resourceName == SharedEnums.ResourceType.ENERGY then
-		maxShare, receiverCur = SharingUtils.ComputeMaxShare(receiverTeamId, resourceName)
+		maxShare, receiverCur = self.teamRepo.ComputeMaxShare(receiverTeamId, resourceName)
 	end
 	local clampedAmount = math.min(math.max(amount, 0), maxShare)
 	-- Determine the transfer category based on resource type
 	local transferCategory = (resourceName == SharedEnums.ResourceType.METAL) and SharedEnums.TransferCategory.MetalTransfer or SharedEnums.TransferCategory.EnergyTransfer
 	
-	-- Calculate default expose data for all transfer categories
-	local defaultMetalTransfer = calculateDefaultMetalTransfer(senderTeamId, receiverTeamId)
-	local defaultEnergyTransfer = calculateDefaultEnergyTransfer(senderTeamId, receiverTeamId)
-	local defaultUnitTransfer = calculateDefaultUnitTransfer(senderTeamId, receiverTeamId)
-	local defaultCommandValidation = calculateDefaultCommandValidation(senderTeamId, receiverTeamId)
-	local defaultTeamEvents = calculateDefaultTeamEvents(senderTeamId)
-
-	---@type TeamTransferPolicyContext
-	local ctx = {
-		type = transferCategory,
-		senderTeamId = senderTeamId,
-		receiverTeamId = receiverTeamId,
-		resource = resourceName,
-		amount = amount,
-		amountClamped = clampedAmount,
-		maxShare = maxShare,
-		receiverCur = receiverCur,
-		cumulativeMetal = Repository.GetCumulativeMetalSent(senderTeamId),
-		areAlliedTeams = ServiceRegistry.TeamRepository().AreAlliedTeams(senderTeamId, receiverTeamId),
-		isCheatingEnabled = ServiceRegistry.SpringRepository().IsCheatingEnabled(),
-		senderIsNonPlayer = isNonPlayerTeam(senderTeamId),
-		receiverIsNonPlayer = isNonPlayerTeam(receiverTeamId),
-		gameFrame = ServiceRegistry.SpringRepository().GetGameFrame(),
-		-- Pre-calculated default expose data that policies can use or override
-		defaultMetalTransfer = defaultMetalTransfer,
-		defaultEnergyTransfer = defaultEnergyTransfer,
-		defaultUnitTransfer = defaultUnitTransfer,
-		defaultCommandValidation = defaultCommandValidation,
-		defaultTeamEvents = defaultTeamEvents,
-	}
+	local ctx = self:buildPolicyContext(senderTeamId, receiverTeamId)
+	
 	-- Run pre-process hooks to let policies augment context
 	ctx = PolicyHooks.RunPreProcess(ctx)
 	
@@ -504,7 +457,7 @@ function Pipeline.RunAllowResourceTransfer(senderTeamId, receiverTeamId, resourc
 	PolicyHooks.RunPostProcess(ctx, res)
 	-- Pipeline just returns the expose data - orchestrator handles the rest
 	if type(res) == "table" and res.expose then
-		LogDebug(string.format("[PIPELINE] Returning expose data for senderTeamId=%d", senderTeamId))
+		Spring.Log("[PIPELINE]", "debug",string.format("[PIPELINE] Returning expose data for senderTeamId=%d", senderTeamId))
 		return res.expose
 	end
 	
@@ -531,7 +484,7 @@ end
 -- Commands are executed directly in policies via RegisterPostTransfer hooks
 
 ---@see luaui/types/team_transfer.lua Pipeline.RunTeamEvent
-function Pipeline.RunTeamEvent(eventType, teamID, playerID, gameFrame)
+function Pipeline:RunTeamEvent(eventType, teamID, playerID, gameFrame)
 	-- Calculate default expose data for all transfer categories
 	local defaultMetalTransfer = calculateDefaultMetalTransfer(teamID, teamID)
 	local defaultEnergyTransfer = calculateDefaultEnergyTransfer(teamID, teamID)
@@ -570,25 +523,25 @@ local predicateExposeCache = {}
 
 -- Generate cache key from predicate combination and team context
 local function generatePredicateCacheKeyWithResources(predicateScope, policyType, senderTeamID, receiverTeamID, gameFrame)
-	LogDebug("[PIPELINE] generatePredicateCacheKeyWithResources called with:")
-	LogDebug("[PIPELINE]   predicateScope: " .. tostring(predicateScope))
-	LogDebug("[PIPELINE]   policyType: " .. tostring(policyType))
-	LogDebug("[PIPELINE]   senderTeamID: " .. tostring(senderTeamID))
-	LogDebug("[PIPELINE]   receiverTeamID: " .. tostring(receiverTeamID))
-	LogDebug("[PIPELINE]   gameFrame: " .. tostring(gameFrame))
+	Spring.Log("[PIPELINE]", "DEBUG", "[PIPELINE] generatePredicateCacheKeyWithResources called with:")
+	Spring.Log("[PIPELINE]", "DEBUG", "[PIPELINE]   predicateScope: " .. tostring(predicateScope))
+	Spring.Log("[PIPELINE]", "DEBUG", "[PIPELINE]   policyType: " .. tostring(policyType))
+	Spring.Log("[PIPELINE]", "DEBUG", "[PIPELINE]   senderTeamID: " .. tostring(senderTeamID))
+	Spring.Log("[PIPELINE]", "DEBUG", "[PIPELINE]   receiverTeamID: " .. tostring(receiverTeamID))
+	Spring.Log("[PIPELINE]", "DEBUG", "[PIPELINE]   gameFrame: " .. tostring(gameFrame))
 
 	-- Validate team IDs before proceeding
 	if not senderTeamID or senderTeamID < 0 then
-		LogError("[PIPELINE] generatePredicateCacheKeyWithResources called with invalid senderTeamID: " .. tostring(senderTeamID))
+		Spring.Log("[PIPELINE]", "error","[PIPELINE] generatePredicateCacheKeyWithResources called with invalid senderTeamID: " .. tostring(senderTeamID))
 		return "invalid_sender", nil, nil
 	end
 
 	if not receiverTeamID or receiverTeamID < 0 then
-		LogError("[PIPELINE] generatePredicateCacheKeyWithResources called with invalid receiverTeamID: " .. tostring(receiverTeamID))
+		Spring.Log("[PIPELINE]", "error","[PIPELINE] generatePredicateCacheKeyWithResources called with invalid receiverTeamID: " .. tostring(receiverTeamID))
 		return "invalid_receiver", nil, nil
 	end
 
-	LogDebug("[PIPELINE] Team ID validation passed, proceeding to get resource data")
+	Spring.Log("[PIPELINE]", "DEBUG", "[PIPELINE] Team ID validation passed, proceeding to get resource data")
 
 	-- Round down to nearest 10th frame for less aggressive cache invalidation
 	-- This gives ~3 frames of cache life at 30 FPS (0.1 seconds)
@@ -596,25 +549,16 @@ local function generatePredicateCacheKeyWithResources(predicateScope, policyType
 
 	-- Get complete resource data for both teams (single Spring API calls)
 	-- Handle cases where SharingUtils might not be available (test environment)
-	local senderResources = SharingUtils.GetTeamResourcesData(senderTeamID)
-	local receiverResources = SharingUtils.GetTeamResourcesData(receiverTeamID)
-
-	-- If SharingUtils fails (e.g., in test environment), provide mock data
-	if not senderResources or not senderResources.metal then
-		senderResources = {
-			metal = { current = 1000, storage = 2000, pull = 0, income = 0, expense = 0, shareSlider = 1 },
-			energy = { current = 1000, storage = 2000, pull = 0, income = 0, expense = 0, shareSlider = 1 }
+	local teamRepo = ServiceRegistry.TeamRepository()
+	local function defaultResources()
+		return {
+			metal = { current = 0, storage = 0, pull = 0, income = 0, expense = 0, shareSlider = 0 },
+			energy = { current = 0, storage = 0, pull = 0, income = 0, expense = 0, shareSlider = 0 }
 		}
 	end
+	local senderResources = (teamRepo and teamRepo.GetTeamResourcesData and teamRepo.GetTeamResourcesData(senderTeamID)) or defaultResources()
+	local receiverResources = (teamRepo and teamRepo.GetTeamResourcesData and teamRepo.GetTeamResourcesData(receiverTeamID)) or defaultResources()
 
-	if not receiverResources or not receiverResources.metal then
-		receiverResources = {
-			metal = { current = 1000, storage = 2000, pull = 0, income = 0, expense = 0, shareSlider = 1 },
-			energy = { current = 1000, storage = 2000, pull = 0, income = 0, expense = 0, shareSlider = 1 }
-		}
-	end
-
-	
 	-- Create hash of relevant context including both teams
 	local contextStr = string.format("%s_%s_%d_%d_%d_%.0f_%.0f_%.0f_%.0f_%.0f_%.0f_%.0f_%.0f", 
 		predicateScope, policyType, senderTeamID, receiverTeamID, roundedFrame, 
@@ -658,7 +602,7 @@ local function convertToSharedOutputTypes(rawExpose, policyType, senderTeamID, r
 end
 
 -- Evaluate all policies for a given predicate combination and return combined expose data
-local function evaluatePredicateCombination(predicateScope, policyType, senderTeamID, receiverTeamID, senderResources, receiverResources)
+local function evaluatePredicateCombination(pipeline, predicateScope, policyType, senderTeamID, receiverTeamID, senderResources, receiverResources)
 	local TT = (GG and GG.TeamTransfer) or TeamTransfer
 
 	local policiesTable
@@ -700,48 +644,15 @@ local function evaluatePredicateCombination(predicateScope, policyType, senderTe
 		senderTeamId = senderTeamID,
 		receiverTeamId = receiverTeamID,
 		predicateScope = predicateScope,
-		policies = {},
+		rules = {},
 		context = {},
-		result = {}
+		activePolicies = {}, -- Track which policies are active
 	}
-	
-	-- Calculate default expose data for all transfer categories
-	local defaultMetalTransfer = calculateDefaultMetalTransfer(senderTeamID, receiverTeamID)
-	local defaultEnergyTransfer = calculateDefaultEnergyTransfer(senderTeamID, receiverTeamID)
-	local defaultUnitTransfer = calculateDefaultUnitTransfer(senderTeamID, receiverTeamID)
-	local defaultCommandValidation = calculateDefaultCommandValidation(senderTeamID, receiverTeamID)
-	local defaultTeamEvents = calculateDefaultTeamEvents(senderTeamID)
 
-	-- Create a context for the predicate combination with specific receiver
-	---@type TeamTransferPolicyContext
-	local ctx = {
-		type = policyType,
-		senderTeamId = senderTeamID,
-		receiverTeamId = receiverTeamID,
-		amount = 0, -- State query, not actual transfer
-		resource = nil, -- State query - not a specific resource transfer
-		gameFrame = ServiceRegistry.SpringRepository().GetGameFrame(),
-		areAlliedTeams = (predicateScope == SharedEnums.Scope.Allied),
-		isCheatingEnabled = ServiceRegistry.SpringRepository().IsCheatingEnabled(),
-		senderIsNonPlayer = isNonPlayerTeam(senderTeamID),
-		receiverIsNonPlayer = isNonPlayerTeam(receiverTeamID),
-		-- Pre-calculated default expose data that policies can use or override
-		defaultMetalTransfer = defaultMetalTransfer,
-		defaultEnergyTransfer = defaultEnergyTransfer,
-		defaultUnitTransfer = defaultUnitTransfer,
-		defaultCommandValidation = defaultCommandValidation,
-		defaultTeamEvents = defaultTeamEvents,
-	}
+	local ctx = pipeline:buildPolicyContext(senderTeamID, receiverTeamID)
 
 	-- Store context in plan
-	plan.context = {
-		areAlliedTeams = ctx.areAlliedTeams,
-		isCheatingEnabled = ctx.isCheatingEnabled,
-		senderIsNonPlayer = ctx.senderIsNonPlayer,
-		receiverIsNonPlayer = ctx.receiverIsNonPlayer,
-		senderResources = senderResources,
-		receiverResources = receiverResources
-	}
+	plan.context = ctx
 	
 	-- Add additional context for resource transfers using provided resource data
 	if policyType == SharedEnums.TransferCategory.MetalTransfer or policyType == SharedEnums.TransferCategory.EnergyTransfer then
@@ -756,27 +667,194 @@ local function evaluatePredicateCombination(predicateScope, policyType, senderTe
 			ctx.maxStorageShare = 1000  -- Default storage share
 			ctx.receiverCur = 1000      -- Default current amount
 		end
-		ctx.cumulativeMetal = Repository.GetCumulativeMetalSent(senderTeamID)
+		-- Removed cumulativeMetal - policies can look this up themselves via TeamRepository
+	end
+
+	-- Helper function to build human-readable rule names
+	local function buildHumanReadableRuleName(entry, policyType)
+		local baseName
+
+		-- Try to build more descriptive names based on policy type and structure
+		if policyType == SharedEnums.TransferCategory.CommandValidation then
+			-- For command validation, include command type info
+			if entry.commandFlag then
+				baseName = string.format("policy:Allied():Command(%s)", entry.commandFlag:gsub("allow", ""):gsub("Commands", ""))
+			else
+				baseName = "policy:Allied():Commands()"
+			end
+		elseif policyType == SharedEnums.TransferCategory.UnitTransfer then
+			baseName = "policy:Allied():UnitTransfers()"
+		elseif policyType == SharedEnums.TransferCategory.MetalTransfer then
+			baseName = "policy:Allied():MetalTransfers()"
+		elseif policyType == SharedEnums.TransferCategory.EnergyTransfer then
+			baseName = "policy:Allied():EnergyTransfers()"
+		else
+			baseName = entry.name or "unknown_rule"
+		end
+
+		local name = baseName
+
+		-- Add condition information if available
+		if entry.conditions and #entry.conditions > 0 then
+			local conditionNames = {}
+			for _, condition in ipairs(entry.conditions) do
+				if condition.type == "positive" then
+					table.insert(conditionNames, "When(bothStorages)")
+				elseif condition.type == "negative" then
+					table.insert(conditionNames, "WhenNot(bothStorages)")
+				elseif condition.type == "inverse" then
+					-- This is an inverse condition from the fluent policy
+					table.insert(conditionNames, "WhenNot(bothStorages)")
+				end
+			end
+			if #conditionNames > 0 then
+				name = name .. ":" .. table.concat(conditionNames, ":")
+			end
+		end
+
+		-- Add the action (Allow/Deny)
+		if entry.inverse then
+			name = name .. ":Deny()"
+		else
+			name = name .. ":Allow()"
+		end
+
+		return name
+	end
+
+	-- Helper function to extract conditions from the fluent API structure
+	local function extractConditionsFromEntry(entry, policyType)
+		local conditions = {}
+
+		-- Add scope condition (Allied/Enemy)
+		local scopeCondition = {
+			name = "Allied()",
+			type = "scope"
+			-- No 'passed' for scope conditions - they're descriptive, not evaluative
+		}
+		
+		-- Check predicates for scope
+		if entry.predicates then
+			for _, pred in ipairs(entry.predicates) do
+				if pred.name == "areAlliedTeams" or pred.name == "targetAllied" then
+					scopeCondition.name = "Allied()"
+					break
+				elseif pred.name == "areEnemyTeams" or pred.name == "targetEnemy" then
+					scopeCondition.name = "Enemy()"
+					break
+				end
+			end
+		end
+		table.insert(conditions, scopeCondition)
+
+		-- Add category/type condition
+		if policyType == SharedEnums.TransferCategory.CommandValidation then
+			if entry.commandFlag then
+				local cmdType = entry.commandFlag:gsub("allow", ""):gsub("Commands", "")
+				table.insert(conditions, {
+					name = cmdType .. "()",
+					type = "scope"
+				})
+			else
+				table.insert(conditions, {
+					name = "Commands()",
+					type = "scope"
+				})
+			end
+		elseif policyType == SharedEnums.TransferCategory.UnitTransfer then
+			table.insert(conditions, {
+				name = "UnitTransfers()",
+				type = "scope"
+			})
+		elseif policyType == SharedEnums.TransferCategory.MetalTransfer then
+			table.insert(conditions, {
+				name = "MetalTransfers()",
+				type = "scope"
+			})
+		elseif policyType == SharedEnums.TransferCategory.EnergyTransfer then
+			table.insert(conditions, {
+				name = "EnergyTransfers()",
+				type = "scope"
+			})
+		end
+
+		-- Add When conditions
+		if entry.conditions and #entry.conditions > 0 then
+			for _, condition in ipairs(entry.conditions) do
+				if condition.type == "positive" then
+					table.insert(conditions, {
+						name = "When(bothStorages)",
+						type = "evaluative",
+						passed = true  -- Will be evaluated
+					})
+				elseif condition.type == "negative" then
+					table.insert(conditions, {
+						name = "WhenNot(bothStorages)",
+						type = "evaluative",
+						passed = true  -- Will be evaluated
+					})
+				elseif condition.type == "inverse" then
+					-- This is an inverse condition from the fluent policy
+					table.insert(conditions, {
+						name = "WhenNot(bothStorages)",
+						type = "evaluative",
+						passed = true  -- Will be evaluated
+					})
+				end
+			end
+		end
+
+		-- Add the action (Allow/Deny)
+		if entry.inverse then
+			table.insert(conditions, {
+				name = "Deny()",
+				type = "action"
+			})
+		else
+			table.insert(conditions, {
+				name = "Allow()",
+				type = "action"
+			})
+		end
+
+		return conditions
 	end
 
 	-- Evaluate policies and collect expose data
 	local combinedExpose = {}
-	
+
 	for i = 1, #entries do
 		local entry = entries[i]
 		local preds = entry.predicates
 		local policyName = entry.name or ("policy_" .. i)
 
-		-- Create policy info for plan
-		local policyInfo = {
-			name = policyName,
-			index = i,
-			predicates = {},
-			predicatesPassed = true,
-			executed = false,
-			result = nil,
-			dependencies = entry.dependencies or {}
+
+		-- Create rule info for plan - focus on rule definition, not execution state
+		local ruleInfo = {
+			name = buildHumanReadableRuleName(entry, policyType),
+			conditions = extractConditionsFromEntry(entry, policyType),
+			outcome = nil
 		}
+
+		-- Evaluate each condition based on predicates
+		local allConditionsPassed = true
+		
+		-- Update condition evaluation based on predicates
+		for _, condition in ipairs(ruleInfo.conditions) do
+			if condition.type == "evaluative" then
+				-- Only evaluative conditions have a pass/fail state
+				if entry.conditions then
+					for _, entryCondition in ipairs(entry.conditions) do
+						local condPassed = entryCondition.fn and entryCondition.fn(ctx) or false
+						condition.passed = condPassed
+						if not condPassed then
+							allConditionsPassed = false
+						end
+					end
+				end
+			end
+			-- Scope and action conditions don't have 'passed' - they're descriptive
+		end
 
 		-- Check if all predicates match for this combination
 		local ok = true
@@ -785,26 +863,18 @@ local function evaluatePredicateCombination(predicateScope, policyType, senderTe
 			local predFn = type(pred) == "function" and pred or pred.fn
 			local predResult = predFn(ctx)
 
-			-- Store predicate info in plan
-			table.insert(policyInfo.predicates, {
-				name = pred.name or ("predicate_" .. j),
-				passed = predResult
-			})
-
 			if not predResult then
 				ok = false
-				policyInfo.predicatesPassed = false
+				allConditionsPassed = false
 				break
 			end
 		end
 
-		if ok then
+		if ok and allConditionsPassed then
 			-- Run the policy handler to get expose data
 			ctx.lastResult = { allow = true }
 			local res = entry.handler(ctx)
-			policyInfo.executed = true
-			policyInfo.result = res
-
+			ruleInfo.outcome = res
 
 			if res and res.expose then
 				-- Merge expose data from this policy
@@ -832,56 +902,28 @@ local function evaluatePredicateCombination(predicateScope, policyType, senderTe
 			end
 		end
 
-		-- Add policy info to plan
-		table.insert(plan.policies, policyInfo)
+		-- Add rule info to plan
+		table.insert(plan.rules, ruleInfo)
 	end
 	
 	-- Convert to strongly-typed output format
 	local finalResult = convertToSharedOutputTypes(combinedExpose, policyType, senderTeamID, receiverTeamID, receiverResources)
 
-	-- Store final result in plan
-	plan.result = finalResult
+	-- Don't store overarching result in plan - each rule has its own outcome
+	-- plan.result = finalResult
 
-	return finalResult
+	return finalResult, plan
 end
 
 -- Duplicate function definition removed - using the one defined above
 
 -- Initialize/evaluate policies for a given context (direct access to evaluatePolicies)
 ---@see luaui/types/team_transfer.lua Pipeline.Initialize
-function Pipeline.Initialize(policyType, senderTeamID, receiverTeamID, options)
+function Pipeline:Initialize(policyType, senderTeamID, receiverTeamID, options)
 	options = options or {}
 	receiverTeamID = receiverTeamID or senderTeamID -- Default to self for state evaluation
 	
-	-- Calculate default expose data for all transfer categories
-	local defaultMetalTransfer = calculateDefaultMetalTransfer(senderTeamID, receiverTeamID)
-	local defaultEnergyTransfer = calculateDefaultEnergyTransfer(senderTeamID, receiverTeamID)
-	local defaultUnitTransfer = calculateDefaultUnitTransfer(senderTeamID, receiverTeamID, options.selectedUnitIDs)
-	local defaultCommandValidation = calculateDefaultCommandValidation(senderTeamID, receiverTeamID)
-	local defaultTeamEvents = calculateDefaultTeamEvents(senderTeamID)
-	
-	---@type TeamTransferPolicyContext
-	local ctx = {
-		type = policyType,
-		senderTeamId = senderTeamID,
-		receiverTeamId = receiverTeamID,
-		amount = options.amount or 0, -- Default to state query
-		resource = options.resource,
-		unitID = options.unitID,
-		unitDefID = options.unitDefID,
-		selectedUnitIDs = options.selectedUnitIDs,
-		gameFrame = ServiceRegistry.SpringRepository().GetGameFrame(),
-		areAlliedTeams = ServiceRegistry.TeamRepository().AreAlliedTeams(senderTeamID, receiverTeamID),
-		isCheatingEnabled = ServiceRegistry.SpringRepository().IsCheatingEnabled(),
-		senderIsNonPlayer = isNonPlayerTeam(senderTeamID),
-		receiverIsNonPlayer = isNonPlayerTeam(receiverTeamID),
-		-- Pre-calculated default expose data that policies can use or override
-		defaultMetalTransfer = defaultMetalTransfer,
-		defaultEnergyTransfer = defaultEnergyTransfer,
-		defaultUnitTransfer = defaultUnitTransfer,
-		defaultCommandValidation = defaultCommandValidation,
-		defaultTeamEvents = defaultTeamEvents,
-	}
+	local ctx = self:buildPolicyContext(senderTeamID, receiverTeamID)
 	
 	return evaluatePolicies(policyType, ctx)
 end
@@ -895,10 +937,9 @@ end
 ---@param unitID number? The unit ID being transferred
 ---@param unitDefID number? The unit definition ID
 ---@return boolean isValid Whether the transfer is valid
-function Pipeline.ValidateUnitTransfer(senderTeamID, receiverTeamID, unitID, unitDefID)
+function Pipeline:ValidateUnitTransfer(senderTeamID, receiverTeamID, unitID, unitDefID)
 	-- Get expose data for this team pair
-	local scope = ServiceRegistry.TeamRepository().AreAlliedTeams(senderTeamID, receiverTeamID) and SharedEnums.Scope.Allied or SharedEnums.Scope.Enemy
-	local exposeData = Pipeline.QueryExposeByPredicates(scope, SharedEnums.TransferCategory.UnitTransfer, senderTeamID, receiverTeamID)
+	local exposeData = self:GetExpose(senderTeamID, receiverTeamID, SharedEnums.TransferCategory.UnitTransfer)
 	
 	if not exposeData or not exposeData.canShareUnits then
 		return false
@@ -924,32 +965,35 @@ function Pipeline.ValidateUnitTransfer(senderTeamID, receiverTeamID, unitID, uni
 	return PolicyHooks.RunValidators(ctx, exposeResults)
 end
 
--- Query expose data by predicate combination with caching (team-aware)
----@see luaui/types/team_transfer.lua Pipeline.QueryExposeByPredicates
----Query expose data by predicates for a specific policy type and team pair
----@param predicateScope PredicateScope "allied" or "enemy"
----@param policyType TransferCategory The transfer category to query
+-- Query expose data for a specific transfer category (automatically determines allied/enemy scope)
+---@see luaui/types/team_transfer.lua Pipeline.GetExpose
 ---@param senderTeamID number Team ID sending the transfer
 ---@param receiverTeamID number Team ID receiving the transfer
----@return CombinedExposeOutput? Strongly-typed expose data for the specific sender->receiver combination
-function Pipeline.QueryExposeByPredicates(predicateScope, policyType, senderTeamID, receiverTeamID)
-	local springRepo = ServiceRegistry.SpringRepository()
+---@param transferCategory TransferCategory The transfer category to query
+---@return table The strongly-typed expose result based on transferCategory and active policies
+function Pipeline:GetExpose(senderTeamID, receiverTeamID, transferCategory)
+	-- Automatically determine scope from team relationship
+	local areAllied = self.teamRepo.AreAlliedTeams(senderTeamID, receiverTeamID)
+	local scope = areAllied and SharedEnums.Scope.Allied or SharedEnums.Scope.Enemy
+
+	local springRepo = self.springRepo
 	local gameFrame = springRepo.GetGameFrame()
-	
+
 	-- Get resource data and cache key in one call (avoiding duplicate Spring API calls)
-	local cacheKey, senderResources, receiverResources = generatePredicateCacheKeyWithResources(predicateScope, policyType, senderTeamID, receiverTeamID, gameFrame)
-	
-	-- Check cache first
-	if predicateExposeCache[cacheKey] then
-		return predicateExposeCache[cacheKey]
-	end
-	
+	local cacheKey, senderResources, receiverResources = generatePredicateCacheKeyWithResources(scope, transferCategory, senderTeamID, receiverTeamID, gameFrame)
+
+	-- Check cache first (disabled - cache key doesn't include unit data)
+	-- TODO: Implement proper caching that includes unit composition in cache key
+	-- if predicateExposeCache[cacheKey] then
+	-- 	return predicateExposeCache[cacheKey]
+	-- end
+
 	-- Cache miss - evaluate predicate combination for specific team pair
-	local combinedExpose = evaluatePredicateCombination(predicateScope, policyType, senderTeamID, receiverTeamID, senderResources, receiverResources)
-	
-	-- Cache the result
-	predicateExposeCache[cacheKey] = combinedExpose
-	
+	local combinedExpose, plan = evaluatePredicateCombination(self, scope, transferCategory, senderTeamID, receiverTeamID, senderResources, receiverResources)
+
+	-- Cache the result (disabled)
+	-- predicateExposeCache[cacheKey] = combinedExpose
+
 	-- Clean old cache entries (keep entries from last 5 rounded frames ~1.5 seconds at 30 FPS)
 	local roundedFrame = math.floor(gameFrame / 10) * 10
 	local keepFrames = {}
@@ -969,8 +1013,8 @@ function Pipeline.QueryExposeByPredicates(predicateScope, policyType, senderTeam
 			predicateExposeCache[key] = nil
 		end
 	end
-	
-	return combinedExpose
+
+	return combinedExpose, plan
 end
 
 ---@class CommandValidationResultWrapper
@@ -1090,9 +1134,10 @@ end
 ---@param senderTeamID number
 ---@param receiverTeamID number
 ---@return CombinedExposeOutputWrapper
-function Pipeline.QueryExpose(senderTeamID, receiverTeamID)
+function Pipeline:QueryExpose(senderTeamID, receiverTeamID)
 	-- For backward compatibility, return combined expose data for all categories
 	local result = {}
+	local lastPlan = nil
 
 	-- Query each category and add to result
 	local categories = {
@@ -1110,36 +1155,21 @@ function Pipeline.QueryExpose(senderTeamID, receiverTeamID)
 				type = category,
 				senderTeamId = senderTeamID,
 				receiverTeamId = receiverTeamID,
-				areAlliedTeams = ServiceRegistry.TeamRepository().AreAlliedTeams(senderTeamID, receiverTeamID),
-				isCheatingEnabled = (function()
-					local springRepo = ServiceRegistry.SpringRepository()
-					if not springRepo then
-						LogError("[PIPELINE] SpringRepository not found in service registry!")
-						return false
-					end
-					if not springRepo.IsCheatingEnabled then
-						LogError("[PIPELINE] SpringRepository missing IsCheatingEnabled method!")
-						return false
-					end
-					return springRepo.IsCheatingEnabled()
-				end)(),
-				gameFrame = (function()
-					local springRepo = ServiceRegistry.SpringRepository()
-					if not springRepo then
-						LogError("[PIPELINE] SpringRepository not found in service registry for GetGameFrame!")
-						return 1
-					end
-					if not springRepo.GetGameFrame then
-						LogError("[PIPELINE] SpringRepository missing GetGameFrame method!")
-						return 1
-					end
-					return springRepo.GetGameFrame()
-				end)(),
+				areAlliedTeams = self.teamRepo.AreAlliedTeams(senderTeamID, receiverTeamID),
+				isCheatingEnabled = self.springRepo.IsCheatingEnabled(),
+				gameFrame = self.springRepo.GetGameFrame(),
 				defaultCommandValidation = calculateDefaultCommandValidation(senderTeamID, receiverTeamID)
 			}
 
+			-- Provide repositories in ctx for policy When/Use predicates
+			ctx.repositories = {
+				SpringRepository = self.springRepo,
+				TeamRepository = self.teamRepo,
+				UnitRepository = self.unitRepo
+			}
+
 			-- Get policies table
-			local policiesTable = ServiceRegistry.PolicyRepository().GetPolicies()
+			local policiesTable = self.policyRepo.GetPolicies()
 
 			-- Evaluate command validation policies directly
 			local combinedExpose = {}
@@ -1168,10 +1198,15 @@ function Pipeline.QueryExpose(senderTeamID, receiverTeamID)
 			end
 
 			-- Provide defaults if no policies applied
-			exposeData = combinedExpose[SharedEnums.TransferCategory.CommandValidation] or Pipeline.CreateCommandValidationResult(false, false, false, "No policies allowed these commands")
+			exposeData = combinedExpose[SharedEnums.TransferCategory.CommandValidation] or {
+				allowGuardCommands = false,
+				allowRepairCommands = false,
+				allowReclaimCommands = false,
+				blockReason = "No policies allowed these commands"
+			}
 		else
-			-- For other categories, use the full QueryExposeByPredicates
-			exposeData = Pipeline.QueryExposeByPredicates(SharedEnums.Scope.Allied, category, senderTeamID, receiverTeamID)
+			-- For other categories, use GetExpose to automatically determine scope
+			exposeData, lastPlan = self:GetExpose(senderTeamID, receiverTeamID, category)
 		end
 
 		if exposeData then
@@ -1194,7 +1229,7 @@ function Pipeline.QueryExpose(senderTeamID, receiverTeamID)
 	-- result.GetMetalTransfer = CombinedExposeOutputWrapper.GetMetalTransfer
 	-- result.GetEnergyTransfer = CombinedExposeOutputWrapper.GetEnergyTransfer
 
-	return result
+	return result, lastPlan
 end
 
 -- Expose pipeline introspection functions
@@ -1205,24 +1240,18 @@ Pipeline.Debug = {
 	LogFullReport = PipelineLogger.LogFullReport,
 }
 
-LogInfo("[PIPELINE] pipeline.lua initialization completed successfully")
-LogDebug("[PIPELINE] Available pipeline functions:")
-local pipelineFunctions = {"RunAllowResourceTransfer", "RunAllowUnitTransfer", "RunAllowCommand", "RunTeamEvent", "QueryExpose", "QueryExposeByPredicates", "Initialize"}
+
+Spring.Log("[PIPELINE]", "DEBUG",  "[PIPELINE] pipeline.lua initialization completed successfully")
+Spring.Log("[PIPELINE]", "DEBUG", "[PIPELINE] Available pipeline functions:")
+local pipelineFunctions = {"RunAllowResourceTransfer", "RunAllowUnitTransfer", "RunAllowCommand", "RunTeamEvent", "QueryExpose", "GetExpose", "Initialize"}
 for _, funcName in ipairs(pipelineFunctions) do
 	if Pipeline[funcName] then
-		LogDebug("[PIPELINE]   ✓ " .. funcName .. " available")
+		Spring.Log("[PIPELINE]", "DEBUG", "[PIPELINE]   ✓ " .. funcName .. " available")
 	else
-		LogError("[PIPELINE]   ✗ " .. funcName .. " missing")
+		Spring.Log("[PIPELINE]", "DEBUG", "[PIPELINE]   ✗ " .. funcName .. " missing (not implemented yet)")
 	end
 end
 
--- Execute any deferred policy registrations with current context
-LogDebug("[PIPELINE] Executing deferred policy registrations")
-local context = {
-	Spring = _G.Spring,
-	VFS = _G.VFS,
-	UnitDefs = _G.UnitDefs
-}
-FluentPolicy.ExecuteDeferredPolicies(context)
+-- Deferred policies will be executed when the first pipeline instance is created
 
 return Pipeline

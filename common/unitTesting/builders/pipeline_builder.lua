@@ -6,12 +6,14 @@
 ---@field teamRepository any
 local PipelineBuilder = {}
 PipelineBuilder.__index = PipelineBuilder
+
+local Pipeline = require("luarules.gadgets.team_transfer.pipeline")
+
 local ServiceRegistry = require("luarules.gadgets.team_transfer.service_registry")
-local PolicyRepository = require("luarules.gadgets.team_transfer.repositories.policy_repository")
-local RealUnitRepository = require("luarules.gadgets.team_transfer.unit_repository")
 local UnitRepositoryBuilder = require("common/unitTesting/builders/unit_repository_builder")
 local SpringRepositoryBuilder = require("common/unitTesting/builders/spring_repository_builder")
 local TeamRepositoryBuilder = require("common/unitTesting/builders/team_repository_builder")
+local PolicyRepositoryBuilder = require("common/unitTesting/builders/policy_repository_builder")
 
 -- Default data for PipelineBuilder instances
 local defaultData = {
@@ -20,6 +22,7 @@ local defaultData = {
     policies = {},
     unitRepository = nil,
     teamRepository = nil,
+    policyRepository = nil,
 }
 
 ---Create a new PipelineBuilder instance
@@ -27,15 +30,24 @@ local defaultData = {
 ---@return PipelineBuilder
 function PipelineBuilder.new()
     local instance = setmetatable({}, PipelineBuilder)
-    -- Copy default data
     for k, v in pairs(defaultData) do
         instance[k] = v
     end
     -- Ensure repository builders exist by default so policies can rely on them
-    instance.springRepository = instance.springRepository or SpringRepositoryBuilder.new()
-    instance.teamRepository = instance.teamRepository or TeamRepositoryBuilder.new()
-    instance.unitRepository = instance.unitRepository or UnitRepositoryBuilder.new()
+    instance.springRepository = SpringRepositoryBuilder.new()
+    instance.teamRepository = TeamRepositoryBuilder.new()
+    instance.unitRepository = UnitRepositoryBuilder.new()
+    instance.policyRepository = PolicyRepositoryBuilder.new()
     return instance
+end
+
+---WithPolicyRepository manages policies
+---@param self PolicyBuilder
+---@param policyRepository table The Spring repository/builder to use
+---@return PolicyBuilder
+function PipelineBuilder:WithPolicyRepository(policyRepository)
+    self.policyRepository = policyRepository
+    return self
 end
 
 ---WithSpringRepository applies a Spring repository (mod options, etc.)
@@ -49,10 +61,11 @@ end
 
 ---WithPolicy adds a specific policy module for testing
 ---@param self PipelineBuilder
----@param policy table The loaded policy module
+---@param policy string SharedEnums.Policies
 ---@return PipelineBuilder
-function PipelineBuilder:WithPolicy(policy)
-    table.insert(self.policies, policy)
+function PipelineBuilder:WithPolicy(policy_enum)
+    -- Accept enum (string). If a module/table is provided (already required in tests), ignore.
+    self.policyRepository:AddEnum(policy_enum)
     return self
 end
 
@@ -78,12 +91,6 @@ end
 ---@param self PipelineBuilder
 ---@return TeamTransferPipeline
 function PipelineBuilder:Build()
-    -- Inject repository mocks into service registry
-
-    -- Clear any existing services for clean test state
-    ServiceRegistry.clear()
-
-    -- Register repository mocks (build them if they're builders)
     local springRepo = self.springRepository
     if type(springRepo) == "table" and springRepo.Build then
         springRepo = springRepo:Build()
@@ -102,45 +109,13 @@ function PipelineBuilder:Build()
     end
     ServiceRegistry.register("TeamRepository", teamRepo)
 
-    -- Register PolicyRepository (use real implementation for tests)
-    ServiceRegistry.register("PolicyRepository", PolicyRepository)
-
-    -- Load all policies so deferred registrations exist before pipeline executes them
-    if PolicyRepository and PolicyRepository.LoadAllPolicies then
-        PolicyRepository.LoadAllPolicies()
+    local policyRepo = self.policyRepository
+    if type(policyRepo) == "table" and policyRepo.Build then
+        policyRepo = policyRepo:Build()
     end
+    ServiceRegistry.register("PolicyRepository", policyRepo)
 
-    local springRepo = ServiceRegistry.SpringRepository()
-    if springRepo then
-        _G.Spring.GetGameFrame = springRepo.GetGameFrame
-        _G.Spring.IsCheatingEnabled = springRepo.IsCheatingEnabled
-        _G.Spring.GetModOptions = springRepo.GetModOptions
-        _G.Spring.Log = springRepo.Log
-    end
-    
-    -- Load the pipeline module fresh each time to reset any internal caches
-    if package and package.loaded then
-        package.loaded["luarules.gadgets.team_transfer.pipeline"] = nil
-    end
-    local pipeline = require("luarules.gadgets.team_transfer.pipeline")
-
-    -- Ensure global reference for modules that expect it
-    _G.TeamTransferPipeline = pipeline
-
-
-    -- Seed the real unit repository if a builder/mock was provided
-    if self and self.unitRepository and type(self.unitRepository) == "table" then
-        local realRepo = RealUnitRepository
-        local teamUnits = self.unitRepository.teamUnits or {}
-        for teamID, units in pairs(teamUnits) do
-            for unitID, unitDefID in pairs(units) do
-                if realRepo and type(realRepo.unitAdded) == "function" then
-                    realRepo.unitAdded(unitID, unitDefID, teamID)
-                end
-            end
-        end
-    end
-    return pipeline
+    return Pipeline.new()
 end
 
 
