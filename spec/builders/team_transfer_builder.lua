@@ -1,9 +1,9 @@
 -- Team Transfer Builder
 -- Main builder for complete team transfer system including pipeline and API
 
-local PipelineBuilder = require("common/unitTesting/builders/pipeline_builder")
-local SpringBuilder = require("common/unitTesting/builders/spring_builder")
-local TeamBuilder = require("common/unitTesting/builders/team_builder")
+local PipelineBuilder = require("spec/builders/pipeline_builder")
+local SpringBuilder = require("spec/builders/spring_builder")
+local TeamBuilder = require("spec/builders/team_builder")
 
 ---@class TeamTransferBuilder
 ---@field WithPolicy fun(policyName: string): TeamTransferBuilder
@@ -64,7 +64,7 @@ local buildFunction = function(instance)
     ---@return table{ pipeline: TeamTransferPipeline, api: TeamTransferAPI }
 
     -- Set up Spring environment using repository pattern
-    local Builders = require("common/unitTesting/builders/index")
+    local Builders = require("spec/builders/index")
     local springRepo = Builders.SpringRepository.new()
     -- Set up alliances between all teams for testing
     for i = 0, 10 do
@@ -78,7 +78,7 @@ local buildFunction = function(instance)
     _G.Spring = springMock
 
     -- Auto-load unit definitions
-    local UnitBuilder = require("common/unitTesting/builders/unit_builder")
+    local UnitBuilder = require("spec/builders/unit_builder")
     _G.UnitDefs = UnitBuilder.GetAllRealUnitDefs()
 
     -- Set up service registry and inject repositories

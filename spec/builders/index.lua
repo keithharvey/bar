@@ -1,12 +1,12 @@
-local TeamBuilder = require("common/unitTesting/builders/team_builder")
-local SpringBuilder = require("common/unitTesting/builders/spring_builder")
-local PipelineBuilder = require("common/unitTesting/builders/pipeline_builder")
-local UnitBuilder = require("common/unitTesting/builders/unit_builder")
-local UnitRepositoryBuilder = require("common/unitTesting/builders/unit_repository_builder")
-local TeamRepositoryBuilder = require("common/unitTesting/builders/team_repository_builder")
-local SpringRepositoryBuilder = require("common/unitTesting/builders/spring_repository_builder")
-local TeamTransferBuilder = require("common/unitTesting/builders/team_transfer_builder")
-local PolicyRepositoryBuilder = require("common/unitTesting/builders/policy_repository_builder")
+local TeamBuilder = require("spec/builders/team_builder")
+local SpringBuilder = require("spec/builders/spring_builder")
+local PipelineBuilder = require("spec/builders/pipeline_builder")
+local UnitBuilder = require("spec/builders/unit_builder")
+local UnitRepositoryBuilder = require("spec/builders/unit_repository_builder")
+local TeamRepositoryBuilder = require("spec/builders/team_repository_builder")
+local SpringRepositoryBuilder = require("spec/builders/spring_repository_builder")
+local TeamTransferBuilder = require("spec/builders/team_transfer_builder")
+local PolicyRepositoryBuilder = require("spec/builders/policy_repository_builder")
 
 ---@class Builders
 ---@field Team TeamBuilder

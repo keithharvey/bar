@@ -101,7 +101,7 @@ function widget:Initialize()
 		GetMaxMetalAmount = function(receiverTeamID)
 			if teamTransferCache[receiverTeamID] and teamTransferCache[receiverTeamID].ResourceTransfer then
 				local resourceData = teamTransferCache[receiverTeamID].ResourceTransfer
-				return resourceData.metal and resourceData.metal.maxMetalShareAmount or 5000
+				return resourceData.metal and resourceData.metal.maxShareAmount
 			end
 			return 5000
 		end,
@@ -109,7 +109,7 @@ function widget:Initialize()
 		GetMaxEnergyAmount = function(receiverTeamID)
 			if teamTransferCache[receiverTeamID] and teamTransferCache[receiverTeamID].ResourceTransfer then
 				local resourceData = teamTransferCache[receiverTeamID].ResourceTransfer
-				return resourceData.energy and resourceData.energy.maxEnergyShareAmount or 5000
+				return resourceData.energy and resourceData.energy.maxShareAmount or 5000
 			end
 			return 5000
 		end,

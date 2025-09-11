@@ -2,7 +2,7 @@
 -- Builds units for testing using real unit definition IDs
 
 local Units = require("gamedata/unit_names")
-local SharedUnitDefs = require("common/unitTesting/shared_unit_defs")
+local SharedUnitDefs = require("spec/shared_unit_defs")
 
 ---@class UnitDef
 ---@field name string

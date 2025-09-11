@@ -1,21 +1,8 @@
----@class TeamTransferPipeline
----@field RunAllowResourceTransfer fun(senderTeamId: number, receiverTeamId: number, resourceType: "metal"|"energy", amount: number): table?
----@field ValidateUnitTransfer fun(senderTeamID: number, receiverTeamID: number, unitID: number?, unitDefID: number?): boolean
----@field RunTeamEvent fun(eventType: string, teamID: number, playerID: number?, gameFrame: number): table?
----@field QueryExpose fun(senderTeamID: number, receiverTeamID: number): CombinedExposeOutput
----@field GetExpose fun(senderTeamID: number, receiverTeamID: number, transferCategory: TransferCategory): table?, table?
----@field Initialize fun(policyType: TransferCategory, senderTeamID: number, receiverTeamID: number, options: table?): table
 
--- Avoid creating a separate API instance; use GG.TeamTransfer when available
--- All VFS.Includes at the top
 local ServiceRegistry = VFS.Include("luarules/gadgets/team_transfer/service_registry.lua")
--- Removed shared_logging dependency
-local Repository = ServiceRegistry.UnitRepository()
 local PolicyHooks = VFS.Include("luarules/gadgets/team_transfer/policy_hooks.lua")
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
-local SharingUtils = VFS.Include("luarules/gadgets/team_transfer/sharing_utils.lua")
 local FluentPolicy = VFS.Include("luarules/gadgets/team_transfer/fluent_policy.lua")
-local ResultDefaults = VFS.Include("luarules/gadgets/team_transfer/result_defaults.lua")
 
 -- Shared logging utility
 -- Removed Logger dependencies - using Spring.Log directly
@@ -39,8 +26,8 @@ function Pipeline.new()
     local unitRepo = ServiceRegistry.UnitRepository()
     local policyRepo = ServiceRegistry.PolicyRepository()
 
-    -- Execute deferred policies on first pipeline creation
-    if not deferredPoliciesExecuted and FluentPolicy.HasDeferredPolicies() then
+    -- Execute deferred policies on pipeline creation
+    if FluentPolicy.HasDeferredPolicies() then
         local context = {
             Spring = _G.Spring,
             VFS = _G.VFS,
@@ -52,7 +39,6 @@ function Pipeline.new()
             }
         }
         FluentPolicy.ExecuteDeferredPolicies(context)
-        deferredPoliciesExecuted = true
     end
 
     local instance = setmetatable({
@@ -84,7 +70,9 @@ local function calculateDefaultMetalTransfer(senderTeamID, receiverTeamID)
 	return {
 		canShare = false,
 		maxMetalShareAmount = 0,
-		blockReason = "No policies allowed metal sharing"
+		blockReason = "No policies allowed metal sharing",
+		taxRate = 0,
+		remainingTaxFreeAllowance = 0
 	}
 end
 
@@ -98,7 +86,8 @@ local function calculateDefaultEnergyTransfer(senderTeamID, receiverTeamID)
 	return {
 		canShare = false,
 		maxEnergyShareAmount = 0,
-		blockReason = "No policies allowed energy sharing"
+		blockReason = "No policies allowed energy sharing",
+		taxRate = 0
 	}
 end
 
@@ -570,32 +559,18 @@ local function generatePredicateCacheKeyWithResources(predicateScope, policyType
 end
 
 local function convertToSharedOutputTypes(rawExpose, policyType, senderTeamID, receiverTeamID, receiverResources)
-  -- If rawExpose is nil or empty, return defaults for denial
-  if not rawExpose or (type(rawExpose) == "table" and next(rawExpose) == nil) then
-    if policyType == SharedEnums.TransferCategory.MetalTransfer then
-      return { canShare = false, maxMetalShareAmount = 0, blockReason = "No policies executed" }
-    elseif policyType == SharedEnums.TransferCategory.EnergyTransfer then
-      return { canShare = false, maxEnergyShareAmount = 0, blockReason = "No policies executed" }
-    elseif policyType == SharedEnums.TransferCategory.UnitTransfer then
-      return { canShareUnits = false, blockReason = "No policies executed" }
-    elseif policyType == SharedEnums.TransferCategory.CommandValidation then
-      return { allowGuardCommands = false, allowRepairCommands = false, allowReclaimCommands = false, blockReason = "No policies executed" }
-    end
-  end
-
-  -- Extract the specific category data from rawExpose
   if policyType == SharedEnums.TransferCategory.MetalTransfer then
     local metal = rawExpose[SharedEnums.TransferCategory.MetalTransfer]
-    return metal or { canShare = false, maxMetalShareAmount = 0, blockReason = "No metal sharing policies executed" }
+    return metal or calculateDefaultMetalTransfer(senderTeamID, receiverTeamID)
   elseif policyType == SharedEnums.TransferCategory.EnergyTransfer then
     local energy = rawExpose[SharedEnums.TransferCategory.EnergyTransfer]
-    return energy or { canShare = false, maxEnergyShareAmount = 0, blockReason = "No energy sharing policies executed" }
+    return energy or calculateDefaultEnergyTransfer(senderTeamID, receiverTeamID)
   elseif policyType == SharedEnums.TransferCategory.UnitTransfer then
     local unit = rawExpose[SharedEnums.TransferCategory.UnitTransfer]
-    return unit or { canShareUnits = false, blockReason = "No unit sharing policies executed" }
+    return unit or calculateDefaultUnitTransfer(senderTeamID, receiverTeamID)
   elseif policyType == SharedEnums.TransferCategory.CommandValidation then
     local cmd = rawExpose[SharedEnums.TransferCategory.CommandValidation]
-    return cmd or { allowGuardCommands = false, allowRepairCommands = false, allowReclaimCommands = false, blockReason = "No command policies executed" }
+    return cmd or calculateDefaultCommandValidation(senderTeamID, receiverTeamID)
   else
     error("Unknown transfer type: " .. tostring(policyType))
   end
@@ -646,37 +621,19 @@ local function evaluatePredicateCombination(pipeline, predicateScope, policyType
 		predicateScope = predicateScope,
 		rules = {},
 		context = {},
-		activePolicies = {}, -- Track which policies are active
+		activePolicies = {},
 	}
 
 	local ctx = pipeline:buildPolicyContext(senderTeamID, receiverTeamID)
 
 	-- Store context in plan
 	plan.context = ctx
-	
-	-- Add additional context for resource transfers using provided resource data
-	if policyType == SharedEnums.TransferCategory.MetalTransfer or policyType == SharedEnums.TransferCategory.EnergyTransfer then
-		-- Use the resource data already collected to avoid duplicate Spring API calls
-		-- Provide defaults if resource data is not available
-
-		-- TODO: this is not complete. we need to get the max storage share for energy as well.
-		if receiverResources and receiverResources.metal then
-			ctx.maxStorageShare = receiverResources.metal.storage - receiverResources.metal.current
-			ctx.receiverCur = receiverResources.metal.current
-		else
-			ctx.maxStorageShare = 1000  -- Default storage share
-			ctx.receiverCur = 1000      -- Default current amount
-		end
-		-- Removed cumulativeMetal - policies can look this up themselves via TeamRepository
-	end
 
 	-- Helper function to build human-readable rule names
 	local function buildHumanReadableRuleName(entry, policyType)
 		local baseName
 
-		-- Try to build more descriptive names based on policy type and structure
 		if policyType == SharedEnums.TransferCategory.CommandValidation then
-			-- For command validation, include command type info
 			if entry.commandFlag then
 				baseName = string.format("policy:Allied():Command(%s)", entry.commandFlag:gsub("allow", ""):gsub("Commands", ""))
 			else
@@ -730,7 +687,6 @@ local function evaluatePredicateCombination(pipeline, predicateScope, policyType
 		local scopeCondition = {
 			name = "Allied()",
 			type = "scope"
-			-- No 'passed' for scope conditions - they're descriptive, not evaluative
 		}
 		
 		-- Check predicates for scope
@@ -877,28 +833,8 @@ local function evaluatePredicateCombination(pipeline, predicateScope, policyType
 			ruleInfo.outcome = res
 
 			if res and res.expose then
-				-- Merge expose data from this policy
-				for category, data in pairs(res.expose) do
-					if not combinedExpose[category] then
-						combinedExpose[category] = {}
-					end
-
-					-- Merge policy data
-					for key, value in pairs(data) do
-						if key == "_policyData" then
-							-- Merge policy-specific data
-							if not combinedExpose[category]._policyData then
-								combinedExpose[category]._policyData = {}
-							end
-							for policyKey, policyValue in pairs(value) do
-								combinedExpose[category]._policyData[policyKey] = policyValue
-							end
-						else
-							-- Direct merge for other data
-							combinedExpose[category][key] = value
-						end
-					end
-				end
+				-- Merge expose data from this policy using mergeExposeData function
+				combinedExpose = mergeExposeData(combinedExpose, res.expose)
 			end
 		end
 
@@ -1130,10 +1066,10 @@ function CombinedExposeOutputWrapper.GetEnergyTransfer(self)
 end
 
 -- Legacy compatibility wrapper - maps old QueryExpose calls to new predicate-based system
----@deprecated Use Pipeline.QueryExposeByPredicates instead
 ---@param senderTeamID number
 ---@param receiverTeamID number
 ---@return CombinedExposeOutputWrapper
+---@return table
 function Pipeline:QueryExpose(senderTeamID, receiverTeamID)
 	-- For backward compatibility, return combined expose data for all categories
 	local result = {}

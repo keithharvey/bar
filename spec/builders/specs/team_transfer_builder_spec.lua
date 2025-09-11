@@ -1,5 +1,5 @@
 describe("Team Transfer Builder", function()
-    local Builders = require("common/unitTesting/builders/index")
+    local Builders = require("spec/builders/index")
     local pipeline, api
 
     before_each(function()

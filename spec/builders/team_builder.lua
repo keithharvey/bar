@@ -1,7 +1,7 @@
 -- Team Builder
 -- Builds individual team/player configurations with automatic ID generation
 
-local sequence = require("common/unitTesting/builders/sequence")
+local sequence = require("spec/builders/sequence")
 
 ---@class TeamData
 ---@field id number Team ID assigned by SpringBuilder

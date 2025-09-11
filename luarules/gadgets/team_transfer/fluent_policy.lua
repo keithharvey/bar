@@ -5,6 +5,7 @@
 
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
 local Predicates = VFS.Include("luarules/gadgets/team_transfer/predicates.lua")
+local PolicyHooks = VFS.Include("luarules/gadgets/team_transfer/policy_hooks.lua")
 
 local M = {}
 
@@ -238,6 +239,8 @@ end
 ---@class RootPolicyBuilder
 ---@field policyName string
 ---@field mod_option any
+---@field _initializeHandlers table
+---@field _postTransferHandlers table
 local RootPolicyBuilder = {}
 RootPolicyBuilder.__index = RootPolicyBuilder
 
@@ -247,7 +250,9 @@ RootPolicyBuilder.__index = RootPolicyBuilder
 function RootPolicyBuilder.new(policyName, modOption)
     return setmetatable({
         policyName = policyName,
-        mod_option = modOption
+        mod_option = modOption,
+        _initializeHandlers = {},
+        _postTransferHandlers = {}
     }, RootPolicyBuilder)
 end
 
@@ -260,6 +265,18 @@ end
 ---@return PolicyScopeBuilder
 function RootPolicyBuilder:Enemy()
     return PolicyScopeBuilder.new(self.policyName, false)
+end
+
+---Register an initialization handler that runs during gadget initialization
+---@param handler fun(context: table) Function that initializes the policy
+function RootPolicyBuilder:RegisterInitialize(handler)
+    table.insert(self._initializeHandlers, handler)
+end
+
+---Register a post-transfer handler that runs after successful transfers
+---@param handler fun(transferData: table) Function that handles post-transfer logic
+function RootPolicyBuilder:RegisterPostTransfer(handler)
+    table.insert(self._postTransferHandlers, handler)
 end
 
 -- Store deferred policy registrations
@@ -294,9 +311,9 @@ end
 ---Execute all deferred policy registrations
 ---@param context table Context containing Spring mocks and other dependencies
 function M.ExecuteDeferredPolicies(context)
-    print("DEBUG: ExecuteDeferredPolicies called with", #deferredPolicies, "policies")
-    for _, policy in ipairs(deferredPolicies) do
+    local executedPolicies = {}
 
+    for _, policy in ipairs(deferredPolicies) do
         -- Get mod option value for this policy
         local modOptionValue = nil
         if context.repositories and context.repositories.SpringRepository then
@@ -311,6 +328,32 @@ function M.ExecuteDeferredPolicies(context)
         local success, err = pcall(function()
             local builder = RootPolicyBuilder.new(policy.name, modOptionValue)
             policy.registrationFn(builder)
+
+            -- Mark this policy as executed
+            executedPolicies[policy.name] = true
+
+            -- Register any initialize handlers with PolicyHooks
+            for _, handler in ipairs(builder._initializeHandlers) do
+                -- Pass mod option context to handler
+                local wrappedHandler = function()
+                    handler({ mod_option = modOptionValue })
+                end
+                -- Use context's repositories to get PolicyHooks
+                if context.repositories and context.repositories.PolicyHooks then
+                    context.repositories.PolicyHooks.RegisterInitialize(wrappedHandler)
+                elseif PolicyHooks and PolicyHooks.RegisterInitialize then
+                    PolicyHooks.RegisterInitialize(wrappedHandler)
+                end
+            end
+
+            -- Register any post-transfer handlers with PolicyHooks
+            for _, handler in ipairs(builder._postTransferHandlers) do
+                if context.repositories and context.repositories.PolicyHooks then
+                    context.repositories.PolicyHooks.RegisterPostTransfer(handler)
+                elseif PolicyHooks and PolicyHooks.RegisterPostTransfer then
+                    PolicyHooks.RegisterPostTransfer(handler)
+                end
+            end
         end)
 
         if not success then
@@ -320,8 +363,14 @@ function M.ExecuteDeferredPolicies(context)
         end
     end
 
-    -- Clear the deferred policies after execution
-    deferredPolicies = {}
+    -- Remove executed policies from the deferred list
+    local remainingPolicies = {}
+    for _, policy in ipairs(deferredPolicies) do
+        if not executedPolicies[policy.name] then
+            table.insert(remainingPolicies, policy)
+        end
+    end
+    deferredPolicies = remainingPolicies
 end
 
 -- The following named no-op functions are F12 navigation targets for the fluent API.

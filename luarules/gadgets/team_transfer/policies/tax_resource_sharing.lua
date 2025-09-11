@@ -1,8 +1,6 @@
-local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
-local BuildingCategoryDefinitions = VFS.Include("luaui/Include/blueprint_substitution/definitions.lua")
-
-local PipelineLogger = VFS.Include("luarules/gadgets/team_transfer/pipeline_logger.lua")
-local FluentPolicy = VFS.Include("luarules/gadgets/team_transfer/fluent_policy.lua")
+local SharedEnums = require("luarules/gadgets/team_transfer/shared_enums")
+local PipelineLogger = require("luarules/gadgets/team_transfer/pipeline_logger")
+local FluentPolicy = require("luarules/gadgets/team_transfer/fluent_policy")
 
 local TaxResourceSharing = SharedEnums.Policies.TaxResourceSharing
 local TransferCategory = SharedEnums.TransferCategory
@@ -30,15 +28,16 @@ local function UseTaxResourceCheck(ctx, taxRate)
 		maxEnergyAmount = math.floor(energyDifference * (1 + taxRate))
 	end
 
-	---@type TaxResourceSharingMetalResult
+	---@type DefaultMetalTransferResult
 	local metalExpose = {
 		canShare = maxMetalAmount > 0,
 		amountSendable = maxMetalAmount,
 		blockReason = (maxMetalAmount <= 0) and "No metal available to send" or nil,
-		taxRate = taxRate
+		taxRate = taxRate,
+		remainingTaxFreeAllowance = 0
 	}
 
-	---@type TaxResourceSharingEnergyResult
+	---@type DefaultEnergyTransferResult
 	local energyExpose = {
 		canShare = maxEnergyAmount > 0,
 		amountSendable = maxEnergyAmount,
@@ -46,7 +45,6 @@ local function UseTaxResourceCheck(ctx, taxRate)
 		amountRemainingAllowance = maxEnergyAmount,
 		taxRate = taxRate
 	}
-
 
 	return {
 		expose = {
@@ -56,20 +54,34 @@ local function UseTaxResourceCheck(ctx, taxRate)
 	}
 end
 
-FluentPolicy.RegisterPolicy(TaxResourceSharing, function(policy)
-	if not policy.mod_option or policy.mod_option == 0 then
-		return
-	end
+-- Execute policy registration immediately instead of deferred
+local ServiceRegistry = VFS.Include("luarules/gadgets/team_transfer/service_registry.lua")
+local repo = ServiceRegistry.PolicyRepository()
 
-	policy:Allied():MetalTransfers()
-		:Use(function(ctx)
-			local taxRate = tonumber(policy.mod_option) or 0
-			return UseTaxResourceCheck(ctx, taxRate)
-		end)
+local taxRate = 0.3
 
-	policy:Allied():EnergyTransfers()
-		:Use(function(ctx)
-			local taxRate = tonumber(policy.mod_option) or 0
-			return UseTaxResourceCheck(ctx, taxRate)
-		end)
-end)
+if repo and repo.RegisterPolicyAction then
+    -- Register MetalTransfers policy
+    local metalHandler = function(ctx)
+        return UseTaxResourceCheck(ctx, taxRate)
+    end
+
+    repo.RegisterPolicyAction("metal_transfer", {
+        name = "tax_resource_sharing_metal",
+        predicates = {},
+        conditions = {},
+        handler = metalHandler
+    })
+
+    -- Register EnergyTransfers policy
+    local energyHandler = function(ctx)
+        return UseTaxResourceCheck(ctx, taxRate)
+    end
+
+    repo.RegisterPolicyAction("energy_transfer", {
+        name = "tax_resource_sharing_energy",
+        predicates = {},
+        conditions = {},
+        handler = energyHandler
+    })
+end

@@ -63,7 +63,7 @@
 
 ---Default Result data calculated by pipeline for each transfer category
 ---@class DefaultUnitTransferResult
----@field canShareUnits boolean Whether unit sharing is possible (based on sharing mode and team relationship)
+---@field canShare boolean Whether unit sharing is possible (based on sharing mode and team relationship)
 ---@field takeBypass boolean Whether take bypass is available for this team pair
 
 ---Default Result data calculated by pipeline for each transfer category
@@ -86,10 +86,11 @@
 ---@field resources { sender: TeamResourcesData, receiver: TeamResourcesData }
 ---Default Result data pre-calculated by pipeline - policies can use or override these
 ---@field defaultMetalTransfer DefaultMetalTransferResult Default metal transfer calculations
----@field defaultEnergyTransfer DefaultEnergyTransferResult Default energy transfer calculations  
+---@field defaultEnergyTransfer DefaultEnergyTransferResult Default energy transfer calculations
 ---@field defaultUnitTransfer DefaultUnitTransferResult Default unit transfer calculations
 ---@field defaultCommandValidation DefaultCommandValidationResult Default command validation
 ---@field defaultTeamEvents DefaultTeamEventsResult Default team event processing
+---@field repositories { SpringRepository: SpringRepository, TeamRepository: TeamRepository, UnitRepository: UnitRepository } Repository instances for policy access
 
 ---@class TeamTransferApplyCommands
 ---@field ClearLoad? number[] -- unitIDs to clear load orders from
@@ -110,15 +111,17 @@
 ---Default expose data calculated by pipeline for each transfer category
 ---@see luarules/gadgets/team_transfer/default_policies/metal_transfer.lua
 ---@class DefaultMetalTransferResult : DefaultResourceTransferResult
+---@field taxRate number Tax rate applied to metal transfers (0.0 to 1.0)
+---@field remainingTaxFreeAllowance number Cumulative metal threshold
 
 ---@see luarules/gadgets/team_transfer/default_policies/energy_transfer.lua
 ---@class DefaultEnergyTransferResult : DefaultResourceTransferResult
+---@field taxRate number Tax rate applied to energy transfers (0.0 to 1.0)
 
 
 ---Default unit transfer policy result - all unit transfer policies must extend this
 ---@see luarules/gadgets/team_transfer/default_policies/unit_transfer.lua
 ---@class DefaultUnitTransferResult
----@field canShareUnits boolean Whether unit sharing is allowed (required by pipeline)
 ---@field blockReason string? Reason why sharing is blocked (if blocked)
 
 ---Default command validation policy result - all command policies must extend this
@@ -152,21 +155,10 @@
 ---@see luarules/gadgets/team_transfer/policies/tax_resource_sharing.lua
 ---@class TaxResourceSharing
 
----@class 
-
----@see luarules/gadgets/team_transfer/policies/tax_resource_sharing.lua
----@class TaxResourceSharingMetalResult : DefaultMetalTransferResult
----@field taxRate number Tax rate applied to metal transfers (0.0 to 1.0)
-
----@see luarules/gadgets/team_transfer/policies/tax_resource_sharing.lua
----@class TaxResourceSharingEnergyResult : DefaultEnergyTransferResult
----@field taxRate number Tax rate applied to energy transfers (0.0 to 1.0)
-
 ---@see luarules/gadgets/team_transfer/policies/enemy_transfer.lua
 ---@class EnemyUnitTransferResult : UnitTransferResult
 
----@class MetalTransferResult : TaxResourceSharingMetalResult
----@field metalThreshold number Cumulative metal threshold
+---@class MetalTransferResult : DefaultMetalTransferResult
 
 ---@class EnergyTransferResult
 ---@field maxEnergyShareAmount number Maximum energy that can be shared to this specific receiver

@@ -1,34 +1,32 @@
-local Builders = require("common/unitTesting/builders/index")
+local Builders = require("spec/builders/index")
 local SharedEnums = require("luarules/gadgets/team_transfer/shared_enums")
 
 local PipelineLogger = require("luarules/gadgets/team_transfer/pipeline_logger")
 
-describe(SharedEnums.Policies.TaxResourceSharing .. " policy #clear", function()
+describe(SharedEnums.Policies.TaxResourceSharing .. " policy #tax", function()
     local taxRate = 0.3
     local spring = Builders.SpringRepository.new()
     spring:WithModOption(SharedEnums.Policies.TaxResourceSharing, taxRate)
 
-    local me = Builders.Team.Human()
-    local ally = Builders.Team.Human()
+    local sender = Builders.Team.Human()
+    local receiver = Builders.Team.Human()
 
     local teamRepository = Builders.TeamRepository.new()
-        :WithAlliedPlayers(me, ally)
+        :WithAlliedPlayers(sender, receiver)
 
     local pipelineBuilder = Builders.Pipeline.new()
         :WithSpringRepository(spring)
         :WithTeamRepository(teamRepository)
         :WithPolicy(SharedEnums.Policies.TaxResourceSharing)
-
     describe("simple taxation", function()
         local pipeline, result
 
         before_each(function()
-            -- Reset ally builder to original state for this test
-            ally:WithEnergy(500):WithMetal(500)
+            receiver:WithEnergy(500):WithMetal(500)
 
             pipeline = pipelineBuilder:Build()
 
-            result = pipeline:QueryExpose(me.id, ally.id)
+            result = pipeline:QueryExpose(sender.id, receiver.id)
         end)
 
         it("should ALLOW sharing of both METAL and ENERGY", function()
@@ -37,25 +35,23 @@ describe(SharedEnums.Policies.TaxResourceSharing .. " policy #clear", function()
         end)
 
         it("should limit the amount of ENERGY sendable by the tax rate", function()
-            local expectedResult = (me.energyAmount - ally.energyAmount) * (1 + taxRate)
+            local expectedResult = (sender.energyAmount - receiver.energyAmount) * (1 + taxRate)
             assert.equal(result.EnergyTransfer.amountSendable, expectedResult)
         end)
 
         it("should limit the amount of METAL sendable by the tax rate", function()
-            local maxSendable = (me.metalAmount - ally.metalAmount)
+            local maxSendable = (sender.metalAmount - receiver.metalAmount)
             local expectedResult = maxSendable * (1 + taxRate)
             assert.equal(result.MetalTransfer.amountSendable, expectedResult)
         end)
 
         it("should expose the tax rate", function()
-            -- Strongly-typed usage with EmmyLua type assertions
-            local et = pipeline:GetExpose(me.id, ally.id, SharedEnums.TransferCategory.EnergyTransfer)
-            ---@cast et TaxResourceSharingEnergyResult
-            local mt = pipeline:GetExpose(me.id, ally.id, SharedEnums.TransferCategory.MetalTransfer)
-            ---@cast mt TaxResourceSharingMetalResult
+            assert.equal(result.MetalTransfer.taxRate, taxRate)
+            assert.equal(result.EnergyTransfer.taxRate, taxRate)
+        end)
 
-            assert.equal(et.taxRate, taxRate)
-            assert.equal(mt.taxRate, taxRate)
+        it("should not have a remaining tax free allowance", function()
+            assert.equal(result.MetalTransfer.remainingTaxFreeAllowance, 0)
         end)
     end)
 
@@ -63,11 +59,11 @@ describe(SharedEnums.Policies.TaxResourceSharing .. " policy #clear", function()
         local pipeline, result
         before_each(function()
             -- Use late binding: modify the reusable builder
-            ally:WithEnergy(1000):WithMetal(1000)
+            receiver:WithEnergy(1000):WithMetal(1000)
 
             pipeline = pipelineBuilder:Build()
 
-            result = pipeline:QueryExpose(me.id, ally.id)
+            result, plan = pipeline:QueryExpose(sender.id, receiver.id)
         end)
 
         it("should NOT allow sharing when receiver is full", function()
@@ -75,9 +71,9 @@ describe(SharedEnums.Policies.TaxResourceSharing .. " policy #clear", function()
             assert.equal(result.EnergyTransfer.canShare, false)
         end)
 
-        it("should set amount sendable to 0", function()
-            assert.equal(result.EnergyTransfer.amountSendable, 0)
-            assert.equal(result.MetalTransfer.amountSendable, 0)
+        it("should set amount sendable to 0 #focus", function()
+            assert.equal(0, result.EnergyTransfer.amountSendable)
+            assert.equal(0, result.MetalTransfer.amountSendable)
         end)
     end)
 end)

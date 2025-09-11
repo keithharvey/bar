@@ -126,13 +126,13 @@ GG.TeamTransfer.RegisterUnitTransferValidator(function(ctx, unitResults)
 	
 	---@type UnitTransferValidationResult
 	local validationResult = {
-		canShare = unitSharingData.canShareUnits,
+		canShare = unitSharingData.canShare,
 		shareableCount = 0,
 		unshareableCount = 0,
 		blockReason = unitSharingData.blockReason
 	}
 	-- If the policy already blocked sharing globally, respect that
-	if not unitSharingData.canShareUnits then
+	if not unitSharingData.canShare then
 		return validationResult
 	end
 	

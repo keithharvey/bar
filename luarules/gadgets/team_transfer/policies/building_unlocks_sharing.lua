@@ -83,7 +83,6 @@ FluentPolicy.RegisterPolicy(SharedEnums.Policies.BuildingUnlocksSharing, functio
         :When(bothStorages)
         :Allow()
 
-    -- Unit transfer policy - allow when pinpointer built
     policy:Allied():UnitTransfers()
         :When(function(ctx)
             local unitRepo = ctx.repositories.UnitRepository

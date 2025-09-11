@@ -1,5 +1,5 @@
 describe("Team Transfer Builder Policy Validation", function()
-    local Builders = require("common/unitTesting/builders/index")
+    local Builders = require("spec/builders/index")
     local UnitSharingModes
 
     before_each(function()

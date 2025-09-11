@@ -3631,7 +3631,7 @@ function widget:MouseRelease(x, y, button)
         
         if energyPlayer ~= nil then
             -- Use unified team transfer system for energy sharing
-            WG.TeamTransfer.ShareEnergy(myTeamID, energyPlayer.team, shareAmount, energyPlayer.name or energyPlayer.orgname)
+            WG.TeamTransfer.ShareEnergy(myTeamID, energyPlayer.team, shareAmount)
             -- Clear energy sharing state
             sliderOrigin = nil
             maxShareAmount = nil
@@ -3642,7 +3642,7 @@ function widget:MouseRelease(x, y, button)
 
         if metalPlayer ~= nil and shareAmount then
             -- Use unified team transfer system for metal sharing
-            WG.TeamTransfer.ShareMetal(myTeamID, metalPlayer.team, shareAmount, metalPlayer.name or metalPlayer.orgname)
+            WG.TeamTransfer.ShareMetal(myTeamID, metalPlayer.team, shareAmount)
             -- Clear metal sharing state
             sliderOrigin = nil
             maxShareAmount = nil

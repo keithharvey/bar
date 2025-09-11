@@ -46,7 +46,13 @@ end
 
 ---@return PolicyRepository
 function ServiceRegistry.PolicyRepository()
-    return ServiceRegistry.get("PolicyRepository")
+    local repo = ServiceRegistry.get("PolicyRepository")
+    if not repo then
+        -- Create PolicyRepository on demand if it doesn't exist
+        repo = VFS.Include("luarules/gadgets/team_transfer/repositories/policy_repository.lua")
+        ServiceRegistry.register("PolicyRepository", repo)
+    end
+    return repo
 end
 
 return ServiceRegistry

@@ -10,10 +10,10 @@ PipelineBuilder.__index = PipelineBuilder
 local Pipeline = require("luarules.gadgets.team_transfer.pipeline")
 
 local ServiceRegistry = require("luarules.gadgets.team_transfer.service_registry")
-local UnitRepositoryBuilder = require("common/unitTesting/builders/unit_repository_builder")
-local SpringRepositoryBuilder = require("common/unitTesting/builders/spring_repository_builder")
-local TeamRepositoryBuilder = require("common/unitTesting/builders/team_repository_builder")
-local PolicyRepositoryBuilder = require("common/unitTesting/builders/policy_repository_builder")
+local UnitRepositoryBuilder = require("spec/builders/unit_repository_builder")
+local SpringRepositoryBuilder = require("spec/builders/spring_repository_builder")
+local TeamRepositoryBuilder = require("spec/builders/team_repository_builder")
+local PolicyRepositoryBuilder = require("spec/builders/policy_repository_builder")
 
 -- Default data for PipelineBuilder instances
 local defaultData = {
@@ -61,7 +61,7 @@ end
 
 ---WithPolicy adds a specific policy module for testing
 ---@param self PipelineBuilder
----@param policy string SharedEnums.Policies
+---@param policy_enum string SharedEnums.Policies
 ---@return PipelineBuilder
 function PipelineBuilder:WithPolicy(policy_enum)
     -- Accept enum (string). If a module/table is provided (already required in tests), ignore.
