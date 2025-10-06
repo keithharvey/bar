@@ -15,7 +15,7 @@ M.TransferCategory = {
 
 M.Policies = {
 	AlliedReclaim = "allied_reclaim",
-	AssistAlly = "assist_ally",
+	AlliedAssist = "allied_assist",
 	BuildingUnlocksSharing = "building_unlocks_sharing",
 	EnemyReclaim = "enemy_reclaim",
 	SystemCleanup = "system_cleanup",
@@ -28,7 +28,7 @@ M.BlockReason = {
 	NoPolicy = "no_policy",
 	PolicyDenied = "policy_denied",
 	UnitSharingMode = "unit_sharing_mode",
-	AssistAlly = "assist_ally",
+	AlliedAssist = "allied_assist",
 }
 
 M.Scope = {
@@ -67,7 +67,7 @@ M.UnitSharingMode = {
 	T2Cons = "t2cons"
 }
 
-M.AssistAllyMode = {
+M.AlliedAssistMode = {
 	Disabled = "disabled",
 	Enabled = "enabled"
 }

@@ -213,7 +213,8 @@ function SpringRepositoryBuilder:BuildSpringRepository()
             LOAD_ONTO = 1,
             SELFD = 2,
             GUARD = 25,
-            REPAIR = 40
+            REPAIR = 40,
+            RECLAIM = 90
         },
         GetModOptions = function()
             -- Start with comprehensive defaults, then override with explicitly set mod options
@@ -519,6 +520,7 @@ function SpringRepositoryBuilder:WithGlobalsDefined(fn, persist)
     _G.Spring.GetTeamRulesParam = springRepo.GetTeamRulesParam
     _G.Spring.SetTeamRulesParam = springRepo.SetTeamRulesParam
     _G.Spring.GetUnitDefID = springRepo.GetUnitDefID
+    _G.Spring.ValidUnitID = springRepo.ValidUnitID
 
     -- Use the builder's configured team data (returns proper TeamInfo objects)
     _G.Spring.GetTeamList = springRepo.GetTeamList

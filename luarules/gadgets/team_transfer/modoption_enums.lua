@@ -15,7 +15,7 @@ M.Options = {
 	PlayerEnergySendThreshold = "player_energy_send_threshold",
 
 	-- Allied construction options
-	AssistAlly = "assist_ally",
+	AlliedAssist = "allied_assist",
 	AlliedReclaim = "allied_reclaim",
 
 	-- System options

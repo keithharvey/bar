@@ -16,13 +16,6 @@ local UnitTransfer = VFS.Include("luarules/gadgets/team_transfer/actions/unit_tr
 ---@field policyCacheRepo PolicyCacheRepository
 ---@field contextFactory ContextFactory
 ---@field policyWhitelist? string[]
----@field GetResult fun(self: TeamTransferService, senderTeamID: number, receiverTeamID: number): CombinedPolicyResult, table?
----@field GetResultCategory fun(self: TeamTransferService, senderTeamID: number, receiverTeamID: number, transferCategory: TransferCategory, commandType?: string): table
----@field ValidateResourceTransfer fun(self: TeamTransferService, senderTeamID: number, receiverTeamID: number, resourceType: ResourceType, amount: number): boolean, string?, number?
----@field ValidateUnitTransfer fun(self: TeamTransferService, senderTeamID: number, receiverTeamID: number, unitID: number, unitDefID: number): boolean, string?
----@field ValidateCommand fun(self: TeamTransferService, senderTeamID: number, cmdID: number, cmdParams: table): boolean, string?
----@field RunPolicyInitializeHandlers fun(self: TeamTransferService, registerInitializeContext?: RegisterInitializePolicyContext)
----@field LoadAllPolicies fun(self: TeamTransferService)
 local TeamTransferService = {}
 TeamTransferService.__index = TeamTransferService
 
@@ -192,10 +185,37 @@ function TeamTransferService:GetResult(senderTeamID, receiverTeamID)
     return result, combinedPlan
 end
 
+
+---Evaluate policies for all team pairs to update cache every 300 frames
+---@param gameFrame number Current game frame
+function TeamTransferService:EvaluateAllTeamPolicies(gameFrame)
+    local teams = self.springRepo:GetTeamList()
+    if not teams then return end
+
+    -- Forward-only evaluation: only evaluate pairs where sender < receiver
+    for i = 1, #teams do
+        local senderTeam = teams[i]
+        if not senderTeam.isDead then
+            for j = i + 1, #teams do
+                local receiverTeam = teams[j]
+                if not receiverTeam.isDead then
+                    -- Evaluate policies for this team pair (this will update cache)
+                    self:GetResult(senderTeam.id, receiverTeam.id)
+                end
+            end
+        end
+    end
+end
+
 ---Handle GameFrame updates for cache maintenance
 ---@param gameFrame number Current game frame
 function TeamTransferService:GameFrame(gameFrame)
     self.policyCacheRepo:ClearExpired(gameFrame)
+
+    -- Evaluate all team policies every 300 frames to catch team changes
+    if gameFrame % 300 == 0 then
+        self:EvaluateAllTeamPolicies(gameFrame)
+    end
 end
 
 ---Validate a resource transfer
@@ -235,47 +255,32 @@ function TeamTransferService:ValidateUnitTransfer(senderTeamID, receiverTeamID, 
     end)
 end
 
----Validate a command (Guard/Repair)
----@param senderTeamID number
+---Validate a command (Guard/Repair/Reclaim)
+---@param unitID number
+---@param unitDefID number
+---@param teamID number
 ---@param cmdID number
 ---@param cmdParams table
+---@param cmdOptions table
+---@param cmdTag number
+---@param playerID number
 ---@return boolean allowed, string? reason
-function TeamTransferService:ValidateCommand(senderTeamID, cmdID, cmdParams)
+function TeamTransferService:ValidateCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions, cmdTag, playerID)
     local CMD = self.springRepo.CMD or Spring.CMD
 
-    -- Handle Guard commands
-    if cmdID == CMD.GUARD and #cmdParams >= 1 then
+    -- Only validate commands that have target units (Guard, Repair, Reclaim)
+    if (cmdID == CMD.GUARD or cmdID == CMD.REPAIR or cmdID == CMD.RECLAIM) and cmdParams and type(cmdParams) == "table" and #cmdParams >= 1 then
         local targetUnitID = cmdParams[1]
-        local targetUnitDef = UnitDefs[self.springRepo:GetUnitDefID(targetUnitID)]
 
-        if not targetUnitDef then
+        -- Check if target unit exists
+        if not self.springRepo.ValidUnitID(targetUnitID) then
             return false, "Invalid target unit"
         end
 
-        local validationResults = self.engine:validateItems(SharedEnums.TransferCategory.GuardTransfer, {targetUnitID}, function(unitId)
-            return self.contextFactory.guard(senderTeamID, unitId, targetUnitDef)
-        end)
+        local context = self.contextFactory.command(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions, cmdTag, playerID)
 
-        -- Return first validation result (should only be one)
-        local result = validationResults[1]
-        if result and not result.ok then
-            return false, result.reason or "Command validation failed"
-        end
-
-        return true
-    end
-
-    -- Handle Repair commands
-    if cmdID == CMD.REPAIR and #cmdParams >= 1 then
-        local targetUnitID = cmdParams[1]
-        local targetUnitDef = UnitDefs[self.springRepo:GetUnitDefID(targetUnitID)]
-
-        if not targetUnitDef then
-            return false, "Invalid target unit"
-        end
-
-        local validationResults = self.engine:validateItems(SharedEnums.TransferCategory.RepairTransfer, {targetUnitID}, function(unitId)
-            return self.contextFactory.repair(senderTeamID, unitId, targetUnitDef)
+        local validationResults = self.engine:validateItems(context.transferCategory, {targetUnitID}, function(unitId)
+            return context
         end)
 
         -- Return first validation result (should only be one)

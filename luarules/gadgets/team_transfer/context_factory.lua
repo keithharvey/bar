@@ -11,7 +11,8 @@ local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua
 ---@field resource fun(senderTeamId: number, receiverTeamId: number, resourceType: string, amount: number, policyResult: ResourcePolicyResult): ResourceTransferPolicyContext
 ---@field unitTransfer fun(senderTeamId: number, receiverTeamId: number, unitIds: number[], given: boolean?, policyResult: UnitTransferPolicyResult): UnitTransferContext
 ---@field resourceTransfer fun(senderTeamId: number, receiverTeamId: number, resourceType: ResourceType, desiredAmount: number, policyResult: ResourcePolicyResult): ResourceTransferContext
----@field commandValidation fun(senderTeamID: number, receiverTeamID: number, commandType: string, commandParams: table): CommandValidationContext
+---@field commandValidation fun(senderTeamID: number, receiverTeamID: number, commandType: string, commandParams: table): table
+---@field command fun(unitID: number, unitDefID: number, teamID: number, cmdID: number, cmdParams: table, cmdOptions: table, cmdTag: number, playerID: number): CommandTransferContext
 local ContextFactory = {}
 
 ---Create a context factory with repositories captured in closures
@@ -160,7 +161,7 @@ function ContextFactory.create(springRepo)
     ---@param receiverTeamID number
     ---@param commandType string
     ---@param commandParams? table
-    ---@return CommandValidationPolicyContext
+    ---@return CommandValidationContext
     local function commandValidation(senderTeamID, receiverTeamID, commandType, commandParams)
         return buildContext(senderTeamID, receiverTeamID, {
             transferCategory = commandType,
@@ -168,27 +169,59 @@ function ContextFactory.create(springRepo)
         })
     end
 
-    ---@param senderTeamID number
-    ---@param targetUnitID number
-    ---@param targetUnitDef table
-    ---@return GuardTransferContext
-    local function guard(senderTeamID, targetUnitID, targetUnitDef)
-        local targetTeamID = springRepo:GetUnitTeam(targetUnitID)
-        return buildContext(senderTeamID, targetTeamID, {
-            transferCategory = SharedEnums.TransferCategory.GuardTransfer,
-            targetUnitID = targetUnitID,
-            targetUnitDef = targetUnitDef
-        })
-    end
+    ---Create command transfer context
+    ---@param unitID number
+    ---@param unitDefID number
+    ---@param teamID number
+    ---@param cmdID number
+    ---@param cmdParams table
+    ---@param cmdOptions table
+    ---@param cmdTag number
+    ---@param playerID number
+    ---@return CommandTransferContext
+    local function command(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions, cmdTag, playerID)
+        local targetUnitID = cmdParams[1]
+        local targetUnitDef = nil
+        if targetUnitID then
+            -- Find the unit in the built teams (for tests - use unit wrapper properties)
+            local builtTeams = springRepo._builtTeams
+            if builtTeams then
+                for _, team in pairs(builtTeams) do
+                    if team.units and team.units[targetUnitID] then
+                        targetUnitDef = team.units[targetUnitID]
+                        break
+                    end
+                end
+            end
+            -- Fallback to global UnitDefs if unit wrapper doesn't have properties
+            if not targetUnitDef or (not targetUnitDef.buildOptions and not targetUnitDef.canAssist) then
+                local unitDefId = springRepo:GetUnitDefID(targetUnitID)
+                if unitDefId and _G.UnitDefs then
+                    targetUnitDef = _G.UnitDefs[unitDefId]
+                end
+            end
+        end
+        local targetTeamID = targetUnitID and springRepo:GetUnitTeam(targetUnitID) or teamID
 
-    ---@param senderTeamID number
-    ---@param targetUnitID number
-    ---@param targetUnitDef table
-    ---@return RepairTransferContext
-    local function repair(senderTeamID, targetUnitID, targetUnitDef)
-        local targetTeamID = springRepo:GetUnitTeam(targetUnitID)
-        return buildContext(senderTeamID, targetTeamID, {
-            transferCategory = SharedEnums.TransferCategory.RepairTransfer,
+        -- Determine transfer category based on command
+        local transferCategory
+        if cmdID == (springRepo.CMD or Spring.CMD).GUARD then
+            transferCategory = SharedEnums.TransferCategory.GuardTransfer
+        elseif cmdID == (springRepo.CMD or Spring.CMD).REPAIR then
+            transferCategory = SharedEnums.TransferCategory.RepairTransfer
+        elseif cmdID == (springRepo.CMD or Spring.CMD).RECLAIM then
+            transferCategory = SharedEnums.TransferCategory.ReclaimTransfer
+        end
+
+        return buildContext(teamID, targetTeamID, {
+            transferCategory = transferCategory,
+            unitID = unitID,
+            unitDefID = unitDefID,
+            cmdID = cmdID,
+            cmdParams = cmdParams,
+            cmdOptions = cmdOptions,
+            cmdTag = cmdTag,
+            playerID = playerID,
             targetUnitID = targetUnitID,
             targetUnitDef = targetUnitDef
         })
@@ -202,8 +235,7 @@ function ContextFactory.create(springRepo)
         unitTransfer = unitTransfer,
         resourceTransfer = resourceTransfer,
         commandValidation = commandValidation,
-        guard = guard,
-        repair = repair
+        command = command
     }
 end
 

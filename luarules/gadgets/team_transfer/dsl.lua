@@ -112,17 +112,13 @@ function DSL:RegisterUnitTransferValidator(validatorFn)
     return self
 end
 
----@param validatorFn fun(ctx: GuardTransferContext): ValidationResult
+---@param validatorFn fun(ctx: CommandTransferContext): ValidationResult
 ---@return DSL
-function DSL:RegisterGuardValidator(validatorFn)
+function DSL:RegisterCommandValidator(validatorFn)
+    -- Register for all command transfer categories
     self.engine:registerValidator(SharedEnums.TransferCategory.GuardTransfer, validatorFn, self.policyName)
-    return self
-end
-
----@param validatorFn fun(ctx: RepairTransferContext): ValidationResult
----@return DSL
-function DSL:RegisterRepairValidator(validatorFn)
     self.engine:registerValidator(SharedEnums.TransferCategory.RepairTransfer, validatorFn, self.policyName)
+    self.engine:registerValidator(SharedEnums.TransferCategory.ReclaimTransfer, validatorFn, self.policyName)
     return self
 end
 

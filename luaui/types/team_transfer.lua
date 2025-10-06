@@ -75,16 +75,8 @@
 
 -- Command Transfer Actions
 
----@class GuardTransferPolicyResult
----@field allowGuardCommands boolean
----@field blockReason string?
-
----@class RepairTransferPolicyResult
----@field allowRepairCommands boolean
----@field blockReason string?
-
----@class ReclaimTransferPolicyResult
----@field allowReclaimCommands boolean
+---@class CommandTransferPolicyResult
+---@field allowCommands boolean
 ---@field blockReason string?
 
 --- Policy Context
@@ -147,14 +139,23 @@
 ---@field unitID number
 ---@field policyResult UnitTransferPolicyResult
 
+---@class CommandTransferContext : PolicyActionContext
+---@field unitID number Unit being commanded
+---@field unitDefID number Unit definition ID
+---@field cmdID number Command ID
+---@field cmdParams table Command parameters
+---@field cmdOptions table Command options
+---@field cmdTag number Command tag
+---@field playerID number Player issuing command
+---@field targetUnitID number Target unit ID (for guard/repair/reclaim)
+---@field targetUnitDef table Target unit definition
+
 
 ---@class CombinedPolicyResult
 ---@field metal_transfer ResourcePolicyResult
 ---@field energy_transfer ResourcePolicyResult
 ---@field unit_transfer UnitTransferPolicyResult
----@field guard_transfer GuardTransferPolicyResult
----@field repair_transfer RepairTransferPolicyResult
----@field reclaim_transfer ReclaimTransferPolicyResult
+---@field command_transfer CommandTransferPolicyResult
 
 
 -- Sharing Mode Types

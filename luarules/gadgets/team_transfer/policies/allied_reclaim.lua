@@ -5,12 +5,16 @@ local ModOptions = VFS.Include("luarules/gadgets/team_transfer/modoption_enums.l
 local module = {
 	name = SharedEnums.Policies.AlliedReclaim,
     func = function(builder)
-		builder:Allied():Reclaim():Allow()
+        local reclaimValue = builder.mod_options[ModOptions.Options.AlliedReclaim]
+
+		if reclaimValue == SharedEnums.AlliedReclaimMode.Disabled then
+			builder:Reclaim():Deny(SharedEnums.BlockReason.PolicyDenied)
+		else
+			builder:Allied():Reclaim():Allow()
+		end
     end,
     enabled = function(ctx)
-        local modOptions = ctx.repositories.springRepo:GetModOptions()
-        local reclaimValue = modOptions[ModOptions.Options.AlliedReclaim]
-        return reclaimValue == SharedEnums.AlliedReclaimMode.Enabled
+        return true
     end
 }
 return module

@@ -6,6 +6,10 @@ local SharingModeRepository = VFS.Include("luarules/gadgets/team_transfer/reposi
 -- Team Transfer Main Gadget
 local TeamTransferService = VFS.Include("luarules/gadgets/team_transfer/team_transfer_service.lua")
 
+-- Logging
+local Logger = VFS.Include("luarules/gadgets/team_transfer/shared_logging.lua")
+local LogDebug = Logger.LogDebug
+local LogError = Logger.LogError
 
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
 
@@ -21,184 +25,106 @@ function gadget:GetInfo()
 	}
 end
 
-Spring.Echo("[TEAMTRANSFER] About to check synced code")
-
 if gadgetHandler:IsSyncedCode() then
-	Spring.Echo("[TEAMTRANSFER] SYNCED - Entering synced block")
-
-	-- Synced variables
+	---@type TeamTransferService
 	local TeamTransfer
 
 	function gadget:Initialize()
 		local springRepo = SpringRepository.new()
-
-		-- Create repositories
-		local sharingMode = springRepo:GetModOptions()[ModOptions.Options.SharingMode]
-		local sharingModeRepo = SharingModeRepository.new()
-		local config = sharingModeRepo:LoadSharingMode(sharingMode)
-
 		local policyRepo = PolicyRepository.new()
+		local sharingModeRepo = SharingModeRepository.new()
 
 		TeamTransfer = TeamTransferService.new(springRepo, policyRepo, sharingModeRepo, nil)
-
 		GG.TeamTransfer = TeamTransfer
-		TeamTransfer:RunPolicyInitializeHandlers()
-		LogError("[TEAMTRANSFER] SYNCED - Initialize complete")
 	end
 	
-	-- Cache refresh tracking
-	local lastCacheRefresh = 0
-	local CACHE_REFRESH_INTERVAL = 300
-	local lastTeamCount = 0
-	local lastAllianceState = {}
 	
 	function gadget:GameFrame(frameNum)
-		-- Periodically refresh cache to pick up team/alliance changes
-		if frameNum > 0 and frameNum - lastCacheRefresh > CACHE_REFRESH_INTERVAL then
-			local currentTeams = Spring.GetTeamList()
-			local teamCountChanged = #currentTeams ~= lastTeamCount
-			
-			-- Check if alliances have changed
-			local allianceChanged = false
-			local currentAlliances = {}
-			for i, teamA in ipairs(currentTeams) do
-				for j, teamB in ipairs(currentTeams) do
-					if i ~= j then
-						local key = teamA .. "_" .. teamB
-						local allied = Spring.AreTeamsAllied(teamA, teamB)
-						if lastAllianceState[key] ~= allied then
-							allianceChanged = true
-						end
-						currentAlliances[key] = allied
-					end
-				end
-			end
-			
-			-- TESTING: Force cache refresh every 5 seconds to test communication
-			local forceRefresh = true  -- Remove this line once communication is verified
-			
-			if teamCountChanged or allianceChanged or forceRefresh then
-				TeamTransfer:Initialize()
-				lastTeamCount = #currentTeams
-				lastAllianceState = currentAlliances
-			end
-			
-			lastCacheRefresh = frameNum
-		end
-
-		-- Forward GameFrame to service for cache maintenance
 		if TeamTransfer and TeamTransfer.GameFrame then
 			TeamTransfer:GameFrame(frameNum)
 		end
 	end
 	
 	function gadget:PlayerChanged(playerID)
-		LogDebug(string.format("[TEAMTRANSFER] SYNCED - PlayerChanged %d, refreshing cache", playerID))
-		if TeamTransfer and TeamTransfer.Initialize then
-			TeamTransfer:Initialize()
-		end
+		-- Cache is maintained automatically every 300 frames
 	end
-	
+
 	function gadget:PlayerAdded(playerID)
-		LogDebug(string.format("[TEAMTRANSFER] SYNCED - PlayerAdded %d, refreshing cache", playerID))
-		if TeamTransfer and TeamTransfer.Initialize then
-			TeamTransfer:Initialize()
-		end
+		-- Cache is maintained automatically every 300 frames
 	end
-	
+
 	function gadget:PlayerRemoved(playerID, reason)
-		LogDebug(string.format("[TEAMTRANSFER] SYNCED - PlayerRemoved %d, refreshing cache", playerID))
-		if TeamTransfer and TeamTransfer.Initialize then
-			TeamTransfer:Initialize()
-		end
+		-- Cache is maintained automatically every 300 frames
 	end
 
 	-- Spring callback implementations
 	function gadget:AllowResourceTransfer(oldTeamID, newTeamID, resourceType, amount)
-		LogDebug(string.format("[TEAMTRANSFER] AllowResourceTransfer called - %s->%s, type=%s, amount=%s", 
-			tostring(oldTeamID), tostring(newTeamID), tostring(resourceType), tostring(amount)))
-		
-		if TeamTransfer and TeamTransfer.ValidateResourceTransfer then
-			local resourceTypeEnum = (resourceType == "metal") and SharedEnums.ResourceType.METAL or SharedEnums.ResourceType.ENERGY
-			local allowed = TeamTransfer:ValidateResourceTransfer(oldTeamID, newTeamID, resourceTypeEnum, amount)
-			LogDebug(string.format("[TEAMTRANSFER] AllowResourceTransfer result: %s", tostring(allowed)))
-			return allowed
-		end
-		return true
+		local resourceTypeEnum = (resourceType == "metal") and SharedEnums.ResourceType.METAL or SharedEnums.ResourceType.ENERGY
+		local allowed = TeamTransfer:ValidateResourceTransfer(oldTeamID, newTeamID, resourceTypeEnum, amount)
+		return allowed
 	end
 
 	function gadget:AllowUnitTransfer(unitID, unitDefID, oldTeamID, newTeamID, capture)
-		LogDebug(string.format("[TEAMTRANSFER] AllowUnitTransfer called - unitID=%s, %s->%s, capture=%s", 
-			tostring(unitID), tostring(oldTeamID), tostring(newTeamID), tostring(capture)))
-		
 		if capture then
 			return true  -- Captures always allowed
 		end
 		
-		if TeamTransfer and TeamTransfer.ValidateUnitTransfer then
-			local allowed = TeamTransfer:ValidateUnitTransfer(oldTeamID, newTeamID, unitID, unitDefID)
-			LogDebug(string.format("[TEAMTRANSFER] AllowUnitTransfer result: %s", tostring(allowed)))
-			return allowed
-		end
-		return true
+		local allowed = TeamTransfer:ValidateUnitTransfer(oldTeamID, newTeamID, unitID, unitDefID)
+		return allowed
 	end
 
 	function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions, cmdTag, playerID, fromSynced, fromLua)
-		LogDebug(string.format("[TEAMTRANSFER] AllowCommand called - unitID=%s, teamID=%s, cmdID=%s, playerID=%s",
-			tostring(unitID), tostring(teamID), tostring(cmdID), tostring(playerID)))
-
 		-- Use team transfer service for command validation
-		if TeamTransfer and TeamTransfer.ValidateCommand then
-			local allowed, reason = TeamTransfer:ValidateCommand(teamID, cmdID, cmdParams)
-			if not allowed then
-				LogDebug(string.format("[TEAMTRANSFER] Command blocked: %s", reason or "Unknown reason"))
-				return false
-			end
-		end
 
-		return true
+		local allowed, reason = TeamTransfer:ValidateCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOptions, cmdTag, playerID)
+		return allowed
 	end
+
+
+	-- Gadget API methods
+	--------------------------------
 
 	-- Resource transfer API methods
 	function gadget:SetTeamResource(senderTeamID, receiverTeamID, resourceType, desiredAmount)
-		if TeamTransfer and TeamTransfer.TransferResource then
-			local result = TeamTransfer:TransferResource(senderTeamID, receiverTeamID, resourceType, desiredAmount)
-			-- Unpack expressive service result for Spring engine expectations
-			if result.success then
-				return true, result.sent, result.received
-			else
-				return false, 0, 0, result.reason
-			end
+		local result = TeamTransfer:TransferResource(senderTeamID, receiverTeamID, resourceType, desiredAmount)
+		-- Unpack expressive service result for Spring engine expectations
+		if result.success then
+			return true, result.sent, result.received
+		else
+			return false, 0, 0, result.reason or result.blockReason or "Transfer failed"
 		end
-		return false, 0, 0, "TeamTransfer service not available"
 	end
 
 	-- Simple resource addition without transfer logic
 	function gadget:AddTeamResource(teamID, resourceType, amount)
 		if TeamTransfer and TeamTransfer.AddTeamResource then
-			return TeamTransfer:AddTeamResource(teamID, resourceType, amount)
+			local result = TeamTransfer:AddTeamResource(teamID, resourceType, amount)
+			-- Unpack expressive service result for Spring engine expectations
+			if result.success then
+				return true, result.received
+			else
+				return false, 0
+			end
 		end
 		return false, 0
 	end
 
 	-- Unit transfer methods
 	function gadget:TransferUnits(senderTeamID, receiverTeamID, unitIds, given)
-		return TeamTransfer:TransferUnits(senderTeamID, receiverTeamID, unitIds, given)
+		if TeamTransfer and TeamTransfer.TransferUnits then
+			local result = TeamTransfer:TransferUnits(senderTeamID, receiverTeamID, unitIds, given)
+			-- Unpack expressive service result for Spring engine expectations
+			return result.success
+		end
+		return false
 	end
 
 
 else
 	Spring.Echo("[TEAMTRANSFER] UNSYNCED - Unsynced side loading")
 
-	-- Load logging functions for unsynced side
-	local Logger = VFS.Include("luarules/gadgets/team_transfer/shared_logging.lua")
-	local LogDebug = Logger.LogDebug
-	local LogError = Logger.LogError
 
 	function gadget:Initialize()
-		LogDebug("[TEAMTRANSFER] UNSYNCED - Initialize called")
-		
-		-- Set up sync action to receive cache updates from synced side
 		gadgetHandler:AddSyncAction("TeamTransferExposeUpdate", function(_, teamID, exposeData)
 			LogError(string.format("[TEAMTRANSFER] UNSYNCED - Received TeamTransferExposeUpdate for team %d", teamID))
 			

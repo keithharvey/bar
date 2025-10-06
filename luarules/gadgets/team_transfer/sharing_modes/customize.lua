@@ -18,7 +18,7 @@ return {
             value = 0,
             locked = false
         },
-        [ModOptions.Options.AssistAlly] = {
+        [ModOptions.Options.AlliedAssist] = {
             locked = false
         },
         [ModOptions.Options.AlliedReclaim] = {

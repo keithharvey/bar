@@ -53,6 +53,7 @@ local defaultData = {
 }
 
 local nextTeamId = sequence.sequence("team_id", { start = 0, format = function(p, n) return tostring(n) end })
+local nextUnitId = sequence.sequence("unit_id", { start = 1, format = function(p, n) return tostring(n) end })
 
 -- Create the builder using metatable approach
 ---@class TeamBuilder
@@ -76,8 +77,7 @@ function TeamBuilder.new()
     -- Assign unique ID immediately to prevent collisions
     instance.id = tonumber(nextTeamId())
 
-    -- Create unit ID sequence for this team
-    instance._unitIdSequence = sequence.sequence("unit_id_team_" .. instance.id, { start = 1, format = function(p, n) return tostring(n) end })
+    -- Unit IDs are now globally unique
 
     return setmetatable(instance, TeamBuilder)
 end
@@ -208,6 +208,12 @@ end
 ---@param unitDefId string
 ---@return table?
 local function getUnitDef(unitDefId)
+    -- Check global UnitDefs first (for test compatibility)
+    if _G.UnitDefs and _G.UnitDefs[unitDefId] then
+        return _G.UnitDefs[unitDefId]
+    end
+
+    -- Then check local cache
     if not _globalUnitDefs or next(_globalUnitDefs) == nil then
         return nil
     end
@@ -221,7 +227,7 @@ end
 
 function TeamBuilder:WithUnit(unitDefID, unitIdCallback)
     local unitDef = getUnitDef(unitDefID)
-    local unitID = self._unitIdSequence()
+    local unitID = nextUnitId()
 
     -- Always create consistent wrapper object
     local unitWrapper = { unitDefId = unitDefID }

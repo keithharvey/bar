@@ -26,8 +26,8 @@ return {
             value = 0,
             locked = true,
         },
-        [ModOptions.Options.AssistAlly] = {
-            value = SharedEnums.AssistAllyMode.Enabled,
+        [ModOptions.Options.AlliedAssist] = {
+            value = SharedEnums.AlliedAssistMode.Enabled,
             locked = true,
         },
         [ModOptions.Options.AlliedReclaim] = {
