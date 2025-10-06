@@ -51,12 +51,12 @@ local buildResultFactory = function(taxRate, metalThreshold, energyThreshold)
 		local untaxedPortion = math.min(allowanceRemaining, resource.sender_current)
 		local taxedPortion = math.max(0, resource.sender_current - untaxedPortion)
 		
-		local amountSendable = untaxedPortion + taxedPortion
+		local amountSendable = untaxedPortion + taxedPortion * (1 + taxRate)
 		local maxReceivableAmount = resource.receiver_storage - resource.receiver_current
 		amountSendable = math.min(amountSendable, maxReceivableAmount)
 		-- if I have 1000, 400 threshold allowance remaining
 		-- untaxedPortion = 400, taxedPortion = 600
-		-- amountSendable = 400 + 600 = max requestable amount
+		-- amountSendable = 400 + 600 * (1 + taxRate) = max sendable including tax overhead
 		-- then capped by receiver capacity
 
 		local remainingTaxFreeAllowance = allowanceRemaining - untaxedPortion

@@ -15,6 +15,36 @@ local spring = Builders.SpringRepository.new()
     :WithTeam(receiver)
     :WithAlliance(sender.id, receiver.id, true)
 
+describe("Policy behavior", function()
+    ---@type TeamTransferService
+    local service
+    local metalThreshold = 400
+    
+    before_each(function()
+        spring:WithModOption(ModOptions.Options.TaxResourceSharingAmount, taxRate)
+        spring:WithModOption(ModOptions.Options.PlayerMetalSendThreshold, metalThreshold)
+        spring:WithModOption(ModOptions.Options.PlayerEnergySendThreshold, 0)
+        
+        service = Builders.TeamTransferService.new()
+            :WithSpringRepository(spring)
+            :WithPolicy(SharedEnums.Policies.TaxResourceSharing)
+            :Build()
+    end)
+
+    it("should have an untaxed portion that is the threshold #focus", function()
+        local result = service:GetResult(sender.id, receiver.id)
+
+        assert.equal(result.metal_transfer.untaxedPortion, 400)
+    end)
+    
+    it("should have an taxed portion that accounts for taxation overhead", function()
+        local result = service:GetResult(sender.id, receiver.id)
+        local receiverCapacity = receiver.metal.storage - receiver.metal.current
+        local untaxedPortion = metalThreshold
+        assert.equal(result.metal_transfer.amountSendable, (receiverCapacity - untaxedPortion) * (1 + taxRate))
+    end)
+end)
+
 -- Helper function to test a resource transfer
 local function expectTransfer(service, resource, amount, expectedSent, expectedReceived)
     local result = service:TransferResource(sender.id, receiver.id, resource, amount)
@@ -25,6 +55,7 @@ end
 
 describe("Taxation Behavior", function()
     describe("when taxation is enabled (30%)", function()
+        ---@type TeamTransferService
         local service
         
         before_each(function()

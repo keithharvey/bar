@@ -36,8 +36,30 @@ if gadgetHandler:IsSyncedCode() then
 
 		TeamTransfer = TeamTransferService.new(springRepo, policyRepo, sharingModeRepo, nil)
 		GG.TeamTransfer = TeamTransfer
+
+		RegisterGlobals()
 	end
 	
+	function RegisterGlobals()
+		gadgetHandler:RegisterGlobal("TeamTransfer_TransferUnits", function(receiverTeamId, unitIDs)
+			local senderTeamId = Spring.GetMyTeamID()
+			GG.TeamTransfer:TransferUnits(senderTeamId, receiverTeamId, unitIDs)
+		end)
+
+		gadgetHandler:RegisterGlobal("TeamTransfer_AddResource", function(teamID, resourceType, amount)
+			if type(teamID) ~= "number" or type(amount) ~= "number" then return end
+			if GG.TeamTransfer and GG.TeamTransfer.AddTeamResource then
+				return GG.TeamTransfer:AddTeamResource(teamID, resourceType, amount)
+			end
+		end)
+
+		gadgetHandler:RegisterGlobal("TeamTransfer_ShareResource", function(senderTeamID, receiverTeamID, resourceType, amount)
+			if type(senderTeamID) ~= "number" or type(receiverTeamID) ~= "number" or type(amount) ~= "number" then return end
+			if GG.TeamTransfer and GG.TeamTransfer.TransferResource then
+				return GG.TeamTransfer:TransferResource(senderTeamID, receiverTeamID, resourceType, amount)
+			end
+		end)
+	end
 	
 	function gadget:GameFrame(frameNum)
 		if TeamTransfer and TeamTransfer.GameFrame then
@@ -128,91 +150,10 @@ else
 		gadgetHandler:AddSyncAction("TeamTransferExposeUpdate", function(_, teamID, exposeData)
 			LogError(string.format("[TEAMTRANSFER] UNSYNCED - Received TeamTransferExposeUpdate for team %d", teamID))
 			
-			-- Forward to widgets using Script.LuaUI
 			if Script.LuaUI("TeamTransferExposeUpdate") then
 				LogError(string.format("[TEAMTRANSFER] UNSYNCED - Forwarding to widgets via Script.LuaUI"))
 				Script.LuaUI.TeamTransferExposeUpdate(teamID, exposeData)
-			else
-				LogError("[TEAMTRANSFER] UNSYNCED - Script.LuaUI.TeamTransferExposeUpdate not available")
 			end
 		end)
-		
-		LogError("[TEAMTRANSFER] UNSYNCED - AddSyncAction registered for TeamTransferExposeUpdate")
-
-		-- Register clean unsynced wrappers for widgets
-		gadgetHandler:RegisterGlobal("TeamTransfer_ShareUnits", function(receiverTeamID, unitIDs)
-			if type(receiverTeamID) ~= "number" or type(unitIDs) ~= "table" then return end
-			for i = 1, #unitIDs do
-				local unitID = unitIDs[i]
-				if type(unitID) == "number" and Spring.ValidUnitID(unitID) and GG.TeamTransfer then
-					Spring.TransferUnit(unitID, receiverTeamID, false)
-				end
-			end
-		end)
-
-		gadgetHandler:RegisterGlobal("TeamTransfer_AddResource", function(teamID, resourceType, amount)
-			if type(teamID) ~= "number" or type(amount) ~= "number" then return end
-			if GG.TeamTransfer and GG.TeamTransfer.AddTeamResource then
-				return GG.TeamTransfer:AddTeamResource(teamID, resourceType, amount)
-			end
-		end)
-
-		gadgetHandler:RegisterGlobal("TeamTransfer_ShareResource", function(senderTeamID, receiverTeamID, resourceType, amount)
-			if type(senderTeamID) ~= "number" or type(receiverTeamID) ~= "number" or type(amount) ~= "number" then return end
-			if GG.TeamTransfer and GG.TeamTransfer.TransferResource then
-				return GG.TeamTransfer:TransferResource(senderTeamID, receiverTeamID, resourceType, amount)
-			end
-		end)
-	end
-
-	function gadget:RecvLuaMsg(msg, playerID)
-		LogDebug(string.format("[TEAMTRANSFER] RecvLuaMsg called - playerID=%s, msg=%s", tostring(playerID), tostring(msg)))
-		if not msg or type(msg) ~= "string" then
-			LogDebug("[TEAMTRANSFER] RecvLuaMsg - Invalid message format")
-			return false
-		end
-
-		-- Manual cache test function
-		if msg == "test_cache_refresh" then
-			LogError("[TEAMTRANSFER] MANUAL - Cache refresh test triggered by player " .. playerID)
-			if GG.TeamTransfer and GG.TeamTransfer.RunPolicyInitializeHandlers then
-				GG.TeamTransfer:RunPolicyInitializeHandlers()
-				LogError("[TEAMTRANSFER] MANUAL - Cache refresh completed")
-			else
-				LogError("[TEAMTRANSFER] MANUAL - TeamTransfer.Initialize not available")
-			end
-			return true
-		end
-
-		local msgType, data = msg:match("^(%w+):(.+)$")
-		LogDebug(string.format("[TEAMTRANSFER] RecvLuaMsg - msgType=%s, data=%s", tostring(msgType), tostring(data)))
-		if msgType == "query_unit_pair" then
-			local senderTeamID, receiverTeamID = data:match("^(%d+),(%d+)$")
-			if senderTeamID and receiverTeamID then
-				senderTeamID = tonumber(senderTeamID)
-				receiverTeamID = tonumber(receiverTeamID)
-				LogDebug(string.format("[TEAMTRANSFER] RecvLuaMsg - Processing query_unit_pair %d->%d", senderTeamID, receiverTeamID))
-				
-				-- Store dummy result for now
-				if not GG.TeamTransferCache then
-					GG.TeamTransferCache = {}
-				end
-				
-				local cacheKey = string.format("team_%d_to_%d", senderTeamID, receiverTeamID)
-				GG.TeamTransferCache[cacheKey] = {
-					canShareMetal = false,
-					canShareEnergy = false,
-					canShareUnits = false,
-					blockReason = senderTeamID == receiverTeamID and "Invalid: self-transfer" or "Test data"
-				}
-				LogDebug(string.format("[TEAMTRANSFER] RecvLuaMsg - Cached result for %s", cacheKey))
-				
-				LogError(string.format("[TEAMTRANSFER] CACHE DEBUG - Created DUMMY cache entry %s with test data", cacheKey))
-				return true
-			end
-		end
-		
-		LogDebug("[TEAMTRANSFER] RecvLuaMsg - Message not handled")
-		return false
 	end
 end
