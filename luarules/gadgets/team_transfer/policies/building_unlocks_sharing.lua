@@ -1,10 +1,9 @@
-local FluentPolicy = VFS.Include("luarules/gadgets/team_transfer/fluent_policy.lua")
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
 local BuildingCategoryDefinitions = VFS.Include("luaui/Include/blueprint_substitution/definitions.lua")
 local BuildingCategories = BuildingCategoryDefinitions.BUILDING_CATEGORIES
+local ModOptions = VFS.Include("luarules/gadgets/team_transfer/modoption_enums.lua")
 
-
-local function hasBuiltCategories(teamId, categories, unitRepo)
+local function hasBuiltCategories(teamId, categories, springRepo)
     local required = {}
     for i = 1, #categories do
         required[categories[i]] = true
@@ -12,25 +11,12 @@ local function hasBuiltCategories(teamId, categories, unitRepo)
 
     local seen = {}
 
-    local repo = unitRepo
-    local teamUnits = {}
-    if repo and repo.getTeamUnits then
-        teamUnits = repo:getTeamUnits(teamId)
-    end
+    local teamUnits = springRepo:GetTeamUnits(teamId)
 
-    for unitID, unitDefID in pairs(teamUnits) do
-        local unitName
-        if type(unitDefID) == "string" then
-            unitName = unitDefID
-        else
-            local ud = UnitDefs[unitDefID]
-            unitName = ud and ud.name or nil
-        end
-        if unitName then
-            local catName = BuildingCategoryDefinitions.unitCategories[unitName:lower()]
-            if catName and required[catName] then
-                seen[catName] = true
-            end
+    for unitID, unitDefId in pairs(teamUnits) do
+        local catName = BuildingCategoryDefinitions.getCategory(unitDefId)
+        if catName and required[catName] then
+            seen[catName] = true
         end
     end
 
@@ -42,51 +28,37 @@ local function hasBuiltCategories(teamId, categories, unitRepo)
     return true
 end
 
-FluentPolicy.RegisterPolicy(SharedEnums.Policies.BuildingUnlocksSharing, function(policy)
-    -- Short-circuit if policy is not enabled
-    if not policy.mod_option then
-        return
-    end
-
-    -- TODO: Engine restrictions prevent this from working
-    -- Building Energy Storage enables you to use the ENERGY transfer slider + overflow E teammates
-    -- TODO: Engine restrictions prevent this from working
-    -- -- Building Metal Storage enables you to use the METAL transfer slider + overflow M to teammates
-
-    -- -- Building both Metal Storage and Energy Storage enables you to assist teammates through buildpower (which is effectively M+E sharing)
-    local bothStorages = function(ctx)
-        local unitRepo = ctx.repositories and ctx.repositories.UnitRepository
+---@param builder DSL
+local function policyFunction(builder)
+    local function hasBothStorages(ctx)
+        local springRepo = ctx.repositories and ctx.repositories.springRepo
         return hasBuiltCategories(ctx.senderTeamId, {
             BuildingCategories.METAL_STORAGE,
             BuildingCategories.ENERGY_STORAGE
-        }, unitRepo)
+        }, springRepo)
     end
 
-    -- Commands policy - allow when both storages exist
-    policy:Allied():Guard()
-        :When(bothStorages)
-        :Allow()
+    local function hasPinpointer(ctx)
+        local springRepo = ctx.repositories and ctx.repositories.springRepo
+        return hasBuiltCategories(ctx.senderTeamId, {
+            BuildingCategories.PINPOINTER,
+        }, springRepo)
+    end
 
-    policy:Allied():Repair()
-        :When(bothStorages)
-        :Allow()
+    builder:MetalTransfers():When(hasBothStorages):Allow()
+    builder:EnergyTransfers():When(hasBothStorages):Allow()
 
-    policy:Allied():Reclaim()
-        :When(bothStorages)
-        :Allow()
+    builder:UnitTransfers():When(hasPinpointer):Allow()
+end
 
-    policy:Allied():MetalTransfers()
-        :When(bothStorages)
-        :Allow()
-
-    policy:Allied():EnergyTransfers()
-        :When(bothStorages)
-        :Allow()
-
-    policy:Allied():UnitTransfers()
-        :When(function(ctx)
-            local unitRepo = ctx.repositories.UnitRepository
-            return hasBuiltCategories(ctx.senderTeamId, { BuildingCategories.PINPOINTER }, unitRepo)
-        end)
-        :Allow()
-end)
+---@type PolicyModule
+local module = {
+    name = SharedEnums.Policies.BuildingUnlocksSharing,
+    func = policyFunction,
+    enabled = function(ctx)
+        local modOptions = ctx.repositories.springRepo:GetModOptions()
+        local mode = modOptions[ModOptions.Options.BuildingUnlocksSharing]
+        return mode == SharedEnums.BuildingUnlocksSharingMode.Enabled
+    end
+}
+return module

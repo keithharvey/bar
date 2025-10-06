@@ -328,6 +328,28 @@ if not table.map then
 	end
 end
 
+if not table.flatmap then
+	--- Applies a function to all elements of a table, where each callback returns a table, and flattens all results into a single table.
+	---@generic K, V, RV
+	---@param tbl table<K, V> The input table.
+	---@param callback fun(value: V, key: K, tbl: table<K, V>): table<any, RV> The function to apply to each element. It receives three arguments: the element's value, its key, and the original table. It should return a table of values to be flattened.
+	---@return table<integer, RV> A new table containing all values from all callback result tables, flattened into a single array-like table.
+	function table.flatmap(tbl, callback)
+		local result = {}
+		local index = 1
+		for k, v in pairs(tbl) do
+			local mappedTable = callback(v, k, tbl)
+			if type(mappedTable) == "table" then
+				for _, mappedValue in pairs(mappedTable) do
+					result[index] = mappedValue
+					index = index + 1
+				end
+			end
+		end
+		return result
+	end
+end
+
 if not table.reduce then
 	--- Reduces a table to a single value by applying a function to each element in order.
 	---@generic K, V, R

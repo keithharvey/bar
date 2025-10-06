@@ -2,7 +2,7 @@
 VFS.Include("gamedata/unitdefrenames.lua")
 VFS.Include("gamedata/alldefs_post.lua")
 VFS.Include("gamedata/post_save_to_customparams.lua")
-local system = VFS.Include("gamedata/system.lua")
+local system = VFS.Include("luarules/system.lua")
 
 local scavengersEnabled = false
 if Spring.GetTeamList then
@@ -299,7 +299,7 @@ end
 -- UnitDef processing
 --------------------------------------------------------------
 
-PrebakeUnitDefs()
+-- PrebakeUnitDefs() -- Disabled in test environment
 if SaveDefsToCustomParams then
 	bakeUnitDefs()
 end

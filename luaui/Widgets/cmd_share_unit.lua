@@ -358,7 +358,7 @@ function widget:CommandNotify(cmdID, cmdParams, _)
 		-- Use unified team transfer system (handles all validation via policies)
 		if WG.TeamTransfer and WG.TeamTransfer.ShareUnits then
 			local selectedUnits = GetSelectedUnits()
-			WG.TeamTransfer.ShareUnits(myTeamID, targetTeamID, selectedUnits, findPlayerName(targetTeamID))
+			WG.TeamTransfer.ShareUnits(targetTeamID, selectedUnits, findPlayerName(targetTeamID))
 			PlaySoundFile("beep4", 1, 'ui')
 		else
 			Spring.Echo(Spring.I18N('ui.teamTransfer.apiNotAvailable'))

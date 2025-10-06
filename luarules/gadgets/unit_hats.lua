@@ -276,7 +276,7 @@ function gadget:UnitDestroyed(unitID, unitDefID, teamID, attackerID, attackerDef
 		unitsWearingHats[unitID] = nil
 		Hats[hatID] = -1
 		Spring.SetUnitNoSelect(hatID, false)
-		Spring.TransferUnit(hatID, Spring.GetGaiaTeamID()) -- ( number unitID,  numer newTeamID [, boolean given = true ] ) -> nil if given=false, the unit is captured
+		GG.TeamTransfer.TransferUnit(hatID, Spring.GetGaiaTeamID(), true)
 		local px, py, pz = Spring.GetUnitPosition(unitID)
 		Spring.SetUnitPosition(hatID, px + 32, pz + 32)
 	end

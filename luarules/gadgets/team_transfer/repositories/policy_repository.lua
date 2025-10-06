@@ -1,154 +1,62 @@
 
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
--- Policies are loaded on-demand to avoid loading all policies during testing
+local ModOptions = VFS.Include("luarules/gadgets/team_transfer/modoption_enums.lua")
 
 ---@class PolicyRepository
+---@field policies table<string, table> Policy definitions with name, func, and enabled function
 local PolicyRepository = {}
 
--- Policy path mapping using enum (loaded on-demand)
-local policyPaths = {
-    [SharedEnums.Policies.BuildingUnlocksSharing] = "luarules/gadgets/team_transfer/policies/building_unlocks_sharing.lua",
-    [SharedEnums.Policies.UnitSharingMode] = "luarules/gadgets/team_transfer/policies/unit_sharing_mode.lua",
-    [SharedEnums.Policies.AlliedReclaim] = "luarules/gadgets/team_transfer/policies/allied_reclaim.lua",
-    [SharedEnums.Policies.EnemyTransfer] = "luarules/gadgets/team_transfer/policies/enemy_transfer.lua",
-    [SharedEnums.Policies.MetalSendThreshold] = "luarules/gadgets/team_transfer/policies/metal_send_threshold.lua",
-    [SharedEnums.Policies.PreventExcessiveShare] = "luarules/gadgets/team_transfer/policies/prevent_excessive_share.lua",
-    [SharedEnums.Policies.SystemCleanup] = "luarules/gadgets/team_transfer/policies/system_cleanup.lua",
-    [SharedEnums.Policies.TaxResourceSharing] = "luarules/gadgets/team_transfer/policies/tax_resource_sharing.lua",
-    [SharedEnums.Policies.AssistAlly] = "luarules/gadgets/team_transfer/policies/assist_ally.lua"
-}
+function PolicyRepository.new()
+    local instance = setmetatable({
+        policies = {},
+    }, { __index = PolicyRepository })
 
-local loadedPolicies = {}
-local loadedPoliciesByPath = {}
+    -- Load all policies immediately when repository is created
+    instance:LoadAllPolicies()
 
--- Cached sorted policies by type
-local sortedPoliciesCache = {}
-
--- Topological sort for dependency-based policy ordering
-local function topologicalSort(entries)
-	local sorted = {}
-	local visited = {}
-	local visiting = {}
-	
-	local function visit(entry)
-		if visiting[entry.name] then
-			error("Circular dependency detected involving policy: " .. entry.name)
-		end
-		if visited[entry.name] then
-			return
-		end
-		
-		visiting[entry.name] = true
-		
-		-- Visit all dependencies first
-		if entry.dependencies then
-			for _, depName in ipairs(entry.dependencies) do
-				for _, depEntry in ipairs(entries) do
-					if depEntry.name == depName then
-						visit(depEntry)
-						break
-					end
-				end
-			end
-		end
-		
-		visiting[entry.name] = nil
-		visited[entry.name] = true
-		sorted[#sorted + 1] = entry
-	end
-	
-	-- Visit all entries
-	for _, entry in ipairs(entries) do
-		visit(entry)
-	end
-	
-	return sorted
+    return instance
 end
 
----Load a specific policy by enum
----@param policyEnum string Policy enum from SharedEnums.Policies
-function PolicyRepository.LoadPolicy(policyEnum)
-    if not loadedPolicies[policyEnum] then
-        local path = policyPaths[policyEnum]
-        if path then
-            local success, err = pcall(function()
-                VFS.Include(path)
-            end)
-            if success then
-                loadedPolicies[policyEnum] = true
-            else
-                Spring.Log("PolicyRepository", "ERROR", "Failed to load policy '" .. policyEnum .. "': " .. tostring(err))
-            end
+
+---@param policyPath string Policy path
+function PolicyRepository:LoadPolicy(policyPath)
+    local success, err = pcall(function()
+        local policy = VFS.Include(policyPath)
+
+        -- Store the complete policy definition
+        if type(policy) == "table" and policy.name and policy.func then
+            self.policies[policy.name] = policy
+        else
+            error("Unexpected policy return format: expected table with name and func fields")
         end
+    end)
+    if not success then
+        Spring.Log("PolicyRepository", LOG.ERROR, "Failed to load policy from " .. policyPath .. ": " .. tostring(err))
     end
 end
 
----Load all policies (they self-register via FluentPolicy)
-function PolicyRepository.LoadAllPolicies()
-    for policyEnum, _ in pairs(policyPaths) do
-        PolicyRepository.LoadPolicy(policyEnum)
+local POLICIES_DIR = "luarules/gadgets/team_transfer/policies/"
+function PolicyRepository:LoadAllPolicies()
+    -- Game environment: use VFS to find and load all policies
+    local policiesDir = "luarules/gadgets/team_transfer/policies/"
+    local policyFiles = VFS.DirList(policiesDir, "*.lua")
+
+    for _, path in ipairs(policyFiles) do
+        self:LoadPolicy(path)
     end
 end
 
----Load all policies gated by a set of enabled modoption keys (convenience for api_gadgets)
----@param enabledKeys table<string, boolean>|fun(key:string):boolean
-function PolicyRepository.LoadAllPoliciesByModOptions(enabledKeys)
-    local isEnabled
-    if type(enabledKeys) == "function" then
-        isEnabled = enabledKeys
-    else
-        isEnabled = function(key) return enabledKeys and enabledKeys[key] end
-    end
-    for policyEnum, _ in pairs(policyPaths) do
-        if isEnabled(policyEnum) then
-            PolicyRepository.LoadPolicy(policyEnum)
-        end
-    end
+---Get a policy by name
+---@param policyName string The policy name
+---@return table|nil The complete policy definition, or nil if not found
+function PolicyRepository:GetPolicy(policyName)
+    return self.policies[policyName]
 end
 
--- Store policies directly in repository (source of truth for orchestrator)
-local policies = {
-    [SharedEnums.TransferCategory.MetalTransfer] = {},
-    [SharedEnums.TransferCategory.EnergyTransfer] = {},
-    [SharedEnums.TransferCategory.UnitTransfer] = {},
-    [SharedEnums.TransferCategory.CommandValidation] = {},
-    [SharedEnums.TransferCategory.TeamEvents] = {}
-}
-
----Register a policy action (called by FluentPolicy during registration)
----@param category string
----@param policyAction table
-function PolicyRepository.RegisterPolicyAction(category, policyAction)
-    local list = policies[category]
-    if list then
-        list[#list + 1] = policyAction
-    else
-        policies[category] = { policyAction }
-    end
-end
----Get all registered policies by type
----@return table<string, table[]> policies Policies organized by type
-function PolicyRepository.GetPolicies()
-    return policies
-end
-
----Get topologically sorted policies for a category (cached)
----@param category string The policy category
----@return table[] sortedPolicies Policies sorted by dependencies
-function PolicyRepository.GetSortedPolicies(category)
-    local allPolicies = PolicyRepository.GetPolicies()
-    local categoryPolicies = allPolicies[category] or {}
-    return topologicalSort(categoryPolicies)
-end
-
----Clear policy cache (for testing)
-function PolicyRepository.ClearCache() end
-
----Get policy module by enum
----@param policyEnum string Policy enum from SharedEnums.Policies
----@return any policyModule The loaded policy module
-function PolicyRepository.GetPolicyModule(policyEnum)
-    return policyModules[policyEnum]
+---Get all policies
+---@return table<string, table> All policy definitions indexed by name
+function PolicyRepository:GetAllPolicies()
+    return self.policies
 end
 
 return PolicyRepository

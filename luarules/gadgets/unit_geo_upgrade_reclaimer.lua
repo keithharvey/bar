@@ -53,7 +53,7 @@ function gadget:UnitCreated(unitID, unitDefID, unitTeam)
 				local mexTeamID = Spring.GetUnitTeam(geo)
 				if mexTeamID ~= unitTeam and not select(3, Spring.GetTeamInfo(mexTeamID, false)) then
 					_G.transferredUnits[unitID] = Spring.GetGameFrame()
-					Spring.TransferUnit(unitID, mexTeamID)
+					GG.TeamTransfer.TransferUnit(unitID, mexTeamID, true)
 				end
 			end
 		end
@@ -77,10 +77,10 @@ function gadget:UnitFinished(unitID, unitDefID, unitTeam)
 		if geo then
 			local geoTeamID = Spring.GetUnitTeam(geo)
 			Spring.DestroyUnit(geo, false, true)
-			Spring.AddTeamResource(unitTeam, "metal", isGeo[Spring.GetUnitDefID(geo)])
+			GG.TeamTransfer.AddTeamResource(unitTeam, GG.TeamTransfer.ResourceType.METAL, isGeo[Spring.GetUnitDefID(geo)])
 			if not transferInstantly and geoTeamID ~= unitTeam and not select(3, Spring.GetTeamInfo(geoTeamID, false)) then
 				_G.transferredUnits[unitID] = Spring.GetGameFrame()
-				Spring.TransferUnit(unitID, geoTeamID)
+				GG.TeamTransfer.TransferUnit(unitID, geoTeamID, true)
 			end
 		end
 	end

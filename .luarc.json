@@ -16,6 +16,7 @@
       "recoil-lua-library",
       "luarules/",
       "luaui/",
+      "spec/",
       "./types/busted/library",
       "./types/luassert/library"
     ],
@@ -47,7 +48,8 @@
       "after_each",
       "setup",
       "teardown",
-      "assert"
+      "assert",
+      "Builders"
     ],
     "type": {
       "definition": [

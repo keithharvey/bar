@@ -264,12 +264,12 @@ local options = {
     {
         key     = "sharing_mode",
         name    = "Sharing Mode",
-        desc    = "Controls overall sharing policy and locks/unlocks specific options, see sharingoptions.json for more details",
+        desc    = "Controls overall sharing policy and locks/unlocks specific options, see sharing_modes for more details",
         type    = "list",
         section = "options_sharing",
         sharing_category = "mode_selection",
         def     = "enabled",
-        items   = {}, -- Will be populated by UI code from sharingoptions.json
+        items   = {}, -- Will be populated by UI code from sharing_modes
     },
     
     
@@ -331,7 +331,6 @@ local options = {
 		sharing_category = "resources",
 		column = 1,
 	},
-
 	{
 		key     = "player_metal_send_threshold",
 		name    = "Player Metal Send Threshold",

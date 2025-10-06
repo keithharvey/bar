@@ -1885,10 +1885,17 @@ function UpdateResources()
 				shareAmount = shareAmount - (shareAmount % 1)
 			else
 				if maxShareAmount == nil then
-					local myCurrent = Spring_GetTeamResources(myTeamID, "energy")
-					local energy, energyStorage, _, _, _, shareSliderPos = Spring_GetTeamResources(energyPlayer.team, "energy")
-					local receiverFree = (energyStorage*shareSliderPos) - energy
-					maxShareAmount = math.max(0, math.min(myCurrent or 0, receiverFree or 0))
+					-- Use unified team transfer system for all sharing calculations
+					if WG.TeamTransfer and WG.TeamTransfer.GetEnergyTransferData then
+						local energyData = WG.TeamTransfer.GetEnergyTransferData(energyPlayer.team)
+						maxShareAmount = energyData.amountSendable or 0
+					else
+						-- Fallback to manual calculation if API not available
+						local myCurrent = Spring_GetTeamResources(myTeamID, "energy")
+						local energy, energyStorage, _, _, _, shareSliderPos = Spring_GetTeamResources(energyPlayer.team, "energy")
+						local receiverFree = (energyStorage*shareSliderPos) - energy
+						maxShareAmount = math.max(0, math.min(myCurrent or 0, receiverFree or 0))
+					end
 				end
                 shareAmount = maxShareAmount * sliderPosition / shareSliderHeight
                 shareAmount = shareAmount - (shareAmount % 1)
@@ -1905,16 +1912,17 @@ function UpdateResources()
                 shareAmount = shareAmount - (shareAmount % 1)
             else
                 if maxShareAmount == nil then
-					local myCurrent = Spring_GetTeamResources(myTeamID, "metal")
-					local metal, metalStorage, _, _, _, shareSliderPos = Spring_GetTeamResources(metalPlayer.team, "metal")
-					local receiverFree = (metalStorage*shareSliderPos) - metal
-					local cap = math.max(0, math.min(myCurrent or 0, receiverFree or 0))
-					-- Use unified resource transfer state for share amount calculation
-					if WG.TeamTransfer and WG.TeamTransfer.GetMaxMetalAmount then
-						local maxMetalAmount = WG.TeamTransfer.GetMaxMetalAmount(myTeamID, metalPlayer.team)
-						cap = math.min(cap, maxMetalAmount)
+					-- Use unified team transfer system for all sharing calculations
+					if WG.TeamTransfer and WG.TeamTransfer.GetMetalTransferData then
+						local metalData = WG.TeamTransfer.GetMetalTransferData(metalPlayer.team)
+						maxShareAmount = metalData.amountSendable or 0
+					else
+						-- Fallback to manual calculation if API not available
+						local myCurrent = Spring_GetTeamResources(myTeamID, "metal")
+						local metal, metalStorage, _, _, _, shareSliderPos = Spring_GetTeamResources(metalPlayer.team, "metal")
+						local receiverFree = (metalStorage*shareSliderPos) - metal
+						maxShareAmount = math.max(0, math.min(myCurrent or 0, receiverFree or 0))
 					end
-					maxShareAmount = cap
                 end
                 shareAmount = maxShareAmount * sliderPosition / shareSliderHeight
                 shareAmount = shareAmount - (shareAmount % 1)
@@ -2297,9 +2305,12 @@ function DrawPlayer(playerID, leader, vOffset, mouseX, mouseY, onlyMainList, onl
                             local canShareUnits, canShareMetal, canShareEnergy = false, false, false
                             
                             if WG.TeamTransfer then
-                                canShareUnits = WG.TeamTransfer.CanShareUnits(team, selectedUnits)
-                                canShareMetal = WG.TeamTransfer.CanShareMetal(team)
-                                canShareEnergy = WG.TeamTransfer.CanShareEnergy(team)
+                                local unitData = WG.TeamTransfer.GetUnitTransferData(team)
+                                local metalData = WG.TeamTransfer.GetMetalTransferData(team)
+                                local energyData = WG.TeamTransfer.GetEnergyTransferData(team)
+                                canShareUnits = unitData.canShareUnits or false
+                                canShareMetal = metalData.canShare or false
+                                canShareEnergy = energyData.canShare or false
                                 
                                 -- CRITICAL GUI DEBUGGING: Log what the GUI is getting
                                 Spring.Log("TeamTransfer", LOG.ERROR, string.format("[ADVPLAYERSLIST] DrawShareButtons for team %d - units=%s, metal=%s, energy=%s", 
@@ -2482,7 +2493,7 @@ end
 
 function DrawUnitsShareIcon(posY, showUnits)
 	if showUnits == nil then
-		showUnits = WG.TeamTransfer and WG.TeamTransfer.validateShareCommand and WG.TeamTransfer.validateShareCommand() or false
+		showUnits = WG.TeamTransfer and true or false -- Always show if TeamTransfer is available
 	end
 	if showUnits then
 		gl_Texture(pics["unitsPic"])
@@ -3104,8 +3115,13 @@ function ShareTip(mouseX, playerID)
 	
 	if WG.TeamTransfer then
 		Spring.Log("TeamTransfer", LOG.ERROR, string.format("[ADVPLAYERSLIST] Using WG.TeamTransfer API for team %d", targetTeamID))
-		resourceTransferData = WG.TeamTransfer.GetResourceTransferData(targetTeamID)
-		unitTransferData = WG.TeamTransfer.GetUnitTransferData(targetTeamID, selectedUnits)
+		local metalData = WG.TeamTransfer.GetMetalTransferData(targetTeamID)
+		local energyData = WG.TeamTransfer.GetEnergyTransferData(targetTeamID)
+		resourceTransferData = {
+			metal = metalData,
+			energy = energyData
+		}
+		unitTransferData = WG.TeamTransfer.GetUnitTransferData(targetTeamID)
 	else
 		Spring.Log("TeamTransfer", LOG.ERROR, "[ADVPLAYERSLIST] WG.TeamTransfer not available")
 		-- Return fallback data
@@ -3333,7 +3349,7 @@ function CreateShareSlider()
             -- No need for transfer state builder - use direct API calls
             
             -- Only show policy-driven UI if we have TeamTransfer API
-            if WG.TeamTransfer and WG.TeamTransfer.GetResourceTransferData then
+            if WG.TeamTransfer and WG.TeamTransfer.GetMetalTransferData then
                 if energyPlayer ~= nil then
                     posY = widgetPosY + widgetHeight - energyPlayer.posY
                     gl_Texture(pics["barPic"])
@@ -3503,9 +3519,12 @@ function widget:MousePress(x, y, button)
                         if m_share.active and clickedPlayer.dead ~= true and not hideShareIcons then
                             -- Check sharing permissions using simple API
                             local selectedUnits = Spring.GetSelectedUnits()
-                            local canShareUnits = WG.TeamTransfer and WG.TeamTransfer.CanShareUnits and WG.TeamTransfer.CanShareUnits(clickedPlayer.team, selectedUnits)
-                            local canShareMetal = WG.TeamTransfer and WG.TeamTransfer.CanShareMetal and WG.TeamTransfer.CanShareMetal(clickedPlayer.team)
-                            local canShareEnergy = WG.TeamTransfer and WG.TeamTransfer.CanShareEnergy and WG.TeamTransfer.CanShareEnergy(clickedPlayer.team)
+                            local unitData = WG.TeamTransfer and WG.TeamTransfer.GetUnitTransferData(clickedPlayer.team) or {}
+                            local metalData = WG.TeamTransfer and WG.TeamTransfer.GetMetalTransferData(clickedPlayer.team) or {}
+                            local energyData = WG.TeamTransfer and WG.TeamTransfer.GetEnergyTransferData(clickedPlayer.team) or {}
+                            local canShareUnits = unitData.canShareUnits or false
+                            local canShareMetal = metalData.canShare or false
+                            local canShareEnergy = energyData.canShare or false
                             
                             if canShareUnits and IsOnRect(x, y, m_share.posX + widgetPosX + (1*playerScale), posY, m_share.posX + widgetPosX + (17*playerScale), posY + (playerOffset*playerScale)) then
                                 -- share units button - use clean Team Transfer API
@@ -3631,7 +3650,7 @@ function widget:MouseRelease(x, y, button)
         
         if energyPlayer ~= nil then
             -- Use unified team transfer system for energy sharing
-            WG.TeamTransfer.ShareEnergy(myTeamID, energyPlayer.team, shareAmount)
+            WG.TeamTransfer.ShareEnergy(energyPlayer.team, shareAmount)
             -- Clear energy sharing state
             sliderOrigin = nil
             maxShareAmount = nil
@@ -3642,7 +3661,7 @@ function widget:MouseRelease(x, y, button)
 
         if metalPlayer ~= nil and shareAmount then
             -- Use unified team transfer system for metal sharing
-            WG.TeamTransfer.ShareMetal(myTeamID, metalPlayer.team, shareAmount)
+            WG.TeamTransfer.ShareMetal(metalPlayer.team, shareAmount)
             -- Clear metal sharing state
             sliderOrigin = nil
             maxShareAmount = nil

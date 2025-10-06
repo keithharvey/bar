@@ -1,16 +1,23 @@
----@load-file luaui/types/team_transfer.lua
-
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
 
--- Post-transfer cleanup to prevent exploits and maintain game integrity
-GG.TeamTransfer.RegisterPostTransfer(function(transferData)
-	-- Handle unit transfer cleanup
-	if transferData.unitIDs then
-		for _, unitID in ipairs(transferData.unitIDs) do
-			-- Prevent load order exploits
-			Spring.GiveOrderToUnit(unitID, CMD.LOAD_ONTO, {}, {})
-			-- Prevent self-destruct on transfer  
-			Spring.GiveOrderToUnit(unitID, CMD.SELFD, {}, {})
+---@param builder DSL
+local function systemCleanupPolicy(builder)
+	builder:RegisterPostUnitTransfer(function(context)
+		local springRepo = context.repositories.springRepo
+		local CMD = springRepo.CMD
+		for _, unitID in ipairs(context.transferResult.successfulUnitIds) do
+			springRepo:GiveOrderToUnit(unitID, CMD.LOAD_ONTO, {}, {})
+			springRepo:GiveOrderToUnit(unitID, CMD.SELFD, {}, {})
 		end
-	end
-end)
+	end)
+end
+
+---@type PolicyModule
+local module = {
+    name = SharedEnums.Policies.SystemCleanup,
+    func = systemCleanupPolicy,
+    enabled = function(ctx)
+        return true
+    end
+}
+return module

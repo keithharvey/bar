@@ -59,10 +59,6 @@ Builders.Pipeline = nil
 ---@see common/unitTesting/builders/spring_repository_builder.lua
 ---@class SpringRepositoryBuilderClass
 ---@field new fun(): SpringRepositoryBuilder
----@class TeamRepositoryBuilder
----@see common/unitTesting/builders/team_repository_builder.lua
----@class TeamRepositoryBuilderClass
----@field new fun(): TeamRepositoryBuilder
 ---@class UnitRepositoryBuilder
 ---@see common/unitTesting/builders/unit_repository_builder.lua
 ---@class UnitRepositoryBuilderClass
@@ -71,9 +67,6 @@ Builders.Pipeline = nil
 ---@type SpringRepositoryBuilderClass
 Builders.SpringRepository = nil
 ---@see common/unitTesting/builders/spring_repository_builder.lua
----@type TeamRepositoryBuilderClass
-Builders.TeamRepository = nil
----@see common/unitTesting/builders/team_repository_builder.lua
 ---@type UnitRepositoryBuilderClass
 Builders.UnitRepository = nil
 ---@see common/unitTesting/builders/unit_repository_builder.lua
@@ -88,4 +81,10 @@ Builders.Unit = nil
 ---@type TeamTransferBuilder
 Builders.TeamTransfer = nil
 ---@see common/unitTesting/builders/team_transfer_builder.lua:TeamTransferBuilder
+
+-- Sharing Mode Helper types (test-specific)
+---@class SharingModeHelper
+---@field LoadSharingModes fun(): table<SharingMode, SharingModeConfig>
+---@field ValidateSharingModeConfig fun(config: SharingModeConfig): boolean
+---@field GetSharingMode fun(key: SharingMode): SharingModeConfig|nil
     

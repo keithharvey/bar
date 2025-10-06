@@ -1,87 +1,118 @@
-local SharedEnums = require("luarules/gadgets/team_transfer/shared_enums")
-local PipelineLogger = require("luarules/gadgets/team_transfer/pipeline_logger")
-local FluentPolicy = require("luarules/gadgets/team_transfer/fluent_policy")
+local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
+local ModOptions = VFS.Include("luarules/gadgets/team_transfer/modoption_enums.lua")
 
-local TaxResourceSharing = SharedEnums.Policies.TaxResourceSharing
-local TransferCategory = SharedEnums.TransferCategory
+local CUMULATIVE_METAL_PARAM = "metal_share_cumulative_sent"
+local CUMULATIVE_ENERGY_PARAM = "energy_share_cumulative_sent"
 
----@param ctx TeamTransferPolicyContext
----@param taxRate integer Tax rate set by mod option
----@return table Policy result with exposed tax data
-local function UseTaxResourceCheck(ctx, taxRate)
-	local senderResources = ctx.resources.sender
-	local receiverResources = ctx.resources.receiver
+local function getCumulativeParam(resourceType)
+	if resourceType == SharedEnums.ResourceType.METAL then
+		return CUMULATIVE_METAL_PARAM
+	elseif resourceType == SharedEnums.ResourceType.ENERGY then
+		return CUMULATIVE_ENERGY_PARAM
+	end
+end
 
-	local maxMetalAmount = 0
-	local maxEnergyAmount = 0
+local function getCumulativeSent(teamID, resourceType, springRepo)
+	local param = getCumulativeParam(resourceType)
+	return tonumber(springRepo:GetTeamRulesParam(teamID, param)) or 0
+end
 
-	if senderResources and receiverResources then
-		local senderMetal = senderResources.metal.current or 0
-		local receiverMetal = receiverResources.metal.current or 0
-		local metalDifference = math.max(0, senderMetal - receiverMetal)
-		maxMetalAmount = math.floor(metalDifference * (1 + taxRate))
-
-		-- Calculate the difference between sender and receiver resources (as per test expectation)
-		local senderEnergy = senderResources.energy.current or 0
-		local receiverEnergy = receiverResources.energy.current or 0
-		local energyDifference = math.max(0, senderEnergy - receiverEnergy)
-		maxEnergyAmount = math.floor(energyDifference * (1 + taxRate))
+local buildResultFactory = function(taxRate, metalThreshold, energyThreshold)
+	---@param resourceType ResourceType
+	local function getThreshold(resourceType)
+		if resourceType == SharedEnums.ResourceType.METAL then
+			return metalThreshold
+		elseif resourceType == SharedEnums.ResourceType.ENERGY then
+			return energyThreshold
+		end
 	end
 
-	---@type DefaultMetalTransferResult
-	local metalExpose = {
-		canShare = maxMetalAmount > 0,
-		amountSendable = maxMetalAmount,
-		blockReason = (maxMetalAmount <= 0) and "No metal available to send" or nil,
-		taxRate = taxRate,
-		remainingTaxFreeAllowance = 0
-	}
-
-	---@type DefaultEnergyTransferResult
-	local energyExpose = {
-		canShare = maxEnergyAmount > 0,
-		amountSendable = maxEnergyAmount,
-		blockReason = (maxEnergyAmount <= 0) and "No energy available to send" or nil,
-		amountRemainingAllowance = maxEnergyAmount,
-		taxRate = taxRate
-	}
-
-	return {
-		expose = {
-			[TransferCategory.MetalTransfer] = metalExpose,
-			[TransferCategory.EnergyTransfer] = energyExpose
+	---@param ctx PolicyContext
+	---@param resourceType ResourceType
+	---@return ResourcePolicyResult
+	local function calcResourcePolicyResult(ctx, resourceType)
+		local resource = {
+			cumulativeSent = getCumulativeSent(ctx.senderTeamId, resourceType, ctx.repositories.springRepo) or 0
 		}
-	}
+		if resourceType == SharedEnums.ResourceType.METAL then
+			resource.sender_current = ctx.sender.metal.current
+			resource.sender_storage = ctx.sender.metal.storage
+			resource.receiver_current = ctx.receiver.metal.current
+			resource.receiver_storage = ctx.receiver.metal.storage
+		elseif resourceType == SharedEnums.ResourceType.ENERGY then
+			resource.sender_current = ctx.sender.energy.current
+			resource.sender_storage = ctx.sender.energy.storage
+			resource.receiver_current = ctx.receiver.energy.current
+			resource.receiver_storage = ctx.receiver.energy.storage
+		end
+		local threshold = getThreshold(resourceType)
+
+		local allowanceRemaining = math.max(0, threshold - resource.cumulativeSent)
+		local untaxedPortion = math.min(allowanceRemaining, resource.sender_current)
+		local taxedPortion = math.max(0, resource.sender_current - untaxedPortion)
+		
+		local amountSendable = untaxedPortion + taxedPortion
+		local maxReceivableAmount = resource.receiver_storage - resource.receiver_current
+		amountSendable = math.min(amountSendable, maxReceivableAmount)
+		-- if I have 1000, 400 threshold allowance remaining
+		-- untaxedPortion = 400, taxedPortion = 600
+		-- amountSendable = 400 + 600 = max requestable amount
+		-- then capped by receiver capacity
+
+		local remainingTaxFreeAllowance = allowanceRemaining - untaxedPortion
+
+		---@type ResourcePolicyResult
+		return {
+			canShare = amountSendable > 0,
+			amountSendable = amountSendable,
+			receivable = maxReceivableAmount,
+			taxedPortion = taxedPortion,
+			untaxedPortion = untaxedPortion,
+			taxRate = taxRate,
+			resourceType = resourceType,
+			remainingTaxFreeAllowance = remainingTaxFreeAllowance
+		}
+	end
+	return calcResourcePolicyResult
 end
 
--- Execute policy registration immediately instead of deferred
-local ServiceRegistry = VFS.Include("luarules/gadgets/team_transfer/service_registry.lua")
-local repo = ServiceRegistry.PolicyRepository()
+---@param builder DSL
+local function buildPolicy(builder)
+	local taxRate = tonumber(builder.mod_options[ModOptions.Options.TaxResourceSharingAmount]) or 0
 
-local taxRate = 0.3
+	local metalThreshold = tonumber(builder.mod_options[ModOptions.Options.PlayerMetalSendThreshold]) or 0
+	local energyThreshold = tonumber(builder.mod_options[ModOptions.Options.PlayerEnergySendThreshold]) or 0
 
-if repo and repo.RegisterPolicyAction then
-    -- Register MetalTransfers policy
-    local metalHandler = function(ctx)
-        return UseTaxResourceCheck(ctx, taxRate)
-    end
+	local calcResourcePolicyResult = buildResultFactory(taxRate, metalThreshold, energyThreshold)
 
-    repo.RegisterPolicyAction("metal_transfer", {
-        name = "tax_resource_sharing_metal",
-        predicates = {},
-        conditions = {},
-        handler = metalHandler
-    })
+	builder:Allied():MetalTransfers():Use(function(ctx)
+		return calcResourcePolicyResult(ctx, SharedEnums.ResourceType.METAL)
+	end)
 
-    -- Register EnergyTransfers policy
-    local energyHandler = function(ctx)
-        return UseTaxResourceCheck(ctx, taxRate)
-    end
+	builder:Allied():EnergyTransfers():Use(function(ctx)
+		return calcResourcePolicyResult(ctx, SharedEnums.ResourceType.ENERGY)
+	end)
 
-    repo.RegisterPolicyAction("energy_transfer", {
-        name = "tax_resource_sharing_energy",
-        predicates = {},
-        conditions = {},
-        handler = energyHandler
-    })
+	builder:RegisterPostMetalTransfer(function(transferResult, springRepo)
+		local cumMetal = getCumulativeParam(SharedEnums.ResourceType.METAL)
+		local current = tonumber(springRepo:GetTeamRulesParam(transferResult.senderTeamId, cumMetal)) or 0
+		springRepo:SetTeamRulesParam(transferResult.senderTeamId, cumMetal, current + transferResult.sent)
+	end)
+
+	builder:RegisterPostEnergyTransfer(function(transferResult, springRepo)
+		local cumEnergy = getCumulativeParam(SharedEnums.ResourceType.ENERGY)
+		local current = tonumber(springRepo:GetTeamRulesParam(transferResult.senderTeamId, cumEnergy)) or 0
+		springRepo:SetTeamRulesParam(transferResult.senderTeamId, cumEnergy, current + transferResult.sent)
+	end)
 end
+
+---@type PolicyModule
+local module = {
+    name = SharedEnums.Policies.TaxResourceSharing,
+    func = buildPolicy,
+    enabled = function(ctx)
+        local modOptions = ctx.repositories.springRepo:GetModOptions()
+        return modOptions[ModOptions.Options.TaxResourceSharingAmount] ~= nil
+    end
+}
+return module
