@@ -59,7 +59,7 @@ end
 function DSL.registerDefaults(engine)
     for category, defaults in pairs(categoryDefaultsMap) do
         engine:registerDefault(category, function(ctx)
-            return defaults.Deny(ctx, SharedEnums.BlockReason.NoPolicy)        
+            return defaults.Deny(ctx, SharedEnums.BlockReason.NoPolicy)
         end)
     end
 end
@@ -166,13 +166,22 @@ function DSL:Enemy()
 end
 
 ---@return DSL
-function DSL:MetalTransfers() self.category = SharedEnums.TransferCategory.MetalTransfer return self end
+function DSL:MetalTransfers()
+    self.category = SharedEnums.TransferCategory.MetalTransfer
+    return self
+end
+
 ---@return DSL
-function DSL:EnergyTransfers() self.category = SharedEnums.TransferCategory.EnergyTransfer return self end
+function DSL:EnergyTransfers()
+    self.category = SharedEnums.TransferCategory.EnergyTransfer
+    return self
+end
+
 ---@return DSL
-function DSL:UnitTransfers() self.category = SharedEnums.TransferCategory.UnitTransfer return self end
----@return DSL
-function DSL:Commands() self.category = SharedEnums.TransferCategory.CommandValidation return self end
+function DSL:UnitTransfers()
+    self.category = SharedEnums.TransferCategory.UnitTransfer
+    return self
+end
 
 ---@return DSL
 function DSL:Guard()

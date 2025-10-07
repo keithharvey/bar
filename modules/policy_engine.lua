@@ -1,10 +1,5 @@
 -- Policy Engine: A simple, generic policy evaluation system
 
----@class HandlerEntry
----@field handler function The handler function
----@field policyName string Name of the policy that registered this handler
----@field metadata table? Additional metadata
-
 ---@class PolicyEngine
 ---@field categories table<string, PolicyRule[]> Map of category names to arrays of rules
 ---@field defaultHandlers table<string, function> Map of category names to default handler functions
@@ -13,6 +8,11 @@
 ---@field postActionHandlers table<string, HandlerEntry[]> Map of category names to post-action handlers
 local PolicyEngine = {}
 PolicyEngine.__index = PolicyEngine
+
+---@class HandlerEntry
+---@field handler function The handler function
+---@field policyName string Name of the policy that registered this handler
+---@field metadata table? Additional metadata
 
 ---@class PredicateInfo
 ---@field name string Display name of the predicate

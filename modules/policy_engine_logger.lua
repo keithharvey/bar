@@ -1,5 +1,7 @@
 -- Policy Engine Logger - Comprehensive logging for policy execution and rule evaluation
 
+---@load-file luaui/types/team_transfer.lua
+
 local SharedEnums = VFS.Include("luarules/gadgets/team_transfer/shared_enums.lua")
 
 -- Local log function for consistent logging
@@ -11,6 +13,39 @@ end
 ---Intelligent logging for policy execution plans and topology
 local PolicyEngineLogger = {}
 
+-- Logger-specific type definitions (uses types from luaui/types/team_transfer.lua)
+
+---@class RuleEvaluationResult
+---@field name string
+---@field predicates PredicateInfo[]?
+---@field result RuleResult?
+---@field executed boolean?
+
+---@class PredicateInfo
+---@field name string
+---@field type "scope"|"evaluative"|"use_block"|"action"
+---@field passed boolean?
+---@field metadata table?
+
+---@class RuleResult
+---@field allow boolean?
+---@field deny boolean?
+---@field expose table?
+---@field reason string?
+
+---@class ValidatorEntry
+---@field policyName string?
+
+---@class TransferHookEntry
+---@field policyName string?
+
+---@class InitializerEntry
+---@field policyName string?
+
+---@class PolicyInfo
+---@field name string
+---@field executed boolean?
+
 ---Create a new logger instance
 ---@return PolicyEngineLogger
 function PolicyEngineLogger.new()
@@ -19,8 +54,8 @@ function PolicyEngineLogger.new()
 end
 
 ---Log a complete pipeline evaluation with results and execution plan
----@param result table Combined expose result
----@param plan table|nil Pipeline execution plan (optional)
+---@param result CombinedPolicyResult Combined policy result
+---@param plan table|nil Pipeline execution plan (optional) -- TODO: Define proper PipelineExecutionPlan type
 function PolicyEngineLogger:LogPlan(result, plan)
     if not result then
         log("PIPELINE PLAN", "No result to log.")
@@ -58,7 +93,8 @@ function PolicyEngineLogger:LogPlan(result, plan)
         log("PIPELINE PLAN", "[POLICY RULE TOPOLOGY]")
         for category, categoryPlan in pairs(plan.categories) do
             -- Always show category header, even if no rules
-            local dslCategoryName = category
+            ---@type string
+            local dslCategoryName
             if category == "unit_transfer" then dslCategoryName = "UnitTransfers"
             elseif category == "metal_transfer" then dslCategoryName = "MetalTransfers"
             elseif category == "energy_transfer" then dslCategoryName = "EnergyTransfers"
@@ -66,6 +102,7 @@ function PolicyEngineLogger:LogPlan(result, plan)
             elseif category == "guard_transfer" then dslCategoryName = "GuardCommands"
             elseif category == "repair_transfer" then dslCategoryName = "RepairCommands"
             elseif category == "reclaim_transfer" then dslCategoryName = "ReclaimCommands"
+            else dslCategoryName = category
             end
 
             if categoryPlan and categoryPlan.rules and #categoryPlan.rules > 0 then
@@ -113,14 +150,14 @@ function PolicyEngineLogger:LogPlan(result, plan)
 end
 
 ---Log context information
----@param plan table Pipeline execution plan
+---@param plan PipelineExecutionPlan Pipeline execution plan
 function PolicyEngineLogger.LogContext(plan)
     log("PIPELINE PLAN", "[CONTEXT]")
     local ctx = plan.context or {}
-    local senderName = ctx.senderName or ("Team " .. tostring(plan.senderTeamId or ctx.senderTeamId))
-    local receiverName = ctx.receiverName or ("Team " .. tostring(plan.receiverTeamId or ctx.receiverTeamId))
-    log("PIPELINE PLAN", string.format("Sender: %s (ID: %d)", senderName, plan.senderTeamId or ctx.senderTeamId or -1))
-    log("PIPELINE PLAN", string.format("Receiver: %s (ID: %d)", receiverName, plan.receiverTeamId or ctx.receiverTeamId or -1))
+    local senderName = ctx.senderName or ("Team " .. tostring(ctx.senderTeamId or -1))
+    local receiverName = ctx.receiverName or ("Team " .. tostring(ctx.receiverTeamId or -1))
+    log("PIPELINE PLAN", string.format("Sender: %s (ID: %d)", senderName, ctx.senderTeamId or -1))
+    log("PIPELINE PLAN", string.format("Receiver: %s (ID: %d)", receiverName, ctx.receiverTeamId or -1))
 
     -- Use cached evaluation context for resource information
     -- This automatically provides all context data without policies having to include it
@@ -153,7 +190,7 @@ function PolicyEngineLogger.LogContext(plan)
 end
 
 ---Log rule topology in hierarchical format (preserved from original)
----@param rules table[] Array of rule evaluation results
+---@param rules RuleEvaluationResult[] Array of rule evaluation results
 function PolicyEngineLogger.LogRuleTopology(rules)
     if not rules or #rules == 0 then
         log("PIPELINE PLAN", "  No rules defined")
@@ -242,9 +279,9 @@ function PolicyEngineLogger.LogRuleTopology(rules)
 end
 
 ---Log DSL topology showing the policy structure with outcomes
----@param rules table[] Array of rule evaluation results
----@param result table Pipeline result for outcome details
----@param category string Transfer category
+---@param rules RuleEvaluationResult[] Array of rule evaluation results
+---@param result CombinedPolicyResult Pipeline result for outcome details
+---@param category TransferCategory Transfer category
 function PolicyEngineLogger.LogDSLTopology(rules, result, category)
     if not rules or #rules == 0 then
         log("PIPELINE PLAN", "  No rules defined")
@@ -300,22 +337,22 @@ function PolicyEngineLogger.LogDSLTopology(rules, result, category)
         elseif rule.result and rule.result.expose then
             actionName = "Allow()"
             -- Create summary from result
-            if category == "unit_transfer" and result.UnitTransfer then
-                local ut = result.UnitTransfer
+            if category == "unit_transfer" and result.unit_transfer then
+                local ut = result.unit_transfer
                 if ut.canShareUnits then
                     summary = string.format("Unit sharing enabled (mode: %s)", ut.sharingMode or "enabled")
                 else
                     summary = ut.blockReason or "Unit sharing disabled"
                 end
-            elseif category == "metal_transfer" and result.MetalTransfer then
-                local mt = result.MetalTransfer
+            elseif category == "metal_transfer" and result.metalTransfer then
+                local mt = result.metalTransfer
                 if mt.canShare then
                     summary = string.format("Metal sharing allowed (max: %d)", mt.maxMetalShareAmount or 0)
                 else
                     summary = mt.blockReason or "Metal sharing denied"
                 end
-            elseif category == "energy_transfer" and result.EnergyTransfer then
-                local et = result.EnergyTransfer
+            elseif category == "energy_transfer" and result.energy_transfer then
+                local et = result.energy_transfer
                 if et.canShare then
                     summary = string.format("Energy sharing allowed (max: %d)", et.maxEnergyShareAmount or 0)
                 else
@@ -350,9 +387,9 @@ function PolicyEngineLogger.LogDSLTopology(rules, result, category)
 end
 
 ---Log improved DSL topology that correctly shows Use blocks and implicit denies
----@param rules table[] Array of rule evaluation results
----@param result table Pipeline result for outcome details
----@param category string Transfer category
+---@param rules RuleEvaluationResult[] Array of rule evaluation results
+---@param result CombinedPolicyResult Pipeline result for outcome details
+---@param category TransferCategory Transfer category
 function PolicyEngineLogger.LogImprovedDSLTopology(rules, result, category)
     if not rules or #rules == 0 then
         log("PIPELINE PLAN", "  No rules defined")
@@ -360,7 +397,8 @@ function PolicyEngineLogger.LogImprovedDSLTopology(rules, result, category)
     end
     
     -- Convert category to DSL name
-    local dslCategoryName = category
+    ---@type string
+    local dslCategoryName
     if category == "unit_transfer" then dslCategoryName = "UnitTransfers"
     elseif category == "metal_transfer" then dslCategoryName = "MetalTransfers"
     elseif category == "energy_transfer" then dslCategoryName = "EnergyTransfers"
@@ -368,6 +406,7 @@ function PolicyEngineLogger.LogImprovedDSLTopology(rules, result, category)
     elseif category == "guard_transfer" then dslCategoryName = "GuardCommands"
     elseif category == "repair_transfer" then dslCategoryName = "RepairCommands"
     elseif category == "reclaim_transfer" then dslCategoryName = "ReclaimCommands"
+    else dslCategoryName = category
     end
     
     log("PIPELINE PLAN", dslCategoryName)
@@ -412,8 +451,8 @@ function PolicyEngineLogger.LogImprovedDSLTopology(rules, result, category)
 end
 
 ---Get brief outcome reference for topology section
----@param categoryName string Category name
----@param ruleResult table|nil Rule execution result
+---@param categoryName TransferCategory Category name
+---@param ruleResult RuleResult|nil Rule execution result
 ---@return string Brief outcome reference
 function PolicyEngineLogger.GetBriefOutcome(categoryName, ruleResult)
     if not ruleResult then return "No outcome" end
@@ -439,8 +478,8 @@ function PolicyEngineLogger.GetBriefOutcome(categoryName, ruleResult)
 end
 
 ---Get outcome summary for a rule result
----@param categoryName string Category name
----@param ruleResult table|nil Rule execution result
+---@param categoryName TransferCategory Category name
+---@param ruleResult RuleResult|nil Rule execution result
 ---@return string Outcome summary
 function PolicyEngineLogger.GetOutcomeSummary(categoryName, ruleResult)
     if not ruleResult then return "No outcome" end
@@ -499,15 +538,17 @@ function PolicyEngineLogger.GetOutcomeSummary(categoryName, ruleResult)
             end
             local detailStr = #details > 0 and (" (" .. table.concat(details, ", ") .. ")") or ""
             return string.format("Allowed%s", detailStr)
-        elseif categoryName == "command_validation" or categoryName == "guard_transfer" or categoryName == "repair_transfer" or categoryName == "reclaim_transfer" then
-            local allowed = {}
-            if expose.allowGuardCommands then table.insert(allowed, "Guard") end
-            if expose.allowRepairCommands then table.insert(allowed, "Repair") end
-            if expose.allowReclaimCommands then table.insert(allowed, "Reclaim") end
-            if #allowed > 0 then
-                return string.format("%s allowed", table.concat(allowed, ", "))
+        elseif categoryName == "guard_transfer" or categoryName == "repair_transfer" or categoryName == "reclaim_transfer" then
+            if expose.allowCommands then
+                if categoryName == "guard_transfer" then return "Guard commands allowed"
+                elseif categoryName == "repair_transfer" then return "Repair commands allowed"
+                elseif categoryName == "reclaim_transfer" then return "Reclaim commands allowed"
+                end
             else
-                return string.format("None allowed (%s)", expose.blockReason or "No command policies allow this")
+                if categoryName == "guard_transfer" then return "Guard commands denied"
+                elseif categoryName == "repair_transfer" then return "Repair commands denied"
+                elseif categoryName == "reclaim_transfer" then return "Reclaim commands denied"
+                end
             end
         end
     end
@@ -516,20 +557,22 @@ function PolicyEngineLogger.GetOutcomeSummary(categoryName, ruleResult)
 end
 
 ---Get display name for a category
----@param categoryName string Category name
+---@param categoryName TransferCategory Category name
 ---@return string Display name
 function PolicyEngineLogger.GetCategoryDisplayName(categoryName)
     if categoryName == "unit_transfer" then return "Unit Transfer"
     elseif categoryName == "metal_transfer" then return "Metal Transfer"
     elseif categoryName == "energy_transfer" then return "Energy Transfer"
-    elseif categoryName == "command_validation" then return "Command Validation"
+    elseif categoryName == "guard_transfer" then return "Guard Commands"
+    elseif categoryName == "repair_transfer" then return "Repair Commands"
+    elseif categoryName == "reclaim_transfer" then return "Reclaim Commands"
     end
-    return categoryName
+    return tostring(categoryName)
 end
 
 ---Log outcomes section showing both policy-driven and default outcomes
----@param result table Combined expose result
----@param plan table|nil Pipeline execution plan
+---@param result CombinedPolicyResult Combined policy result
+---@param plan table|nil Pipeline execution plan -- TODO: Define proper type
 function PolicyEngineLogger.LogOutcomes(result, plan)
     local outcomeIndex = 1
 
@@ -547,7 +590,7 @@ function PolicyEngineLogger.LogOutcomes(result, plan)
     end
 
     -- Show default outcomes for categories without policies
-    local allCategories = {"command_validation", "metal_transfer", "energy_transfer", "unit_transfer"}
+    local allCategories = {"metal_transfer", "energy_transfer", "unit_transfer", "guard_transfer", "repair_transfer", "reclaim_transfer"}
     for _, category in ipairs(allCategories) do
         local hasPolicy = plan and plan.categories and plan.categories[category] and
                          plan.categories[category].rules and
@@ -561,12 +604,16 @@ function PolicyEngineLogger.LogOutcomes(result, plan)
 end
 
 ---Get default outcome summary for categories without policies
----@param categoryName string Category name
----@param result table Combined expose result
+---@param categoryName TransferCategory Category name
+---@param result CombinedPolicyResult Combined policy result
 ---@return string Default outcome summary
 function PolicyEngineLogger.GetDefaultOutcomeSummary(categoryName, result)
-    if categoryName == "command_validation" then
-        return "Command Validation: None allowed (No policies allowed these commands)"
+    if categoryName == "guard_transfer" then
+        return "Guard Commands: Denied (No policies allowed guard commands)"
+    elseif categoryName == "repair_transfer" then
+        return "Repair Commands: Denied (No policies allowed repair commands)"
+    elseif categoryName == "reclaim_transfer" then
+        return "Reclaim Commands: Denied (No policies allowed reclaim commands)"
     elseif categoryName == "metal_transfer" then
         return "Metal Transfer: Denied (No policies allowed metal sharing)"
     elseif categoryName == "energy_transfer" then
@@ -578,8 +625,8 @@ function PolicyEngineLogger.GetDefaultOutcomeSummary(categoryName, result)
 end
 
 ---Format expose result for display
----@param categoryName string Category name
----@param expose table Expose data
+---@param categoryName TransferCategory Category name
+---@param expose ResourcePolicyResult|UnitTransferPolicyResult|CommandTransferPolicyResult Expose data
 ---@return string Formatted result
 function PolicyEngineLogger.FormatExposeResult(categoryName, expose)
     local parts = {}
@@ -626,8 +673,8 @@ function PolicyEngineLogger.FormatExposeResult(categoryName, expose)
 end
 
 ---Check if an expose result represents an implicit deny
----@param categoryName string Category name
----@param expose table Expose data
+---@param categoryName TransferCategory Category name
+---@param expose ResourcePolicyResult|UnitTransferPolicyResult|CommandTransferPolicyResult Expose data
 ---@return boolean True if this is an implicit deny
 function PolicyEngineLogger.IsImplicitDeny(categoryName, expose)
     if categoryName == "unit_transfer" then
@@ -643,29 +690,31 @@ function PolicyEngineLogger.IsImplicitDeny(categoryName, expose)
 end
 
 ---Log expose data summary (updated for new result structure)
----@param result table Combined expose result
+---@param result CombinedPolicyResult Combined policy result
 function PolicyEngineLogger.LogExposeDataSummary(result)
     if not result then return end
-    
-    -- Command Validation
-    if result.CommandValidation then
-        local cv = result.CommandValidation
-        local allowed = {}
-        if cv.allowGuardCommands then table.insert(allowed, "Guard") end
-        if cv.allowRepairCommands then table.insert(allowed, "Repair") end
-        if cv.allowReclaimCommands then table.insert(allowed, "Reclaim") end
-        
-        if #allowed > 0 then
-            log("PIPELINE PLAN", string.format("Commands: %s allowed", table.concat(allowed, ", ")))
-        else
-            log("PIPELINE PLAN", string.format("Commands: None allowed%s", 
-                cv.blockReason and (" (" .. cv.blockReason .. ")") or ""))
-        end
+
+    -- Command Transfers (Guard, Repair, Reclaim)
+    local commandAllowed = {}
+    if result.guard_transfer and result.guard_transfer.allowCommands then
+        table.insert(commandAllowed, "Guard")
     end
-    
+    if result.repair_transfer and result.repair_transfer.allowCommands then
+        table.insert(commandAllowed, "Repair")
+    end
+    if result.reclaim_transfer and result.reclaim_transfer.allowCommands then
+        table.insert(commandAllowed, "Reclaim")
+    end
+
+    if #commandAllowed > 0 then
+        log("PIPELINE PLAN", string.format("Commands: %s allowed", table.concat(commandAllowed, ", ")))
+    else
+        log("PIPELINE PLAN", "Commands: None allowed")
+    end
+
     -- Metal Transfer
-    if result.MetalTransfer then
-        local mt = result.MetalTransfer
+    if result.metalTransfer then
+        local mt = result.metalTransfer
         if mt.canShare then
             -- Use amountSendable if available (from tax_resource_sharing), otherwise fallback to maxMetalShareAmount
             local maxAmount = mt.amountSendable or mt.maxMetalShareAmount
@@ -678,8 +727,8 @@ function PolicyEngineLogger.LogExposeDataSummary(result)
     end
 
     -- Energy Transfer
-    if result.EnergyTransfer then
-        local et = result.EnergyTransfer
+    if result.energy_transfer then
+        local et = result.energy_transfer
         if et.canShare then
             -- Use amountSendable if available (from tax_resource_sharing), otherwise fallback to maxEnergyShareAmount
             local maxAmount = et.amountSendable or et.maxEnergyShareAmount
@@ -690,10 +739,10 @@ function PolicyEngineLogger.LogExposeDataSummary(result)
                 et.blockReason and (" (" .. et.blockReason .. ")") or ""))
         end
     end
-    
+
     -- Unit Transfer
-    if result.UnitTransfer then
-        local ut = result.UnitTransfer
+    if result.unit_transfer then
+        local ut = result.unit_transfer
         if ut.canShareUnits then
             log("PIPELINE PLAN", "Unit Transfer: Allowed")
         else
@@ -705,7 +754,7 @@ end
 
 
 ---Log validators section
----@param validators table[] List of validator functions
+---@param validators ValidatorEntry[] List of validator functions
 function PolicyEngineLogger.LogValidators(validators)
     log("PIPELINE PLAN", "[VALIDATORS]")
     
@@ -730,7 +779,7 @@ function PolicyEngineLogger.LogValidators(validators)
 end
 
 ---Log transfer hooks section
----@param transferHooks table[] List of post-transfer hook functions
+---@param transferHooks TransferHookEntry[] List of post-transfer hook functions
 function PolicyEngineLogger.LogTransferHooks(transferHooks)
     log("PIPELINE PLAN", "[TRANSFER HOOKS]")
     
@@ -755,7 +804,7 @@ function PolicyEngineLogger.LogTransferHooks(transferHooks)
 end
 
 ---Log initializers section
----@param initializers table[] List of initialization functions
+---@param initializers InitializerEntry[] List of initialization functions
 function PolicyEngineLogger.LogInitializers(initializers)
     log("PIPELINE PLAN", "[INITIALIZERS]")
     
@@ -788,7 +837,10 @@ function PolicyEngineLogger.LogSection(section, data)
     if section == "context" then
         PolicyEngineLogger.LogContext({context = data})
     elseif section == "rules" then
-        PolicyEngineLogger.LogPolicyExecution(data.rules or {}, data.policyName or "Unknown Policy")
+        -- Log rules - implementation depends on data structure
+        if data.rules then
+            PolicyEngineLogger.LogRuleTopology(data.rules)
+        end
     elseif section == "topology" then
         PolicyEngineLogger.LogRuleTopology(data.rules or {})
     elseif section == "results" then
@@ -799,10 +851,12 @@ function PolicyEngineLogger.LogSection(section, data)
 end
 
 -- Legacy compatibility functions (simplified)
+---@param plan table Legacy plan structure
 function PolicyEngineLogger.LogExecutionPlan(plan)
     PolicyEngineLogger.LogPlan(plan.result, plan)
 end
 
+---@param policies PolicyInfo[]
 function PolicyEngineLogger.LogPolicyTopology(policies)
     log("PIPELINE PLAN", "=== ACTIVE POLICIES ===")
     for i, policy in ipairs(policies or {}) do
@@ -812,6 +866,7 @@ function PolicyEngineLogger.LogPolicyTopology(policies)
     log("PIPELINE PLAN", "=== END POLICIES ===")
 end
 
+---@param result CombinedPolicyResult
 function PolicyEngineLogger.LogFinalResult(result)
     PolicyEngineLogger.LogExposeDataSummary(result)
 end

@@ -17,7 +17,7 @@ function gadget:GetInfo()
 	return {
 		name = "Team Transfer Main",
 		desc = "Manages team resource and unit transfer policies and coordination",
-		author = "Daniel Harvey",
+		author = "BAR Team",
 		date = "2025",
 		license = "GNU GPL, v2 or later",
 		layer = 0,

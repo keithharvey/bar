@@ -59,18 +59,14 @@ describe("PolicyEngineLogger #clear", function()
             assert.is_not_nil(summary:find("tax: 10.0%", 1, true))
         end)
 
-        it("should summarize command validation outcomes", function()
+        it("should summarize guard command outcomes", function()
             local result = {
                 expose = {
-                    allowGuardCommands = true,
-                    allowRepairCommands = false,
-                    allowReclaimCommands = true
+                    allowCommands = true
                 }
             }
-            local summary = PolicyEngineLogger.GetOutcomeSummary("command_validation", result)
-            assert.is_not_nil(summary:find("Guard", 1, true))
-            assert.is_not_nil(summary:find("Reclaim", 1, true))
-            assert.is_nil(summary:find("Repair", 1, true))
+            local summary = PolicyEngineLogger.GetOutcomeSummary("guard_transfer", result)
+            assert.is_not_nil(summary:find("Guard commands allowed", 1, true))
         end)
 
         it("should handle deny outcomes", function()
@@ -127,7 +123,9 @@ describe("PolicyEngineLogger #clear", function()
             assert.equal("Unit Transfer", PolicyEngineLogger.GetCategoryDisplayName("unit_transfer"))
             assert.equal("Metal Transfer", PolicyEngineLogger.GetCategoryDisplayName("metal_transfer"))
             assert.equal("Energy Transfer", PolicyEngineLogger.GetCategoryDisplayName("energy_transfer"))
-            assert.equal("Command Validation", PolicyEngineLogger.GetCategoryDisplayName("command_validation"))
+            assert.equal("Guard Commands", PolicyEngineLogger.GetCategoryDisplayName("guard_transfer"))
+            assert.equal("Repair Commands", PolicyEngineLogger.GetCategoryDisplayName("repair_transfer"))
+            assert.equal("Reclaim Commands", PolicyEngineLogger.GetCategoryDisplayName("reclaim_transfer"))
             assert.equal("unknown_category", PolicyEngineLogger.GetCategoryDisplayName("unknown_category"))
         end)
     end)
