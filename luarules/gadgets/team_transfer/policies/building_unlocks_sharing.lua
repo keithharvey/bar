@@ -31,7 +31,7 @@ end
 ---@param builder DSL
 local function policyFunction(builder)
     local function hasBothStorages(ctx)
-        local springRepo = ctx.repositories and ctx.repositories.springRepo
+        local springRepo = ctx.repositories.springRepo
         return hasBuiltCategories(ctx.senderTeamId, {
             BuildingCategories.METAL_STORAGE,
             BuildingCategories.ENERGY_STORAGE
@@ -39,7 +39,7 @@ local function policyFunction(builder)
     end
 
     local function hasPinpointer(ctx)
-        local springRepo = ctx.repositories and ctx.repositories.springRepo
+        local springRepo = ctx.repositories.springRepo
         return hasBuiltCategories(ctx.senderTeamId, {
             BuildingCategories.PINPOINTER,
         }, springRepo)

@@ -68,7 +68,6 @@ describe("Customize Sharing Configuration", function()
 
             local result = customService:GetResult(sender.id, receiver.id)
 
-            -- Should reflect the custom configuration
             assert.is_not_nil(result.unit_transfer)
             assert.is_not_nil(result.metal_transfer)
         end)

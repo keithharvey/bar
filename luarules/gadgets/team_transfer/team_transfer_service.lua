@@ -380,12 +380,10 @@ function TeamTransferService:AddTeamResource(teamID, resourceType, amount)
         or SharedEnums.TransferCategory.EnergyTransfer
 
     local resourcePolicyResult = self:GetResultCategory(teamID, teamID, transferCategory)
-    
     local resourceTransferContext = self.contextFactory.resourceTransfer(teamID, teamID, resourceType, amount, resourcePolicyResult)
 
     local result = ResourceTransfer(resourceTransferContext)
 
-    -- Notify post-transfer hooks for resource addition
     if result.success then
         if resourceType == SharedEnums.ResourceType.METAL then
             self:NotifyPostMetalTransfer(result)
@@ -406,7 +404,7 @@ function TeamTransferService:NotifyPostMetalTransfer(transferResult)
         local success, err = pcall(function()
             handlerEntry.handler(transferResult, self.springRepo)
         end)
-        if not success and Spring and Spring.Log then
+        if not success then
             Spring.Log("TeamTransferService", "ERROR", "Post-metal-transfer handler failed: " .. tostring(err))
         end
     end
@@ -421,7 +419,7 @@ function TeamTransferService:NotifyPostEnergyTransfer(transferResult)
         local success, err = pcall(function()
             handlerEntry.handler(transferResult, self.springRepo)
         end)
-        if not success and Spring and Spring.Log then
+        if not success then
             Spring.Log("TeamTransferService", "ERROR", "Post-energy-transfer handler failed: " .. tostring(err))
         end
     end
@@ -442,7 +440,7 @@ function TeamTransferService:NotifyPostUnitTransfer(transferResult)
             }
             handlerEntry.handler(context)
         end)
-        if not success and Spring and Spring.Log then
+        if not success then
             Spring.Log("TeamTransferService", "ERROR", "Post-unit-transfer handler failed: " .. tostring(err))
         end
     end

@@ -31,7 +31,6 @@ local module = {
 						return { ok = false, reason = "Cannot repair units under construction" }
 					end
 				end
-				-- Allow reclaim commands (they can reclaim anything)
 				return { ok = true }
 			end)
 		end

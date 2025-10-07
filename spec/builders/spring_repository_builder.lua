@@ -588,13 +588,13 @@ function SpringRepositoryBuilder:WithRealUnitDefs()
                 -- Load alldefs_post first to ensure UnitDef_Post is available
                 local alldefsSuccess, alldefsError = pcall(require, "gamedata.alldefs_post")
                 if not alldefsSuccess then
-                    Spring.Log("UNITDEFS", LOG.WARNING, "Failed to load alldefs_post: " .. tostring(alldefsError))
+                    Spring.Log("UNITDEFS", LOG.ERROR, "Failed to load alldefs_post: " .. tostring(alldefsError))
                 end
 
                 -- Run post-processing to normalize unit definitions
                 local postSuccess, postError = pcall(require, "gamedata.unitdefs_post")
                 if not postSuccess then
-                    Spring.Log("UNITDEFS", LOG.WARNING, "Failed to run unitdefs post-processing: " .. tostring(postError))
+                    Spring.Log("UNITDEFS", LOG.ERROR, "Failed to run unitdefs post-processing: " .. tostring(postError))
                 end
                 
                 -- Use the processed definitions
