@@ -32,7 +32,8 @@ local buildResultFactory = function(taxRate, metalThreshold, energyThreshold)
 	---@return ResourcePolicyResult
 	local function calcResourcePolicyResult(ctx, resourceType)
 		local resource = {
-			cumulativeSent = getCumulativeSent(ctx.senderTeamId, resourceType, ctx.repositories.springRepo) or 0
+			cumulativeSent = getCumulativeSent(ctx.senderTeamId, resourceType, ctx.repositories.springRepo) or 0,
+			threshold = getThreshold(resourceType)
 		}
 		if resourceType == SharedEnums.ResourceType.METAL then
 			resource.sender_current = ctx.sender.metal.current
@@ -45,32 +46,30 @@ local buildResultFactory = function(taxRate, metalThreshold, energyThreshold)
 			resource.receiver_current = ctx.receiver.energy.current
 			resource.receiver_storage = ctx.receiver.energy.storage
 		end
-		local threshold = getThreshold(resourceType)
 
-		local allowanceRemaining = math.max(0, threshold - resource.cumulativeSent)
-		local untaxedPortion = math.min(allowanceRemaining, resource.sender_current)
-		local taxedPortion = math.max(0, resource.sender_current - untaxedPortion)
-		
-		local amountSendable = untaxedPortion + taxedPortion * (1 + taxRate)
-		local maxReceivableAmount = resource.receiver_storage - resource.receiver_current
-		amountSendable = math.min(amountSendable, maxReceivableAmount)
-		-- if I have 1000, 400 threshold allowance remaining
-		-- untaxedPortion = 400, taxedPortion = 600
-		-- amountSendable = 400 + 600 * (1 + taxRate) = max sendable including tax overhead
-		-- then capped by receiver capacity
+		local receiverCapacity = resource.receiver_storage - resource.receiver_current
 
-		local remainingTaxFreeAllowance = allowanceRemaining - untaxedPortion
+		local amountSendable = receiverCapacity
+		local amountReceivable = receiverCapacity
+
+		-- Calculate tax-free allowance remaining (considering cumulative sent)
+		local allowanceRemaining = math.max(0, resource.threshold - resource.cumulativeSent)
+
+		-- Calculate portions for transfer logic
+		local senderBudget = resource.sender_current
+		local untaxedPortion = math.min(allowanceRemaining, receiverCapacity, senderBudget)
+		local taxedPortion = math.max(0, receiverCapacity - untaxedPortion)
 
 		---@type ResourcePolicyResult
 		return {
 			canShare = amountSendable > 0,
 			amountSendable = amountSendable,
-			receivable = maxReceivableAmount,
+			amountReceivable = amountReceivable,
 			taxedPortion = taxedPortion,
 			untaxedPortion = untaxedPortion,
 			taxRate = taxRate,
 			resourceType = resourceType,
-			remainingTaxFreeAllowance = remainingTaxFreeAllowance
+			remainingTaxFreeAllowance = allowanceRemaining
 		}
 	end
 	return calcResourcePolicyResult

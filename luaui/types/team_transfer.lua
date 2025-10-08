@@ -50,7 +50,7 @@
 ---@class ResourcePolicyResult
 ---@field canShare boolean
 ---@field amountSendable number
----@field receivable number
+---@field amountReceivable number
 ---@field taxedPortion number
 ---@field untaxedPortion number
 ---@field taxRate number
@@ -150,12 +150,13 @@
 ---@field targetUnitID number Target unit ID (for guard/repair/reclaim)
 ---@field targetUnitDef table Target unit definition
 
-
 ---@class CombinedPolicyResult
 ---@field metal_transfer ResourcePolicyResult
 ---@field energy_transfer ResourcePolicyResult
 ---@field unit_transfer UnitTransferPolicyResult
----@field command_transfer CommandTransferPolicyResult
+---@field guard_transfer CommandTransferPolicyResult
+---@field reclaim_transfer CommandTransferPolicyResult
+---@field repair_transfer CommandTransferPolicyResult
 
 
 -- Sharing Mode Types

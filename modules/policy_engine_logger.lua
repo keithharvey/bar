@@ -344,8 +344,8 @@ function PolicyEngineLogger.LogDSLTopology(rules, result, category)
                 else
                     summary = ut.blockReason or "Unit sharing disabled"
                 end
-            elseif category == "metal_transfer" and result.metalTransfer then
-                local mt = result.metalTransfer
+            elseif category == "metal_transfer" and result.metal_transfer then
+                local mt = result.metal_transfer
                 if mt.canShare then
                     summary = string.format("Metal sharing allowed (max: %d)", mt.maxMetalShareAmount or 0)
                 else
@@ -713,8 +713,8 @@ function PolicyEngineLogger.LogExposeDataSummary(result)
     end
 
     -- Metal Transfer
-    if result.metalTransfer then
-        local mt = result.metalTransfer
+    if result.metal_transfer then
+        local mt = result.metal_transfer
         if mt.canShare then
             -- Use amountSendable if available (from tax_resource_sharing), otherwise fallback to maxMetalShareAmount
             local maxAmount = mt.amountSendable or mt.maxMetalShareAmount
