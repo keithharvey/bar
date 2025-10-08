@@ -1,7 +1,7 @@
 -- Ensure TeamData type is available
 require("spec/builders/team_builder")
 require("common/stringFunctions")
-require("common.tableFunctions")
+require("common.tablefunctions")
 
 local SharedEnums = require("luarules.gadgets.team_transfer.shared_enums")
 

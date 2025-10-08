@@ -3,7 +3,7 @@ local utilitiesDirectory = 'common/springUtilities/'
 local tga = VFS.Include(utilitiesDirectory .. 'image_tga.lua')
 local team = VFS.Include(utilitiesDirectory .. 'teamFunctions.lua')
 local syncFunctions = VFS.Include(utilitiesDirectory .. 'synced.lua')
-local tableFunctions = VFS.Include(utilitiesDirectory .. 'tableFunctions.lua')
+local tableFunctions = VFS.Include(utilitiesDirectory .. 'tablefunctions.lua')
 local colorFunctions = VFS.Include(utilitiesDirectory .. 'color.lua')
 local safeLuaTableParser = VFS.Include(utilitiesDirectory .. 'safeluaparser.lua')
 
