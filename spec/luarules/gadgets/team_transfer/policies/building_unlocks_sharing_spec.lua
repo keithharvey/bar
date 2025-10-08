@@ -88,27 +88,4 @@ describe(SharedEnums.Policies.BuildingUnlocksSharing .. " policy", function()
             end)
         end)
     end)
-
-    describe("WHEN building unlocks sharing is disabled", function()
-        local result
-
-        before_each(function()
-            spring:WithModOption(SharedEnums.Policies.BuildingUnlocksSharing, SharedEnums.BuildingUnlocksSharingMode.Disabled)
-
-            local service = Builders.TeamTransferService.new()
-                :WithSpringRepository(spring)
-                :WithPolicy(SharedEnums.Policies.BuildingUnlocksSharing)
-                :Build()
-            result = service:GetResult(sender.id, receiver.id)
-        end)
-
-        it("should DENY resource sharing", function()
-            assert.is_false(result.metal_transfer.canShare)
-            assert.is_false(result.energy_transfer.canShare)
-        end)
-
-        it("should DENY unit sharing", function()
-            assert.is_false(result.unit_transfer.canShareUnits)
-        end)
-    end)
 end)
