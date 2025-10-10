@@ -17,8 +17,7 @@
       "luarules/",
       "luaui/",
       "spec/",
-      "./types/busted/library",
-      "./types/luassert/library"
+      "./types/"
     ],
     "ignoreDir": [
       ".vscode",

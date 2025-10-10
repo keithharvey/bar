@@ -89,7 +89,6 @@ describe(SharedEnums.Policies.TaxResourceSharing .. " policy", function()
             assert.equal(0, result.energy_transfer.amountSendable)
         end)
     end)
-
     
     describe("when a receiver has more metal capacity than the threshold", function()
         it("should have an untaxed portion that is the threshold", function()
