@@ -2071,7 +2071,7 @@ function widget:MousePress(x, y, button)
 		end
 
 		if not spec then
-			if not isSingle then
+			if not isSingle  then
 				if math_isInRect(x, y, shareIndicatorArea['metal'][1], shareIndicatorArea['metal'][2], shareIndicatorArea['metal'][3], shareIndicatorArea['metal'][4]) then
 					draggingShareIndicator = 'metal'
 				end
@@ -2195,7 +2195,7 @@ function widget:Initialize()
 
 	if not spec then
 		local teamList = Spring.GetTeamList(myAllyTeamID) or {}
-		isSingle = #teamList == 1
+		isSingle = (#teamList == 1) or (Spring.GetModOptions().tax_resource_sharing_amount and Spring.GetModOptions().tax_resource_sharing_amount == 1)
 	end
 
 	for unitDefID, unitDef in pairs(UnitDefs) do
