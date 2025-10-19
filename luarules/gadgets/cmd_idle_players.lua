@@ -237,10 +237,10 @@ if gadgetHandler:IsSyncedCode() then
 		return GetTeamRulesParam(toTeamID,"numActivePlayers") ~= 0 or IsCheatingEnabled()
 	end
 
-	function gadget:AllowUnitTransfer(unitID, unitDefID, fromTeamID, toTeamID, capture)
-		-- prevent units to be shared to uncontrolled teams
-		return capture or GetTeamRulesParam(toTeamID,"numActivePlayers") ~= 0 or IsCheatingEnabled()
-	end
+	--- superseded by unit sharing policy cache (game_unit_sharing_mode.lua)
+	-- function gadget:AllowUnitTransfer(unitID, unitDefID, fromTeamID, toTeamID, capture)
+  -- 	 return capture or GetTeamRulesParam(toTeamID,"numActivePlayers") ~= 0 or IsCheatingEnabled()
+	-- end
 
 
 else	-- UNSYNCED

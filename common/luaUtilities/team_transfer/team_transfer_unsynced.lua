@@ -4,11 +4,18 @@ local TeamTransferCache = VFS.Include("common/luaUtilities/team_transfer/team_tr
 local ResourceComms = VFS.Include("common/luaUtilities/team_transfer/resource_transfer_comms.lua")
 local ResourceShared = VFS.Include("common/luaUtilities/team_transfer/resource_transfer_shared.lua")
 
+local UnitShared = VFS.Include("common/luaUtilities/team_transfer/unit_transfer_shared.lua")
+local UnitComms = VFS.Include("common/luaUtilities/team_transfer/unit_transfer_comms.lua")
+
 local metalPolicyScratch = {}
 local energyPolicyScratch = {}
+local unitPolicyScratch = {}
+local selectedUnitsValidationScratch = {}
 
 local METAL_POLICY_PREFIX = "metalPolicy_"
 local ENERGY_POLICY_PREFIX = "energyPolicy_"
+local UNIT_POLICY_PREFIX = "unitPolicy_"
+local SELECTED_UNITS_VALIDATION_PREFIX = "selectedUnitsValidation_"
 
 local ResourceWidgets = {
   CalculateSenderTaxedAmount = ResourceShared.CalculateSenderTaxedAmount,
@@ -20,6 +27,18 @@ local ResourceWidgets = {
   SendTransferChatMessages = ResourceComms.SendTransferChatMessages,
 }
 ResourceWidgets.__index = ResourceWidgets
+
+local UnitWidgets = {
+  GetCachedPolicyResult = UnitShared.GetCachedPolicyResult,
+  DecideCommunicationCase = UnitComms.DecideCommunicationCase,
+  TooltipText = UnitComms.UnitShareTooltip,
+}
+UnitWidgets.__index = UnitWidgets
+
+local TeamTransfer = {
+  Resources = ResourceWidgets,
+  Units = UnitWidgets,
+}
 
 --------------------------------------------------------
 --- Resource Transfer
@@ -74,10 +93,37 @@ function TeamTransfer.UnpackAllPolicies(playerData, senderTeamId, receiverTeamId
 
   local metalPolicy = TeamTransfer.UnpackMetalPolicyResult(playerData, senderTeamId, receiverTeamId)
   local energyPolicy = TeamTransfer.UnpackEnergyPolicyResult(playerData, senderTeamId, receiverTeamId)
+  local unitPolicy = TeamTransfer.UnpackUnitPolicyResult(playerData, senderTeamId, receiverTeamId)
 
-  return metalPolicy, energyPolicy
+  return metalPolicy, energyPolicy, unitPolicy
 end
 
+---Unpack selected units validation result from player data
+---@param playerData table
+---@return UnitValidationResult
+function TeamTransfer.UnpackSelectedUnitsValidation(playerData)
+  selectedUnitsValidationScratch.status = playerData[SELECTED_UNITS_VALIDATION_PREFIX .. "status"]
+  selectedUnitsValidationScratch.validUnitCount = playerData[SELECTED_UNITS_VALIDATION_PREFIX .. "validUnitCount"]
+  selectedUnitsValidationScratch.validUnitCategoryCount = playerData[SELECTED_UNITS_VALIDATION_PREFIX .. "validUnitCategoryCount"]
+  selectedUnitsValidationScratch.invalidUnitCount = playerData[SELECTED_UNITS_VALIDATION_PREFIX .. "invalidUnitCount"]
+  selectedUnitsValidationScratch.invalidUnitCategoryCount = playerData[SELECTED_UNITS_VALIDATION_PREFIX .. "invalidUnitCategoryCount"]
+  selectedUnitsValidationScratch.validUnitNames = playerData[SELECTED_UNITS_VALIDATION_PREFIX .. "validUnitNames"]
+  selectedUnitsValidationScratch.invalidUnitNames = playerData[SELECTED_UNITS_VALIDATION_PREFIX .. "invalidUnitNames"]
+  return selectedUnitsValidationScratch
+end
+
+---Pack selected units validation result into player data
+---@param validationResult table
+---@param playerData table
+function TeamTransfer.PackSelectedUnitsValidation(validationResult, playerData)
+  playerData[SELECTED_UNITS_VALIDATION_PREFIX .. "status"] = validationResult.status
+  playerData[SELECTED_UNITS_VALIDATION_PREFIX .. "validUnitCount"] = validationResult.validUnitCount
+  playerData[SELECTED_UNITS_VALIDATION_PREFIX .. "validUnitCategoryCount"] = validationResult.validUnitCategoryCount
+  playerData[SELECTED_UNITS_VALIDATION_PREFIX .. "invalidUnitCount"] = validationResult.invalidUnitCount
+  playerData[SELECTED_UNITS_VALIDATION_PREFIX .. "invalidUnitCategoryCount"] = validationResult.invalidUnitCategoryCount
+  playerData[SELECTED_UNITS_VALIDATION_PREFIX .. "validUnitNames"] = validationResult.validUnitNames
+  playerData[SELECTED_UNITS_VALIDATION_PREFIX .. "invalidUnitNames"] = validationResult.invalidUnitNames
+end
 
 ---This and its sibling hydrate existing tables with a policyResult so we don't thrash GC
 ---@param transferCategory string SharedEnums.TransferCategory
@@ -94,6 +140,10 @@ function TeamTransfer.UnpackPolicyResult(transferCategory, playerData, senderTea
     scratch = energyPolicyScratch
     fields = ResourceShared.ResourcePolicyFields
     prefix = ENERGY_POLICY_PREFIX
+  elseif transferCategory == SharedEnums.TransferCategory.UnitTransfer then
+    scratch = unitPolicyScratch
+    fields = UnitShared.UnitPolicyFields
+    prefix = UNIT_POLICY_PREFIX
   end
   scratch.senderTeamId = senderTeamId
   scratch.receiverTeamId = receiverTeamId
@@ -145,6 +195,9 @@ function TeamTransfer.PackPolicyResult(transferCategory, policy, playerData)
   elseif transferCategory == SharedEnums.TransferCategory.EnergyTransfer then
     fields = ResourceShared.ResourcePolicyFields
     prefix = ENERGY_POLICY_PREFIX
+  elseif transferCategory == SharedEnums.TransferCategory.UnitTransfer then
+    fields = UnitShared.UnitPolicyFields
+    prefix = UNIT_POLICY_PREFIX
   end
   for field, _ in pairs(fields) do
     playerData[prefix .. field] = policy[field]
@@ -169,6 +222,15 @@ function TeamTransfer.PackEnergyPolicyResult(senderTeamId, receiverTeamId, playe
   TeamTransfer.PackPolicyResult(SharedEnums.TransferCategory.EnergyTransfer, policy, playerData)
 end
 
+---Pack unit policy result into player data
+---@param senderTeamId number
+---@param receiverTeamId number
+---@param playerData table
+function TeamTransfer.PackUnitPolicyResult(senderTeamId, receiverTeamId, playerData)
+  local policy = UnitWidgets.GetCachedPolicyResult(senderTeamId, receiverTeamId)
+  TeamTransfer.PackPolicyResult(SharedEnums.TransferCategory.UnitTransfer, policy, playerData)
+end
+
 --- Pack all policies for a given player
 ---@param playerData table
 ---@param senderTeamId number
@@ -176,6 +238,7 @@ end
 function TeamTransfer.PackAllPoliciesForPlayer(playerData, senderTeamId, receiverTeamId)
   TeamTransfer.PackMetalPolicyResult(senderTeamId, receiverTeamId, playerData)
   TeamTransfer.PackEnergyPolicyResult(senderTeamId, receiverTeamId, playerData)
+  TeamTransfer.PackUnitPolicyResult(senderTeamId, receiverTeamId, playerData)
 end
 
 return TeamTransfer

@@ -63,6 +63,7 @@ end
 local SharedEnums = VFS.Include('common/luaUtilities/team_transfer/shared_enums.lua')
 local TeamTransfer = VFS.Include('common/luaUtilities/team_transfer/team_transfer_unsynced.lua')
 local ResourceTransfer = TeamTransfer.Resources
+local UnitTransfer = TeamTransfer.Units
 
 --------------------------------------------------------------------------------
 -- Config
@@ -757,6 +758,18 @@ function ActivityEvent(playerID)
     lastActivity[playerID] = os.clock()
 end
 
+function SelectionChanged(selectedUnits, subselection)
+    local myTeamID = Spring_GetMyTeamID()
+    for playerID, playerData in pairs(player) do
+        if playerData.team and playerID ~= myTeamID then
+            local policyResult = UnitTransfer.GetCachedPolicyResult(myTeamID, playerData.team)
+            local validationResult = UnitTransfer.ValidateUnits(nil, policyResult, selectedUnits)
+            TeamTransfer.PackSelectedUnitsValidation(validationResult, playerData)
+        end
+    end
+end
+
+
 ---------------------------------------------------------------------------------------------------
 --  Init/GameStart (creating players)
 ---------------------------------------------------------------------------------------------------
@@ -881,6 +894,7 @@ function widget:Initialize()
 	widgetHandler:RegisterGlobal('GpuMemEvent', GpuMemEvent)
 	widgetHandler:RegisterGlobal('SystemEvent', SystemEvent)
 	widgetHandler:RegisterGlobal('RankingEvent', RankingEvent)
+	widgetHandler:RegisterGlobal('SelectionChanged', SelectionChanged)
 	UpdateRecentBroadcasters()
 
 	mySpecStatus, fullView, _ = Spring.GetSpectatingState()
@@ -2210,9 +2224,10 @@ function DrawPlayer(playerID, leader, vOffset, mouseX, mouseY, onlyMainList, onl
     local dead = player[playerID].dead
     local ai = player[playerID].ai
     local alliances = player[playerID].alliances
-    local metalPolicy, energyPolicy
+    local metalPolicy, energyPolicy, unitPolicy, unitValidationResult
     if not spec then
-        metalPolicy, energyPolicy = ResourceTransfer.GetAllPolicies(player[playerID], myTeamID, team)
+        metalPolicy, energyPolicy, unitPolicy = ResourceTransfer.GetAllPolicies(player[playerID], myTeamID, team)
+        unitValidationResult = UnitTransfer.UnpackSelectedUnitsValidation(player[playerID])
     end
     local posY = widgetPosY + widgetHeight - vOffset
     local tipPosY = widgetPosY + ((widgetHeight - vOffset) * widgetScale)
@@ -2273,10 +2288,10 @@ function DrawPlayer(playerID, leader, vOffset, mouseX, mouseY, onlyMainList, onl
                                 end
                             end
                         end
-                        if m_share.active and not dead and not hideShareIcons and (metalPolicy and energyPolicy) then
-                            DrawShareButtons(posY, metalPolicy, energyPolicy)
+                        if m_share.active and not dead and not hideShareIcons and (unitPolicy and metalPolicy and energyPolicy) then
+                            DrawShareButtons(posY, unitPolicy, metalPolicy, energyPolicy, unitValidationResult)
                             if tipY then
-                                ShareTip(mouseX, metalPolicy, energyPolicy)
+                                ShareTip(mouseX, unitPolicy, metalPolicy, energyPolicy, unitValidationResult)
                             end
                         end
                     end
@@ -2438,6 +2453,7 @@ function DrawShareButtons(posY, unitPolicy, metalPolicy, energyPolicy)
     gl_Texture(pics["metalPic"])
     DrawRect(m_share.posX + widgetPosX + (33*playerScale), posY, m_share.posX + widgetPosX + (49*playerScale), posY + (16*playerScale))
 
+    DrawSharingIconOverlay(posY, unitPolicy, 1 * playerScale)
     DrawSharingIconOverlay(posY, energyPolicy, 17 * playerScale)
     DrawSharingIconOverlay(posY, metalPolicy, 33 * playerScale)
 
@@ -3048,11 +3064,7 @@ end
 
 function ShareTip(mouseX, metalPolicy, energyPolicy)
     if mouseX >= widgetPosX + (m_share.posX + (1*playerScale)) * widgetScale and mouseX <= widgetPosX + (m_share.posX + (17*playerScale)) * widgetScale then
-        if myPlayerID == metalPolicy.receiverTeamId then
-            tipText = Spring.I18N('ui.playersList.shareUnits')
-        else
-            tipText = Spring.I18N('ui.playersList.shareUnits')
-        end
+        tipText = UnitTransfer.TooltipText(unitPolicy, unitValidationResult)
     elseif mouseX >= widgetPosX + (m_share.posX + (19*playerScale)) * widgetScale and mouseX <= widgetPosX + (m_share.posX + (35*playerScale)) * widgetScale then
         tipText = ResourceTransfer.TooltipText(energyPolicy)
     elseif mouseX >= widgetPosX + (m_share.posX + (37*playerScale)) * widgetScale and mouseX <= widgetPosX + (m_share.posX + (53*playerScale)) * widgetScale then

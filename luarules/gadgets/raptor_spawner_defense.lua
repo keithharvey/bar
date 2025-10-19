@@ -2133,11 +2133,8 @@ if gadgetHandler:IsSyncedCode() then
 	end
 
 	function gadget:AllowUnitTransfer(unitID, unitDefID, oldTeam, newTeam, capture)
-		if newTeam == raptorTeamID then
-			return false
-		else
-			return true
-		end
+		-- superseded by unit sharing policy gadget; prevent engine default transfer
+		return false
 	end
 
 	function gadget:FeatureCreated(featureID, featureAllyTeamID)

@@ -115,9 +115,27 @@ function ContextFactory.create(springRepo)
     })
   end
 
+  ---Create unit transfer context for transfer actions
+  ---@param senderTeamId number
+  ---@param receiverTeamId number
+  ---@param unitIds number[]
+  ---@param given boolean?
+  ---@param policyResult UnitTransferPolicyResult
+  ---@return UnitTransferContext
+  local function unitTransfer(senderTeamId, receiverTeamId, unitIds, given, policyResult)
+    return buildContext(senderTeamId, receiverTeamId, {
+        transferCategory = SharedEnums.TransferCategory.UnitTransfer,
+        unitIds = unitIds,
+        given = given,
+        policyResult = policyResult
+    })
+  end
+
   return {
     policy = policy,
     action = policyAction,
+    resourceTransfer = resourceTransfer,
+    unitTransfer = unitTransfer,
   }
 end
 
