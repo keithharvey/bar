@@ -333,7 +333,7 @@ local options = {
 		type	= "bool",
 		section	= "options_main",
 		def		=  false,
-		column	= 1.76,
+		column	= 1,
 	},
     {
         key     = "sub_header",
