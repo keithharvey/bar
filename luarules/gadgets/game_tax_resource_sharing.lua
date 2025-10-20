@@ -75,32 +75,3 @@ function gadget:AllowUnitTransfer(unitID, unitDefID, oldTeam, newTeam, capture)
 	end
 	return false
 end
-
-
-function gadget:AllowCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOptions, cmdTag, synced)
-	-- Disallow reclaiming allied units for metal
-	if (cmdID == CMD.RECLAIM and #cmdParams >= 1) then
-		local targetID = cmdParams[1]
-		local targetTeam
-		if(targetID >= Game.maxUnits) then
-			return true
-		end
-		targetTeam = Spring.GetUnitTeam(targetID)
-		if unitTeam ~= targetTeam and Spring.AreTeamsAllied(unitTeam, targetTeam) then
-			return false
-		end
-	-- Also block guarding allied units that can reclaim
-	elseif (cmdID == CMD.GUARD) then
-		local targetID = cmdParams[1]
-		local targetTeam = Spring.GetUnitTeam(targetID)
-		local targetUnitDef = UnitDefs[Spring.GetUnitDefID(targetID)]
-
-		if (unitTeam ~= Spring.GetUnitTeam(targetID)) and Spring.AreTeamsAllied(unitTeam, targetTeam) then
-			-- Labs are considered able to reclaim. In practice you will always use this modoption with "disable_assist_ally_construction", so disallowing guard labs here is fine
-			if targetUnitDef.canReclaim then
-				return false
-			end
-		end
-	end
-	return true
-end
