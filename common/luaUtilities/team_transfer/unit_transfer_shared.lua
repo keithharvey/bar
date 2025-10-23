@@ -1,4 +1,4 @@
-local SharedEnums = VFS.Include("common/luaUtilities/team_transfer/shared_enums.lua")
+local SharedEnums = VFS.Include("sharing_modes/shared_enums.lua")
 local PolicyShared = VFS.Include("common/luaUtilities/team_transfer/team_transfer_cache.lua")
 local UnitSharingCategories = VFS.Include("common/luaUtilities/team_transfer/unit_sharing_categories.lua")
 local Comms = VFS.Include("common/luaUtilities/team_transfer/unit_transfer_comms.lua")
@@ -11,7 +11,6 @@ Shared.UnitPolicyFields = {
   sharingMode = FieldTypes.string,
   allowTakeBypass = FieldTypes.boolean,
 }
-
 
 ---Validate a list of unitIds under current mode
 ---Returns a structured result object designed for UI consumption.
@@ -40,6 +39,7 @@ function Shared.ValidateUnits(policyResult, unitIds)
   for _, unitId in ipairs(unitIds) do
     local unitDefID = Spring.GetUnitDefID(unitId)
     if not unitDefID then
+      Spring.Log("unit_transfer_shared", LOG.ERROR, "ValidateUnits: unitId", unitId, "not found")
       out.invalidUnitCount = out.invalidUnitCount + 1
       table.insert(out.invalidUnitIds, unitId)
       table.insert(out.invalidUnitNames, "Unknown Unit")
@@ -122,47 +122,6 @@ function Shared.DeserializePolicy(serialized, senderId, receiverId)
   })
 end
 
-function Shared.GetModeUnitTypes(mode)
-  if mode == SharedEnums.UnitSharingMode.Disabled then
-    return {}
-  end
-  
-  if mode == SharedEnums.UnitSharingMode.Enabled then
-    return {
-      SharedEnums.UnitType.Combat,
-      SharedEnums.UnitType.Economic,
-      SharedEnums.UnitType.Utility,
-      SharedEnums.UnitType.T2Constructor
-    }
-  end
-
-  if mode == SharedEnums.UnitSharingMode.CombatUnits then
-    return {SharedEnums.UnitType.Combat}
-  end
-
-  if mode == SharedEnums.UnitSharingMode.Economic then
-    return {SharedEnums.UnitType.Economic, SharedEnums.UnitType.T2Constructor}
-  end
-
-  if mode == SharedEnums.UnitSharingMode.EconomicPlusBuildings then
-    return {SharedEnums.UnitType.Economic, SharedEnums.UnitType.T2Constructor, SharedEnums.UnitType.Utility}
-  end
-
-  if mode == SharedEnums.UnitSharingMode.T2Cons then
-    return {SharedEnums.UnitType.T2Constructor}
-  end
-
-  if mode == SharedEnums.UnitSharingMode.CombatT2Cons then
-    return {SharedEnums.UnitType.Combat, SharedEnums.UnitType.T2Constructor}
-  end
-end
-
-local function UnitTypeMatchesMode(unitDef, mode)
-  local unitType = UnitSharingCategories.classifyUnitDef(unitDef)
-  local modeUnitTypes = Shared.GetModeUnitTypes(mode)
-  return table.contains(modeUnitTypes, unitType)
-end
-
 ---Get globals published by the module
 ---@param unitDef table
 ---@param mode string
@@ -170,6 +129,7 @@ end
 local function EvaluateUnitForSharing(unitDef, mode)
   if not unitDef then return false end
 
+  -- Simple cases
   if mode == SharedEnums.UnitSharingMode.Disabled then
     return false
   end
@@ -178,7 +138,31 @@ local function EvaluateUnitForSharing(unitDef, mode)
     return true
   end
 
-  return UnitTypeMatchesMode(unitDef, mode)
+  local unitType = UnitSharingCategories.classifyUnitDef(unitDef)
+
+  if mode == SharedEnums.UnitSharingMode.CombatUnits then
+    return unitType == SharedEnums.UnitType.Combat
+  end
+
+  if mode == SharedEnums.UnitSharingMode.Economic then
+    return unitType == SharedEnums.UnitType.Economic or unitType == SharedEnums.UnitType.T2Constructor
+  end
+
+  if mode == SharedEnums.UnitSharingMode.EconomicPlusBuildings then
+    return unitType == SharedEnums.UnitType.Economic or unitType == SharedEnums.UnitType.T2Constructor or
+    unitType == SharedEnums.UnitType.Utility
+  end
+
+  if mode == SharedEnums.UnitSharingMode.T2Cons then
+    return unitType == SharedEnums.UnitType.T2Constructor
+  end
+
+  if mode == SharedEnums.UnitSharingMode.CombatT2Cons then
+    return unitType == SharedEnums.UnitType.Combat or unitType == SharedEnums.UnitType.T2Constructor
+  end
+
+  Spring.Log("unit_transfer_shared", LOG.ERROR, "EvaluateUnitForSharing: unknown mode =", mode)
+  return false
 end
 
 -- Allowed UnitDefID cache per mode for fast validation

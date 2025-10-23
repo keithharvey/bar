@@ -29,7 +29,7 @@ local ResourceTransfer = VFS.Include("common/luaUtilities/team_transfer/resource
 local Shared = VFS.Include("common/luaUtilities/team_transfer/resource_transfer_shared.lua")
 local Comms = VFS.Include("common/luaUtilities/team_transfer/resource_transfer_comms.lua")
 local ContextFactoryModule = VFS.Include("common/luaUtilities/team_transfer/context_factory.lua")
-local SharedEnums = VFS.Include("common/luaUtilities/team_transfer/shared_enums.lua")
+local SharedEnums = VFS.Include("sharing_modes/shared_enums.lua")
 
 local RESOURCE_TYPES = SharedEnums.ResourceTypes
 local contextFactory = ContextFactoryModule.create(Spring)
@@ -99,7 +99,7 @@ function gadget:AllowResourceTransfer(senderTeamId, receiverTeamId, resourceType
 end
 
 function gadget:GameFrame(frame)
-  local nextSchedHeavy = lastGameFrameCacheUpdate + POLICY_CACHE_TAINT_FRAME_RATE_HEAVY
+  local nextSchedHeavy = lastGameFrameCacheUpdate + POLICY_CACHE_TAINT_FRAME_RATE
   if frame < nextSchedHeavy then
     return
   end
