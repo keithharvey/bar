@@ -2,6 +2,7 @@ local gadget = gadget ---@type Gadget
 local sharing_tax = Spring.GetModOptions().sharing_tax/100
 local disable_manual_resource_sharing = Spring.GetModOptions().disable_manual_resource_sharing
 local disable_overflow = Spring.GetModOptions().disable_overflow
+-- Needs nativeExcessSharing = false just when there is an overflow ban added; overflow tax would recquire the native overflow to happen /!\
 
 function gadget:GetInfo()
 	return {
@@ -19,12 +20,15 @@ if not gadgetHandler:IsSyncedCode() then
 	return false
 end
 
-if sharing_tax == 0 and disable_manual_resource_sharing == false and disable_overflow == false then -- remove ourselves
+
+if sharing_tax == 0 and disable_manual_resource_sharing == false then -- we don't really need any of the following if we're just disabling overflow post 2025.06.05 (except maybe if we want to lock sharecursor)
 	return false
 end
 
 local ForcedRequests = {}
 local lastRecv = {}
+
+
 
 for _, teamID in pairs(Spring.GetTeamList()) do
 	lastRecv[teamID] = {metal = 0, energy = 0}
@@ -38,7 +42,7 @@ function GG.ForcedResourceSharing(senderTeamId, receiverTeamId, resourceType, am
 	local hash = Hash(senderTeamId, receiverTeamId, resourceType, amount)
 	ForcedRequests[hash] = true
 	Spring.ShareTeamResource(senderTeamId, receiverTeamId, resourceType, amount)
-	lastRecv[receiverTeamId][resourceType] = lastRecv[receiverTeamId][resourceType] + amount
+	lastRecv[receiverTeamId][resourceType] = lastRecv[receiverTeamId][resourceType] + amount 
 end
 
 function Hash(senderTeamId, receiverTeamId, resourceType, amount)
@@ -64,13 +68,13 @@ function gadget:AllowResourceTransfer(senderTeamId, receiverTeamId, resourceType
 	return false
 end
 
-if (sharing_tax > 0 or disable_overflow) then
+if sharing_tax > 0 and (not disable_overflow) then
 
 	local function KillOverflow(teamID, resType, amount)
 		if amount > 0 then
 			local taxedAmount = (disable_overflow and amount) or (amount * sharing_tax)
 			local curr = Spring.GetTeamResources(teamID, resType)
-			Spring.SetTeamResource(teamID, string.sub(resType,1,1), curr-taxedAmount) -- silently remove
+			Spring.SetTeamResource(teamID, string.sub(resType,1,1), curr-taxedAmount)
 		end
 	end
 
