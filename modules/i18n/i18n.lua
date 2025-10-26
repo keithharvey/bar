@@ -1,5 +1,20 @@
 local currentDirectory = "modules/i18n/"
-I18N_PATH = currentDirectory .. "i18nlib/i18n/" -- I18N_PATH is expected to be global inside the i18n module
+
+local function findI18nPath()
+	local luxDirs = VFS.SubDirs('.lux/5.1/dependencies/5.1/', VFS.RAW_ONLY) or {}
+	for _, dir in ipairs(luxDirs) do
+		if dir:match('i18n@') then
+			local luxI18nPath = dir .. 'i18n/'
+			if VFS.FileExists(luxI18nPath .. 'init.lua', VFS.RAW_ONLY) then
+				return luxI18nPath
+			end
+		end
+	end
+	
+	return currentDirectory .. "i18nlib/i18n/"
+end
+
+I18N_PATH = findI18nPath() -- I18N_PATH is expected to be global inside the i18n module
 local i18n = VFS.Include(I18N_PATH .. "init.lua", nil, VFS.ZIP)
 
 local asianFont = 'fallbacks/SourceHanSans-Regular.ttc'
