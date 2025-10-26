@@ -7,3 +7,6 @@
 /.git
 /.svn
 /recoil-lua-library
+/lux.toml
+/.busted
+/lux.rock
