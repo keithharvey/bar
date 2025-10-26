@@ -11,7 +11,7 @@ local function findI18nPath()
 		end
 	end
 	
-	return currentDirectory .. "i18nlib/i18n/"
+	error("i18n library not found in lux dependencies. Please run 'lux update' to install dependencies.")
 end
 
 I18N_PATH = findI18nPath() -- I18N_PATH is expected to be global inside the i18n module

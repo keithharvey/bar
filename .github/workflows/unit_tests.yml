@@ -18,6 +18,21 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y lua5.1 luarocks
 
+    - name: Install lux dependencies
+      run: |
+        sudo apt-get install -y libgpgme11
+
+    - name: Install cargo-binstall
+      run: |
+        curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+
+    - name: Install lux
+      run: cargo binstall lux-cli --locked --no-confirm
+
+    - name: Install lux dependencies
+      run: lx update
+      working-directory: ${{ github.workspace }}
+
     - name: Install busted
       run: luarocks --lua-version=5.1 install busted --local
 
