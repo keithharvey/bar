@@ -12,8 +12,6 @@ function widget:GetInfo()
 	}
 end
 
-local fontfile2 = "fonts/" .. Spring.GetConfigString("bar_font2", "Exo2-SemiBold.otf")
-
 local titlecolor = "\255\255\205\100"
 local keycolor = ""
 local valuecolor = "\255\255\255\255"
@@ -104,9 +102,13 @@ for key, value in pairs(modoptions) do
 			changedModoptions[key] = tostring(value)
 		else
 			if string.find(key, 'tweakdefs') then
-				changedModoptions[key] = '\n' .. string.base64Decode(value)
+				local decodeSuccess, postsFuncStr = pcall(string.base64Decode, value)
+				changedModoptions[key] = '\n' .. (decodeSuccess and postsFuncStr or '\255\255\100\100 - '..Spring.I18N('ui.gameInfo.decodefailed').. ' - ')
 			else
-				local success, tweaks = pcall(Spring.Utilities.CustomKeyToUsefulTable, value)
+        local dataRaw = string.gsub(value, '_', '=')
+				local decodeSuccess, postsFuncStr = pcall(string.base64Decode, dataRaw)
+				local success, tweaks = pcall(Spring.Utilities.SafeLuaTableParser, postsFuncStr)
+
 				if success and type(tweaks) == "table" then
 					local text = ''
 					for name, ud in pairs(tweaks) do
@@ -189,7 +191,7 @@ function widget:ViewResize()
 	screenY = math.floor((vsy * 0.5) + (screenHeight / 2))
 
 	font, loadedFontSize = WG['fonts'].getFont()
-	font2 = WG['fonts'].getFont(fontfile2)
+	font2 = WG['fonts'].getFont(2)
 
 	elementCorner = WG.FlowUI.elementCorner
 
@@ -319,8 +321,8 @@ function widget:DrawScreen()
 		-- draw the panel
 		glCallList(mainDList)
 		if WG['guishader'] then
-			if backgroundGuishader ~= nil then
-				glDeleteList(backgroundGuishader)
+			if backgroundGuishader then
+				backgroundGuishader = glDeleteList(backgroundGuishader)
 			end
 			backgroundGuishader = glCreateList(function()
 				-- background
@@ -338,8 +340,11 @@ function widget:DrawScreen()
 		end
 
 	else
-		if WG['guishader'] then
-			WG['guishader'].DeleteDlist('gameinfo')
+		if backgroundGuishader then
+			if WG['guishader'] then
+				WG['guishader'].RemoveDlist('gameinfo')
+			end
+			backgroundGuishader = glDeleteList(backgroundGuishader)
 		end
 	end
 end
@@ -514,7 +519,10 @@ function widget:Shutdown()
 		mainDList = nil
 	end
 	if WG['guishader'] then
-		WG['guishader'].DeleteDlist('gameinfo')
+		WG['guishader'].RemoveDlist('gameinfo')
+	end
+	if backgroundGuishader then
+		glDeleteList(backgroundGuishader)
 	end
 end
 

@@ -88,6 +88,7 @@ i18n.languages = {
 	de = "Deutsch",
 	ru = "Русский",
 	zh = "中文",
+	es = "Español",
 	test_unicode = "test_unicode"
 }
 

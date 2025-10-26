@@ -16,7 +16,7 @@ end
 --                  handle set target
 --					quickfade on cmd cancel
 
-local CMD_RAW_MOVE = 39812
+local CMD_RAW_MOVE = GameCMD.RAW_MOVE
 local CMD_ATTACK = CMD.ATTACK --icon unit or map
 local CMD_CAPTURE = CMD.CAPTURE --icon unit or area
 local CMD_FIGHT = CMD.FIGHT -- icon map
@@ -31,7 +31,7 @@ local CMD_RECLAIM = CMD.RECLAIM --icon unit feature or area
 local CMD_REPAIR = CMD.REPAIR -- icon unit or area
 local CMD_RESTORE = CMD.RESTORE -- icon area
 local CMD_RESURRECT = CMD.RESURRECT -- icon unit feature or area
--- local CMD_SET_TARGET = 34923 -- custom command, doesn't go through UnitCommand
+-- local CMD_SET_TARGET = GameCMD.UNIT_SET_TARGET -- custom command, doesn't go through UnitCommand
 local CMD_UNLOAD_UNIT = CMD.UNLOAD_UNIT -- icon map
 local CMD_UNLOAD_UNITS = CMD.UNLOAD_UNITS -- icon  unit or area
 local BUILD = -1
@@ -60,6 +60,7 @@ local GaiaTeamID = Spring.GetGaiaTeamID()
 local myTeamID = Spring.GetMyTeamID()
 local mySpec = Spring.GetSpectatingState()
 local hidden
+local guiHidden
 
 local prevTexOffset = 0
 local texOffset = 0
@@ -274,6 +275,16 @@ local function setCmdLineColors(alpha)
 	spLoadCmdColorsConfig('deathWatch  0.5  0.5  0.5  ' .. alpha)
 end
 
+local function applyCmdQueueVisibility(hide)
+	if hide then
+		spLoadCmdColorsConfig('queueIconAlpha  0 ')
+		setCmdLineColors(0)
+	else
+		spLoadCmdColorsConfig('queueIconAlpha  0.5 ')
+		setCmdLineColors(0.5)
+	end
+end
+
 local function resetEnabledTeams()
 	enabledTeams = {}
 	local t = Spring.GetTeamList()
@@ -287,9 +298,8 @@ end
 function widget:Initialize()
 	--spLoadCmdColorsConfig('useQueueIcons  0 ')
 	spLoadCmdColorsConfig('queueIconScale  0.66 ')
-	spLoadCmdColorsConfig('queueIconAlpha  0.5 ')
+	applyCmdQueueVisibility(spIsGUIHidden())
 
-	setCmdLineColors(0.5)
 	resetEnabledTeams()
 
 	WG['commandsfx'] = {}
@@ -554,15 +564,20 @@ function widget:Update(dt)
 		if not hidden then
 			if gf < hideBelowGameframe then
 				hidden = true
-				spLoadCmdColorsConfig('queueIconAlpha  0 ')
-				setCmdLineColors(0)
+				applyCmdQueueVisibility(true)
 			end
 		elseif gf >= hideBelowGameframe then
 			hidden = nil
-			spLoadCmdColorsConfig('queueIconAlpha  0.5 ')
-			setCmdLineColors(0.5)
+			applyCmdQueueVisibility(false)
 		end
 		lastUpdate = sec
+
+		-- also react to GUI hidden toggle so engine queue lines/icons are hidden too
+		local isGuiHidden = spIsGUIHidden()
+		if guiHidden ~= isGuiHidden then
+			guiHidden = isGuiHidden
+			applyCmdQueueVisibility(guiHidden)
+		end
 
 		-- process newly given commands (not done in widgetUnitCommand() because with huge build queue it eats memory and can crash lua)
 		for unitID, v in pairs(newUnitCommands) do

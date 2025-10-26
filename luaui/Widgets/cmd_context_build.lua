@@ -30,8 +30,6 @@ local GetActiveCommand		= Spring.GetActiveCommand
 local SetActiveCommand		= Spring.SetActiveCommand
 local spGetMouseState 		= Spring.GetMouseState
 local spTraceScreenRay 		= Spring.TraceScreenRay
-local GetSelectedUnits      = Spring.GetSelectedUnits
-local GetUnitDefID          = Spring.GetUnitDefID
 local currentTime 			= os.clock
 
 --- Human friendly list. Automatically converted to unitdef IDs on init
@@ -75,8 +73,6 @@ local unitlist = {
 	{'corvp','coramsub'},
 	{'armap','armplat'},
 	{'corap','corplat'},
-	{'corasp','corfasp'},
-	{'armasp','armfasp'},
 	{'armgeo','armuwgeo'},
 	{'armageo','armuwageo'},
 	{'corgeo','coruwgeo'},
@@ -106,7 +102,6 @@ local legionUnitlist = {
 	--{'cornanotc','cornanotcplat'},
 	{'legvp','legamsub'},
 	--{'corap','corplat'},
-	--{'corasp','corfasp'},
 	--{'corgeo','coruwgeo'},
 	--{'corageo','coruwageo'},
 }

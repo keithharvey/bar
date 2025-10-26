@@ -1,0 +1,49 @@
+{
+  "version": "1.0.0",
+  "test_dependencies": {
+    "rocks": {
+      "1164eee68470e47a53444c9b6d72400404c06e50c0f5030f877d9e0fe64027c4": {
+        "name": "busted",
+        "version": "5ed85d0e016a5eb5eca097aa52905eedf1b180f1-1",
+        "pinned": false,
+        "opt": false,
+        "dependencies": [],
+        "constraint": "==5ed85d0e016a5eb5eca097aa52905eedf1b180f1",
+        "binaries": [],
+        "source": "rockspec+\nrockspec_format = \"3.0\"\npackage = \"busted\"\nversion = \"5ed85d0e016a5eb5eca097aa52905eedf1b180f1-1\"\nsource = {\nurl = \"https://github.com/LuaCATS/busted.git\",\ntag = \"5ed85d0e016a5eb5eca097aa52905eedf1b180f1\",\n}\nbuild = {\n  type = \"source\"\n}",
+        "source_url": {
+          "type": "git",
+          "url": "https://github.com/LuaCATS/busted.git",
+          "ref": "5ed85d0e016a5eb5eca097aa52905eedf1b180f1"
+        },
+        "hashes": {
+          "rockspec": "sha256-XtjkR6ZiGkPIeUEfOvOKgF/fg2+EEdxcuswRnd93zjM=",
+          "source": "sha256-A8YgMXtKnd9nSsRClkfz8cUbKHIUTRN2vudge6EfSgU="
+        }
+      },
+      "b33830aca2d15b029d998fc9fc817288ce3f45b5a9595fdf5608c63b76250a3d": {
+        "name": "luassert",
+        "version": "d3528bb679302cbfdedefabb37064515ab95f7b9-1",
+        "pinned": false,
+        "opt": false,
+        "dependencies": [],
+        "constraint": "==d3528bb679302cbfdedefabb37064515ab95f7b9",
+        "binaries": [],
+        "source": "rockspec+\nrockspec_format = \"3.0\"\npackage = \"luassert\"\nversion = \"d3528bb679302cbfdedefabb37064515ab95f7b9-1\"\nsource = {\nurl = \"https://github.com/LuaCATS/luassert.git\",\ntag = \"d3528bb679302cbfdedefabb37064515ab95f7b9\",\n}\nbuild = {\n  type = \"source\"\n}",
+        "source_url": {
+          "type": "git",
+          "url": "https://github.com/LuaCATS/luassert.git",
+          "ref": "d3528bb679302cbfdedefabb37064515ab95f7b9"
+        },
+        "hashes": {
+          "rockspec": "sha256-sj4MmI3Ab8OcgOnP1TtnOswgtcodMXFbDwM3Y5nSps0=",
+          "source": "sha256-p8ohFmag2WKzDG7avgmw7qr9yA5Q/F2vhXakr3WHZUk="
+        }
+      }
+    },
+    "entrypoints": [
+      "1164eee68470e47a53444c9b6d72400404c06e50c0f5030f877d9e0fe64027c4",
+      "b33830aca2d15b029d998fc9fc817288ce3f45b5a9595fdf5608c63b76250a3d"
+    ]
+  }
+}
