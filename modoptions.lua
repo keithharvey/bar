@@ -268,17 +268,19 @@ local options = {
 		def		=  true,
 	},
 	{
-		key		= "tax_resource_sharing_amount",
+		key		= "sharing_tax",
 		name	= "Resource Sharing Tax",
 		desc	=	"Taxes resource sharing".."\255\128\128\128".." and overflow (engine TODO:)\n"..
-					"Set to [0] to turn off. Recommended: [0.4]. (Ranges: 0 - 0.99)",
+					"Set to [0] to turn off. Recommened: [40]. (Ranges: 0 - 99)",
 		type	= "number",
 		def		= 0,
 		min		= 0,
-		max		= 0.99,
-		step	= 0.01,
+		max		= 99,
+		step	= 1,
 		section	= "options_main",
 		column	= 1,
+		-- lock	= {"disable_unit_sharing","disable_assist_ally_construction"},
+		-- unlock	= {"disable_unit_sharing_forced","disable_assist_ally_construction_forced"},
 	},
 	{
 		key		= "disable_unit_sharing",
@@ -289,7 +291,23 @@ local options = {
 		def		= false,
 	},
 	{
-		key		= "disable_assist_ally_construction",
+		key		= "disable_manual_resource_sharing",
+		name	= "Disable manual resource sharing",
+		desc	= "Disable sharing resources to allies",
+		type	= "bool",
+		section	= "options_main",
+		def		= false,
+	},
+	{
+		key		= "disable_overflow",
+		name	= "Disable Overflow system",
+		desc	= "Disable sharing units and structures to allies",
+		type	= "bool",
+		section	= "options_main",
+		def		= false,
+	},
+	{
+		key		= "disable_assist_ally_construction", -- i plan on making any other "modoption" obsolete as a gadget will handle all types of interactions between cons and allies depending on existing modoptions. It doesn't make sense to disable ally_assist if you can share units or resources freely
 		name	= "Disable Assist Ally Construction",
 		desc	= "Disables assisting allied blueprints and labs.",
 		type	= "bool",
@@ -297,6 +315,17 @@ local options = {
 		def		=  false,
 		column	= 1.76,
 	},
+	{	key = "tax_padding", name = "", type = "subheader", section = "options_main", column = -3, },
+	{
+		key		= "unit_market",
+		name	= "Unit Market",
+		desc	= "Allow players to trade units. (Select unit, press 'For Sale' in order window or say /sell_unit in chat to mark the unit for sale. Double-click to buy from allies. T2cons show up in shop window!)",
+		type	= "bool",
+		def		= false,
+		section	= "options_main",
+	},
+
+
     {
         key     = "sub_header",
         section = "options_main",
