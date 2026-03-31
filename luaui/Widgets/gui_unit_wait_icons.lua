@@ -27,7 +27,7 @@ local gf = Spring.GetGameFrame()
 local spGetUnitCommands = Spring.GetUnitCommands
 local spGetFactoryCommands = Spring.GetFactoryCommands
 local spec = Spring.GetSpectatingState()
-local myTeamID = Spring.GetMyTeamID()
+local myTeamID = Spring.GetLocalTeamID()
 local spValidUnitID = Spring.ValidUnitID
 
 local spIsGUIHidden   = Spring.IsGUIHidden

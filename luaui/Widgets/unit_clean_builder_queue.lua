@@ -16,7 +16,7 @@ local GiveOrderToUnit    = Spring.GiveOrderToUnit
 local GetUnitPosition    = Spring.GetUnitPosition
 local GetUnitDefID       = Spring.GetUnitDefID
 local GetTeamUnits       = Spring.GetTeamUnits
-local GetMyTeamID        = Spring.GetMyTeamID
+local GetMyTeamID        = Spring.GetLocalTeamID
 local GetSpectatingState = Spring.GetSpectatingState
 local GetUnitsInCylinder = Spring.GetUnitsInCylinder
 

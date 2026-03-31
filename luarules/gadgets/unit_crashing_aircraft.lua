@@ -132,7 +132,7 @@ else	-- UNSYNCED
 	local IsUnitVisible= Spring.IsUnitVisible
 
 	local function crashingAircraft(_, unitID, unitDefID, unitTeam)
-		if select(2, Spring.GetSpectatingState()) or CallAsTeam(Spring.GetMyTeamID(), IsUnitVisible, unitID, 99999999, true) then
+		if select(2, Spring.GetSpectatingState()) or CallAsTeam(Spring.GetLocalTeamID(), IsUnitVisible, unitID, 99999999, true) then
 			if Script.LuaUI("CrashingAircraft") then
 				Script.LuaUI.CrashingAircraft(unitID, unitDefID, unitTeam)
 			end
