@@ -19,15 +19,15 @@ end
 --------------------------------------------------------------------------------
 -- Localized functions
 --------------------------------------------------------------------------------
-local spGetGroundHeight   = Spring.GetGroundHeight
-local spEcho              = Spring.Echo
-local spGetProjectilesInRectangle = Spring.GetProjectilesInRectangle
-local spGetProjectilePosition = Spring.GetProjectilePosition
-local spGetProjectileVelocity = Spring.GetProjectileVelocity
-local spIsSphereInView        = Spring.IsSphereInView
-local spGetCameraPosition     = Spring.GetCameraPosition
-local spGetProjectileOwnerID  = Spring.GetProjectileOwnerID
-local spGetFPS                = Spring.GetFPS
+local spGetGroundHeight   = SpringShared.GetGroundHeight
+local spEcho              = SpringShared.Echo
+local spGetProjectilesInRectangle = SpringShared.GetProjectilesInRectangle
+local spGetProjectilePosition = SpringShared.GetProjectilePosition
+local spGetProjectileVelocity = SpringShared.GetProjectileVelocity
+local spIsSphereInView        = SpringUnsynced.IsSphereInView
+local spGetCameraPosition     = SpringUnsynced.GetCameraPosition
+local spGetProjectileOwnerID  = SpringShared.GetProjectileOwnerID
+local spGetFPS                = SpringUnsynced.GetFPS
 
 local mapSizeX = Game.mapSizeX
 local mapSizeZ = Game.mapSizeZ

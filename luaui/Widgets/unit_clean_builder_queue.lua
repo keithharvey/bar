@@ -10,15 +10,15 @@ function widget:GetInfo()
 	}
 end
 
-local GetUnitCmdDescs    = Spring.GetUnitCmdDescs
-local GetUnitCommands    = Spring.GetUnitCommands
-local GiveOrderToUnit    = Spring.GiveOrderToUnit
-local GetUnitPosition    = Spring.GetUnitPosition
-local GetUnitDefID       = Spring.GetUnitDefID
-local GetTeamUnits       = Spring.GetTeamUnits
+local GetUnitCmdDescs    = SpringShared.GetUnitCmdDescs
+local GetUnitCommands    = SpringShared.GetUnitCommands
+local GiveOrderToUnit    = SpringSynced.GiveOrderToUnit
+local GetUnitPosition    = SpringShared.GetUnitPosition
+local GetUnitDefID       = SpringShared.GetUnitDefID
+local GetTeamUnits       = SpringShared.GetTeamUnits
 local GetMyTeamID        = Spring.GetMyTeamID
-local GetSpectatingState = Spring.GetSpectatingState
-local GetUnitsInCylinder = Spring.GetUnitsInCylinder
+local GetSpectatingState = SpringUnsynced.GetSpectatingState
+local GetUnitsInCylinder = SpringShared.GetUnitsInCylinder
 
 local CMD_REMOVE         = CMD.REMOVE
 local CMD_REPEAT         = CMD.REPEAT

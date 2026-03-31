@@ -16,18 +16,18 @@ if gadgetHandler:IsSyncedCode() then
 
 	local gravityMult = 1.7
 
-	local SetUnitSensorRadius = Spring.SetUnitSensorRadius
-	local SetUnitWeaponState = Spring.SetUnitWeaponState
-	local GetUnitHealth = Spring.GetUnitHealth
-	local GetGameFrame = Spring.GetGameFrame
-	local GetUnitMoveTypeData = Spring.GetUnitMoveTypeData
-	local SetAirMoveTypeData = Spring.MoveCtrl.SetAirMoveTypeData
+	local SetUnitSensorRadius = SpringSynced.SetUnitSensorRadius
+	local SetUnitWeaponState = SpringSynced.SetUnitWeaponState
+	local GetUnitHealth = SpringShared.GetUnitHealth
+	local GetGameFrame = SpringShared.GetGameFrame
+	local GetUnitMoveTypeData = SpringShared.GetUnitMoveTypeData
+	local SetAirMoveTypeData = SpringSynced.MoveCtrl.SetAirMoveTypeData
 	local SetUnitCOBValue = Spring.SetUnitCOBValue
-	local GiveOrderToUnit = Spring.GiveOrderToUnit
-	local DestroyUnit = Spring.DestroyUnit
+	local GiveOrderToUnit = SpringSynced.GiveOrderToUnit
+	local DestroyUnit = SpringSynced.DestroyUnit
 	local SendToUnsynced = SendToUnsynced
-	local GetUnitRulesParam = Spring.GetUnitRulesParam
-	local SetUnitRulesParam = Spring.SetUnitRulesParam
+	local GetUnitRulesParam = SpringShared.GetUnitRulesParam
+	local SetUnitRulesParam = SpringSynced.SetUnitRulesParam
 
 	local COB_CRASHING = COB.CRASHING
 	local COM_BLAST = WeaponDefNames['commanderexplosion'].id	-- used to prevent them being boosted and flying far away
@@ -67,14 +67,14 @@ if gadgetHandler:IsSyncedCode() then
 			crashingCount = crashingCount + 1
 			crashing[unitID] = GetGameFrame() + 450
 			SetUnitCOBValue(unitID, COB_CRASHING, 1)
-			Spring.SetUnitNoSelect(unitID,true)
-			Spring.SetUnitNoMinimap(unitID,true)
-			Spring.SetUnitIconDraw(unitID, false)
-			Spring.SetUnitStealth(unitID, true)
-			Spring.SetUnitAlwaysVisible(unitID, false)
-			Spring.SetUnitNeutral(unitID, true)
-			Spring.SetUnitBlocking(unitID, false)
-			Spring.SetUnitCrashing(unitID, true)
+			SpringUnsynced.SetUnitNoSelect(unitID,true)
+			SpringUnsynced.SetUnitNoMinimap(unitID,true)
+			SpringUnsynced.SetUnitIconDraw(unitID, false)
+			SpringSynced.SetUnitStealth(unitID, true)
+			SpringSynced.SetUnitAlwaysVisible(unitID, false)
+			SpringSynced.SetUnitNeutral(unitID, true)
+			SpringSynced.SetUnitBlocking(unitID, false)
+			SpringSynced.SetUnitCrashing(unitID, true)
 			if unitWeapons[unitDefID] then
 				local weapons = unitWeapons[unitDefID]
 				for i = 1, #weapons do
@@ -129,10 +129,10 @@ if gadgetHandler:IsSyncedCode() then
 else	-- UNSYNCED
 
 
-	local IsUnitVisible= Spring.IsUnitVisible
+	local IsUnitVisible= SpringUnsynced.IsUnitVisible
 
 	local function crashingAircraft(_, unitID, unitDefID, unitTeam)
-		if select(2, Spring.GetSpectatingState()) or CallAsTeam(Spring.GetMyTeamID(), IsUnitVisible, unitID, 99999999, true) then
+		if select(2, SpringUnsynced.GetSpectatingState()) or CallAsTeam(Spring.GetMyTeamID(), IsUnitVisible, unitID, 99999999, true) then
 			if Script.LuaUI("CrashingAircraft") then
 				Script.LuaUI.CrashingAircraft(unitID, unitDefID, unitTeam)
 			end

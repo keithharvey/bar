@@ -22,10 +22,10 @@ local isSinglePlayer = false
 local trustedNames = powerusers.trustedNames
 powerusers.trustedNames = nil
 if trustedNames then
-	for _, playerID in ipairs(Spring.GetPlayerList()) do
+	for _, playerID in ipairs(SpringShared.GetPlayerList()) do
 		local accountID = Spring.Utilities.GetAccountID(playerID)
-		if not powerusers[accountID] and trustedNames[Spring.GetPlayerInfo(playerID)] then
-			powerusers[accountID] = trustedNames[Spring.GetPlayerInfo(playerID)]
+		if not powerusers[accountID] and trustedNames[SpringShared.GetPlayerInfo(playerID)] then
+			powerusers[accountID] = trustedNames[SpringShared.GetPlayerInfo(playerID)]
 		end
 	end
 end
@@ -34,9 +34,9 @@ local numPlayers = Spring.Utilities.GetPlayerCount()
 
 -- give permissions when in singleplayer
 if numPlayers <= 1 then
-	for _, playerID in ipairs(Spring.GetPlayerList()) do
+	for _, playerID in ipairs(SpringShared.GetPlayerList()) do
 		local accountID = Spring.Utilities.GetAccountID(playerID)
-		local _, _, spec = Spring.GetPlayerInfo(playerID)
+		local _, _, spec = SpringShared.GetPlayerInfo(playerID)
 
 		-- dont give permissions to the spectators when there is a player is playing
 		if not spec or numPlayers == 0 then
@@ -80,7 +80,7 @@ Spring.Utilities.GetAccountID = function(playerID)
 end
 
 local function ResolveTrustedName(playerID)
-	local name = Spring.GetPlayerInfo(playerID)
+	local name = SpringShared.GetPlayerInfo(playerID)
 	if not name or not trustedNames[name] then return false end
 	local accountID = originalGetAccountID(playerID)
 	if accountID == -1 then
@@ -97,7 +97,7 @@ local function ResolveTrustedName(playerID)
 		end
 		permissions[permission][accountID] = value
 	end
-	Spring.Log("Permissions", LOG.INFO, "Granted trusted-name permissions to " .. name .. " (accountID: " .. accountID .. ")")
+	SpringShared.Log("Permissions", LOG.INFO, "Granted trusted-name permissions to " .. name .. " (accountID: " .. accountID .. ")")
 	return true
 end
 
@@ -116,9 +116,9 @@ function gadget:GameFrame(frame)
 	-- PlayerChanged/PlayerAdded don't fire in synced code, so we must poll.
 	if not trustedNames then return end
 	if frame % 200 ~= 0 then return end
-	for _, playerID in ipairs(Spring.GetPlayerList()) do
+	for _, playerID in ipairs(SpringShared.GetPlayerList()) do
 		if not resolvedPlayerIDs[playerID] then
-			local name = Spring.GetPlayerInfo(playerID)
+			local name = SpringShared.GetPlayerInfo(playerID)
 			if name and trustedNames[name] then
 				if ResolveTrustedName(playerID) then
 					resolvedPlayerIDs[playerID] = true
