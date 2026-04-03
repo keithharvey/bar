@@ -44,112 +44,25 @@ Ensure that you have the correct path by looking for the file `Beyond-All-Reason
 
 6. If developing Chobby also clone the code into the `games` directory. Follow the guide in the [Chobby README](https://github.com/beyond-all-reason/BYAR-Chobby#developing-the-lobby).
 
-7. (Optional, Advanced) If you want to run automated integration tests, see the [testing documentation](tools/headless_testing/README.md)
-
 More on the `.sdd` directory to run raw LUA and the structure expected by Spring Engine is [documented here](https://springrts.com/wiki/Gamedev:Structure).
 
----
+## Developer Tooling
 
-## Automated Testing
+For running tests, linting, formatting, building docs, and engine compilation, see [BAR-Devtools](https://github.com/beyond-all-reason/BAR-Devtools).
 
-### Prereqs
+BAR-Devtools uses a [distrobox](https://distrobox.it/) container as the dev environment. The [`dev.Containerfile`](https://github.com/beyond-all-reason/BAR-Devtools/blob/master/docker/dev.Containerfile) is the canonical list of system dependencies (Lua 5.1, Lux, Node.js, Cargo, clangd, StyLua).
 
-**Lua 5.1**
-
-_debian/linux_
-
-```zsh
-sudo apt install -y lua5.1
+```bash
+git clone https://github.com/beyond-all-reason/BAR-Devtools.git
+cd BAR-Devtools
+just setup::init    # installs deps, creates distrobox, clones repos
+just bar::units     # run unit tests
+just bar::fmt       # format with stylua
+just bar::lint      # lint with luacheck
 ```
 
-_windows_ (MSYS2 UCRT64)
+## Windows
 
-```zsh
-pacman -S --needed mingw-w64-ucrt-x86_64-lua51
-```
+Install [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install), then follow the Linux setup using [BAR-Devtools](https://github.com/beyond-all-reason/BAR-Devtools). Podman and distrobox work natively inside WSL2.
 
-_macOS_
-
-```zsh
-brew install lua@5.1
-```
-
-**Lux Package Manager**
-Follow the [Lux Getting Started Guide](https://lux.lumen-labs.org/tutorial/getting-started/).
-
-Or follow the Cargo instructions to manually build [on the Lux Github](https://github.com/lumen-oss/lux?tab=readme-ov-file#wrench-building-from-source)
-
-### Install Project Packages
-
-From the repo root (where `lux.toml` lives):
-
-```zsh
-lux --max-jobs=2 update
-```
-Note: in my testing `--max-jobs` was super specific to my machine and anything above that number would sometimes cause deadlocks.
-
-
-### Running Tests
-
-Run the full suite (via [Busted](https://lunarmodules.github.io/busted/)):
-
-```zsh
-# preferred for predictable CLI behavior
-busted
-```
-
-Filter by tag:
-
-```zsh
-busted -t focus
-```
-
-Optionally, run through Lux’s wrapper:
-
-```zsh
-lx test
-# run the emmylua type check
-lx check
-# or to drop into a shell so you can run `busted` manually
-lx shell --test
-busted
-8 successes / 0 failures / 0 errors / 0 pending : 0.246881 seconds
-```
-
-See Lux [Guides](https://lux.lumen-labs.org/guides/formatting-linting) for more information.
-
-Inspect objects inline while debugging:
-
-```lua
-print(VFS.Include("inspect.lua")(someObject))
-```
-
-### VS Code Test Switcher (optional)
-
-This handy plugin lets you switch between the test and the code-being-tested just by tapping `Cmd+Shift+Y`.
-
-VSCode Plugin: https://marketplace.visualstudio.com/items?itemName=bmalehorn.test-switcher
-
-Then open **User Settings (JSON)** and add:
-
-```json
-"test-switcher.rules": [
-    {
-        "pattern": "spec/(.*)_spec\\.lua",
-        "replacement": "$1.lua"
-    },
-    {
-        "pattern": "spec/builder_specs/(.*)_spec\\.lua",
-        "replacement": "spec/builders/$1.lua"
-    },
-    {
-        "pattern": "spec/builders/(.*)\\.lua",
-        "replacement": "spec/builder_specs/$1_spec.lua"
-    },
-    {
-        "pattern": "(luarules|common|luaui|gamedata)/(.*)\\.lua",
-        "replacement": "spec/$1/$2_spec.lua"
-    }
-],
-```
-
+For contributors who prefer native Windows, the [`dev.Containerfile`](https://github.com/beyond-all-reason/BAR-Devtools/blob/master/docker/dev.Containerfile) documents every dependency -- install the equivalents via MSYS2/mingw.
