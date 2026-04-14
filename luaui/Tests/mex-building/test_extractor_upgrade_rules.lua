@@ -53,3 +53,5 @@ function test()
 		assertEqual(canUpgrade, expected, string.format("expected ExtractorCanBeUpgraded(%s -> %s) == %s, got %s", currentName, newName, tostring(expected), tostring(canUpgrade)))
 	end
 end
+
+return { skip = skip, setup = setup, test = test, cleanup = cleanup }
