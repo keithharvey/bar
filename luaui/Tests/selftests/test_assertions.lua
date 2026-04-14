@@ -1,5 +1,5 @@
 
-function sanityChecks()
+local function sanityChecks()
 	-- Just to make sure some standard methods used here work as expected.
 	Spring.GiveOrderToUnit(2, CMD.FIRE_STATE, {0}, {})
 	SyncedProxy.Spring.ValidUnitID(20)
@@ -9,7 +9,7 @@ function sanityChecks()
 	assert(err ~= "attempt to yield across metamethod/C-call boundary")
 end
 
-function failingTests()
+local function failingTests()
 	-- All of these fail due to error "attempt to yield across metamethod/C-call boundary"
 	-- This is something to do with how the test system is structured.
 	local res, err = pcall(function()
@@ -62,7 +62,7 @@ function failingTests()
 	--
 end
 
-function failingWhileSucceedingTests()
+local function failingWhileSucceedingTests()
 	-- these ones are actually failing even when they don't throw exceptions,
 	-- it's because assertThrows is catching the exception, it's just not
 	-- the one we want.
@@ -77,13 +77,13 @@ function failingWhileSucceedingTests()
 	end)
 end
 
-function testWaitUntil()
+local function testWaitUntil()
 	Test.waitUntil(function()
 		return true
 	end)
 end
 
-function testAssertSuccessBefore()
+local function testAssertSuccessBefore()
 	-- test the method succeeding
 	assertSuccessBefore(1, 10, function() return true end)
 	assertSuccessBefore(1, 10, function()
@@ -97,7 +97,7 @@ function testAssertSuccessBefore()
 	end, "error")
 end
 
-function testAssertThrows()
+local function testAssertThrows()
 	-- test detecting an exception
 	assertThrows(function()
 		error("error")
@@ -116,7 +116,7 @@ function testAssertThrows()
 	end)
 end
 
-function testAssertThrowsMessage()
+local function testAssertThrowsMessage()
 	-- test throwing a specific message
 	assertThrowsMessage(function()
 		error("error")
@@ -148,7 +148,7 @@ function testAssertThrowsMessage()
 	end, "error")
 end
 
-function testAssertEqual()
+local function testAssertEqual()
 	-- test numeric mismatch
 	assertThrowsMessage(function()
 		assertEqual(1, 2)
@@ -170,7 +170,7 @@ function testAssertEqual()
 	assertEqual(nil, nil)
 end
 
-function test()
+local function test()
 	sanityChecks()
 	testWaitUntil()
 	testAssertThrows()
@@ -180,3 +180,5 @@ function test()
 	--failingTests()
 	failingWhileSucceedingTests()
 end
+
+return { test = test }

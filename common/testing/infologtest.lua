@@ -2,7 +2,7 @@
 
 local maxErrors = 10
 
-function skip()
+local function skip()
 	-- TODO: re-enable. disabled 2025-10-01 in order to get CICD working
 	return true
 end
@@ -50,9 +50,11 @@ local function infologTest()
 end
 
 
-function test()
+local function test()
 	local errors = infologTest()
 	if #errors > 0 then
 		error(table.concat(errors, "\n"), 0)
 	end
 end
+
+return { skip = skip, test = test }

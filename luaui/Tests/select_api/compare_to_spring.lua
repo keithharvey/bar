@@ -5,15 +5,15 @@ local nameLookup = {}
 local passed = true
 
 
-function skip()
+local function skip()
 	return Spring.GetGameFrame() <= 0 or not Platform.gl
 end
 
-function setup()
+local function setup()
 	Test.clearMap()
 end
 
-function cleanup()
+local function cleanup()
 	Spring.SendCommands("setspeed " .. 1)
 end
 
@@ -234,7 +234,7 @@ end
 -- for each filter, the sum of {{filter}} and Not_{{filter}} always equals 537.
 -- this means 6 units are being created but then not included in the tests
 -- could be 'dbg_sphere' 'dbg_sphere_fullmetal' 'pbr_cube'
-function test()
+local function test()
 	passed = true
 	local uids = createUnits()
 	local halfSize = math.floor(#uids / 2)
@@ -349,3 +349,5 @@ function test()
 	end
 	assert(passed, "read errors above")
 end
+
+return { skip = skip, setup = setup, test = test, cleanup = cleanup }
