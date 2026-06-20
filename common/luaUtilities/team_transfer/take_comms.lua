@@ -15,6 +15,22 @@ function Comms.CategoryDisplayName(category)
 	return categoryDisplayNames[category] or category
 end
 
+---@class TakePolicy
+---@field mode string TakeMode enum value
+---@field delaySeconds number
+---@field delayCategory string UnitCategory enum value
+
+---Resolve the global take policy from modoptions; single source of truth for all consumers.
+---@param modOptions table
+---@return TakePolicy
+function Comms.GetPolicy(modOptions)
+	return {
+		mode = modOptions[ModeEnums.ModOptions.TakeMode] or ModeEnums.TakeMode.Enabled,
+		delaySeconds = tonumber(modOptions[ModeEnums.ModOptions.TakeDelaySeconds]) or 30,
+		delayCategory = modOptions[ModeEnums.ModOptions.TakeDelayCategory] or ModeEnums.UnitCategory.Resource,
+	}
+end
+
 ---@class TakeResult
 ---@field mode string TakeMode enum value
 ---@field takerName string Name of the player who issued /take

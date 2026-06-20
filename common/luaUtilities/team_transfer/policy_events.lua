@@ -1,5 +1,4 @@
--- Emits a generic "SharePolicyChanged" event when a team's cached sharing policy changes,
--- forwarded to widgets via game_share_policy_forwarding.lua -> widget:SharePolicyChanged.
+-- Synced-side surface for sharing-policy events forwarded to widgets (policy changes + build-delay debuff).
 local PolicyEvents = {}
 
 PolicyEvents.Domain = {
@@ -39,6 +38,28 @@ function PolicyEvents.NotifyIfChanged(teamId, domain, signature, sendToUnsynced)
     send("SharePolicyChanged", teamId, domain)
   end
   return true
+end
+
+---A builder gained the constructor build-delay buildspeed debuff for [startFrame, expireFrame).
+---@param unitID number
+---@param startFrame number
+---@param expireFrame number
+---@param sendToUnsynced function? defaults to the synced SendToUnsynced global (injectable for tests)
+function PolicyEvents.NotifyBuildDelay(unitID, startFrame, expireFrame, sendToUnsynced)
+  local send = sendToUnsynced or SendToUnsynced
+  if send then
+    send("UnitBuildDelayStarted", unitID, startFrame, expireFrame)
+  end
+end
+
+---The build-delay debuff on a unit ended (expired or unit gone).
+---@param unitID number
+---@param sendToUnsynced function? defaults to the synced SendToUnsynced global (injectable for tests)
+function PolicyEvents.NotifyBuildDelayEnd(unitID, sendToUnsynced)
+  local send = sendToUnsynced or SendToUnsynced
+  if send then
+    send("UnitBuildDelayEnded", unitID)
+  end
 end
 
 return PolicyEvents
