@@ -1133,7 +1133,7 @@ local unitGrids = {
 		},
 		{
 			{ "armlab", "armvp", "armap", "armsy", },         -- bot lab, veh lab, air lab, shipyard
-			{ "armnanotc", "armalab", },                      -- nano, T2 lab
+			{ "armnanotc", "armalab", "", "armkeystone", },                      -- nano, T2 lab
 			{ "armhp", },                                     -- hover lab, floating hover lab, amphibious lab, seaplane lab
 		}
 	},
@@ -1156,7 +1156,7 @@ local unitGrids = {
 		},
 		{
 			{ "corlab", "corvp", "corap", "corsy", },         -- bot lab, veh lab, air lab, shipyard
-			{ "cornanotc", "coralab", },                      -- nano, T2 lab
+			{ "cornanotc", "coralab", "", "corkeystone", },                      -- nano, T2 lab
 			{ "corhp", },                                     -- hover lab, floating hover lab, amphibious lab, seaplane lab
 		}
 	},
@@ -1178,7 +1178,7 @@ local unitGrids = {
 		},
 		{
 			{ "leglab", "legvp", "legap", "legsy", },         -- bot lab, veh lab, air lab, shipyard
-			{ "legnanotc", "legalab", },                      -- nano, T2 lab
+			{ "legnanotc", "legalab", "", "legkeystone", },                      -- nano, T2 lab
 			{ "leghp", },                                     -- hover lab, floating hover lab, amphibious lab, seaplane lab
 		}
 	},
@@ -1202,7 +1202,7 @@ local unitGrids = {
 		},
 		{
 			{ "armlab", "armvp", "armap", "armsy", },         -- bot lab, veh lab, air lab, shipyard
-			{ "armnanotc", "armavp", },                       -- nano, T2 lab
+			{ "armnanotc", "armavp", "", "armkeystone", },                       -- nano, T2 lab
 			{ "armhp", },                                     -- hover lab, floating hover lab, amphibious lab, seaplane lab
 		}
 	},
@@ -1225,7 +1225,7 @@ local unitGrids = {
 		},
 		{
 			{ "corlab", "corvp", "corap", "corsy", },         -- bot lab, veh lab, air lab, shipyard
-			{ "cornanotc", "coravp", },                       -- nano, T2 lab
+			{ "cornanotc", "coravp", "", "corkeystone", },                       -- nano, T2 lab
 			{ "corhp", },                                     -- hover lab, floating hover lab, amphibious lab, seaplane lab
 		}
 	},
@@ -1247,7 +1247,7 @@ local unitGrids = {
 		},
 		{
 			{ "leglab", "legvp", "legap", "legsy", },         -- bot lab, veh lab, air lab, shipyard
-			{ "legnanotc", "coralab", },                      -- nano, T2 lab
+			{ "legnanotc", "coralab", "", "legkeystone", },                      -- nano, T2 lab
 			{ "leghp", },                                     -- hover lab, floating hover lab, amphibious lab, seaplane lab
 		}
 	},
@@ -1270,7 +1270,7 @@ local unitGrids = {
 		},
 		{
 			{ "armlab", "armvp", "armap", "armsy", },         -- bot lab, veh lab, air lab, shipyard
-			{ "armnanotc", "armaap", },                       -- nano, T2 lab
+			{ "armnanotc", "armaap", "", "armkeystone", },                       -- nano, T2 lab
 			{ "armhp", },                                     -- hover lab, floating hover lab, amphibious lab, seaplane lab
 		}
 	},
@@ -1293,7 +1293,7 @@ local unitGrids = {
 		},
 		{
 			{ "corlab", "corvp", "corap", "corsy", },         -- bot lab, veh lab, air lab, shipyard
-			{ "cornanotc", "coraap", },                       -- nano, T2 lab
+			{ "cornanotc", "coraap", "", "corkeystone", },                       -- nano, T2 lab
 			{ "corhp", },                                     -- hover lab, floating hover lab, amphibious lab, seaplane lab
 		}
 	},
@@ -1315,7 +1315,7 @@ local unitGrids = {
 		},
 		{
 			{ "leglab", "legvp", "legap", "legsy", },         -- bot lab, veh lab, air lab, shipyard
-			{ "legnanotc", "legaap", },                      -- nano, T2 lab
+			{ "legnanotc", "legaap", "", "legkeystone", },                      -- nano, T2 lab
 			{ "leghp", },                                     -- hover lab, floating hover lab, amphibious lab, seaplane lab
 		}
 	},
@@ -1337,7 +1337,7 @@ local unitGrids = {
 		},
 		{
 			{ "armsy", "armvp", "armap", "armlab", },         -- shipyard, veh lab, air lab, bot lab
-			{ "armnanotcplat", "armasy", },                   -- floating nano, T2 shipyard
+			{ "armnanotcplat", "armasy", "", "armkeystone", },                   -- floating nano, T2 shipyard
 			{ "armfhp", "", "armamsub", "armplat", },         -- floating hover lab, amphibious lab, seaplane lab
 		}
 	},
@@ -1359,7 +1359,7 @@ local unitGrids = {
 		},
 		{
 			{ "corsy", "corvp", "corap", "corlab",  },        -- shipyard, vehicle lab, air lab, bot lab
-			{ "cornanotcplat", "corasy", },                   -- floating nano, T2 shipyard
+			{ "cornanotcplat", "corasy", "", "corkeystone", },                   -- floating nano, T2 shipyard
 			{ "corfhp", "", "coramsub", "corplat",  },        -- floating hover, amphibious lab, seaplane lab
 		}
 	},
@@ -1381,7 +1381,7 @@ local unitGrids = {
 		},
 		{
 			{ "legsy", "legvp", "legap", "leglab",  },        -- shipyard, vehicle lab, air lab, bot lab
-			{ "legnanotcplat", "legadvshipyard", },                   -- floating nano, T2 shipyard
+			{ "legnanotcplat", "legadvshipyard", "", "legkeystone", },                   -- floating nano, T2 shipyard
 			{ "legfhp", "", "legamphlab", "legsplab",  },        -- floating hover, amphibious lab, seaplane lab
 		}
 	},
@@ -1479,7 +1479,7 @@ local unitGrids = {
 		},
 		{
 			{ "armlab", "armvp", "armap", "armsy", },         -- bot lab, veh lab, air lab, shipyard
-			{ "armnanotc", "armnanotcplat", "armaap"},                -- nano, floating nano
+			{ "armnanotc", "armnanotcplat", "armaap", "armkeystone" },                -- nano, floating nano
 			{ "armhp", "armfhp", "armamsub", "armplat", },    -- hover lab, floating hover lab, amphibious lab, seaplane lab
 		}
 	},
@@ -1503,7 +1503,7 @@ local unitGrids = {
 		},
 		{
 			{ "corlab", "corvp", "corap", "corsy", },         -- bot lab, veh lab, air lab, shipyard
-			{ "cornanotc", "cornanotcplat", "coraap"},                -- nano, floating nano
+			{ "cornanotc", "cornanotcplat", "coraap", "corkeystone" },                -- nano, floating nano
 			{ "corhp", "corfhp", "coramsub", "corplat", },    -- hover lab, floating hover lab, amphibious lab, seaplane lab
 		}
 	},
@@ -1527,7 +1527,7 @@ local unitGrids = {
 		},
 		{
 			{ "leglab", "legvp", "legap", "legsy", },         -- bot lab, veh lab, air lab, shipyard
-			{ "legnanotc", "legnanotcplat", "legaap", },      -- nano, T2 veh lab, floating nano
+			{ "legnanotc", "legnanotcplat", "legaap", "legkeystone", },      -- nano, T2 veh lab, floating nano
 			{ "leghp", "legfhp", "legamphlab", "legsplab", },    -- hover lab, floating hover lab, amphibious lab, seaplane lab
 		}
 	},
@@ -1552,7 +1552,7 @@ local unitGrids = {
 		},
 		{
 			{ "armlab", "armvp", "armap", "armsy", },         -- bot lab, veh lab, air lab, shipyard
-			{ "armnanotc", "armavp", "armnanotcplat", },      -- nano, T2 veh lab, floating nano
+			{ "armnanotc", "armavp", "armnanotcplat", "armkeystone", },      -- nano, T2 veh lab, floating nano
 			{ "armhp", "armfhp", "armamsub", "armplat", },    -- hover lab, floating hover lab, amphibious lab, seaplane lab
 		}
 	},
@@ -1576,7 +1576,7 @@ local unitGrids = {
 		},
 		{
 			{ "corlab", "corvp", "corap", "corsy", },         -- bot lab, veh lab, air lab, shipyard
-			{ "cornanotc", "coravp", "cornanotcplat", },      -- nano, T2 veh lab, floating nano
+			{ "cornanotc", "coravp", "cornanotcplat", "corkeystone", },      -- nano, T2 veh lab, floating nano
 			{ "corhp", "corfhp", "coramsub", "corplat", },    -- hover lab, floating hover lab, amphibious lab, seaplane lab
 		}
 	},
@@ -1600,8 +1600,43 @@ local unitGrids = {
 		},
 		{
 			{ "leglab", "legvp", "legap", "legsy", },         -- bot lab, veh lab, air lab, shipyard
-			{ "legnanotc", "legavp", "legnanotcplat", },      -- nano, T2 veh lab, floating nano
+			{ "legnanotc", "legavp", "legnanotcplat", "legkeystone", },      -- nano, T2 veh lab, floating nano
 			{ "leghp", "legfhp", "legamphlab", "legsplab", },    -- hover lab, floating hover lab, amphibious lab, seaplane lab
+		}
+	},
+
+	-- Tech Core T1.5 cons (Voussoir). Only reachable in tech_blocking mode, where the
+	-- keystone is injected into its menu. Mirror the T1 cons: keystone on `f` (Build -> v -> f).
+	armvoussoir = {
+		{ },
+		{ },
+		{ },
+		{
+			{ },
+			{ "armspringer", "", "", "armkeystone", },        -- springer (a), keystone (f)
+			{ },
+		}
+	},
+
+	corvoussoir = {
+		{ },
+		{ },
+		{ },
+		{
+			{ },
+			{ "corspringer", "", "", "corkeystone", },        -- springer (a), keystone (f)
+			{ },
+		}
+	},
+
+	legvoussoir = {
+		{ },
+		{ },
+		{ },
+		{
+			{ },
+			{ "legspringer", "", "", "legkeystone", },        -- springer (a), keystone (f)
+			{ },
 		}
 	},
 
