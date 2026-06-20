@@ -1,68 +1,56 @@
 --- Unit validation helpers for advplayerslist.lua
+--- partition depends only on the sender's modes, so memoise once per selection, not per player
 local UnitShared = VFS.Include("common/luaUtilities/team_transfer/unit_transfer_shared.lua")
-
-local UNIT_VALIDATION_PREFIX = "unit_validation_"
-
-local UnitValidationFields = {
-  status = true,
-  invalidUnitCount = true,
-  invalidUnitIds = true,
-  invalidUnitNames = true,
-  validUnitCount = true,
-  validUnitIds = true,
-  validUnitNames = true,
-  buildDelayedUnitCount = true,
-  stunnedUnitCount = true,
-}
-
-local validationResultScratch = {}
 
 local UnitValidationHelpers = {}
 
----@param validationResult UnitValidationResult
----@param playerData table
-function UnitValidationHelpers.PackSelectedUnitsValidation(validationResult, playerData)
-  for field, _ in pairs(UnitValidationFields) do
-    playerData[UNIT_VALIDATION_PREFIX .. field] = validationResult and validationResult[field] or nil
-  end
+-- The selection these memos describe (nil when nothing is selected).
+local currentSelection = nil
+-- Memoised ValidateUnits result for a shareable (canShare) receiver under currentSelection.
+local sharedPartition = nil
+-- Memoised trivial result for a non-shareable receiver (ValidateUnits short-circuits).
+local deniedResult = nil
+-- separate backing tables so ValidateUnits fills in place and both can be live in one draw pass
+local sharedScratch = {}
+local deniedScratch = {}
+
+---Record the active selection and drop the per-selection memos; partition computed lazily later.
+---@param selectedUnits number[]?
+function UnitValidationHelpers.SetSelection(selectedUnits)
+  currentSelection = (selectedUnits and #selectedUnits > 0) and selectedUnits or nil
+  sharedPartition = nil
+  deniedResult = nil
 end
 
----@param playerData table
-function UnitValidationHelpers.ClearSelectedUnitsValidation(playerData)
-  for field, _ in pairs(UnitValidationFields) do
-    playerData[UNIT_VALIDATION_PREFIX .. field] = nil
-  end
+---Drop the memos without touching the selection; used when our own sharing policy changes.
+function UnitValidationHelpers.InvalidateValidations()
+  sharedPartition = nil
+  deniedResult = nil
 end
 
----@param playerData table
+---Validate the current selection for a single receiver, memoised; nil when nothing selected.
+---@param myTeamID number
+---@param receiverTeamID number
 ---@return UnitValidationResult | nil
-function UnitValidationHelpers.UnpackSelectedUnitsValidation(playerData)
-  if playerData[UNIT_VALIDATION_PREFIX .. "status"] == nil then
+function UnitValidationHelpers.GetPlayerUnitValidation(myTeamID, receiverTeamID)
+  if not currentSelection then
     return nil
   end
-  local scratch = validationResultScratch
-  for field, _ in pairs(UnitValidationFields) do
-    scratch[field] = playerData[UNIT_VALIDATION_PREFIX .. field]
-  end
-  return scratch
-end
 
----@param player table
----@param myTeamID number
----@param selectedUnits number[]
-function UnitValidationHelpers.UpdatePlayerUnitValidations(player, myTeamID, selectedUnits)
-  for _, playerData in pairs(player) do
-    if playerData.team and playerData.team ~= myTeamID then
-      if selectedUnits and #selectedUnits > 0 then
-        local policyResult = UnitShared.GetCachedPolicyResult(myTeamID, playerData.team, Spring)
-        local validationResult = UnitShared.ValidateUnits(policyResult, selectedUnits, Spring)
-        UnitValidationHelpers.PackSelectedUnitsValidation(validationResult, playerData)
-      else
-        UnitValidationHelpers.ClearSelectedUnitsValidation(playerData)
-      end
+  local policyResult = UnitShared.GetCachedPolicyResult(myTeamID, receiverTeamID, Spring)
+  if not policyResult.canShare then
+    -- denied receivers all short-circuit to the same empty partition, so compute once
+    if not deniedResult then
+      deniedResult = UnitShared.ValidateUnits(policyResult, currentSelection, Spring, nil, deniedScratch)
     end
+    return deniedResult
   end
+
+  -- Identical for every shareable receiver (modes are the sender's), so compute once.
+  if not sharedPartition then
+    sharedPartition = UnitShared.ValidateUnits(policyResult, currentSelection, Spring, nil, sharedScratch)
+  end
+  return sharedPartition
 end
 
 return UnitValidationHelpers
-

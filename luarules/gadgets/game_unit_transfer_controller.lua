@@ -35,6 +35,11 @@ local spGetUnitIsBeingBuilt = Spring.GetUnitIsBeingBuilt
 
 local debuffedUnits = {} -- unitID -> expireFrame
 
+-- reused scratch tables; separate ones because AllowUnitTransfer fires inside ShareUnits' loop (shared would clobber)
+local shareValidationScratch = {}
+local allowValidationScratch = {}
+local allowUnitScratch = {} -- single-element {unitID} list, refilled per AllowUnitTransfer call
+
 local mobileBuilderDefs = {}
 for unitDefID, unitDef in pairs(UnitDefs) do
   if UnitSharingCategories.isMobileBuilderDef(unitDef) then
@@ -137,8 +142,8 @@ end
 ---@return UnitTransferResult
 function GG.ShareUnits(senderTeamID, targetTeamID, unitIDs)
   local policyResult = Shared.GetCachedPolicyResult(senderTeamID, targetTeamID, springRepo)
-  local validation = Shared.ValidateUnits(policyResult, unitIDs, springRepo)
-  
+  local validation = Shared.ValidateUnits(policyResult, unitIDs, springRepo, nil, shareValidationScratch)
+
   if not validation or validation.status == TransferEnums.UnitValidationOutcome.Failure then
     ---@type UnitTransferResult
     return {
@@ -183,9 +188,10 @@ function UnitTransferController.AllowUnitTransfer(unitID, unitDefID, fromTeamID,
   end
   
   local policyResult = Shared.GetCachedPolicyResult(fromTeamID, toTeamID, springRepo)
-  
-  local validation = Shared.ValidateUnits(policyResult, { unitID }, springRepo)
-  
+
+  allowUnitScratch[1] = unitID
+  local validation = Shared.ValidateUnits(policyResult, allowUnitScratch, springRepo, nil, allowValidationScratch)
+
   local allowed = validation and validation.status ~= TransferEnums.UnitValidationOutcome.Failure
 
   return allowed

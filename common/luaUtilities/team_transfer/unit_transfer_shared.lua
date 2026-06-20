@@ -61,24 +61,38 @@ local function wouldBeStunned(unitDefID, stunCategory, defs)
   return Shared.IsShareableDef(unitDefID, stunCategory, defs)
 end
 
+---clear an array in place so a lifted result table can be reused without churning garbage
+---@param arr table
+local function resetArray(arr)
+  for i = #arr, 1, -1 do
+    arr[i] = nil
+  end
+end
+
 ---@param unitIds number[]
 ---@param springApi SpringSynced?
 ---@param unitDefs table?
+---@param out UnitValidationResult? optional pre-allocated result to fill in place (table lifting)
 ---@return UnitValidationResult
-function Shared.ValidateUnits(policyResult, unitIds, springApi, unitDefs)
+function Shared.ValidateUnits(policyResult, unitIds, springApi, unitDefs, out)
   local spring = springApi or Spring
   local defs = unitDefs or UnitDefs or (spring.GetUnitDefs and spring.GetUnitDefs()) or {}
-  local out = {
-    status = TransferEnums.UnitValidationOutcome.Failure,
-    validUnitCount = 0,
-    validUnitNames = {},
-    validUnitIds = {},
-    invalidUnitCount = 0,
-    invalidUnitNames = {},
-    invalidUnitIds = {},
-    buildDelayedUnitCount = 0, -- valid units that will receive the constructor build delay
-    stunnedUnitCount = 0,      -- valid units that will be stunned (stun category)
-  }
+
+  -- reuse caller's table when supplied; scalars reassigned and arrays cleared so stale entries never leak
+  out = out or {}
+  out.status = TransferEnums.UnitValidationOutcome.Failure
+  out.validUnitCount = 0
+  out.invalidUnitCount = 0
+  out.buildDelayedUnitCount = 0 -- valid units that will receive the constructor build delay
+  out.stunnedUnitCount = 0      -- valid units that will be stunned (stun category)
+  out.validUnitNames = out.validUnitNames or {}
+  out.validUnitIds = out.validUnitIds or {}
+  out.invalidUnitNames = out.invalidUnitNames or {}
+  out.invalidUnitIds = out.invalidUnitIds or {}
+  resetArray(out.validUnitNames)
+  resetArray(out.validUnitIds)
+  resetArray(out.invalidUnitNames)
+  resetArray(out.invalidUnitIds)
 
   if (not policyResult.canShare) or (not unitIds or #unitIds == 0) then
     return out
@@ -87,7 +101,8 @@ function Shared.ValidateUnits(policyResult, unitIds, springApi, unitDefs)
   local modes = policyResult.sharingModes or {"none"}
   local stunSeconds = tonumber(policyResult.stunSeconds) or 0
   local stunCategory = policyResult.stunCategory
-  
+
+  -- dedupe sets stay call-local; a shared one would leak keys across rotating `out` tables
   local validUnitNamesSet = {}
   local invalidUnitNamesSet = {}
   for _, unitId in ipairs(unitIds) do
