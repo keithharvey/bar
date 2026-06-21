@@ -75,17 +75,24 @@ brew install lua@5.1
 ```
 
 **Lux Package Manager**
-Follow the [Lux Getting Started Guide](https://lux.lumen-labs.org/tutorial/getting-started/).
 
-Or follow the Cargo instructions to manually build [on the Lux Github](https://github.com/lumen-oss/lux?tab=readme-ov-file#wrench-building-from-source)
+Install the pinned Lux version — **0.28.3** — to match CI and the BAR-Devtools image, so `lux.lock` serializes consistently:
+
+```zsh
+cargo binstall --version 0.28.3 lux-cli
+```
+
+See the [Lux Getting Started Guide](https://lux.lumen-labs.org/tutorial/getting-started/) for other install methods, or build from source via the [Cargo instructions](https://github.com/lumen-oss/lux?tab=readme-ov-file#wrench-building-from-source) — but keep the version at **0.28.3**.
 
 ### Install Project Packages
 
-From the repo root (where `lux.toml` lives):
+From the repo root (where `lux.toml` lives), install the locked dependencies:
 
 ```zsh
-lux --max-jobs=2 update
+lux --max-jobs=2 sync
 ```
+`sync` installs exactly what `lux.lock` pins, so a fresh clone reproduces the same versions. Only use `lux update` when you deliberately intend to bump dependency versions.
+
 Note: in my testing `--max-jobs` was super specific to my machine and anything above that number would sometimes cause deadlocks.
 
 
