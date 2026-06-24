@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    if: github.repository == 'beyond-all-reason/Beyond-All-Reason'
+    if: github.repository == 'beyond-all-reason/Beyond-All-Reason' || github.repository == 'keithharvey/bar'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
