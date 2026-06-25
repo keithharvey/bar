@@ -76,6 +76,7 @@ function Gadgets.ResourceTransfer(ctx)
   local senderCurrent = springRepo.GetTeamResources(ctx.senderTeamId, resourceType)
   springRepo.SetTeamResource(ctx.senderTeamId, resourceType, math.max(0, senderCurrent - sent))
   springRepo.AddTeamResource(ctx.receiverTeamId, resourceType, received)
+  Spring.Echo("delete me")
 
   ---@type ResourceTransferResult
   local result = {
