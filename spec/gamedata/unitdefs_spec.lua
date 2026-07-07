@@ -3,7 +3,7 @@ local Builders = VFS.Include("spec/builders/index.lua")
 describe("UnitDefs", function()
     local unitDefs
     before_each(function()
-        local spring = Builders.Spring.new():WithRealUnitDefs():Build()
+        local spring = Builders.EngineSynced.new():WithRealUnitDefs():Build()
         unitDefs = spring:GetUnitDefs()
     end)
 
