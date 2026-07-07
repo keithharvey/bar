@@ -690,6 +690,7 @@ function SB:WithGlobalsDefined(fn, persist)
     local instance = self
     -- Save current globals
     local prevSpring = _G.Spring
+    local prevBAR = _G.BAR
     local prevVFS = _G.VFS
     local prevGame = _G.Game
     local prevLOG = _G.LOG
@@ -699,6 +700,7 @@ function SB:WithGlobalsDefined(fn, persist)
 
     -- Set up mocks for the duration of the function
     _G.Spring = _G.Spring or {}
+    _G.BAR = _G.BAR or {} -- post-detach namespace; the codemod rewrites the mocks below onto it
     local mock = self:BuildSpring()
 
     -- Expose all Spring functions to global Spring object
@@ -751,6 +753,7 @@ function SB:WithGlobalsDefined(fn, persist)
                 end,
                 VFS = _G.VFS,
                 Spring = _G.Spring,
+                BAR = _G.BAR,
                 -- Export standard Lua libs as system.lua does
                 pairs = pairs,
                 ipairs = ipairs,
@@ -805,6 +808,7 @@ function SB:WithGlobalsDefined(fn, persist)
     -- If not persisting, restore original globals
     if not persist then
         _G.Spring = prevSpring
+        _G.BAR = prevBAR
         _G.VFS = prevVFS
         _G.Game = prevGame
         _G.LOG = prevLOG

@@ -74,6 +74,9 @@ if (System == nil) then
 		Json = Json,
 		RmlUi = RmlUi,
 
+		-- BAR module namespace (created by init.lua; detached from Spring table)
+		BAR = BAR,
+
 		-- luasocket
 		socket          = socket,
 
