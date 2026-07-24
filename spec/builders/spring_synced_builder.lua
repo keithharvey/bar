@@ -752,7 +752,6 @@ function SB:WithGlobalsDefined(fn, persist)
 		end
 	end
 	---@diagnostic disable-next-line: global-in-non-module
-	_G.BAR = _G.BAR or {}
 	local gametypeStub = {
 		IsScavengers = function()
 			return false
@@ -764,7 +763,6 @@ function SB:WithGlobalsDefined(fn, persist)
 			return {}
 		end,
 	}
-	_G.BAR.Utilities = _G.BAR.Utilities or { Gametype = gametypeStub }
 	_G.Spring.Utilities = _G.Spring.Utilities or { Gametype = gametypeStub }
 
 	-- Mock VFS.Include cache to intercept system.lua load
@@ -782,13 +780,6 @@ function SB:WithGlobalsDefined(fn, persist)
 				end,
 				VFS = _G.VFS,
 				Spring = _G.Spring,
-				-- Type-split + detached-module namespaces for the def loader.
-				-- The codemod rewrites Spring.X -> Engine.{Shared,Synced,Unsynced}.X
-				-- (spring-split) and Spring.I18N -> BAR.I18N etc. (detach-bar-modules);
-				-- these aliases let unit/weapon/feature defs resolve in the test VM
-				-- (real engine: the LuaParser defs env provides them natively).
-				Engine = { Shared = _G.Spring, Synced = _G.Spring, Unsynced = _G.Spring },
-				BAR = _G.BAR,
 				-- Export standard Lua libs as system.lua does
 				pairs = pairs,
 				ipairs = ipairs,

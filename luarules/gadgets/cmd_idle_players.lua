@@ -1,4 +1,4 @@
-if BAR.Utilities.Gametype.IsSinglePlayer() then
+if Spring.Utilities.Gametype.IsSinglePlayer() then
 	return
 end
 

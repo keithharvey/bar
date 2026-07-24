@@ -30,7 +30,7 @@ end
 local function displayModes(modes)
 	local names = {}
 	for _, m in ipairs(modes) do
-		names[#names + 1] = BAR.I18N("ui.unitSharingMode." .. m)
+		names[#names + 1] = Spring.I18N("ui.unitSharingMode." .. m)
 	end
 	return table.concat(names, " + ")
 end
@@ -99,7 +99,7 @@ local function withPolicyEffects(text, policy, validationResult)
 	local buildDelay = tonumber(policy.buildDelaySeconds) or 0
 	local builderCount = tonumber(validationResult.buildDelayedUnitCount) or 0
 	if buildDelay > 0 and builderCount > 0 then
-		text = text .. " " .. BAR.I18N("ui.playersList.shareUnits.base.buildDelay", {
+		text = text .. " " .. Spring.I18N("ui.playersList.shareUnits.base.buildDelay", {
 			count = builderCount,
 			buildDelaySeconds = buildDelay,
 		})
@@ -108,10 +108,10 @@ local function withPolicyEffects(text, policy, validationResult)
 	local stunSeconds = tonumber(policy.stunSeconds) or 0
 	local stunnedCount = tonumber(validationResult.stunnedUnitCount) or 0
 	if stunSeconds > 0 and stunnedCount > 0 then
-		text = text .. " " .. BAR.I18N("ui.playersList.shareUnits.base.stunDelay", {
+		text = text .. " " .. Spring.I18N("ui.playersList.shareUnits.base.stunDelay", {
 			count = stunnedCount,
 			stunSeconds = stunSeconds,
-			stunCategory = policy.stunCategory and BAR.I18N("ui.unitSharingMode." .. policy.stunCategory) or "",
+			stunCategory = policy.stunCategory and Spring.I18N("ui.unitSharingMode." .. policy.stunCategory) or "",
 		})
 	end
 
@@ -130,17 +130,17 @@ function Comms.TooltipText(policy, validationResult)
 	local case = Comms.DecideCommunicationCase(policy, validationResult)
 
 	if case == TransferEnums.UnitCommunicationCase.OnSelf then
-		return BAR.I18N("ui.playersList.requestSupport")
+		return Spring.I18N("ui.playersList.requestSupport")
 	elseif case == TransferEnums.UnitCommunicationCase.OnTechBlocked then
 		if not futureUnlock then
-			return BAR.I18N("ui.playersList.shareUnits.tech.noUnlock")
+			return Spring.I18N("ui.playersList.shareUnits.tech.noUnlock")
 		end
-		return BAR.I18N(u .. ".disabled", techI18nData(policy))
+		return Spring.I18N(u .. ".disabled", techI18nData(policy))
 	elseif case == TransferEnums.UnitCommunicationCase.OnPolicyDisabled then
-		return BAR.I18N(u .. ".disabled", { unitSharingMode = displayModes(policy.sharingModes) })
+		return Spring.I18N(u .. ".disabled", { unitSharingMode = displayModes(policy.sharingModes) })
 	elseif case == TransferEnums.UnitCommunicationCase.OnSelectionValidationFailed then
 		if hasTechUnlock and not futureUnlock then
-			return BAR.I18N("ui.playersList.shareUnits.tech.noUnlock")
+			return Spring.I18N("ui.playersList.shareUnits.tech.noUnlock")
 		end
 		local i18nData = { unitSharingMode = displayModes(policy.sharingModes) }
 		if tree == "tech" then
@@ -149,7 +149,7 @@ function Comms.TooltipText(policy, validationResult)
 				i18nData[k] = v
 			end
 		end
-		return BAR.I18N(u .. ".allInvalid", i18nData)
+		return Spring.I18N(u .. ".allInvalid", i18nData)
 	elseif case == TransferEnums.UnitCommunicationCase.OnPartiallyShareable then
 		if not validationResult then
 			error("This should not be possible.")
@@ -166,13 +166,13 @@ function Comms.TooltipText(policy, validationResult)
 				i18nData[k] = v
 			end
 		end
-		return withPolicyEffects(BAR.I18N(u .. ".invalid", i18nData), policy, validationResult)
+		return withPolicyEffects(Spring.I18N(u .. ".invalid", i18nData), policy, validationResult)
 	elseif case == TransferEnums.UnitCommunicationCase.OnFullyShareable then
 		local i18nData = {}
 		if validationResult then
 			i18nData.validUnitCount = validationResult.validUnitCount
 		end
-		return withPolicyEffects(BAR.I18N("ui.playersList.shareUnits.base.default", i18nData), policy, validationResult)
+		return withPolicyEffects(Spring.I18N("ui.playersList.shareUnits.base.default", i18nData), policy, validationResult)
 	else
 		error("Invalid unit communication case: " .. case)
 	end

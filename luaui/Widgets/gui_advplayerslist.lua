@@ -133,9 +133,9 @@ local sp = {
 }
 
 local Color = {
-	ToString = BAR.Utilities.Color.ToString,
-	ToIntArray = BAR.Utilities.Color.ToIntArray,
-	IsDark = BAR.Utilities.Color.ColorIsDark,
+	ToString = Spring.Utilities.Color.ToString,
+	ToIntArray = Spring.Utilities.Color.ToIntArray,
+	IsDark = Spring.Utilities.Color.ColorIsDark,
 }
 
 local gl_Texture = gl.Texture
@@ -327,7 +327,7 @@ local pendingInitRefresh = false -- triggers one doPlayerUpdate after all widget
 local gameStarted = false
 local gameStartRefreshed = spGetGameFrame() > 30
 
-local isSinglePlayer = BAR.Utilities.Gametype.IsSinglePlayer()
+local isSinglePlayer = Spring.Utilities.Gametype.IsSinglePlayer()
 
 local isSingle = false
 if not mySpecStatus then
@@ -408,7 +408,7 @@ end
 
 local teamRanking = {}
 local allyTeamRanking = nil
-local isPvE = BAR.Utilities.Gametype.IsPvE()
+local isPvE = Spring.Utilities.Gametype.IsPvE()
 
 ---------------------------------------------------------------------------------------------------
 --  Geometry
@@ -1202,12 +1202,12 @@ function GetAIName(teamID)
 	if niceName then
 		name = niceName
 
-		if BAR.Utilities.ShowDevUI() and options.profile then
+		if Spring.Utilities.ShowDevUI() and options.profile then
 			name = name .. " [" .. options.profile .. "]"
 		end
 	end
 
-	return BAR.I18N("ui.playersList.aiName", { name = name })
+	return Spring.I18N("ui.playersList.aiName", { name = name })
 end
 
 function CreatePlayerFromTeam(teamID)
@@ -1981,12 +1981,12 @@ function drawMainList()
 			if numberOfSpecs == 0 or (specListShow and numberOfSpecs < 10) then
 				specAmount = ""
 			end
-			DrawLabel(" " .. BAR.I18N("ui.playersList.spectators", { amount = specAmount }), drawListOffset[i], specListShow)
+			DrawLabel(" " .. Spring.I18N("ui.playersList.spectators", { amount = specAmount }), drawListOffset[i], specListShow)
 			if spGetGameFrame() <= 0 then
 				if specListShow then
-					DrawLabelTip(BAR.I18N("ui.playersList.hideSpecs"), drawListOffset[i], 95)
+					DrawLabelTip(Spring.I18N("ui.playersList.hideSpecs"), drawListOffset[i], 95)
 				else
-					DrawLabelTip(BAR.I18N("ui.playersList.showSpecs"), drawListOffset[i], 95)
+					DrawLabelTip(Spring.I18N("ui.playersList.showSpecs"), drawListOffset[i], 95)
 				end
 			end
 		elseif drawObject == -4 then -- enemy teams separator
@@ -2001,26 +2001,26 @@ function drawMainList()
 					enemyAmount = ""
 				end
 				if allyTeamRanking and enemyListShow then
-					DrawLabel(" " .. BAR.I18N("ui.playersList.leaderboard"), drawListOffset[i], true)
+					DrawLabel(" " .. Spring.I18N("ui.playersList.leaderboard"), drawListOffset[i], true)
 					leaderboardOffset = drawListOffset[i]
 				else
-					DrawLabel(" " .. BAR.I18N("ui.playersList.enemies", { amount = enemyAmount }), drawListOffset[i], true)
+					DrawLabel(" " .. Spring.I18N("ui.playersList.enemies", { amount = enemyAmount }), drawListOffset[i], true)
 				end
 				if spGetGameFrame() <= 0 then
 					if enemyListShow then
-						DrawLabelTip(BAR.I18N("ui.playersList.hideEnemies"), drawListOffset[i], 95)
+						DrawLabelTip(Spring.I18N("ui.playersList.hideEnemies"), drawListOffset[i], 95)
 					else
-						DrawLabelTip(BAR.I18N("ui.playersList.showEnemies"), drawListOffset[i], 95)
+						DrawLabelTip(Spring.I18N("ui.playersList.showEnemies"), drawListOffset[i], 95)
 					end
 				end
 			end
 		elseif drawObject == -6 then
-			DrawLabel(" " .. BAR.I18N("ui.playersList.scoreboard"), drawListOffset[i], true)
+			DrawLabel(" " .. Spring.I18N("ui.playersList.scoreboard"), drawListOffset[i], true)
 			leaderboardOffset = drawListOffset[i]
 		elseif drawObject == -2 then
-			DrawLabel(" " .. BAR.I18N("ui.playersList.allies"), drawListOffset[i], true)
+			DrawLabel(" " .. Spring.I18N("ui.playersList.allies"), drawListOffset[i], true)
 			if spGetGameFrame() <= 0 then
-				DrawLabelTip(BAR.I18N("ui.playersList.trackPlayer"), drawListOffset[i], 46)
+				DrawLabelTip(Spring.I18N("ui.playersList.trackPlayer"), drawListOffset[i], 46)
 			end
 		elseif drawObject == -1 then
 			leader = true
@@ -2814,7 +2814,7 @@ function DrawName(name, nameIsAlias, team, posY, dark, playerID, accountID, desy
 			font2:SetOutlineColor(0, 0, 0, 1)
 		end
 		font2:SetTextColor(1, 0.45, 0.45, 1)
-		font2:Print(BAR.I18N("ui.playersList.desynced"), ModuleRefs.name.posX + widgetPosX + 5 + xPadding + (font2:GetTextWidth(nameText) * 14 * pScale), posY + (5.7 * playerScale), 8 * pScale, "o")
+		font2:Print(Spring.I18N("ui.playersList.desynced"), ModuleRefs.name.posX + widgetPosX + 5 + xPadding + (font2:GetTextWidth(nameText) * 14 * pScale), posY + (5.7 * playerScale), 8 * pScale, "o")
 	elseif pDraw and not pDraw.dead and pDraw.incomeMultiplier and pDraw.incomeMultiplier ~= 1 then
 		if dark then
 			font2:SetOutlineColor(0, 0, 0, 1)
@@ -3064,10 +3064,10 @@ end
 function AllyTip(mouseX, playerID)
 	if mouseX >= widgetPosX + (ModuleRefs.alliance.posX + (1 * playerScale)) * widgetScale and mouseX <= widgetPosX + (ModuleRefs.alliance.posX + (11 * playerScale)) * widgetScale then
 		if sp.AreTeamsAllied(player[playerID].team, myTeamID) then
-			tipText = BAR.I18N("ui.playersList.becomeEnemy")
+			tipText = Spring.I18N("ui.playersList.becomeEnemy")
 			tipTextTime = osClock()
 		else
-			tipText = BAR.I18N("ui.playersList.becomeAlly")
+			tipText = Spring.I18N("ui.playersList.becomeAlly")
 			tipTextTime = osClock()
 		end
 	end
@@ -3100,16 +3100,16 @@ function ResourcesTip(mouseX, energy, energyStorage, energyIncome, metal, metalS
 			metalIncome = mathFloor(metalIncome / 10) * 10
 		end
 		if energy >= 10000 then
-			energy = BAR.I18N("ui.playersList.thousands", { number = mathFloor(energy / 1000) })
+			energy = Spring.I18N("ui.playersList.thousands", { number = mathFloor(energy / 1000) })
 		end
 		if metal >= 10000 then
-			metal = BAR.I18N("ui.playersList.thousands", { number = mathFloor(metal / 1000) })
+			metal = Spring.I18N("ui.playersList.thousands", { number = mathFloor(metal / 1000) })
 		end
 		if energyIncome >= 10000 then
-			energyIncome = BAR.I18N("ui.playersList.thousands", { number = mathFloor(energyIncome / 1000) })
+			energyIncome = Spring.I18N("ui.playersList.thousands", { number = mathFloor(energyIncome / 1000) })
 		end
 		if metalIncome >= 10000 then
-			metalIncome = BAR.I18N("ui.playersList.thousands", { number = mathFloor(metalIncome / 1000) })
+			metalIncome = Spring.I18N("ui.playersList.thousands", { number = mathFloor(metalIncome / 1000) })
 		end
 		tipTextTitle = (spec and "\255\240\240\240" or colourNames(teamID)) .. name
 		tipText = "\255\255\255\255+" .. metalIncome .. "\n\255\255\255\255" .. metal .. "\n\255\255\255\000" .. energy .. "\n\255\255\255\000+" .. energyIncome
@@ -3134,13 +3134,13 @@ function IncomeTip(mouseX, energyIncome, metalIncome, name, teamID)
 			metalIncome = mathFloor(metalIncome / 10) * 10
 		end
 		if energyIncome >= 10000 then
-			energyIncome = BAR.I18N("ui.playersList.thousands", { number = mathFloor(energyIncome / 1000) })
+			energyIncome = Spring.I18N("ui.playersList.thousands", { number = mathFloor(energyIncome / 1000) })
 		end
 		if metalIncome >= 10000 then
-			metalIncome = BAR.I18N("ui.playersList.thousands", { number = mathFloor(metalIncome / 1000) })
+			metalIncome = Spring.I18N("ui.playersList.thousands", { number = mathFloor(metalIncome / 1000) })
 		end
 		tipTextTitle = (spec and "\255\240\240\240" or colourNames(teamID)) .. name
-		tipText = BAR.I18N("ui.playersList.resincome") .. "\n\255\255\255\000+" .. energyIncome .. "\n\255\255\255\255+" .. metalIncome
+		tipText = Spring.I18N("ui.playersList.resincome") .. "\n\255\255\255\000+" .. energyIncome .. "\n\255\255\255\255+" .. metalIncome
 		tipTextTime = osClock()
 	end
 end
@@ -3148,24 +3148,24 @@ end
 function PingCpuTip(mouseX, pingLvl, cpuLvl, fps, gpumem, luamem, system, name, teamID, spec, apm)
 	if mouseX >= widgetPosX + (ModuleRefs.cpuping.posX + (13 * playerScale)) * widgetScale and mouseX <= widgetPosX + (ModuleRefs.cpuping.posX + (23 * playerScale)) * widgetScale then
 		if pingLvl < 2000 then
-			pingLvl = BAR.I18N("ui.playersList.milliseconds", { number = pingLvl })
+			pingLvl = Spring.I18N("ui.playersList.milliseconds", { number = pingLvl })
 		elseif pingLvl >= 2000 then
-			pingLvl = BAR.I18N("ui.playersList.seconds", { number = round(pingLvl / 1000, 0) })
+			pingLvl = Spring.I18N("ui.playersList.seconds", { number = round(pingLvl / 1000, 0) })
 		end
-		tipText = BAR.I18N("ui.playersList.commandDelay", { labelColor = "\255\190\190\190", delayColor = "\255\255\255\255", delay = pingLvl })
+		tipText = Spring.I18N("ui.playersList.commandDelay", { labelColor = "\255\190\190\190", delayColor = "\255\255\255\255", delay = pingLvl })
 		tipTextTitle = (spec and "\255\240\240\240" or colourNames(teamID)) .. name
 		tipTextTime = osClock()
 	elseif mouseX >= widgetPosX + (ModuleRefs.cpuping.posX + (1 * playerScale)) * widgetScale and mouseX <= widgetPosX + (ModuleRefs.cpuping.posX + (11 * playerScale)) * widgetScale then
 		tipText = ""
 		if not spec and apm ~= nil then
-			tipText = tipText .. BAR.I18N("ui.playersList.apm", { apm = apm }) .. "\n"
+			tipText = tipText .. Spring.I18N("ui.playersList.apm", { apm = apm }) .. "\n"
 		end
 		if fps ~= nil then
-			tipText = tipText .. BAR.I18N("ui.playersList.framerate", { fps = fps })
+			tipText = tipText .. Spring.I18N("ui.playersList.framerate", { fps = fps })
 		end
-		tipText = tipText .. "    " .. BAR.I18N("ui.playersList.cpu", { cpuUsage = cpuLvl })
+		tipText = tipText .. "    " .. Spring.I18N("ui.playersList.cpu", { cpuUsage = cpuLvl })
 		if gpumem ~= nil then
-			tipText = tipText .. "    " .. BAR.I18N("ui.playersList.gpuMemory", { gpuUsage = gpumem })
+			tipText = tipText .. "    " .. Spring.I18N("ui.playersList.gpuMemory", { gpuUsage = gpumem })
 		end
 		if luamem ~= nil then
 			tipText = tipText .. "    Lua: " .. luamem .. "MB\n"
@@ -3180,7 +3180,7 @@ end
 
 function PointTip(mouseX)
 	if mouseX >= widgetPosX - 28 * widgetScale and mouseX <= widgetPosX - 1 * widgetScale then
-		tipText = BAR.I18N("ui.playersList.pointClickTooltip")
+		tipText = Spring.I18N("ui.playersList.pointClickTooltip")
 		tipTextTime = osClock()
 	end
 end
@@ -3863,7 +3863,7 @@ function widget:Update(delta)
 					local posY = widgetPosY + ((widgetHeight - drawListOffset[i]) * widgetScale)
 					if my >= posY and my <= posY + (16 * widgetScale * playerScale) then
 						overTakeIcon = true
-						tipText = BAR.I18N("ui.playersList.takeUnits")
+						tipText = Spring.I18N("ui.playersList.takeUnits")
 						tipTextTitle = nil
 						tipTextTime = osClock()
 						break
@@ -3880,11 +3880,11 @@ function widget:Update(delta)
 			local posY = widgetPosY + widgetHeight - (leaderboardOffset or 0)
 			if IsOnRect(mx, my, widgetPosX, posY, widgetPosX + widgetWidth, posY + (playerOffset * playerScale)) then
 				if teamRanking[myAllyTeamID] then
-					tipTextTitle = BAR.I18N("ui.playersList.scoreboard")
-					tipText = BAR.I18N("ui.playersList.scoreboardTooltip")
+					tipTextTitle = Spring.I18N("ui.playersList.scoreboard")
+					tipText = Spring.I18N("ui.playersList.scoreboardTooltip")
 				else
-					tipTextTitle = BAR.I18N("ui.playersList.leaderboard")
-					tipText = BAR.I18N("ui.playersList.leaderboardTooltip")
+					tipTextTitle = Spring.I18N("ui.playersList.leaderboard")
+					tipText = Spring.I18N("ui.playersList.leaderboardTooltip")
 				end
 				tipTextTime = osClock()
 			end

@@ -18,7 +18,7 @@ return {
 		weight = 6,
 	},
 
-	-- items must list the valid mode keys so SPADS/unitsync accept a value; Chobby enriches them from modes/sharing/ (shims over modules/sharing/modes/)
+	-- items must list the valid mode keys so SPADS/unitsync accept a value; the lobby enriches them from modules/sharing/modes/
 	{
 		key = ModeEnums.ModOptions.SharingMode,
 		name = "Sharing Mode",

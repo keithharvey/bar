@@ -67,7 +67,7 @@ function Comms.TooltipText(policyResult)
 
 	local case = Comms.DecideCommunicationCase(policyResult)
 	if case == TransferEnums.ResourceCommunicationCase.OnSelf then
-		return BAR.I18N("ui.playersList.request" .. pascalResourceType)
+		return Spring.I18N("ui.playersList.request" .. pascalResourceType)
 	elseif case == TransferEnums.ResourceCommunicationCase.OnTaxFree then
 		local i18nData = {}
 		if taxUnlock and tb then
@@ -76,10 +76,10 @@ function Comms.TooltipText(policyResult)
 			i18nData.currentKeystones = tb.points
 			i18nData.requiredKeystones = taxUnlock.unlockThreshold
 		end
-		return BAR.I18N(r .. ".default", i18nData)
+		return Spring.I18N(r .. ".default", i18nData)
 	elseif case == TransferEnums.ResourceCommunicationCase.OnDisabled then
 		-- Force base tree for disabled (tech doesn't hard-block resources, so it's a game state reason)
-		return BAR.I18N(resBase .. ".base.disabled")
+		return Spring.I18N(resBase .. ".base.disabled")
 	elseif case == TransferEnums.ResourceCommunicationCase.OnTaxed then
 		local i18nData = {
 			amountReceivable = FormatNumberForUI(policyResult.amountReceivable),
@@ -92,7 +92,7 @@ function Comms.TooltipText(policyResult)
 			i18nData.currentKeystones = tb.points
 			i18nData.requiredKeystones = taxUnlock.unlockThreshold
 		end
-		return BAR.I18N(r .. ".taxed", i18nData)
+		return Spring.I18N(r .. ".taxed", i18nData)
 	end
 end
 
