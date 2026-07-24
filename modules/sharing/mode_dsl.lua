@@ -9,7 +9,7 @@
 ---         .Tax(Share.Resources, 0.30).Hidden().Unlocked()
 
 local ModeEnums = VFS.Include("modes/sharing_mode_enums.lua")
-local Bundle = VFS.Include("modes/sharing_policy_bundle.lua")
+local Bundle = VFS.Include("modules/sharing/policy_bundle.lua")
 local ModeBuilder = VFS.Include("modules/mode_builder.lua")
 
 local M = {}

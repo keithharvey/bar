@@ -44,10 +44,21 @@ local function collectDefaultsBySection()
 	return bySection
 end
 
--- Discover every mode under modes/<category>/*.lua (root helpers and key/category-less returns skipped).
+-- Discover every mode under modes/<category>/*.lua and modules/<name>/modes/*.lua
+-- (surrogate-mode presets; ModuleHandler.ModeDirs takes over when the module
+-- loader lands). Root helpers and key/category-less returns are skipped;
+-- module presets win over their modes/ shims by key.
+local function modeDirs()
+	local dirs = VFS.SubDirs("modes/") or {}
+	for _, moduleDir in ipairs(VFS.SubDirs("modules/") or {}) do
+		dirs[#dirs + 1] = moduleDir .. "modes/"
+	end
+	return dirs
+end
+
 local function collectModesByCategory()
 	local byCategory = {}
-	for _, dir in ipairs(VFS.SubDirs("modes/") or {}) do
+	for _, dir in ipairs(modeDirs()) do
 		for _, modeFile in ipairs(VFS.DirList(dir, "*.lua") or {}) do
 			local ok, mode = pcall(VFS.Include, modeFile)
 			if ok and type(mode) == "table" and mode.key and mode.category then

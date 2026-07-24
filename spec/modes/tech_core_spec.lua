@@ -4,7 +4,7 @@ local ModeEnums = VFS.Include("modes/sharing_mode_enums.lua")
 local TransferEnums = VFS.Include("common/luaUtilities/sharing/transfer_enums.lua")
 local H = Builders.Mode
 
-local techCoreMode = VFS.Include("modes/sharing/tech_core.lua")
+local techCoreMode = VFS.Include("modules/sharing/modes/tech_core.lua")
 
 -- Derive expected tax from the preset so value tweaks don't break the spec.
 local baseTax = techCoreMode.modOptions[ModeEnums.ModOptions.TaxResourceSharingAmount].value

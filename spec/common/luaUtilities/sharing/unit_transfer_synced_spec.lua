@@ -97,7 +97,7 @@ describe(ModeEnums.ModOptions.UnitSharingMode .. " #policy", function()
 			spring:WithModOption(ModeEnums.ModOptions.UnitSharingMode, config.mode)
 			local result ---@type UnitPolicyResult
 			local unitIds = {} ---@type table<string, integer>
-			local api ---@type EngineSyncedMock
+			local api ---@type SpringSyncedMock
 
 			before_each(function()
 				unitIds = {}
@@ -167,7 +167,7 @@ describe("UnitTransfer #action", function()
 	describe("when unit sharing is allowed", function()
 		local unitIds ---@type integer[]
 		local result
-		local spring ---@type EngineSyncedMock
+		local spring ---@type SpringSyncedMock
 
 		before_each(function()
 			unitIds = {}
@@ -324,7 +324,7 @@ describe("UnitTransfer #action", function()
 	describe("when unit sharing is not allowed", function()
 		local unitIds ---@type integer[]
 		local result
-		local spring ---@type EngineSyncedMock
+		local spring ---@type SpringSyncedMock
 
 		before_each(function()
 			unitIds = {}
@@ -520,7 +520,7 @@ describe("UnitTransfer #action", function()
 end)
 
 describe("Easy Tax stun mechanics #stun", function()
-	local easyTaxMode = VFS.Include("modes/sharing/easy_tax.lua")
+	local easyTaxMode = VFS.Include("modules/sharing/modes/easy_tax.lua")
 
 	local function modeModOpts(modeConfig)
 		local opts = {}

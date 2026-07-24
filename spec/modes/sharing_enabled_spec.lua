@@ -3,7 +3,7 @@ local Builders = VFS.Include("spec/builders/index.lua")
 local TransferEnums = VFS.Include("common/luaUtilities/sharing/transfer_enums.lua")
 local H = Builders.Mode
 
-local enabledMode = VFS.Include("modes/sharing/enabled.lua")
+local enabledMode = VFS.Include("modules/sharing/modes/enabled.lua")
 
 local sender = Builders.Team:new():Human()
 local receiver = Builders.Team:new():Human()

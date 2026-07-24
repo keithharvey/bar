@@ -5,7 +5,7 @@ local H = Builders.Mode
 
 local ModeEnums = VFS.Include("modes/sharing_mode_enums.lua")
 
-local noSharingMode = VFS.Include("modes/sharing/disabled.lua")
+local noSharingMode = VFS.Include("modules/sharing/modes/disabled.lua")
 
 local sender = Builders.Team:new():Human()
 local receiver = Builders.Team:new():Human()
@@ -73,7 +73,7 @@ describe("Sharing Disabled mode #policy", function()
 		end)
 
 		it("DSL chain builds the same ModeConfig as the explicit table form", function()
-			local Bundle = VFS.Include("modes/sharing_policy_bundle.lua")
+			local Bundle = VFS.Include("modules/sharing/policy_bundle.lua")
 			local policies = {
 				{ "unit.deny" },
 				{ "resource.deny" },

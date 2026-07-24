@@ -1,6 +1,6 @@
 local ModeEnums = VFS.Include("modes/sharing_mode_enums.lua")
 
-local customizeMode = VFS.Include("modes/sharing/customize.lua")
+local customizeMode = VFS.Include("modules/sharing/modes/customize.lua")
 
 describe("Customize mode policy bundle", function()
 	it("keeps the enum key and retains values", function()
