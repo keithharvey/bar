@@ -98,3 +98,22 @@ describe("Sharing Enabled mode #policy", function()
 		end)
 	end)
 end)
+
+describe("Enabled mode policy bundle", function()
+	local ModeEnums = VFS.Include("modes/sharing_mode_enums.lua")
+
+	it("keeps the enum key", function()
+		assert.equal(ModeEnums.Modes.Enabled, enabledMode.key)
+	end)
+
+	it("serializes to the exact modOptions the literal preset declared", function()
+		assert.same({
+			[ModeEnums.ModOptions.UnitSharingMode] = { value = ModeEnums.UnitFilterCategory.All, locked = true },
+			[ModeEnums.ModOptions.ResourceSharingEnabled] = { value = true, locked = true },
+			[ModeEnums.ModOptions.TaxResourceSharingAmount] = { value = 0.0, locked = true, ui = "hidden" },
+			[ModeEnums.ModOptions.AlliedAssistMode] = { value = ModeEnums.AlliedAssistMode.Enabled, locked = true },
+			[ModeEnums.ModOptions.AlliedUnitReclaimMode] = { value = ModeEnums.AlliedUnitReclaimMode.Enabled, locked = true },
+			[ModeEnums.ModOptions.TakeMode] = { value = ModeEnums.TakeMode.Enabled, locked = true },
+		}, enabledMode.modOptions)
+	end)
+end)

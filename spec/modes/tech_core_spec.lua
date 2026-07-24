@@ -283,3 +283,30 @@ describe("Tech Core mode #policy", function()
 		end)
 	end)
 end)
+
+describe("Tech Core mode policy bundle", function()
+	it("keeps the enum key", function()
+		assert.equal(ModeEnums.Modes.TechCore, techCoreMode.key)
+	end)
+
+	it("serializes to the exact modOptions the literal preset declared", function()
+		assert.same({
+			[ModeEnums.ModOptions.TechBlocking] = { value = true, locked = true },
+			[ModeEnums.ModOptions.T2TechThreshold] = { value = 1, locked = false },
+			[ModeEnums.ModOptions.T3TechThreshold] = { value = 1.5, locked = false },
+			[ModeEnums.ModOptions.UnitSharingMode] = { value = ModeEnums.UnitFilterCategory.None, locked = true },
+			[ModeEnums.ModOptions.UnitSharingModeAtT2] = { value = ModeEnums.UnitFilterCategory.Constructors, locked = true },
+			[ModeEnums.ModOptions.UnitSharingModeAtT3] = { value = ModeEnums.UnitFilterCategory.None, locked = true },
+			[ModeEnums.ModOptions.ResourceSharingEnabled] = { value = true, locked = true },
+			[ModeEnums.ModOptions.TaxResourceSharingAmount] = { value = 0.6, locked = false },
+			[ModeEnums.ModOptions.TaxResourceSharingAmountAtT2] = { value = 0.5, locked = false },
+			[ModeEnums.ModOptions.TaxResourceSharingAmountAtT3] = { value = 0.4, locked = false },
+			[ModeEnums.ModOptions.AlliedAssistMode] = { value = ModeEnums.AlliedAssistMode.Enabled, locked = true },
+			[ModeEnums.ModOptions.AlliedUnitReclaimMode] = { value = ModeEnums.AlliedUnitReclaimMode.Enabled, locked = true },
+			[ModeEnums.ModOptions.AllowPartialResurrection] = { value = ModeEnums.AllowPartialResurrection.Disabled, locked = true },
+			[ModeEnums.ModOptions.TakeMode] = { value = ModeEnums.TakeMode.TakeDelay, locked = true },
+			[ModeEnums.ModOptions.TakeDelaySeconds] = { value = 60, locked = false },
+			[ModeEnums.ModOptions.TakeDelayCategory] = { value = ModeEnums.UnitCategory.Resource, locked = true },
+		}, techCoreMode.modOptions)
+	end)
+end)
