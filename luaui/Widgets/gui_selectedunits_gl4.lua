@@ -12,7 +12,6 @@ function widget:GetInfo()
 	}
 end
 
-
 -- Localized Spring API for performance
 local spGetSelectedUnits = Spring.GetSelectedUnits
 local spEcho = Spring.Echo
@@ -60,24 +59,23 @@ local luaShaderDir = "LuaUI/Include/"
 local InstanceVBOTable = gl.InstanceVBOTable
 
 local pushElementInstance = InstanceVBOTable.pushElementInstance
-local popElementInstance  = InstanceVBOTable.popElementInstance
-local uploadAllElements   = InstanceVBOTable.uploadAllElements
-
+local popElementInstance = InstanceVBOTable.popElementInstance
+local uploadAllElements = InstanceVBOTable.uploadAllElements
 
 -- Localize for speedups:
-local glStencilFunc         = gl.StencilFunc
-local glStencilOp           = gl.StencilOp
-local glStencilTest         = gl.StencilTest
-local glStencilMask         = gl.StencilMask
-local glDepthTest           = gl.DepthTest
-local glTexture             = gl.Texture
-local glClear               = gl.Clear
-local GL_ALWAYS             = GL.ALWAYS
-local GL_NOTEQUAL           = GL.NOTEQUAL
-local GL_KEEP               = 0x1E00 --GL.KEEP
+local glStencilFunc = gl.StencilFunc
+local glStencilOp = gl.StencilOp
+local glStencilTest = gl.StencilTest
+local glStencilMask = gl.StencilMask
+local glDepthTest = gl.DepthTest
+local glTexture = gl.Texture
+local glClear = gl.Clear
+local GL_ALWAYS = GL.ALWAYS
+local GL_NOTEQUAL = GL.NOTEQUAL
+local GL_KEEP = 0x1E00 --GL.KEEP
 local GL_STENCIL_BUFFER_BIT = GL.STENCIL_BUFFER_BIT
-local GL_REPLACE            = GL.REPLACE
-local GL_POINTS				= GL.POINTS
+local GL_REPLACE = GL.REPLACE
+local GL_POINTS = GL.POINTS
 
 local selUnits = {}
 local nextSelUnits = {}
@@ -94,24 +92,29 @@ local unitBuiltByFactory = {}
 local nextWaterPassCheckFrame = 0
 local waterPassCheckInterval = 6
 
+local invalidUnits = {} -- units that are invalid for sharing with hovered player
+local hoverListenerRegistered = false
+
 local unitScale = {}
 local unitCanFly = {}
 local unitBuilding = {}
 for unitDefID, unitDef in pairs(UnitDefs) do
-	unitScale[unitDefID] = (7.5 * ( unitDef.xsize*unitDef.xsize + unitDef.zsize*unitDef.zsize ) ^ 0.5) + 8
+	unitScale[unitDefID] = (7.5 * (unitDef.xsize * unitDef.xsize + unitDef.zsize * unitDef.zsize) ^ 0.5) + 8
 	if unitDef.canFly then
 		unitCanFly[unitDefID] = true
 		unitScale[unitDefID] = unitScale[unitDefID] * 0.7
-	elseif unitDef.isBuilding or unitDef.isFactory or unitDef.speed==0 then
+	elseif unitDef.isBuilding or unitDef.isFactory or unitDef.speed == 0 then
 		unitBuilding[unitDefID] = {
 			unitDef.xsize * 8.2 + 12,
-			unitDef.zsize * 8.2 + 12
+			unitDef.zsize * 8.2 + 12,
 		}
 	end
 end
-local unitBufferUniformCache = {0}
+local unitBufferUniformCache = { 0 }
 local selectionInstanceData = {}
-for i = 1, 18 do selectionInstanceData[i] = 0 end
+for i = 1, 18 do
+	selectionInstanceData[i] = 0
+end
 selectionInstanceData[12] = 1
 selectionInstanceData[14] = 1
 local widgetDrawWorld = nil
@@ -134,9 +137,13 @@ function widget:LavaRenderState(tideLevel)
 end
 
 local function shouldUseWaterPass(unitID, unitDefID)
-	if not mapHasWater or unitCanFly[unitDefID] then return false end
+	if not mapHasWater or unitCanFly[unitDefID] then
+		return false
+	end
 	local x, y, z = spGetUnitPosition(unitID)
-	if not x or not y or not z then return false end
+	if not x or not y or not z then
+		return false
+	end
 	local waterLevel = getWaterLevel()
 	local groundY = spGetGroundHeight(x, z)
 	-- Route ships/submerged units to post-water pass to avoid water distortion.
@@ -144,17 +151,22 @@ local function shouldUseWaterPass(unitID, unitDefID)
 end
 
 local function shouldUseWaterPassAtLevel(unitID, unitDefID, waterLevel)
-	if not mapHasWater or unitCanFly[unitDefID] then return false end
+	if not mapHasWater or unitCanFly[unitDefID] then
+		return false
+	end
 	local x, y, z = spGetUnitPosition(unitID)
-	if not x or not y or not z then return false end
+	if not x or not y or not z then
+		return false
+	end
 	local groundY = spGetGroundHeight(x, z)
 	-- Route ships/submerged units to post-water pass to avoid water distortion.
 	return (groundY < waterLevel + 1) and (y <= waterLevel + 20)
 end
 
-
 local function AddPrimitiveAtUnit(unitID, noUpload, waterLevel)
-	if spValidUnitID(unitID) ~= true or spGetUnitIsDead(unitID) == true or spIsGUIHidden() then return end
+	if spValidUnitID(unitID) ~= true or spGetUnitIsDead(unitID) == true or spIsGUIHidden() then
+		return
+	end
 	local gf = spGetGameFrame()
 	local _, _, isPaused = spGetGameSpeed()
 	if isPaused then
@@ -165,7 +177,9 @@ local function AddPrimitiveAtUnit(unitID, noUpload, waterLevel)
 		unitUnitDefID[unitID] = spGetUnitDefID(unitID)
 	end
 	local unitDefID = unitUnitDefID[unitID]
-	if unitDefID == nil then return end -- these cant be selected
+	if unitDefID == nil then
+		return
+	end -- these cant be selected
 
 	local numVertices = 64 -- default to cornered rectangle
 	local cornersize = 0
@@ -212,11 +226,11 @@ local function AddPrimitiveAtUnit(unitID, noUpload, waterLevel)
 		width = radius
 		length = radius
 	end
+	local isInvalid = invalidUnits[unitID] ~= nil
 	if selectionHighlight then
-		unitBufferUniformCache[1] = 1
+		unitBufferUniformCache[1] = isInvalid and -1 or 1
 		spSetUnitBufferUniforms(unitID, unitBufferUniformCache, 6)
 	end
-	--spEcho(unitID,radius,radius, spGetUnitTeam(unitID), numvertices, 1, gf)
 	local targetVBO
 	if useUnfinishedRenderPath then
 		targetVBO = selectionVBOUnfinished
@@ -237,6 +251,7 @@ local function AddPrimitiveAtUnit(unitID, noUpload, waterLevel)
 	selectionInstanceData[5] = teamID
 	selectionInstanceData[6] = numVertices
 	selectionInstanceData[7] = gf
+	selectionInstanceData[8] = isInvalid and 1 or 0
 
 	pushElementInstance(
 		targetVBO, -- push into this Instance VBO Table
@@ -247,7 +262,6 @@ local function AddPrimitiveAtUnit(unitID, noUpload, waterLevel)
 		unitID -- last one should be UNITID?
 	)
 end
-
 
 local function DrawSelections(selectionVBO, shader)
 	if selectionVBO.usedElements > -1 then
@@ -284,6 +298,7 @@ local function DrawSelections(selectionVBO, shader)
 
 		shader:Deactivate()
 		glTexture(0, false)
+		gl.Culling(true) -- restore the world pass default for following widgets
 
 		-- This is the correct way to exit out of the stencil mode, to not break drawing of area commands:
 		glStencilTest(false)
@@ -394,17 +409,39 @@ local function RemovePrimitive(unitID, noUpload, skipDrawCallinUpdate)
 	end
 end
 
+local function OnHoverInvalidUnitsChanged(newHoverTeamID, newHoverPlayerID, invalidUnitIds)
+	local newInvalidUnits = {}
+	for _, unitID in ipairs(invalidUnitIds) do
+		newInvalidUnits[unitID] = true
+	end
+
+	local oldInvalidUnits = invalidUnits
+	invalidUnits = newInvalidUnits
+
+	-- Only rebuild primitives for units whose invalid state actually changed (otherwise we get flickering)
+	for unitID, _ in pairs(selUnits) do
+		if Spring.ValidUnitID(unitID) then
+			local wasInvalid = oldInvalidUnits[unitID] ~= nil
+			local isInvalid = newInvalidUnits[unitID] ~= nil
+
+			if wasInvalid ~= isInvalid then
+				RemovePrimitive(unitID)
+				AddPrimitiveAtUnit(unitID)
+			end
+		end
+	end
+end
+
 function widget:SelectionChanged(sel)
 	pendingSelectedUnits = sel
 	updateSelection = true
 end
 
-
 local lastMouseOverUnitID = nil
 local lastMouseOverFeatureID = nil
 local cleanedForHiddenUI = false
-local mouseOverUnitUniform = {0}
-local mouseOverFeatureUniform = {0}
+local mouseOverUnitUniform = { 0, 0 }
+local mouseOverFeatureUniform = { 0 }
 local lastMouseX, lastMouseY = -1, -1
 local lastMouseP1, lastMouseMMB = false, false
 local nextMouseOverCheckFrame = 0
@@ -413,7 +450,8 @@ local mouseOverIdleCheckInterval = 4
 local function ClearLastMouseOver()
 	if lastMouseOverUnitID then
 		if spValidUnitID(lastMouseOverUnitID) then
-			mouseOverUnitUniform[1] = selUnits[lastMouseOverUnitID] and 1 or 0
+			mouseOverUnitUniform[1] = invalidUnits[lastMouseOverUnitID] and -1 or (selUnits[lastMouseOverUnitID] and 1 or 0)
+			mouseOverUnitUniform[2] = 0
 			spSetUnitBufferUniforms(lastMouseOverUnitID, mouseOverUnitUniform, 6)
 		end
 		lastMouseOverUnitID = nil
@@ -426,8 +464,6 @@ local function ClearLastMouseOver()
 		lastMouseOverFeatureID = nil
 	end
 end
-
-
 
 function widget:Update(dt)
 	local guiHidden = spIsGUIHidden()
@@ -522,6 +558,13 @@ function widget:Update(dt)
 		end
 	end
 
+	if not hoverListenerRegistered then
+		if WG.advplayerlist_api and WG.advplayerlist_api.AddHoverInvalidUnitsListener then
+			WG.advplayerlist_api.AddHoverInvalidUnitsListener(OnHoverInvalidUnitsChanged)
+			hoverListenerRegistered = true
+		end
+	end
+
 	if not hasSelectedUnits and not mouseoverHighlight then
 		return
 	end
@@ -533,7 +576,7 @@ function widget:Update(dt)
 	-- +0.5 means ally also selected unit
 	-- +2 means its mouseovered
 	if mouseoverHighlight then
-		local mx, my, p1, mmb, _, mouseOffScreen, cameraPanMode  = spGetMouseState()
+		local mx, my, p1, mmb, _, mouseOffScreen, cameraPanMode = spGetMouseState()
 		if mouseOffScreen or cameraPanMode or mmb or p1 then
 			ClearLastMouseOver()
 		else
@@ -556,16 +599,17 @@ function widget:Update(dt)
 
 			local result, data = spTraceScreenRay(mx, my)
 			--spEcho(result, (type(data) == 'table') or data, lastMouseOverUnitID, lastMouseOverFeatureID)
-			if result == 'unit' and not guiHidden then
+			if result == "unit" and not guiHidden then
 				local unitID = data
 				if lastMouseOverUnitID ~= unitID then
 					ClearLastMouseOver()
-					local newUniform = (selUnits[unitID] and 1 or 0 ) + 2
-					mouseOverUnitUniform[1] = newUniform
-					spSetUnitBufferUniforms(unitID, mouseOverUnitUniform, 6)
+					local newUniform = (selUnits[unitID] and 1 or 0) + 2
+					-- Preserve the selection highlight value when setting mouseover
+					local currentHighlight = invalidUnits[unitID] and -1 or 1
+					gl.SetUnitBufferUniforms(unitID, { currentHighlight, newUniform }, 6)
 					lastMouseOverUnitID = unitID
 				end
-			elseif result == 'feature' and not guiHidden then
+			elseif result == "feature" and not guiHidden then
 				local featureID = data
 				if lastMouseOverFeatureID ~= featureID then
 					ClearLastMouseOver()
@@ -614,7 +658,6 @@ function widget:UnitCreated(unitID, unitDefID, unitTeamID, builderID)
 			unitBuiltByFactory[unitID] = true
 		end
 	end
-
 end
 
 function widget:UnitFinished(unitID)
@@ -646,16 +689,16 @@ local function init()
 	updateSelection = true
 	selUnits = {}
 	drawCallinsEnabled = true
-	local DPatUnit = VFS.Include(luaShaderDir.."DrawPrimitiveAtUnit.lua")
+	local DPatUnit = VFS.Include(luaShaderDir .. "DrawPrimitiveAtUnit.lua")
 	local InitDrawPrimitiveAtUnit = DPatUnit.InitDrawPrimitiveAtUnit
 	local shaderConfig = DPatUnit.shaderConfig -- MAKE SURE YOU READ THE SHADERCONFIG TABLE!
 	shaderConfig.BILLBOARD = 0
 	shaderConfig.TRANSPARENCY = opacity
 	shaderConfig.INITIALSIZE = 0.75
-	shaderConfig.GROWTHRATE = 4		-- higher = slower
-	shaderConfig.TEAMCOLORIZATION = teamcolorOpacity	-- not implemented, doing it via POST_SHADING below instead
+	shaderConfig.GROWTHRATE = 4 -- higher = slower
+	shaderConfig.TEAMCOLORIZATION = teamcolorOpacity -- not implemented, doing it via POST_SHADING below instead
 	shaderConfig.HEIGHTOFFSET = 4
-	shaderConfig.POST_SHADING = "fragColor.rgba = vec4(mix(g_color.rgb * texcolor.rgb + addRadius, vec3(1.0), "..(1-teamcolorOpacity)..") , texcolor.a * TRANSPARENCY + addRadius);"
+	shaderConfig.POST_SHADING = "fragColor.rgba = vec4(g_invalid > 0.5 ? vec3(1.0, 0.0, 0.0) : (g_color.rgb * texcolor.rgb + addRadius), texcolor.a * TRANSPARENCY + addRadius);"
 	selectionVBOGround, selectShader = InitDrawPrimitiveAtUnit(shaderConfig, "selectedUnitsGround")
 
 	local unbuiltConfig = table.copy(shaderConfig)
@@ -693,7 +736,9 @@ function widget:Initialize()
 		widgetHandler:RemoveWidget()
 		return
 	end
-	if not init() then return end
+	if not init() then
+		return
+	end
 	WG.selectedunits = {}
 	WG.selectedunits.getOpacity = function()
 		return opacity
@@ -726,7 +771,7 @@ function widget:Initialize()
 		return mouseoverHighlight
 	end
 
-	Spring.LoadCmdColorsConfig('unitBox  0 1 0 0')
+	Spring.LoadCmdColorsConfig("unitBox  0 1 0 0")
 
 	for _, unitID in ipairs(Spring.GetAllUnits()) do
 		widget:UnitCreated(unitID)
@@ -735,9 +780,13 @@ end
 
 function widget:Shutdown()
 	if not (WG.teamplatter or WG.highlightselunits) then
-		Spring.LoadCmdColorsConfig('unitBox  0 1 0 1')
+		Spring.LoadCmdColorsConfig("unitBox  0 1 0 1")
 	end
 	WG.selectedunits = nil
+
+	if hoverListenerRegistered and WG.advplayerlist_api and WG.advplayerlist_api.RemoveHoverInvalidUnitsListener then
+		WG.advplayerlist_api.RemoveHoverInvalidUnitsListener(OnHoverInvalidUnitsChanged)
+	end
 end
 
 function widget:GetConfigData(data)
