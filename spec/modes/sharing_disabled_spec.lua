@@ -3,6 +3,8 @@ local Builders = VFS.Include("spec/builders/index.lua")
 local TransferEnums = VFS.Include("common/luaUtilities/sharing/transfer_enums.lua")
 local H = Builders.Mode
 
+local ModeEnums = VFS.Include("modes/sharing_mode_enums.lua")
+
 local noSharingMode = VFS.Include("modes/sharing/disabled.lua")
 
 local sender = Builders.Team:new():Human()
@@ -55,6 +57,43 @@ describe("Sharing Disabled mode #policy", function()
 			assert.equal(false, result.success)
 			assert.equal(0, result.sent)
 			assert.equal(0, result.received)
+		end)
+	end)
+
+	describe("policy bundle", function()
+		it("serializes to the exact modOptions the literal preset declared", function()
+			assert.same({
+				[ModeEnums.ModOptions.UnitSharingMode] = { value = ModeEnums.UnitFilterCategory.None, locked = true },
+				[ModeEnums.ModOptions.ResourceSharingEnabled] = { value = false, locked = true },
+				[ModeEnums.ModOptions.TaxResourceSharingAmount] = { value = 0.30, locked = false, ui = "hidden" },
+				[ModeEnums.ModOptions.AlliedAssistMode] = { value = ModeEnums.AlliedAssistMode.Disabled, locked = true },
+				[ModeEnums.ModOptions.AlliedUnitReclaimMode] = { value = ModeEnums.AlliedUnitReclaimMode.Disabled, locked = true },
+				[ModeEnums.ModOptions.TakeMode] = { value = ModeEnums.TakeMode.Disabled, locked = false },
+			}, noSharingMode.modOptions)
+		end)
+
+		it("DSL chain builds the same ModeConfig as the explicit table form", function()
+			local Bundle = VFS.Include("modes/sharing_policy_bundle.lua")
+			local policies = {
+				{ "unit.deny" },
+				{ "resource.deny" },
+				{ "resource.tax", rate = 0.30, locked = false, ui = "hidden" },
+				{ "assist.deny" },
+				{ "reclaim.deny" },
+				{ "take.deny", locked = false },
+			}
+			local explicit = {
+				key = ModeEnums.Modes.Disabled,
+				category = ModeEnums.ModeCategories.Sharing,
+				name = "Disabled",
+				desc = "Disable all sharing; apply a 30% tax; lock most controls.",
+				allowRanked = true,
+				policies = policies,
+				modOptions = Bundle.toModOptions(policies),
+			}
+			for field, expected in pairs(explicit) do
+				assert.same(expected, noSharingMode[field], field)
+			end
 		end)
 	end)
 end)
