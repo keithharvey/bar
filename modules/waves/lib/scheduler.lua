@@ -22,6 +22,10 @@ local DRAIN_PERIOD = 5
 local DRAIN_PHASE = 4
 local SLOW_PERIOD = 30
 local SLOW_PHASE = 16
+-- The sweep over the director's own units. Seven, out of phase with
+-- everything else, so the expensive callins never land on the same frame.
+local SWEEP_PERIOD = 7
+local SWEEP_PHASE = 3
 local STRUCTURES_MIN_FRAME = 900
 local BURROW_RETRY_GAP = 10
 local WAVE_START_DELAY = 5
@@ -104,12 +108,20 @@ local function slowTick(spec, state, world, orders)
 	end
 
 	-- A wave needs somewhere to come from, a clear queue (so waves never
-	-- overlap into one endless stream), and its cadence elapsed.
+	-- overlap into one endless stream), and either its cadence elapsed or the
+	-- opening wave's fixed appointment reached.
+	local due
+	if state.firstWaveDue ~= nil then
+		due = t >= state.firstWaveDue
+	else
+		due = (params.spawnRate * state.shape.timeMultiplier * scale.pace) < (t - state.timeOfLastWave)
+	end
 	if t > params.gracePeriod + WAVE_START_DELAY
 		and burrowCount > 0
 		and #state.spawnQueue == 0
-		and (params.spawnRate * state.shape.timeMultiplier * scale.pace) < (t - state.timeOfLastWave)
+		and due
 	then
+		state.firstWaveDue = nil
 		Wheel.Tick(state.wheel)
 
 		local difficulty = 1
@@ -182,6 +194,10 @@ function Scheduler.Tick(spec, state, world)
 		and world.teamUnitCount < state.params.unitCap
 	then
 		emit(orders, { kind = "structures" })
+	end
+
+	if frame % SWEEP_PERIOD == SWEEP_PHASE then
+		emit(orders, { kind = "sweep" })
 	end
 
 	emit(orders, { kind = "squads" })

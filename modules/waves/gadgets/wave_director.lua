@@ -18,7 +18,15 @@ if not gadgetHandler:IsSyncedCode() then
 	-- LuaUI under the name its spec asked for, and only while some widget has
 	-- said it wants them.
 	--------------------------------------------------------------------------
-	local wanted = {} ---@type table<string, boolean>
+	-- Enabled by default: a panel that wants these events already declares a
+	-- handler, and the handler's existence is the real gate. The toggle stays
+	-- because the panels that predate this module flip it, and because a
+	-- panel that goes quiet should be able to stop the traffic.
+	local wanted = setmetatable({}, {
+		__index = function()
+			return true
+		end,
+	})
 
 	local function forward(_, eventName, kind, number, tech)
 		if not wanted[eventName] then
@@ -54,11 +62,21 @@ if not gadgetHandler:IsSyncedCode() then
 	function gadget:Initialize()
 		gadgetHandler:AddSyncAction("WaveEvent", forward)
 		gadgetHandler:AddChatAction("waveevents", setWanted, "waves: /waveevents <EventName> <0|1>")
+		-- The wire's own surface, so a flavor module can keep its legacy
+		-- toggle name working without a second sync action on the same event.
+		GG.WaveEvents = {
+			---@param eventName string
+			---@param enabled boolean
+			SetWanted = function(eventName, enabled)
+				wanted[eventName] = enabled
+			end,
+		}
 	end
 
 	function gadget:Shutdown()
 		gadgetHandler:RemoveSyncAction("WaveEvent")
 		gadgetHandler:RemoveChatAction("waveevents")
+		GG.WaveEvents = nil
 	end
 
 	return
@@ -128,6 +146,11 @@ local function rulesNames(prefix)
 		angerGainBase = titled .. "BossAngerGain_Base",
 		angerGainAggression = titled .. "BossAngerGain_Aggression",
 		angerGainEco = titled .. "BossAngerGain_Eco",
+		-- New names, for the counters the monolith kept to itself. A panel
+		-- that wants to say "wave 12" had no way to ask before.
+		waveNumber = prefix .. "WaveNumber",
+		wavesCleared = prefix .. "WavesCleared",
+		intensity = prefix .. "Intensity",
 	}
 end
 
@@ -230,6 +253,10 @@ local function publish(host)
 	local fromAggression, fromEco = Anger.Gains(state.params, state.anger)
 	Spring.SetGameRulesParam(names.angerGainAggression, fromAggression)
 	Spring.SetGameRulesParam(names.angerGainEco, fromEco)
+	Spring.SetGameRulesParam(names.waveNumber, state.waveNumber)
+	Spring.SetGameRulesParam(names.wavesCleared, state.wavesCleared)
+	-- A rulesparam is a number: the dial travels x1000 so a tenth survives.
+	Spring.SetGameRulesParam(names.intensity, math.floor(state.intensity * 1000))
 end
 
 ---@param host table
@@ -303,6 +330,11 @@ local function spawnBoss(host, world)
 		return
 	end
 	local defName = state.params.bossName or spec.boss.defName
+	-- CreateUnit raises on an unknown def, and this is inside GameFrame.
+	if UnitDefNames[defName] == nil then
+		Spring.Log(LOG_TAG, LOG.ERROR, "no such boss def: " .. tostring(defName))
+		return
+	end
 	local bossID = Spring.CreateUnit(defName, x, y, z, math.random(0, 3), spec.teamID)
 	if bossID == nil then
 		return
@@ -337,6 +369,36 @@ local function spawnBoss(host, world)
 	end
 end
 
+---The sweep over the director's own units.
+---
+---Two jobs, both cheap only because they are sampled: retire expired flee
+---cooldowns, and point idle units at something. An idle wave unit is the
+---most visible failure mode a spawner has — it is what "the scavs just
+---stand there" means — so the check is on every unit, and the ACTION is
+---behind a coin so fifty units do not all re-path on the same frame.
+---@param host table
+---@param world WaveWorld
+local function sweepUnits(host, world)
+	local spec, state = host.spec, host.director.state
+	for _, unitID in ipairs(Spring.GetTeamUnits(spec.teamID) or {}) do
+		local defID = Spring.GetUnitDefID(unitID)
+		if defID ~= nil and spec.hooks.onUnitTick then
+			spec.hooks.onUnitTick(unitID, defID, state)
+		end
+		local cooldown = state.cowardCooldown[unitID]
+		if cooldown ~= nil and world.frame > cooldown and math.random(1, 10) == 1 then
+			state.cowardCooldown[unitID] = nil
+			Spring.GiveOrderToUnit(unitID, CMD.STOP, {}, {})
+		end
+		-- A boss is never left idle: it is the fight, and a boss standing
+		-- still is the fight not happening.
+		local nudge = math.random(1, 10) == 1 or state.boss.ids[unitID]
+		if nudge and Spring.GetUnitCommandCount(unitID) == 0 then
+			squads.NudgeIdle(spec, state, unitID, world.frame)
+		end
+	end
+end
+
 ---@param host table
 ---@param world WaveWorld
 ---@param waveOrder WaveOrder
@@ -366,6 +428,8 @@ local function execute(host, world, waveOrder)
 	elseif kind == "squads" then
 		squads.Pulse(spec, state, world.frame)
 		squads.ManageAll(spec, state)
+	elseif kind == "sweep" then
+		sweepUnits(host, world)
 	elseif kind == "box" then
 		placement.UpdateBox(state, state.anger.techAnger)
 	elseif kind == "event" then
@@ -527,6 +591,9 @@ local function makeHost(spec)
 	Spring.SetGameRulesParam(names.angerGainBase, 100 / state.params.bossTimeSpan)
 	Spring.SetGameRulesParam(names.angerGainAggression, 0)
 	Spring.SetGameRulesParam(names.angerGainEco, 0)
+	Spring.SetGameRulesParam(names.waveNumber, 0)
+	Spring.SetGameRulesParam(names.wavesCleared, 0)
+	Spring.SetGameRulesParam(names.intensity, 1000)
 	if state.params.difficultyIndex then
 		Spring.SetGameRulesParam(names.difficulty, state.params.difficultyIndex)
 	end
@@ -602,6 +669,10 @@ function gadget:Initialize()
 			local host = hosts[name]
 			if host ~= nil then
 				host.director.SetIntensity(intensity)
+				-- Republish now rather than at the next slow tick: a mission
+				-- that turns the dial and reads it back should not see the
+				-- old value for the rest of the second.
+				publish(host)
 			end
 		end,
 		---@param name string
@@ -610,6 +681,18 @@ function gadget:Initialize()
 			local host = hosts[name]
 			if host ~= nil then
 				host.director.Surge(overrides)
+			end
+		end,
+		---Queue a named spawn at a spawner the flavor picked — the minion
+		---path, where the roster names exactly what it wants.
+		---@param name string director name
+		---@param burrowID integer where it comes out
+		---@param defName UnitDefName
+		---@param count integer
+		SpawnNamed = function(name, burrowID, defName, count)
+			local host = hosts[name]
+			if host ~= nil then
+				host.director.ComposeNamed(burrowID, defName, count, math.random)
 			end
 		end,
 		---@return string[]

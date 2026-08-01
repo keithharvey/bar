@@ -35,7 +35,15 @@ function Placement.New(deps)
 	---@param spec WaveSpec
 	---@param state WaveDirectorState
 	placement.InitialBox = function(spec, state)
-		local x1, z1, x2, z2 = enemyLib.GetAdjustedStartBox(spec.allyTeamID, spec.burrows.size * 1.5)
+		local x1, z1, x2, z2
+		if spec.burrows.box ~= nil then
+			-- An explicit box: a mission says where its pressure comes from,
+			-- and a mission's director has no start box to be adjusted.
+			local box = spec.burrows.box
+			x1, z1, x2, z2 = box.x1, box.z1, box.x2, box.z2
+		else
+			x1, z1, x2, z2 = enemyLib.GetAdjustedStartBox(spec.allyTeamID, spec.burrows.size * 1.5)
+		end
 		state.startBox = { x1 = x1, z1 = z1, x2 = x2, z2 = z2 }
 
 		local mode = state.params.placement
@@ -187,6 +195,19 @@ function Placement.New(deps)
 			end
 		end
 
+		-- Last resort: flat, empty ground inside the box, sight be damned.
+		--
+		-- Every cascade above can fail for reasons that will still be true
+		-- next cadence — a map under global LOS has no unseen ground at all,
+		-- and a small box may be entirely watched. Without this the director
+		-- would place nothing, ever, and say nothing about it. A beacon the
+		-- players can see is a worse beacon; no beacon is not a director.
+		if not found then
+			found, x, y, z = probe(state.spawnBox, spread, 100, allyTeamID, false, function()
+				return true
+			end)
+		end
+
 		if not found then
 			return false
 		end
@@ -216,6 +237,18 @@ function Placement.New(deps)
 	placement.SpawnBurrow = function(spec, state, t, techAnger)
 		local found, x, y, z = findBurrowSpot(spec, state, t)
 		if not found then
+			-- Said once. A director that can place nothing produces no waves
+			-- and no error, which is the hardest kind of failure to diagnose —
+			-- so it gets to say so, once, rather than being silent forever.
+			if not state.warnedNoPlacement then
+				state.warnedNoPlacement = true
+				local box = state.spawnBox or {}
+				Spring.Log("waves", LOG.WARNING, string.format(
+					"%s: no ground for a spawner in [%d,%d]-[%d,%d] (placement=%s). "
+						.. "Too small a box, or ground that is neither land nor sea.",
+					spec.name, box.x1 or -1, box.z1 or -1, box.x2 or -1, box.z2 or -1,
+					tostring(state.params.placement)))
+			end
 			state.timeOfLastBurrow = t
 			return nil
 		end
@@ -228,7 +261,12 @@ function Placement.New(deps)
 		table.sort(names)
 		for _, name in ipairs(names) do
 			local data = spec.burrows.defs[name]
-			if mRandom() <= state.params.spawnChance and data.minAnger < anger and data.maxAnger > anger then
+			-- CreateUnit RAISES on an unknown def name, and this runs inside
+			-- GameFrame: a spec naming a def this game does not have would
+			-- otherwise take the callin down every cadence, forever.
+			if UnitDefNames[name] == nil then
+				Spring.Log("waves", LOG.WARNING, "no such burrow def: " .. name)
+			elseif mRandom() <= state.params.spawnChance and data.minAnger < anger and data.maxAnger > anger then
 				local burrowID = Spring.CreateUnit(name, x, y, z, mRandom(0, 3), spec.teamID)
 				if burrowID then
 					return burrowID, x, y, z
@@ -259,10 +297,15 @@ function Placement.New(deps)
 			if count > 1 then
 				state.fullySpawned = true
 			elseif state.spawnRetries >= maxRetries or state.firstSpawn then
+				-- Widen and try again. A spec that named its own box keeps it:
+				-- a mission's "from the northeast" is a statement about the
+				-- story, not a hint to be relaxed.
 				state.spawnAreaMultiplier = state.spawnAreaMultiplier + 1
-				local x1, z1, x2, z2 = enemyLib.GetAdjustedStartBox(
-					spec.allyTeamID, spec.burrows.size * 1.5 * state.spawnAreaMultiplier)
-				state.startBox = { x1 = x1, z1 = z1, x2 = x2, z2 = z2 }
+				if spec.burrows.box == nil then
+					local x1, z1, x2, z2 = enemyLib.GetAdjustedStartBox(
+						spec.allyTeamID, spec.burrows.size * 1.5 * state.spawnAreaMultiplier)
+					state.startBox = { x1 = x1, z1 = z1, x2 = x2, z2 = z2 }
+				end
 				placement.InitialBox(spec, state)
 				state.spawnRetries = 0
 			else
@@ -271,9 +314,12 @@ function Placement.New(deps)
 		end
 
 		if state.firstSpawn and burrowID then
-			-- The first burrow sets the wave clock, so the opening wave lands
-			-- ten seconds after grace and not one cadence later.
-			state.timeOfLastWave = (state.params.gracePeriod + 10) - state.params.spawnRate
+			-- The first burrow gives the opening wave a fixed appointment: ten
+			-- seconds after grace, whatever the cadence or the intensity dial
+			-- would otherwise make of it. A mission that asks for background
+			-- pressure should still get its first wave when the grace period
+			-- ends, not a third as soon.
+			state.firstWaveDue = state.params.gracePeriod + 10
 			state.firstSpawn = false
 		end
 		return burrowID, x, y, z

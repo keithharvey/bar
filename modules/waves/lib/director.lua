@@ -102,6 +102,9 @@ function Director.NewState(spec, rng)
 		cycle = 1,
 		timeOfLastWave = 0,
 		timeOfLastBurrow = -999999,
+		-- Set when the first spawner lands: the opening wave keeps a fixed
+		-- appointment, later ones follow the cadence.
+		firstWaveDue = nil,
 		announcedFirstWave = false,
 		spawnQueue = {},
 		squads = {},

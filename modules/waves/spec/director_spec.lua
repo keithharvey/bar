@@ -183,6 +183,20 @@ describe("waves director", function()
 	end)
 
 	describe("waves", function()
+		it("keep the opening appointment whatever the intensity dial says", function()
+			-- A mission asking for background pressure still gets its first
+			-- wave when grace ends; only the ones after it are rarer.
+			local function firstWaveTime(intensity)
+				local director = Director.New(makeSpec(), SeededRng.New(1))
+				director.SetIntensity(intensity)
+				director.state.firstWaveDue = director.state.params.gracePeriod + 10
+				local orders = run(director, makeWorld(), 0, 600 * 30)
+				return ofKind(orders, "wave")[1]
+			end
+			assert.is_not_nil(firstWaveTime(0.2), "a quiet director still opens on time")
+			assert.is_not_nil(firstWaveTime(1))
+		end)
+
 		it("start after grace and keep coming", function()
 			local director = Director.New(makeSpec(), SeededRng.New(1))
 			local orders = run(director, makeWorld(), 0, 600 * 30)

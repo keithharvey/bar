@@ -132,7 +132,8 @@
 ---@field onBossSpawned fun(unitID: integer, state: WaveDirectorState)|nil
 ---@field onBossKilled fun(unitID: integer, state: WaveDirectorState)|nil
 ---@field onCycleComplete fun(state: WaveDirectorState)|nil
----@field behaviourOf fun(defID: integer): table|nil
+---@field onUnitTick fun(unitID: integer, defID: integer, state: WaveDirectorState)|nil called on the sweep, per unit
+---@field behaviourOf fun(defID: integer): WaveBehaviour|nil
 ---@field targetsOf fun(): integer[], integer[] plain targets, high-value targets
 
 --- The seam itself: one plain table, immutable after Start.
@@ -218,6 +219,7 @@
 ---@field cycle integer endless loop counter, 1-based
 ---@field timeOfLastWave number
 ---@field timeOfLastBurrow number
+---@field firstWaveDue number|nil the opening wave's fixed appointment; nil once it has landed
 ---@field announcedFirstWave boolean
 ---@field spawnQueue WaveQueueEntry[]
 ---@field squads WaveSquad[]
@@ -243,6 +245,7 @@
 ---| "structures"
 ---| "drain"
 ---| "squads"
+---| "sweep"
 ---| "box"
 ---| "publish"
 ---| "event"
