@@ -257,6 +257,17 @@ local function publish(host)
 	Spring.SetGameRulesParam(names.wavesCleared, state.wavesCleared)
 	-- A rulesparam is a number: the dial travels x1000 so a tenth survives.
 	Spring.SetGameRulesParam(names.intensity, math.floor(state.intensity * 1000))
+
+	-- The same counters again, keyed by the DIRECTOR'S OWN NAME. The prefixed
+	-- names above are a flavor's wire contract ("scav" for the panels that
+	-- predate this module); a mission addresses a director by the pack it
+	-- named, and has no way to know a prefix. Both, so neither side has to
+	-- learn the other's vocabulary.
+	local own = "waves_" .. state.name .. "_"
+	Spring.SetGameRulesParam(own .. "wave", state.waveNumber)
+	Spring.SetGameRulesParam(own .. "cleared", state.wavesCleared)
+	Spring.SetGameRulesParam(own .. "bosses", state.boss.killed)
+	Spring.SetGameRulesParam(own .. "active", state.stopped and 0 or 1)
 end
 
 ---@param host table
@@ -639,6 +650,9 @@ local function stop(name)
 		return false
 	end
 	host.director.Stop()
+	-- Say so before the host goes: a mission condition or an editor probe
+	-- watching this director would otherwise read the last live value forever.
+	publish(host)
 	hosts[name] = nil
 	removeFrom(hostNames, name)
 	syncCallins()

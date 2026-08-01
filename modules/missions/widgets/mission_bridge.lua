@@ -106,6 +106,36 @@ local function countFinishedUnits(unitDefName)
 	return count
 end
 
+-- Wave conditions are counters, so their probes are all the same shape: a
+-- director name, a counter, and how many the mission is waiting for. The
+-- director publishes these under its OWN name — a mission names a pack and
+-- has no way to know a flavor's rulesparam prefix.
+local WAVE_COUNTERS = {
+	waves_spawned = "wave",
+	waves_cleared = "cleared",
+	waves_boss_defeated = "bosses",
+}
+
+---@param probe table
+---@return table
+local function waveProgress(probe)
+	local counter = WAVE_COUNTERS[probe.kind]
+	local have = Spring.GetGameRulesParam("waves_" .. probe.pack .. "_" .. counter)
+	if have == nil then
+		-- The director has not started yet. "–" rather than 0/1, because
+		-- "no waves have spawned" and "no director exists" are different
+		-- things and a mission author is usually debugging the second one.
+		return { text = "–", state = "pending", pct = 0 }
+	end
+	local need = math.max(1, math.floor(probe.need or 1))
+	local done = have >= need
+	return {
+		text = math.floor(have) .. "/" .. need,
+		state = done and "done" or "pending",
+		pct = math.min(1, have / need),
+	}
+end
+
 local function sampleLive()
 	if not probes or #probes == 0 then
 		return
@@ -136,6 +166,8 @@ local function sampleLive()
 			elseif probe.kind == "unit_spotted" and probe.unit_name then
 				local spotted = Spring.GetGameRulesParam("mission_unit_spotted_" .. probe.unit_name .. "_" .. Spring.GetMyAllyTeamID()) == 1
 				values[probe.key] = { text = spotted and "✓" or "–", state = spotted and "done" or "pending", pct = spotted and 1 or 0 }
+			elseif WAVE_COUNTERS[probe.kind] and probe.pack then
+				values[probe.key] = waveProgress(probe)
 			end
 		end
 	end
