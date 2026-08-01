@@ -174,9 +174,14 @@ local function collectLiveSpans()
 	end
 	-- Whole-element state lives on the trigger card, which is a div, and
 	-- carries no text: writing into it would erase the card.
+	--
+	-- "data-fired" is a contract with bar-mission-kit, which emits it in
+	-- view.rs::trigger_card. The two live in different repos and nothing
+	-- checks them against each other, so renaming it on one side alone is a
+	-- silent no-op — as it was, briefly.
 	local divs = content:GetElementsByTagName("div")
 	for i = 1, #divs do
-		local key = divs[i]:GetAttribute("data-live-state")
+		local key = divs[i]:GetAttribute("data-fired")
 		if key then
 			liveShades[#liveShades + 1] = { element = divs[i], key = key }
 		end
