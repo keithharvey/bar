@@ -70,6 +70,13 @@ function test()
 		return param("mission_active") == 1
 	end)
 
+	-- The opening beat waits. .After(30) holds the pressure back half a
+	-- minute, so nothing may exist before then — this is the assertion that
+	-- would catch a delay that silently does nothing.
+	Test.waitFrames(20 * 30)
+	assert(param("scavGracePeriod") == nil,
+		"the director must not start before the trigger's .After(30) elapses")
+
 	-- MatchFlow.Started fires on the first cadence after arming, and its Do
 	-- is what asks for the pressure. The director publishes its clocks at
 	-- Start, so their existence IS "the pack resolved and the roster built".

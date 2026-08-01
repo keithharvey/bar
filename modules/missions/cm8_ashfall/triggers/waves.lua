@@ -6,7 +6,11 @@
 -- statement here is what turns it off, and the commander's death is what
 -- reaches it.
 
+-- Half a minute of quiet first. The player inherits a failing base and needs
+-- long enough to read it before anything comes over the ridge; the director's
+-- own grace period is about spawner placement, not about the opening beat.
 When(MatchFlow.Started())
+	.After(30)
 	.Do(Waves.Begin(Scavengers.Skirmish).Against(Team.Player).From(0.85, 0.15).Intensity(0.3))
 
 -- Beat 3: the outpost holds. Something notices.

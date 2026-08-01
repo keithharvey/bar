@@ -103,6 +103,17 @@ describe("cm8_ashfall wave pressure", function()
 		assert.are.equal(4, #triggers, "expected the four beats of the pressure arc")
 	end)
 
+	it("holds the opening beat back half a minute", function()
+		-- The director's grace period is about spawner placement; this is the
+		-- mission's own beat, and only the trigger file can say how long the
+		-- player gets to read the base before anything arrives.
+		assert.are.equal(30 * 30, triggers[1].delayFrames)
+		for i = 2, 4 do
+			assert.are.equal(0, triggers[i].delayFrames or 0,
+				"only the opening waits; the rest answer their objective at once")
+		end
+	end)
+
 	it("opens the pressure when the match starts, aimed at the player", function()
 		local ctx = recordingContext()
 		for _, effect in ipairs(triggers[1].effects) do
