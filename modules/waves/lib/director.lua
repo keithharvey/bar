@@ -118,6 +118,10 @@ function Director.NewState(spec, rng)
 		fullySpawned = false,
 		waveAlive = {},
 		waveUnits = {},
+		-- Everything this director created. A mission's director shares a team
+		-- with the mission's own roster, so "on my team" is not "mine" — and
+		-- commanding the mission's enclave commander is not the director's job.
+		owned = {},
 		boss = Boss.NewState(),
 		stopped = false,
 	}
@@ -316,6 +320,7 @@ function Director.New(spec, rng)
 	---@param entry WaveQueueEntry
 	director.OnUnitSpawned = function(unitID, entry)
 		local state = director.state
+		state.owned[unitID] = true
 		local wave = entry.wave
 		if wave ~= nil then
 			state.waveUnits[unitID] = wave
@@ -330,6 +335,7 @@ function Director.New(spec, rng)
 	---@return boolean cleared the last unit of some wave just died
 	director.OnUnitDestroyed = function(unitID)
 		local state = director.state
+		state.owned[unitID] = nil
 		local wave = state.waveUnits[unitID]
 		if wave == nil then
 			return false

@@ -108,8 +108,8 @@ local squads = Squads.New()
 local drain = Drain.New({ squads = squads })
 local structures = Structures.New({ positionChecks = positionChecks })
 
--- The whole reason this gadget is inert until asked: nothing below runs, and
--- no callin is hooked, while these are empty.
+-- The gadget is inert until asked: every callin returns immediately while
+-- these are empty.
 local hosts = {} ---@type table<string, table>
 local hostNames = {} ---@type string[] sorted; pairs order is not a wire value
 
@@ -204,20 +204,27 @@ local function dropTarget(unitID)
 end
 
 --------------------------------------------------------------------------------
--- Callins are hooked only while some director is running, and unhooked when
--- the last one stops (the combat module's discipline: don't hook what you
--- don't use).
+-- Callins
 --------------------------------------------------------------------------------
 
 local HOT_CALLINS = { "GameFrame", "UnitCreated", "UnitDestroyed", "UnitDamaged", "GameOver" }
 local hot = {} ---@type table<string, function>
 
-local function syncCallins()
-	local wanted = #hostNames > 0
+---Install the hot callins, once, and leave them installed.
+---
+---NOT the "don't hook what you don't use" toggle this started as. The handler
+---DEFERS list updates while it is inside a callin (callinDepth > 0) but the
+---method field goes nil immediately, so a gadget that unhooks itself from
+---inside a callin sits in the handler's list with a nil method until the loop
+---ends — and the next gadget:GameFrame call in that same loop is a hard error.
+---A director stopping mid-GameFrame is an ordinary thing here (a mission's
+---Waves.End, the last boss dying), so the toggle had to go.
+---
+---What is left costs one comparison per callin while no director exists.
+local function installCallins()
 	for _, name in ipairs(HOT_CALLINS) do
-		local live = gadget[name] ~= nil
-		if wanted ~= live then
-			gadget[name] = wanted and hot[name] or nil
+		if gadget[name] == nil then
+			gadget[name] = hot[name]
 			gadgetHandler:UpdateCallIn(name)
 		end
 	end
@@ -320,6 +327,7 @@ local function spawnBurrow(host, world)
 		return
 	end
 	state.burrows[burrowID] = true
+	state.owned[burrowID] = true
 	Spring.SetUnitBlocking(burrowID, false, false)
 	drain.SetExperience(state, burrowID)
 	Spring.SetGameRulesParam(host.names.hiveCount, #burrowList(host))
@@ -352,6 +360,7 @@ local function spawnBoss(host, world)
 	end
 
 	local _, maxHealth = Spring.GetUnitHealth(bossID)
+	state.owned[bossID] = true
 	host.director.OnBossSpawned(bossID, maxHealth)
 	Spring.SetUnitHealth(bossID,
 		math.max(maxHealth * (state.anger.techAnger * 0.01), maxHealth * spec.boss.minHealthFraction))
@@ -392,20 +401,25 @@ end
 local function sweepUnits(host, world)
 	local spec, state = host.spec, host.director.state
 	for _, unitID in ipairs(Spring.GetTeamUnits(spec.teamID) or {}) do
-		local defID = Spring.GetUnitDefID(unitID)
-		if defID ~= nil and spec.hooks.onUnitTick then
-			spec.hooks.onUnitTick(unitID, defID, state)
-		end
-		local cooldown = state.cowardCooldown[unitID]
-		if cooldown ~= nil and world.frame > cooldown and math.random(1, 10) == 1 then
-			state.cowardCooldown[unitID] = nil
-			Spring.GiveOrderToUnit(unitID, CMD.STOP, {}, {})
-		end
-		-- A boss is never left idle: it is the fight, and a boss standing
-		-- still is the fight not happening.
-		local nudge = math.random(1, 10) == 1 or state.boss.ids[unitID]
-		if nudge and Spring.GetUnitCommandCount(unitID) == 0 then
-			squads.NudgeIdle(spec, state, unitID, world.frame)
+		-- Only what this director created. In a mission it shares a team with
+		-- the mission's own roster, and ordering the enclave commander around
+		-- is emphatically not the director's business.
+		if state.owned[unitID] then
+			local defID = Spring.GetUnitDefID(unitID)
+			if defID ~= nil and spec.hooks.onUnitTick then
+				spec.hooks.onUnitTick(unitID, defID, state)
+			end
+			local cooldown = state.cowardCooldown[unitID]
+			if cooldown ~= nil and world.frame > cooldown and math.random(1, 10) == 1 then
+				state.cowardCooldown[unitID] = nil
+				Spring.GiveOrderToUnit(unitID, CMD.STOP, {}, {})
+			end
+			-- A boss is never left idle: it is the fight, and a boss standing
+			-- still is the fight not happening.
+			local nudge = math.random(1, 10) == 1 or state.boss.ids[unitID]
+			if nudge and Spring.GetUnitCommandCount(unitID) == 0 then
+				squads.NudgeIdle(spec, state, unitID, world.frame)
+			end
 		end
 	end
 end
@@ -434,6 +448,7 @@ local function execute(host, world, waveOrder)
 		spawnBoss(host, world)
 	elseif kind == "structures" then
 		structures.SpawnWave(spec, state, world.time, function(unitID)
+			state.owned[unitID] = true
 			drain.SetExperience(state, unitID)
 		end)
 	elseif kind == "squads" then
@@ -453,7 +468,7 @@ end
 --------------------------------------------------------------------------------
 
 hot.GameFrame = function(_, frame)
-	if gameOverFrame ~= nil then
+	if gameOverFrame ~= nil or #hostNames == 0 then
 		return
 	end
 	for _, name in ipairs(hostNames) do
@@ -466,6 +481,9 @@ hot.GameFrame = function(_, frame)
 end
 
 hot.UnitCreated = function(_, unitID, unitDefID, unitTeam)
+	if #hostNames == 0 then
+		return
+	end
 	for _, name in ipairs(hostNames) do
 		local host = hosts[name]
 		if unitTeam ~= host.spec.teamID then
@@ -483,6 +501,9 @@ hot.UnitCreated = function(_, unitID, unitDefID, unitTeam)
 end
 
 hot.UnitDamaged = function(_, unitID, _, _, _, _, _, _, attackerID)
+	if #hostNames == 0 then
+		return
+	end
 	-- A squad in a fight is not a squad that is stuck: give it its life back
 	-- so the anti-stalemate valve does not fire mid-engagement.
 	for _, name in ipairs(hostNames) do
@@ -540,6 +561,9 @@ local function bossDestroyed(host, unitID)
 end
 
 hot.UnitDestroyed = function(_, unitID, unitDefID, unitTeam, _, _, attackerID)
+	if #hostNames == 0 then
+		return
+	end
 	dropTarget(unitID)
 	for _, name in ipairs(hostNames) do
 		local host = hosts[name]
@@ -637,7 +661,7 @@ local function start(spec)
 	hosts[spec.name] = host
 	hostNames[#hostNames + 1] = spec.name
 	table.sort(hostNames)
-	syncCallins()
+	installCallins()
 	Spring.Echo("[" .. LOG_TAG .. "] director started: " .. spec.name .. " (team " .. tostring(spec.teamID) .. ")")
 	return true
 end
@@ -655,7 +679,6 @@ local function stop(name)
 	publish(host)
 	hosts[name] = nil
 	removeFrom(hostNames, name)
-	syncCallins()
 	return true
 end
 
@@ -735,8 +758,7 @@ function gadget:Initialize()
 			end
 		end,
 	}
-	-- Nothing is hooked, and nothing will be until someone calls Start.
-	syncCallins()
+	installCallins()
 end
 
 function gadget:Shutdown()

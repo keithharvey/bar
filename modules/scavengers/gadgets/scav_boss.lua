@@ -78,12 +78,14 @@ end
 local HOT_CALLINS = { "GameFrame", "UnitPreDamaged", "UnitDamaged" }
 local hot = {}
 
-local function syncCallins()
-	local wanted = bossCount > 0
+---Install once and leave installed. Unhooking from inside a callin is not
+---safe: the handler defers its list update while it is iterating, but the
+---method field goes nil at once, and the next gadget it reaches in that same
+---loop calls a nil. A boss dying inside GameFrame is exactly that case.
+local function installCallins()
 	for _, name in ipairs(HOT_CALLINS) do
-		local live = gadget[name] ~= nil
-		if wanted ~= live then
-			gadget[name] = wanted and hot[name] or nil
+		if gadget[name] == nil then
+			gadget[name] = hot[name]
 			gadgetHandler:UpdateCallIn(name)
 		end
 	end
@@ -188,7 +190,7 @@ local function tickHealth()
 end
 
 hot.GameFrame = function(_, n)
-	if n % 30 == 16 then
+	if bossCount > 0 and n % 30 == 16 then
 		tickStagger()
 		tickHealth()
 	end
@@ -288,6 +290,9 @@ local function damageFromBoss(damage)
 end
 
 hot.UnitPreDamaged = function(_, unitID, _, _, damage, _, weaponID, _, attackerID, attackerDefID)
+	if bossCount == 0 then
+		return damage, 1
+	end
 	if bossIDs[unitID] then
 		return damageToBoss(unitID, damage, weaponID, attackerDefID), 1
 	end
@@ -298,7 +303,7 @@ hot.UnitPreDamaged = function(_, unitID, _, _, damage, _, weaponID, _, attackerI
 end
 
 hot.UnitDamaged = function(_, unitID, _, _, damage, _, _, _, _, _, attackerTeam)
-	if bossIDs[unitID] and attackerTeam and attackerTeam ~= scavTeamID then
+	if bossCount > 0 and bossIDs[unitID] and attackerTeam and attackerTeam ~= scavTeamID then
 		local key = tostring(attackerTeam)
 		bosses.playerDamages[key] = (bosses.playerDamages[key] or 0) + damage
 	end
@@ -318,7 +323,6 @@ function gadget:UnitDestroyed(unitID)
 		status.health = 0
 	end
 	tickHealth()
-	syncCallins()
 end
 
 function gadget:Initialize()
@@ -341,7 +345,6 @@ function gadget:Initialize()
 		bossIDs[bossID] = true
 		bossCount = bossCount + 1
 		bosses.statuses[tostring(bossID)] = {}
-		syncCallins()
 	end
 
 	-- Endless mode: a fresh cycle is a fresh boss, and it must not inherit
@@ -355,7 +358,7 @@ function gadget:Initialize()
 		Spring.SetGameRulesParam("scavBossHealth", 0)
 	end
 
-	syncCallins()
+	installCallins()
 end
 
 function gadget:Shutdown()
