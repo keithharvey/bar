@@ -453,3 +453,57 @@ describe("waves director", function()
 		assert.are.same(director.Status(), reloaded.Status())
 	end)
 end)
+
+--- Box widening is pure geometry, so it specs without a map. The rest of
+--- placement.lua needs Spring and is covered by the headless scenarios.
+describe("waves box widening", function()
+	local Placement = VFS.Include("modules/waves/spring/placement.lua")
+	local placement = Placement.New({
+		positionChecks = {},
+		enemyLib = {},
+		mapSizeX = 4096,
+		mapSizeZ = 4096,
+	})
+
+	-- CM8's origin: map fraction (0.85, 0.15) at 12.5% reach per side.
+	local ORIGIN = { x1 = 2969, z1 = 102, x2 = 3993, z2 = 1126 }
+
+	it("keeps the centre for a box with room to grow", function()
+		local middle = { x1 = 1800, z1 = 1800, x2 = 2300, z2 = 2300 }
+		local wider = placement.WidenBox(middle, 3)
+		assert.is.near(2050, (wider.x1 + wider.x2) / 2, 1e-6)
+		assert.is.near(2050, (wider.z1 + wider.z2) / 2, 1e-6)
+	end)
+
+	it("always still contains the box it grew from — the author's corner stays in", function()
+		-- A corner box cannot grow symmetrically without leaving the map, so
+		-- clamping shifts its centre. What must not change is that the ground
+		-- the mission named is still inside the search.
+		for _, multiplier in ipairs({ 2, 3, 5, 40 }) do
+			local wider = placement.WidenBox(ORIGIN, multiplier)
+			assert.is_true(wider.x1 <= ORIGIN.x1 and wider.x2 >= ORIGIN.x2,
+				"round " .. multiplier .. " dropped the origin on x")
+			assert.is_true(wider.z1 <= ORIGIN.z1 and wider.z2 >= ORIGIN.z2,
+				"round " .. multiplier .. " dropped the origin on z")
+		end
+	end)
+
+	it("grows with each retry round", function()
+		local first = placement.WidenBox(ORIGIN, 3)
+		local second = placement.WidenBox(ORIGIN, 4)
+		assert.is_true((first.x2 - first.x1) > (ORIGIN.x2 - ORIGIN.x1))
+		assert.is_true((second.x2 - second.x1) > (first.x2 - first.x1))
+	end)
+
+	it("clamps to the map instead of probing off the edge", function()
+		local huge = placement.WidenBox(ORIGIN, 40)
+		assert.is_true(huge.x1 >= 0 and huge.z1 >= 0)
+		assert.is_true(huge.x2 <= 4096 and huge.z2 <= 4096)
+	end)
+
+	it("never shrinks below the box it was given", function()
+		-- multiplier 2 is the first round; max(1, m-1) floors the scale at 1.
+		local same = placement.WidenBox(ORIGIN, 2)
+		assert.is_true((same.x2 - same.x1) >= (ORIGIN.x2 - ORIGIN.x1) - 1e-6)
+	end)
+end)

@@ -14,6 +14,9 @@
 local Placement = {}
 
 local MAX_TRIES = 30
+-- A director that cannot place says so a few times, then stops: this runs on
+-- the slow tick and the retry widens the box under it.
+local MAX_PLACEMENT_WARNINGS = 3
 local FLAT_TOLERANCE = 30
 local MIN_BOX_SIDE = 512
 
@@ -36,7 +39,13 @@ function Placement.New(deps)
 	---@param state WaveDirectorState
 	placement.InitialBox = function(spec, state)
 		local x1, z1, x2, z2
-		if spec.burrows.box ~= nil then
+		if state.startBox ~= nil then
+			-- Already resolved, and possibly WIDENED by a caller that could
+			-- not place anything. Re-deriving here would quietly undo that and
+			-- leave the retry probing the same ground forever.
+			local box = state.startBox
+			x1, z1, x2, z2 = box.x1, box.z1, box.x2, box.z2
+		elseif spec.burrows.box ~= nil then
 			-- An explicit box: a mission says where its pressure comes from,
 			-- and a mission's director has no start box to be adjusted.
 			local box = spec.burrows.box
@@ -61,6 +70,28 @@ function Placement.New(deps)
 			z1 = z1 or 0,
 			x2 = x2 or MAPSIZEX,
 			z2 = z2 or MAPSIZEZ,
+		}
+	end
+
+	---Grow a box outward from its own centre, clamped to the map.
+	---
+	---The retry path for a director whose box was NAMED rather than derived
+	---from a start box. Keeping the centre is what keeps the author's meaning:
+	---"from the northeast" stays northeast, it just stops being only the
+	---corner.
+	---@param box { x1: number, z1: number, x2: number, z2: number }
+	---@param multiplier number the retry round; 2 is the first widening
+	---@return { x1: number, z1: number, x2: number, z2: number }
+	placement.WidenBox = function(box, multiplier)
+		local centreX = (box.x1 + box.x2) * 0.5
+		local centreZ = (box.z1 + box.z2) * 0.5
+		local halfX = (box.x2 - box.x1) * 0.5 * math.max(1, multiplier - 1)
+		local halfZ = (box.z2 - box.z1) * 0.5 * math.max(1, multiplier - 1)
+		return {
+			x1 = math.max(0, centreX - halfX),
+			z1 = math.max(0, centreZ - halfZ),
+			x2 = math.min(MAPSIZEX, centreX + halfX),
+			z2 = math.min(MAPSIZEZ, centreZ + halfZ),
 		}
 	end
 
@@ -237,17 +268,23 @@ function Placement.New(deps)
 	placement.SpawnBurrow = function(spec, state, t, techAnger)
 		local found, x, y, z = findBurrowSpot(spec, state, t)
 		if not found then
-			-- Said once. A director that can place nothing produces no waves
-			-- and no error, which is the hardest kind of failure to diagnose —
-			-- so it gets to say so, once, rather than being silent forever.
-			if not state.warnedNoPlacement then
-				state.warnedNoPlacement = true
+			-- A director that can place nothing produces no waves and no
+			-- error, which is the hardest kind of failure to diagnose. So it
+			-- says so — but a handful of times, not once per second: this
+			-- runs on the slow tick, and the retry widens the box under it,
+			-- so a genuinely impossible map would otherwise fill the log.
+			local said = (state.warnedNoPlacement or 0) + 1
+			state.warnedNoPlacement = said
+			if said <= MAX_PLACEMENT_WARNINGS then
 				local box = state.spawnBox or {}
 				Spring.Log("waves", LOG.WARNING, string.format(
 					"%s: no ground for a spawner in [%d,%d]-[%d,%d] (placement=%s). "
-						.. "Too small a box, or ground that is neither land nor sea.",
+						.. "Ground that is neither land nor sea, or occupied — units within %d "
+						.. "of a spot reject it, so a map seeded with ruins has less room than it looks. "
+						.. "%s",
 					spec.name, box.x1 or -1, box.z1 or -1, box.x2 or -1, box.z2 or -1,
-					tostring(state.params.placement)))
+					tostring(state.params.placement), spec.burrows.size * 1.5,
+					said == MAX_PLACEMENT_WARNINGS and "(further attempts stay quiet)" or "Widening and retrying."))
 			end
 			state.timeOfLastBurrow = t
 			return nil
@@ -296,15 +333,24 @@ function Placement.New(deps)
 			end
 			if count > 1 then
 				state.fullySpawned = true
+			elseif burrowID ~= nil then
+				-- It worked. Whatever box we are on is a good box: do not widen
+				-- away from an origin the author named while it is producing.
+				state.spawnRetries = 0
 			elseif state.spawnRetries >= maxRetries or state.firstSpawn then
-				-- Widen and try again. A spec that named its own box keeps it:
-				-- a mission's "from the northeast" is a statement about the
-				-- story, not a hint to be relaxed.
+				-- Widen and try again, from whichever origin this director has.
+				-- A mission's "from the northeast" is a PREFERENCE, not a cage:
+				-- the corner it names is a map fraction, and on some map that
+				-- corner is open water or cliff. Pressure slightly wide of
+				-- where the mission asked beats no pressure at all, and the box
+				-- grows from the same centre so the direction still reads.
 				state.spawnAreaMultiplier = state.spawnAreaMultiplier + 1
 				if spec.burrows.box == nil then
 					local x1, z1, x2, z2 = enemyLib.GetAdjustedStartBox(
 						spec.allyTeamID, spec.burrows.size * 1.5 * state.spawnAreaMultiplier)
 					state.startBox = { x1 = x1, z1 = z1, x2 = x2, z2 = z2 }
+				else
+					state.startBox = placement.WidenBox(spec.burrows.box, state.spawnAreaMultiplier)
 				end
 				placement.InitialBox(spec, state)
 				state.spawnRetries = 0
