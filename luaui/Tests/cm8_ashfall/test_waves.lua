@@ -77,6 +77,17 @@ function test()
 		return param("scavGracePeriod") ~= nil and param("scavTechAnger") ~= nil
 	end, SPAWN_TIMEOUT)
 
+	-- That trigger is published as FIRED, which is what lets the editor shade
+	-- a card once the engine has actually run it. The key is the runtime's own
+	-- trigger identity, mission prefix included.
+	Test.waitUntil(function()
+		return param("mission_trigger_fired_cm8_ashfall/triggers/waves.lua:1") == 1
+	end, SPAWN_TIMEOUT)
+	-- A trigger that has not fired publishes nothing rather than zero: the
+	-- Armada commander is alive, so the pressure has not been called off.
+	assert(param("mission_trigger_fired_cm8_ashfall/triggers/waves.lua:4") == nil,
+		"an unfired trigger should publish nothing")
+
 	-- The mission's own dial, not the pack's default. Carried x1000, because
 	-- a rules param is a number and the trigger file asks for 0.3.
 	Test.waitUntil(function()

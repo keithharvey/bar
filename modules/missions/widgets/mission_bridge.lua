@@ -168,6 +168,14 @@ local function sampleLive()
 				values[probe.key] = { text = spotted and "✓" or "–", state = spotted and "done" or "pending", pct = spotted and 1 or 0 }
 			elseif WAVE_COUNTERS[probe.kind] and probe.pack then
 				values[probe.key] = waveProgress(probe)
+			elseif probe.kind == "trigger_fired" and probe.trigger then
+				-- The kit knows a trigger as "<file>:<order>"; the runtime
+				-- stamps the mission in front of it. Composing here keeps the
+				-- kit free of any idea which mission it is editing.
+				local mission = Spring.GetGameRulesParam("mission_name")
+				local fired = mission ~= nil
+					and Spring.GetGameRulesParam("mission_trigger_fired_" .. mission .. "/" .. probe.trigger) == 1
+				values[probe.key] = { state = fired and "done" or "pending" }
 			end
 		end
 	end

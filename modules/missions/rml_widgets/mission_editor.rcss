@@ -86,6 +86,18 @@
 	font-size: 0.8em;
 }
 
+/* A fired trigger tints and lifts its rule, so progression reads straight
+   down the column without stopping at a single chip. Faint on purpose: this
+   is a backdrop, and the chips stay the thing you actually read. */
+.me-card.done {
+	border-left-color: #4a7f5e;
+	background-color: #16221b;
+}
+
+.me-card.done .me-card-title {
+	color: #9fb8a8;
+}
+
 /* One flat card: triggers are left-ruled groups, not nested boxes. */
 .me-card {
 	display: block;

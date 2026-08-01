@@ -277,6 +277,35 @@ local function despawnRoster()
 	namedUnits, unitNames, groupUnits, spawnedUnits = {}, {}, {}, {}
 end
 
+-- Which trigger ids have been published as fired. Derived, not progress: the
+-- engine's own state is the truth, this only avoids re-writing a param that
+-- has not changed.
+local publishedFired = {} ---@type table<string, boolean>
+
+---Publish what has FIRED, so an editor can shade a trigger it has watched
+---happen. Deliberately not "is the condition true": a once-trigger stays
+---fired after its condition goes false, and an editor shading off the live
+---condition would flicker back to unfired.
+local function publishFired()
+	for id in pairs(engine.GetState().fired) do
+		if not publishedFired[id] then
+			publishedFired[id] = true
+			Spring.SetGameRulesParam("mission_trigger_fired_" .. id, 1)
+		end
+	end
+end
+
+---Erase the fired pile. Progress clears with the triggers, so a reload is a
+---fresh run and the editor stops showing last run's progression.
+local function resetFired()
+	for name in pairs(Spring.GetGameRulesParams()) do
+		if name:find("^mission_trigger_fired_") then
+			Spring.SetGameRulesParam(name, nil)
+		end
+	end
+	publishedFired = {}
+end
+
 ---Erase the objective progress pile. The loader owns the objective_ prefix;
 ---progress clears with the triggers, so a reload is a fresh run and a
 ---completed objective cannot re-fire victory on the next cadence.
@@ -465,6 +494,7 @@ local function loadMission(missionName)
 	-- progress that belonged to it goes with it.
 	engine = staging
 	resetObjectives()
+	resetFired()
 	syncWatchedCallins()
 	-- CreateUnit raises; a bad roster is a load error, not a stack trace out
 	-- of the chat action.
@@ -571,5 +601,6 @@ function gadget:GameFrame(frame)
 	if activeMission ~= nil and frame % EVALUATE_PERIOD == 0 then
 		ctx.frame = frame
 		engine.Evaluate(ctx)
+		publishFired()
 	end
 end
