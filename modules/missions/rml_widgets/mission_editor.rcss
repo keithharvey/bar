@@ -66,6 +66,19 @@
 	font-size: 0.7em;
 }
 
+/* The file row is a path plus an "open" affordance. The browser separates
+   them with a flex gap; RCSS has neither flex gap nor a way to fake one
+   between inline siblings, so the affordance carries its own margin — without
+   it the two run together and the row reads "triggers/waves.luaopen". */
+.me-file-open {
+	margin-left: 8px;
+	color: #4c5d70;
+}
+
+.me-file:hover .me-file-open {
+	color: #8fbcff;
+}
+
 .me-group {
 	display: block;
 	margin: 12px 0 4px 0;

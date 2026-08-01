@@ -13,8 +13,11 @@
 
 --- Begin's chain. .Against is required — a director with no target has
 --- nobody to attack; the rest are dials with sane defaults.
----@class MissionWavesChain
----@field execute fun(ctx: MissionContext)
+---
+--- It IS an effect, not merely effect-shaped: a Do takes the chain directly,
+--- so every link returns something Do accepts and the statement reads as one
+--- sentence however many dials it turns.
+---@class MissionWavesChain : MissionEffect
 ---@field Against fun(team: MissionTeam): MissionWavesChain
 ---@field From fun(fx: number, fz: number): MissionWavesChain
 ---@field Intensity fun(intensity: number): MissionWavesChain
