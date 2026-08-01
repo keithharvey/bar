@@ -123,6 +123,31 @@ local ctx = {
 			ModuleHandler.Get("combat").Unprotect(unitID)
 		end
 	end,
+	---Wave pressure, through the module that owns it. The mission names a
+	---PACK; the flavor module turns that into a spec and the waves module
+	---runs it — the same director a multiplayer game gets, at a different
+	---intensity and with no bot on the field.
+	---@param request table what Waves.Begin composed
+	StartWaves = function(request)
+		local flavor = ModuleHandler.Get(request.module)
+		if flavor == nil or flavor.Start == nil then
+			Spring.Log(LOG_TAG, LOG.ERROR, "Waves.Begin: module " .. tostring(request.module) .. " cannot start waves")
+			return
+		end
+		flavor.Start(request)
+	end,
+	StopWaves = function(pack)
+		ModuleHandler.Get("waves").Stop(pack)
+	end,
+	SetWaveIntensity = function(pack, intensity)
+		ModuleHandler.Get("waves").SetIntensity(pack, intensity)
+	end,
+	SurgeWaves = function(pack)
+		ModuleHandler.Get("waves").Surge(pack)
+	end,
+	WaveStatus = function(pack)
+		return ModuleHandler.Get("waves").Status(pack)
+	end,
 }
 
 ---Demo rule: Team.Player is the first human team (lowest non-Gaia teamID with no Lua AI, not AI-hosted).
@@ -521,6 +546,16 @@ function gadget:Initialize()
 		end,
 		Active = function()
 			return activeMission
+		end,
+		---The mission bus, open to other modules.
+		---
+		---Engine callins reach the engine through syncWatchedCallins; a module
+		---event has no callin to hook, so the module that raises it says so
+		---here. Same convention mission.objective_changed already uses
+		---internally — this only makes it reachable from outside.
+		---@param name MissionEventName
+		OnEvent = function(name)
+			engine.OnEvent(name)
 		end,
 	}
 	gadgetHandler:AddChatAction("mission", missionChatAction, "missions: /mission load <name> | /mission reload")
