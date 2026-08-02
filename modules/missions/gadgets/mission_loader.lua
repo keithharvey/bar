@@ -123,6 +123,31 @@ local ctx = {
 			ModuleHandler.Get("combat").Unprotect(unitID)
 		end
 	end,
+	---Wave pressure, through the module that owns it. The mission names a
+	---PACK; the flavor module turns that into a spec and the waves module
+	---runs it — the same director a multiplayer game gets, at a different
+	---intensity and with no bot on the field.
+	---@param request table what Waves.Begin composed
+	StartWaves = function(request)
+		local flavor = ModuleHandler.Get(request.module)
+		if flavor == nil or flavor.Start == nil then
+			Spring.Log(LOG_TAG, LOG.ERROR, "Waves.Begin: module " .. tostring(request.module) .. " cannot start waves")
+			return
+		end
+		flavor.Start(request)
+	end,
+	StopWaves = function(pack)
+		ModuleHandler.Get("waves").Stop(pack)
+	end,
+	SetWaveIntensity = function(pack, intensity)
+		ModuleHandler.Get("waves").SetIntensity(pack, intensity)
+	end,
+	SurgeWaves = function(pack)
+		ModuleHandler.Get("waves").Surge(pack)
+	end,
+	WaveStatus = function(pack)
+		return ModuleHandler.Get("waves").Status(pack)
+	end,
 }
 
 ---Demo rule: Team.Player is the first human team (lowest non-Gaia teamID with no Lua AI, not AI-hosted).
@@ -252,6 +277,35 @@ local function despawnRoster()
 	namedUnits, unitNames, groupUnits, spawnedUnits = {}, {}, {}, {}
 end
 
+-- Which trigger ids have been published as fired. Derived, not progress: the
+-- engine's own state is the truth, this only avoids re-writing a param that
+-- has not changed.
+local publishedFired = {} ---@type table<string, boolean>
+
+---Publish what has FIRED, so an editor can shade a trigger it has watched
+---happen. Deliberately not "is the condition true": a once-trigger stays
+---fired after its condition goes false, and an editor shading off the live
+---condition would flicker back to unfired.
+local function publishFired()
+	for id in pairs(engine.GetState().fired) do
+		if not publishedFired[id] then
+			publishedFired[id] = true
+			Spring.SetGameRulesParam("mission_trigger_fired_" .. id, 1)
+		end
+	end
+end
+
+---Erase the fired pile. Progress clears with the triggers, so a reload is a
+---fresh run and the editor stops showing last run's progression.
+local function resetFired()
+	for name in pairs(Spring.GetGameRulesParams()) do
+		if name:find("^mission_trigger_fired_") then
+			Spring.SetGameRulesParam(name, nil)
+		end
+	end
+	publishedFired = {}
+end
+
 ---Erase the objective progress pile. The loader owns the objective_ prefix;
 ---progress clears with the triggers, so a reload is a fresh run and a
 ---completed objective cannot re-fire victory on the next cadence.
@@ -261,6 +315,36 @@ local function resetObjectives()
 			Spring.SetGameRulesParam(name, nil)
 		end
 	end
+end
+
+---VFS.Include wraps a Lua error in engine bookkeeping — the include mode, the
+---pcall depth, the environment flag — and buries the one line an author needs
+---in the middle of it. A mission file that names a unit wrong should read as a
+---mission problem, not as a VFS problem, so this unwraps it:
+---
+---  [LuaVFS::Include(synced=true)][pcall] file=<path> error=2 (<msg>) ptop=2 ...
+---
+---becomes `<mission-relative path>: <msg>`. Anything that does not match the
+---wrapper is passed through untouched — a surprise is better read raw than
+---mangled by a pattern that did not expect it.
+---@param err any
+---@return string
+local function readableLoadError(err)
+	local text = tostring(err)
+	-- Anchored on both ends of the wrapper so a message containing its own
+	-- parentheses (they usually do — `Named(...)`) still comes out whole.
+	local inner = text:match("error=%-?%d+ %((.*)%) ptop=")
+	if inner == nil then
+		return text
+	end
+	local path = text:match("file=(%S+)")
+	-- The chunk name and line point into the DSL, where the CHECK lives. The
+	-- mistake is in the mission file, which the message already names.
+	inner = inner:gsub('^%[string "[^"]*"%]:%d+: ', "")
+	if path ~= nil then
+		return (path:gsub("^" .. MISSIONS_DIR, "")) .. ": " .. inner
+	end
+	return inner
 end
 
 ---Load units.lua through its sandbox (Spawn chains; the sandbox IS the API
@@ -281,7 +365,7 @@ local function parseRoster(missionName)
 		return file.Finalize()
 	end)
 	if not ok then
-		Spring.Log(LOG_TAG, LOG.ERROR, tostring(entries))
+		Spring.Log(LOG_TAG, LOG.ERROR, readableLoadError(entries))
 		return nil
 	end
 	return entries
@@ -432,7 +516,7 @@ local function loadMission(missionName)
 		end
 	end)
 	if not parsed then
-		Spring.Log(LOG_TAG, LOG.ERROR, tostring(err))
+		Spring.Log(LOG_TAG, LOG.ERROR, readableLoadError(err))
 		return false
 	end
 
@@ -440,6 +524,7 @@ local function loadMission(missionName)
 	-- progress that belonged to it goes with it.
 	engine = staging
 	resetObjectives()
+	resetFired()
 	syncWatchedCallins()
 	-- CreateUnit raises; a bad roster is a load error, not a stack trace out
 	-- of the chat action.
@@ -522,6 +607,16 @@ function gadget:Initialize()
 		Active = function()
 			return activeMission
 		end,
+		---The mission bus, open to other modules.
+		---
+		---Engine callins reach the engine through syncWatchedCallins; a module
+		---event has no callin to hook, so the module that raises it says so
+		---here. Same convention mission.objective_changed already uses
+		---internally — this only makes it reachable from outside.
+		---@param name MissionEventName
+		OnEvent = function(name)
+			engine.OnEvent(name)
+		end,
 	}
 	gadgetHandler:AddChatAction("mission", missionChatAction, "missions: /mission load <name> | /mission reload")
 end
@@ -536,5 +631,6 @@ function gadget:GameFrame(frame)
 	if activeMission ~= nil and frame % EVALUATE_PERIOD == 0 then
 		ctx.frame = frame
 		engine.Evaluate(ctx)
+		publishFired()
 	end
 end
