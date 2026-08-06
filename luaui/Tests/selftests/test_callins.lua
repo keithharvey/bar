@@ -34,15 +34,14 @@ function runBaseTests()
 	-- not calling expect first
 	assertThrowsMessage(function()
 		Test.waitUntilCallin("UnitCommand")
-	end, "[registerCallin:UnitCommand] need to call Test.expectCallin(\"UnitCommand\") first")
+	end, '[registerCallin:UnitCommand] need to call Test.expectCallin("UnitCommand") first')
 
 	Test.clearCallins()
-
 end
 
 function runWaitUntil(countOnly, reallyCountOnly, wait, expect, clear)
 	-- test waitUntilCallinArgs with and without expectCallin preregister
-	local myTeamID = Spring.GetMyTeamID()
+	local myTeamID = Spring.GetLocalTeamID()
 	if expect then
 		Test.expectCallin("UnitCommand", reallyCountOnly)
 	end

@@ -393,12 +393,7 @@ end
 -- Squared pixel distance from the cursor to the ring point at angle `a`.
 local function ringProbe(mx, my, u, v, r, a)
 	local ca, sa = cos(a) * r, sin(a) * r
-	return pixelDistSq(
-		mx, my,
-		pivot.x + u[1] * ca + v[1] * sa,
-		pivot.y + u[2] * ca + v[2] * sa,
-		pivot.z + u[3] * ca + v[3] * sa
-	)
+	return pixelDistSq(mx, my, pivot.x + u[1] * ca + v[1] * sa, pivot.y + u[2] * ca + v[2] * sa, pivot.z + u[3] * ca + v[3] * sa)
 end
 
 -- Pixel distance from the cursor to the nearest point on a ring. Coarse sweep to
@@ -471,11 +466,7 @@ function Gizmo.hitTest(mx, my)
 			-- Skip the innermost stub so the centre handle keeps its own zone.
 			local from = CENTRE_RADIUS * 1.5 * size
 			local to = ARROW_LENGTH * size
-			keep(name, pixelDistToSegment(
-				mx, my,
-				pivot.x + h.axis[1] * from, pivot.y + h.axis[2] * from, pivot.z + h.axis[3] * from,
-				pivot.x + h.axis[1] * to, pivot.y + h.axis[2] * to, pivot.z + h.axis[3] * to
-			), ARROW_GRAB_PX)
+			keep(name, pixelDistToSegment(mx, my, pivot.x + h.axis[1] * from, pivot.y + h.axis[2] * from, pivot.z + h.axis[3] * from, pivot.x + h.axis[1] * to, pivot.y + h.axis[2] * to, pivot.z + h.axis[3] * to), ARROW_GRAB_PX)
 		else
 			local u, v = planeBasis(h.axis)
 			keep(name, ringNearestPx(mx, my, u, v, RING_RADIUS * size), RING_GRAB_PX)
@@ -704,18 +695,13 @@ function Gizmo.init()
 	-- Built at its final proportions so every instance can use one uniform scale
 	-- (the gizmo's world size). The cylinder spans -height..+height, hence the
 	-- half-length here.
-	local shaftVBO, shaftVerts =
-		InstanceVBOTable.makeCylinderVBO(10, SHAFT_LENGTH * 0.5, SHAFT_RADIUS, false, false, "gizmoShaft")
+	local shaftVBO, shaftVerts = InstanceVBOTable.makeCylinderVBO(10, SHAFT_LENGTH * 0.5, SHAFT_RADIUS, false, false, "gizmoShaft")
 	local headVBO, headVerts = InstanceVBOTable.makeConeVBO(12, HEAD_LENGTH, HEAD_RADIUS, "gizmoHead")
 	local ringVBO, ringVerts = InstanceVBOTable.makeCircleVBO(64, RING_RADIUS, false, "gizmoRing")
 	-- A box, not makeSphereVBO: the sphere helper declares attributes at ids 0-2,
 	-- which would collide with this module's instance attributes, and it needs an
 	-- index buffer. The box is one id-0 attribute and draws as plain triangles.
-	local centreVBO, centreVerts = InstanceVBOTable.makeBoxVBO(
-		-CENTRE_RADIUS, -CENTRE_RADIUS, -CENTRE_RADIUS,
-		CENTRE_RADIUS, CENTRE_RADIUS, CENTRE_RADIUS,
-		"gizmoCentre"
-	)
+	local centreVBO, centreVerts = InstanceVBOTable.makeBoxVBO(-CENTRE_RADIUS, -CENTRE_RADIUS, -CENTRE_RADIUS, CENTRE_RADIUS, CENTRE_RADIUS, CENTRE_RADIUS, "gizmoCentre")
 
 	if not (shaftVBO and headVBO and ringVBO and centreVBO) then
 		Spring.Echo("[Gizmo3D] could not build gizmo geometry")

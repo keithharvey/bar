@@ -49,15 +49,15 @@ local CMD_OPT_SHIFT = CMD.OPT_SHIFT
 --- STATIC VALUES
 -------------------------------------------------------------------------------
 
-local BUILDCAT_ECONOMY = Spring.I18N("ui.buildMenu.category_econ")
-local BUILDCAT_COMBAT = Spring.I18N("ui.buildMenu.category_combat")
-local BUILDCAT_UTILITY = Spring.I18N("ui.buildMenu.category_utility")
-local BUILDCAT_PRODUCTION = Spring.I18N("ui.buildMenu.category_production")
+local BUILDCAT_ECONOMY = BAR.I18N("ui.buildMenu.category_econ")
+local BUILDCAT_COMBAT = BAR.I18N("ui.buildMenu.category_combat")
+local BUILDCAT_UTILITY = BAR.I18N("ui.buildMenu.category_utility")
+local BUILDCAT_PRODUCTION = BAR.I18N("ui.buildMenu.category_production")
 local categoryTooltips = {
-	[BUILDCAT_ECONOMY] = Spring.I18N("ui.buildMenu.category_econ_descr"),
-	[BUILDCAT_COMBAT] = Spring.I18N("ui.buildMenu.category_combat_descr"),
-	[BUILDCAT_UTILITY] = Spring.I18N("ui.buildMenu.category_utility_descr"),
-	[BUILDCAT_PRODUCTION] = Spring.I18N("ui.buildMenu.category_production_descr"),
+	[BUILDCAT_ECONOMY] = BAR.I18N("ui.buildMenu.category_econ_descr"),
+	[BUILDCAT_COMBAT] = BAR.I18N("ui.buildMenu.category_combat_descr"),
+	[BUILDCAT_UTILITY] = BAR.I18N("ui.buildMenu.category_utility_descr"),
+	[BUILDCAT_PRODUCTION] = BAR.I18N("ui.buildMenu.category_production_descr"),
 }
 
 local folder = "LuaUI/Images/groupicons/"
@@ -108,12 +108,12 @@ local modKeyMultiplier = {
 	click = {
 		ctrl = 20,
 		shift = 5,
-		right = -1
+		right = -1,
 	},
 	keyPress = {
 		ctrl = -1,
-		shift = 5
-	}
+		shift = 5,
+	},
 }
 
 -------------------------------------------------------------------------------
@@ -154,7 +154,7 @@ local costOverrides = {}
 -------------------------------------------------------------------------------
 
 include("keysym.h.lua")
-local unitBlocking = VFS.Include('luaui/Include/unitBlocking.lua')
+local unitBlocking = VFS.Include("luaui/Include/unitBlocking.lua")
 
 local keyConfig = VFS.Include("luaui/configs/keyboard_layouts.lua")
 local currentLayout = Spring.GetConfigString("KeyboardLayout", "qwerty")
@@ -368,7 +368,6 @@ local isPregame
 local units = VFS.Include("luaui/configs/unit_buildmenu_config.lua")
 local grid = VFS.Include("luaui/configs/gridmenu_config.lua")
 
-
 local unitBuildOptions = {}
 local unitMetal_extractor = {}
 local unitTranslatedHumanName = {}
@@ -399,7 +398,7 @@ local function refreshUnitDefs()
 end
 
 -- starting units
-local startUnits = string.split(Spring.GetTeamRulesParam(Spring.GetMyTeamID(), "validStartUnits") or Spring.GetGameRulesParam("validStartUnits"), "|")
+local startUnits = string.split(Spring.GetTeamRulesParam(Spring.GetLocalTeamID(), "validStartUnits") or Spring.GetGameRulesParam("validStartUnits"), "|")
 local startBuildOptions = {}
 for _, uDefIDString in ipairs(startUnits) do
 	local uDefID = tonumber(uDefIDString)
@@ -429,7 +428,7 @@ local function resetHovered()
 		rect.opts.hovered = false
 	end
 
-	WG["buildmenu"].hoverID = nil
+	WG.buildmenu.hoverID = nil
 	labBuildModeRect.opts.hovered = false
 	nextBuilderRect.opts.hovered = false
 	backRect.opts.hovered = false
@@ -463,24 +462,22 @@ end
 local function setHoveredRectTooltip(rect, text, title, clicked)
 	setHoveredRect(rect, clicked)
 
-	if WG["tooltip"] then
-		WG["tooltip"].ShowTooltip("buildmenu", text, nil, nil, title)
+	if WG.tooltip then
+		WG.tooltip.ShowTooltip("buildmenu", text, nil, nil, title)
 	end
 end
 
 local function updateHoverState()
 	local x, y, left, _, right = Spring.GetMouseState()
 	local isAboveBg = backgroundRect:contains(x, y)
-	local isAboveBuilders = not isAboveBg
-		and selectedBuildersCount > 1
-		and (buildersRect:contains(x, y) or nextBuilderRect:contains(x, y))
+	local isAboveBuilders = not isAboveBg and selectedBuildersCount > 1 and (buildersRect:contains(x, y) or nextBuilderRect:contains(x, y))
 
 	if isAboveBuilders then
 		Spring.SetMouseCursor("cursornormal")
 
 		-- builder buttons
 		if nextBuilderRect:contains(x, y) then
-			setHoveredRectTooltip(nextBuilderRect, "\255\240\240\240" .. Spring.I18N("ui.buildMenu.nextBuilder"))
+			setHoveredRectTooltip(nextBuilderRect, "\255\240\240\240" .. BAR.I18N("ui.buildMenu.nextBuilder"))
 
 			return
 		end
@@ -492,11 +489,7 @@ local function updateHoverState()
 					break
 				end
 
-				setHoveredRectTooltip(
-					rect,
-					unitTranslatedTooltip[rect.opts.uDefID],
-					unitTranslatedHumanName[rect.opts.uDefID]
-				)
+				setHoveredRectTooltip(rect, unitTranslatedTooltip[rect.opts.uDefID], unitTranslatedHumanName[rect.opts.uDefID])
 
 				return
 			end
@@ -534,7 +527,7 @@ local function updateHoverState()
 			local text
 			local textColor = "\255\215\255\215"
 			if cellRect.opts.disabled then
-				text = Spring.I18N("ui.buildMenu.disabled", {
+				text = BAR.I18N("ui.buildMenu.disabled", {
 					unit = unitTranslatedHumanName[uDefID],
 					textColor = textColor,
 					warnColor = "\255\166\166\166",
@@ -544,11 +537,11 @@ local function updateHoverState()
 			end
 			local tooltip = unitTranslatedTooltip[uDefID]
 			if unitMetal_extractor[uDefID] then
-				tooltip = tooltip .. "\n" .. Spring.I18N("ui.buildMenu.areamex_tooltip")
+				tooltip = tooltip .. "\n" .. BAR.I18N("ui.buildMenu.areamex_tooltip")
 			end
 
 			setHoveredRectTooltip(cellRect, "\255\240\240\240" .. tooltip, text, left or right)
-			WG["buildmenu"].hoverID = uDefID
+			WG.buildmenu.hoverID = uDefID
 
 			return
 		end
@@ -558,10 +551,7 @@ local function updateHoverState()
 	if not currentCategory and not builderIsFactory then
 		for cat, catRect in pairs(catRects) do
 			if catRect:contains(x, y) then
-				local text = categoryTooltips[cat]
-					.. "\255\240\240\240 - Hotkey: \255\215\255\215["
-					.. catRect.opts.keyText
-					.. "]"
+				local text = categoryTooltips[cat] .. "\255\240\240\240 - Hotkey: \255\215\255\215[" .. catRect.opts.keyText .. "]"
 
 				setHoveredRectTooltip(catRect, text, cat)
 
@@ -572,7 +562,7 @@ local function updateHoverState()
 
 	-- build mode button
 	if builderIsFactory and (useLabBuildMode and not labBuildModeActive) and labBuildModeRect:contains(x, y) then
-		setHoveredRectTooltip(labBuildModeRect, "\255\240\240\240" .. Spring.I18N("ui.buildMenu.buildmode_descr"))
+		setHoveredRectTooltip(labBuildModeRect, "\255\240\240\240" .. BAR.I18N("ui.buildMenu.buildmode_descr"))
 
 		return
 	end
@@ -580,7 +570,7 @@ local function updateHoverState()
 	if currentCategory or labBuildModeActive then
 		-- back button
 		if backRect and backRect:contains(x, y) then
-			setHoveredRectTooltip(backRect, "\255\240\240\240" .. Spring.I18N("ui.buildMenu.homePage"))
+			setHoveredRectTooltip(backRect, "\255\240\240\240" .. BAR.I18N("ui.buildMenu.homePage"))
 
 			return
 		end
@@ -588,7 +578,7 @@ local function updateHoverState()
 
 	-- paginator buttons
 	if pages > 1 and nextPageRect and nextPageRect:contains(x, y) then
-		setHoveredRectTooltip(nextPageRect, "\255\240\240\240" .. Spring.I18N("ui.buildMenu.nextPage"))
+		setHoveredRectTooltip(nextPageRect, "\255\240\240\240" .. BAR.I18N("ui.buildMenu.nextPage"))
 
 		return
 	end
@@ -736,9 +726,7 @@ local function updateGrid()
 	-- well reindex the cellsidsperudef
 	uDefCellIds = {}
 
-	local showHotkeys = (builderIsFactory and not useLabBuildMode)
-		or (builderIsFactory and useLabBuildMode and labBuildModeActive)
-		or (activeBuilder and currentCategory)
+	local showHotkeys = (builderIsFactory and not useLabBuildMode) or (builderIsFactory and useLabBuildMode and labBuildModeActive) or (activeBuilder and currentCategory)
 
 	local offset = (currentPage - 1) * cellCount
 
@@ -834,12 +822,7 @@ local function setupCells()
 				arow = col < 3 and 2 or 1
 				acol = 6 - col % 2
 			end
-			cellRects[cellRectID]:set(
-				buildpicsRect.x + (acol - 1) * cellSize,
-				buildpicsRect.yEnd - (rows - arow + 1) * cellSize,
-				buildpicsRect.x + acol * cellSize,
-				buildpicsRect.yEnd - (rows - arow) * cellSize
-			)
+			cellRects[cellRectID]:set(buildpicsRect.x + (acol - 1) * cellSize, buildpicsRect.yEnd - (rows - arow + 1) * cellSize, buildpicsRect.x + acol * cellSize, buildpicsRect.yEnd - (rows - arow) * cellSize)
 		end
 	end
 end
@@ -853,13 +836,7 @@ local function setupCategoryRects()
 
 		for i, cat in ipairs(CONFIG.buildCategories) do
 			local y1 = categoriesRect.yEnd - i * contentHeight + 2
-			catRects[cat]:set(
-				x1,
-				y1,
-				x1 + contentWidth - activeAreaMargin,
-				y1 + contentHeight - 2,
-				defaultCategoryOpts[i]
-			)
+			catRects[cat]:set(x1, y1, x1 + contentWidth - activeAreaMargin, y1 + contentHeight - 2, defaultCategoryOpts[i])
 		end
 
 		local y1 = ((categoriesRect.yEnd - categoriesRect.y) / 2) - (contentHeight / 2)
@@ -872,21 +849,10 @@ local function setupCategoryRects()
 		for i, cat in ipairs(CONFIG.buildCategories) do
 			local x1 = categoriesRect.x + (i - 1) * buttonWidth
 
-			catRects[cat]:set(
-				x1,
-				y2 - categoryButtonHeight + padding,
-				x1 + buttonWidth,
-				y2 - activeAreaMargin - padding,
-				defaultCategoryOpts[i]
-			)
+			catRects[cat]:set(x1, y2 - categoryButtonHeight + padding, x1 + buttonWidth, y2 - activeAreaMargin - padding, defaultCategoryOpts[i])
 		end
 		local x1 = (math.round(categoriesRect.xEnd - categoriesRect.x) / 2) - (buttonWidth / 2)
-		currentCategoryRect:set(
-			x1,
-			y2 - categoryButtonHeight + padding,
-			x1 + buttonWidth,
-			y2 - activeAreaMargin - padding
-		)
+		currentCategoryRect:set(x1, y2 - categoryButtonHeight + padding, x1 + buttonWidth, y2 - activeAreaMargin - padding)
 	end
 end
 
@@ -1026,9 +992,7 @@ end
 -- Helper function for iterating over the actions with builder and factory tags,
 -- with GetActionHotKeys those tags will be missed and the hotkey wont work
 local function getGridKey(action)
-	local key = getActionHotkey(action)
-		or getActionHotkey(action .. " builder")
-		or getActionHotkey(action .. " factory")
+	local key = getActionHotkey(action) or getActionHotkey(action .. " builder") or getActionHotkey(action .. " factory")
 	return key
 end
 
@@ -1074,8 +1038,7 @@ local function setLabBuildMode(value)
 end
 
 local function setActiveCommand(cmd, button, leftClick, rightClick)
-	local didChangeCmd = button and Spring.SetActiveCommand(cmd, button, leftClick, rightClick, Spring.GetModKeyState())
-		or Spring.SetActiveCommand(cmd)
+	local didChangeCmd = button and Spring.SetActiveCommand(cmd, button, leftClick, rightClick, Spring.GetModKeyState()) or Spring.SetActiveCommand(cmd)
 
 	if not didChangeCmd then
 		Spring.Echo("<Grid menu> Unable to change active command", cmd)
@@ -1089,9 +1052,9 @@ end
 
 local function pickBlueprint(uDefID)
 	local isRepeatMex = unitMetal_extractor[uDefID] and -uDefID == activeCmd
-	local cmd = (WG["areamex"] and isRepeatMex and "areamex") or spGetCmdDescIndex(-uDefID)
-	if isRepeatMex and WG["areamex"] then
-		WG["areamex"].setAreaMexType(-uDefID)
+	local cmd = (WG.areamex and isRepeatMex and "areamex") or spGetCmdDescIndex(-uDefID)
+	if isRepeatMex and WG.areamex then
+		WG.areamex.setAreaMexType(-uDefID)
 	end
 	setActiveCommand(cmd)
 end
@@ -1164,7 +1127,7 @@ local function queueUnit(uDefID, opts, quantity)
 	for unitDefID, unitIds in pairs(sel) do
 		if units.isFactory[unitDefID] then
 			for _, uid in ipairs(unitIds) do
-				for _ = 1,quantity do
+				for _ = 1, quantity do
 					spGiveOrderToUnit(uid, -uDefID, 0, opts)
 				end
 			end
@@ -1214,7 +1177,7 @@ local function multiQueue(uDefID, quantity, cap, opts)
 	if quantity >= cap then
 		multiqueue_quantity = math.floor(quantity / cap)
 		queueUnit(uDefID, opts, multiqueue_quantity)
-		quantity = math.fmod(quantity,cap)
+		quantity = math.fmod(quantity, cap)
 	end
 	return quantity
 end
@@ -1253,7 +1216,7 @@ local function gridmenuKeyHandler(_, _, args, _, isRepeat)
 		end
 
 		if WG.Quotas and WG.Quotas.isOnQuotaMode(activeBuilderID) and not alt then
-			updateQuotaNumber(uDefID,quantity)
+			updateQuotaNumber(uDefID, quantity)
 			return true
 		else
 			if args[3] and args[3] == "builder" then
@@ -1270,11 +1233,11 @@ local function gridmenuKeyHandler(_, _, args, _, isRepeat)
 				Spring.PlaySoundFile(CONFIG.sound_queue_add, 0.75, "ui")
 			end
 			--if quantity is more than 100, more than 20 or more than 5 then use engine logic for better performance (fewer for loops inside queueUnit())
-			quantity = multiQueue(uDefID,quantity,100,{ "ctrl","shift", alt and "alt", removing and "right" })
-			quantity = multiQueue(uDefID,quantity,20,{ "ctrl", alt and "alt", removing and "right" })
-			quantity = multiQueue(uDefID,quantity,5,{ "shift", alt and "alt", removing and "right" })
+			quantity = multiQueue(uDefID, quantity, 100, { "ctrl", "shift", alt and "alt", removing and "right" })
+			quantity = multiQueue(uDefID, quantity, 20, { "ctrl", alt and "alt", removing and "right" })
+			quantity = multiQueue(uDefID, quantity, 5, { "shift", alt and "alt", removing and "right" })
 			--queue the remaining units
-			multiQueue(uDefID,quantity,1,{ alt and "alt", removing and "right" })
+			multiQueue(uDefID, quantity, 1, { alt and "alt", removing and "right" })
 
 			return true
 		end
@@ -1370,7 +1333,7 @@ function widget:Initialize()
 	local blockedUnitsData = unitBlocking.getBlockedUnitDefs()
 	for unitDefID, reasons in pairs(blockedUnitsData) do
 		units.unitRestricted[unitDefID] = next(reasons) ~= nil
-		units.unitHidden[unitDefID] = reasons["hidden"] ~= nil
+		units.unitHidden[unitDefID] = reasons.hidden ~= nil
 	end
 
 	if widgetHandler:IsWidgetKnown("Build menu") then
@@ -1379,15 +1342,14 @@ function widget:Initialize()
 		widgetHandler:DisableWidgetRaw("Build menu")
 	end
 
-	myTeamID = Spring.GetMyTeamID()
+	myTeamID = Spring.GetLocalTeamID()
 	isSpec = Spring.GetSpectatingState()
 	isPregame = Spring.GetGameFrame() == 0 and not isSpec
 
-	WG["gridmenu"] = {}
-	WG["buildmenu"] = {}
+	WG.gridmenu = {}
+	WG.buildmenu = {}
 
 	doUpdateClock = os.clock()
-
 
 	widgetHandler.actionHandler:AddAction(self, "gridmenu_key", gridmenuKeyHandler, nil, "pR")
 	widgetHandler.actionHandler:AddAction(self, "gridmenu_category", gridmenuCategoryHandler, nil, "pt")
@@ -1423,97 +1385,97 @@ function widget:Initialize()
 		widget:SelectionChanged(Spring.GetSelectedUnits())
 	end
 
-	WG["gridmenu"].getActiveBuilder = function()
+	WG.gridmenu.getActiveBuilder = function()
 		return activeBuilder
 	end
-	WG["gridmenu"].getAlwaysReturn = function()
+	WG.gridmenu.getAlwaysReturn = function()
 		return alwaysReturn
 	end
-	WG["gridmenu"].setAlwaysReturn = function(value)
+	WG.gridmenu.setAlwaysReturn = function(value)
 		alwaysReturn = value
 	end
-	WG["gridmenu"].getAutoSelectFirst = function()
+	WG.gridmenu.getAutoSelectFirst = function()
 		return autoSelectFirst
 	end
-	WG["gridmenu"].setAutoSelectFirst = function(value)
+	WG.gridmenu.setAutoSelectFirst = function(value)
 		autoSelectFirst = value
 	end
-	WG["gridmenu"].getUseLabBuildMode = function()
+	WG.gridmenu.getUseLabBuildMode = function()
 		return useLabBuildMode
 	end
-	WG["gridmenu"].setUseLabBuildMode = function(value)
+	WG.gridmenu.setUseLabBuildMode = function(value)
 		useLabBuildMode = value
 		updateGrid()
 	end
-	WG["gridmenu"].setCurrentCategory = function(category)
+	WG.gridmenu.setCurrentCategory = function(category)
 		setCurrentCategory(category)
 	end
-	WG["gridmenu"].clearCategory = function()
+	WG.gridmenu.clearCategory = function()
 		clearCategory()
 	end
 
-	WG["gridmenu"].getCtrlKeyModifier = function()
+	WG.gridmenu.getCtrlKeyModifier = function()
 		return modKeyMultiplier.keyPress.ctrl
 	end
-	WG["gridmenu"].setCtrlKeyModifier = function(value)
+	WG.gridmenu.setCtrlKeyModifier = function(value)
 		modKeyMultiplier.keyPress.ctrl = value
 	end
-	WG["gridmenu"].getShiftKeyModifier = function()
+	WG.gridmenu.getShiftKeyModifier = function()
 		return modKeyMultiplier.keyPress.shift
 	end
-	WG["gridmenu"].setShiftKeyModifier = function(value)
+	WG.gridmenu.setShiftKeyModifier = function(value)
 		modKeyMultiplier.keyPress.shift = value
 	end
 
-	WG["buildmenu"].getGroups = function()
+	WG.buildmenu.getGroups = function()
 		return groups, units.unitGroup
 	end
-	WG["buildmenu"].getOrder = function()
+	WG.buildmenu.getOrder = function()
 		return units.unitOrder
 	end
-	WG["buildmenu"].getShowPrice = function()
+	WG.buildmenu.getShowPrice = function()
 		return showPrice
 	end
-	WG["buildmenu"].setShowPrice = function(value)
+	WG.buildmenu.setShowPrice = function(value)
 		showPrice = value
 		updateGrid()
 	end
-	WG["buildmenu"].getAlwaysShow = function()
+	WG.buildmenu.getAlwaysShow = function()
 		return alwaysShow
 	end
-	WG["buildmenu"].setAlwaysShow = function(value)
+	WG.buildmenu.setAlwaysShow = function(value)
 		alwaysShow = value
 		refreshCommands()
 	end
-	WG["buildmenu"].getShowRadarIcon = function()
+	WG.buildmenu.getShowRadarIcon = function()
 		return showRadarIcon
 	end
-	WG["buildmenu"].setShowRadarIcon = function(value)
+	WG.buildmenu.setShowRadarIcon = function(value)
 		showRadarIcon = value
 		updateGrid()
 	end
-	WG["buildmenu"].getShowGroupIcon = function()
+	WG.buildmenu.getShowGroupIcon = function()
 		return showGroupIcon
 	end
-	WG["buildmenu"].setShowGroupIcon = function(value)
+	WG.buildmenu.setShowGroupIcon = function(value)
 		showGroupIcon = value
 		updateGrid()
 	end
-	WG["buildmenu"].getBottomPosition = function()
+	WG.buildmenu.getBottomPosition = function()
 		return stickToBottom
 	end
-	WG["buildmenu"].setBottomPosition = function(value)
+	WG.buildmenu.setBottomPosition = function(value)
 		stickToBottom = value
 		widget:ViewResize()
 	end
-	WG["buildmenu"].getSize = function()
+	WG.buildmenu.getSize = function()
 		return backgroundRect.y, backgroundRect.yEnd
 	end
-	WG["buildmenu"].reloadBindings = function()
+	WG.buildmenu.reloadBindings = function()
 		reloadBindings()
 		refreshCommands()
 	end
-	WG["buildmenu"].getIsShowing = function()
+	WG.buildmenu.getIsShowing = function()
 		return buildmenuShows
 	end
 	---@class CostLine
@@ -1529,7 +1491,7 @@ function widget:Initialize()
 	---Override the cost display for a specific unit in the grid menu
 	---@param unitDefID number The unit definition ID to override costs for
 	---@param costData CostData Cost override configuration table with optional properties
-	WG["gridmenu"].setCostOverride = function(unitDefID, costData)
+	WG.gridmenu.setCostOverride = function(unitDefID, costData)
 		if unitDefID and costData then
 			costOverrides[unitDefID] = costData
 			redraw = true
@@ -1539,7 +1501,7 @@ function widget:Initialize()
 
 	---Clear cost overrides for a specific unit or all units
 	---@param unitDefID number? The unit definition ID to clear overrides for. If nil or not provided, clears all cost overrides.
-	WG["gridmenu"].clearCostOverrides = function(unitDefID)
+	WG.gridmenu.clearCostOverrides = function(unitDefID)
 		if unitDefID then
 			costOverrides[unitDefID] = nil
 		else
@@ -1557,7 +1519,9 @@ function widget:Initialize()
 	---@param unitDefID number The unit definition ID to highlight.
 	---@param color number[]? Optional {r,g,b} in 0..1. Defaults to a warm yellow.
 	local function setHighlight(unitDefID, color)
-		if not unitDefID then return end
+		if not unitDefID then
+			return
+		end
 		local items = highlight.items
 		if not items[unitDefID] then
 			highlight.count = highlight.count + 1
@@ -1588,21 +1552,21 @@ function widget:Initialize()
 		return unitDefID ~= nil and highlight.items[unitDefID] ~= nil
 	end
 
-	WG["buildmenu"].setHighlight = setHighlight
-	WG["buildmenu"].removeHighlight = removeHighlight
-	WG["buildmenu"].clearHighlights = clearHighlights
-	WG["buildmenu"].hasHighlight = hasHighlight
-	WG["gridmenu"].setHighlight = setHighlight
-	WG["gridmenu"].removeHighlight = removeHighlight
-	WG["gridmenu"].clearHighlights = clearHighlights
-	WG["gridmenu"].hasHighlight = hasHighlight
+	WG.buildmenu.setHighlight = setHighlight
+	WG.buildmenu.removeHighlight = removeHighlight
+	WG.buildmenu.clearHighlights = clearHighlights
+	WG.buildmenu.hasHighlight = hasHighlight
+	WG.gridmenu.setHighlight = setHighlight
+	WG.gridmenu.removeHighlight = removeHighlight
+	WG.gridmenu.clearHighlights = clearHighlights
+	WG.gridmenu.hasHighlight = hasHighlight
 
 	local blockedUnits = {}
 
 	local blockedUnitsData = unitBlocking.getBlockedUnitDefs()
 	for unitDefID, reasons in pairs(blockedUnitsData) do
 		units.unitRestricted[unitDefID] = next(reasons) ~= nil
-		units.unitHidden[unitDefID] = reasons["hidden"] ~= nil
+		units.unitHidden[unitDefID] = reasons.hidden ~= nil
 	end
 end
 
@@ -1611,7 +1575,7 @@ end
 -------------------------------------------------------------------------------
 
 local function checkGuishader(force)
-	if WG["guishader"] then
+	if WG.guishader then
 		if force and dlistGuishader then
 			dlistGuishader = gl.DeleteList(dlistGuishader)
 		end
@@ -1620,7 +1584,7 @@ local function checkGuishader(force)
 				RectRound(backgroundRect.x, backgroundRect.y, backgroundRect.xEnd, backgroundRect.yEnd, elementCorner)
 			end)
 			if activeBuilder then
-				WG["guishader"].InsertDlist(dlistGuishader, "buildmenu")
+				WG.guishader.InsertDlist(dlistGuishader, "buildmenu")
 			end
 		end
 	elseif dlistGuishader then
@@ -1650,7 +1614,7 @@ function widget:ViewResize()
 
 	activeAreaMargin = math_ceil(bgpadding * CONFIG.activeAreaMargin)
 
-	font2 = WG['fonts'].getFont(2)
+	font2 = WG.fonts.getFont(2)
 
 	for i, rectOpts in ipairs(defaultCategoryOpts) do
 		defaultCategoryOpts[i].nameHeight = font2:GetTextHeight(rectOpts.name)
@@ -1659,8 +1623,8 @@ function widget:ViewResize()
 
 	backRect.opts.keyTextHeight = font2:GetTextHeight(backRect.opts.name)
 
-	if WG["minimap"] then
-		minimapHeight = WG["minimap"].getHeight()
+	if WG.minimap then
+		minimapHeight = WG.minimap.getHeight()
 	end
 
 	-- if stick to bottom we know cells are 2 row by 6 column
@@ -1680,36 +1644,16 @@ function widget:ViewResize()
 		-- assemble rects left to right
 		categoriesRect:set(posX + bgpadding, posYEnd, posX + categoryWidth, posY - bgpadding)
 
-		buildpicsRect:set(
-			categoriesRect.xEnd + bgpadding,
-			posYEnd,
-			categoriesRect.xEnd + (cellSize * columns) + bgpadding,
-			posY - bgpadding
-		)
+		buildpicsRect:set(categoriesRect.xEnd + bgpadding, posYEnd, categoriesRect.xEnd + (cellSize * columns) + bgpadding, posY - bgpadding)
 
 		backgroundRect:set(posX, posYEnd, buildpicsRect.xEnd + bgpadding, posY)
 
 		local buttonHeight = categoriesRect:getHeight() / 4
-		backRect:set(
-			categoriesRect.x,
-			categoriesRect.yEnd - buttonHeight + bgpadding,
-			categoriesRect.xEnd,
-			categoriesRect.yEnd
-		)
+		backRect:set(categoriesRect.x, categoriesRect.yEnd - buttonHeight + bgpadding, categoriesRect.xEnd, categoriesRect.yEnd)
 
-		nextPageRect:set(
-			categoriesRect.x,
-			categoriesRect.y + bgpadding,
-			categoriesRect.xEnd,
-			categoriesRect.y + buttonHeight - bgpadding
-		)
+		nextPageRect:set(categoriesRect.x, categoriesRect.y + bgpadding, categoriesRect.xEnd, categoriesRect.y + buttonHeight - bgpadding)
 
-		labBuildModeRect:set(
-			categoriesRect.x,
-			categoriesRect.y + buttonHeight + bgpadding,
-			categoriesRect.xEnd,
-			categoriesRect.yEnd - bgpadding
-		)
+		labBuildModeRect:set(categoriesRect.x, categoriesRect.y + buttonHeight + bgpadding, categoriesRect.xEnd, categoriesRect.yEnd - bgpadding)
 
 		-- start with no width and grow dynamically
 		buildersRect:set(posX, backgroundRect.yEnd, posX, backgroundRect.yEnd + builderButtonSize)
@@ -1723,8 +1667,8 @@ function widget:ViewResize()
 		local posY = math_floor(posYEnd + ((0.74 * vsx) * width)) / vsy
 		local posX = 0
 
-		if WG["ordermenu"] and not WG["ordermenu"].getBottomPosition() then
-			local _, oposY, _, oheight = WG["ordermenu"].getPosition()
+		if WG.ordermenu and not WG.ordermenu.getBottomPosition() then
+			local _, oposY, _, oheight = WG.ordermenu.getPosition()
 			if posY > oposY then
 				posY = (oposY - oheight - (widgetSpaceMargin / vsy))
 			end
@@ -1738,48 +1682,23 @@ function widget:ViewResize()
 		categoryButtonHeight = categoryButtonHeight * 1.4
 
 		-- assemble rects, bottom to top
-		categoriesRect:set(
-			posX + bgpadding,
-			posYEnd + bgpadding,
-			posXEnd - bgpadding,
-			posYEnd + categoryButtonHeight + bgpadding
-		)
+		categoriesRect:set(posX + bgpadding, posYEnd + bgpadding, posXEnd - bgpadding, posYEnd + categoryButtonHeight + bgpadding)
 
 		rows = 3
 		columns = 4
 		cellSize = math_floor((width - (bgpadding * 2)) / columns)
 
-		buildpicsRect:set(
-			posX + bgpadding,
-			categoriesRect.yEnd,
-			posXEnd - bgpadding,
-			categoriesRect.yEnd + (cellSize * rows)
-		)
+		buildpicsRect:set(posX + bgpadding, categoriesRect.yEnd, posXEnd - bgpadding, categoriesRect.yEnd + (cellSize * rows))
 
 		backgroundRect:set(posX, posYEnd, posXEnd, math_floor(buildpicsRect.yEnd + (bgpadding * 1.5)))
 
 		local buttonWidth = (categoriesRect.xEnd - categoriesRect.x) / 3
 		local padding = math_max(1, math_floor(bgpadding * 0.52))
-		backRect:set(
-			categoriesRect.x,
-			categoriesRect.y + padding,
-			categoriesRect.x + buttonWidth - (bgpadding * 2),
-			categoriesRect.yEnd - padding
-		)
+		backRect:set(categoriesRect.x, categoriesRect.y + padding, categoriesRect.x + buttonWidth - (bgpadding * 2), categoriesRect.yEnd - padding)
 
-		nextPageRect:set(
-			categoriesRect.xEnd - buttonWidth + (2 * bgpadding),
-			categoriesRect.y + padding,
-			categoriesRect.xEnd,
-			categoriesRect.yEnd - padding
-		)
+		nextPageRect:set(categoriesRect.xEnd - buttonWidth + (2 * bgpadding), categoriesRect.y + padding, categoriesRect.xEnd, categoriesRect.yEnd - padding)
 
-		labBuildModeRect:set(
-			categoriesRect.x,
-			categoriesRect.y + padding,
-			nextPageRect.x - (2 * bgpadding),
-			categoriesRect.yEnd - padding
-		)
+		labBuildModeRect:set(categoriesRect.x, categoriesRect.y + padding, nextPageRect.x - (2 * bgpadding), categoriesRect.yEnd - padding)
 
 		-- start with no width and grow dynamically
 		buildersRect:set(posX, backgroundRect.yEnd, posX, backgroundRect.yEnd + builderButtonSize)
@@ -1849,7 +1768,7 @@ function widget:Update(dt)
 			delayRefresh = nil
 		end
 		checkGuishader()
-		if WG["minimap"] and minimapHeight ~= WG["minimap"].getHeight() then
+		if WG.minimap and minimapHeight ~= WG.minimap.getHeight() then
 			widget:ViewResize()
 
 			if not isPregame then
@@ -1858,19 +1777,12 @@ function widget:Update(dt)
 		end
 		local prevOrdermenuLeft = ordermenuLeft
 		local prevOrdermenuHeight = ordermenuHeight
-		if WG["ordermenu"] then
-			local oposX, _, owidth, oheight = WG["ordermenu"].getPosition()
+		if WG.ordermenu then
+			local oposX, _, owidth, oheight = WG.ordermenu.getPosition()
 			ordermenuLeft = math_floor((oposX + owidth) * vsx)
 			ordermenuHeight = oheight
 		end
-		if
-			not prevAdvplayerlistLeft
-			or advplayerlistLeft ~= prevAdvplayerlistLeft
-			or not prevOrdermenuLeft
-			or ordermenuLeft ~= prevOrdermenuLeft
-			or not prevOrdermenuHeight
-			or ordermenuHeight ~= prevOrdermenuHeight
-		then
+		if not prevAdvplayerlistLeft or advplayerlistLeft ~= prevAdvplayerlistLeft or not prevOrdermenuLeft or ordermenuLeft ~= prevOrdermenuLeft or not prevOrdermenuHeight or ordermenuHeight ~= prevOrdermenuHeight then
 			widget:ViewResize()
 			if not isPregame then
 				updateBuilders() -- builder rects are defined dynamically
@@ -1891,11 +1803,11 @@ function widget:Update(dt)
 		buildmenuShows = true
 	end
 
-	if WG['guishader'] and prevBuildmenuShows ~= buildmenuShows and dlistGuishader then
+	if WG.guishader and prevBuildmenuShows ~= buildmenuShows and dlistGuishader then
 		if buildmenuShows then
-			WG['guishader'].InsertDlist(dlistGuishader, 'buildmenu')
+			WG.guishader.InsertDlist(dlistGuishader, "buildmenu")
 		else
-			WG['guishader'].RemoveDlist('buildmenu')
+			WG.guishader.RemoveDlist("buildmenu")
 		end
 	end
 
@@ -1939,32 +1851,11 @@ end
 local function drawBuildMenuBg()
 	local height = backgroundRect.yEnd - backgroundRect.y
 	local posY = backgroundRect.y
-	UiElement(
-		backgroundRect.x,
-		backgroundRect.y,
-		backgroundRect.xEnd,
-		backgroundRect.yEnd,
-		(backgroundRect.x > 0 and (#builderRects > 1 and 0 or 1) or 0),
-		1,
-		((posY - height > 0 or backgroundRect.x <= 0) and 1 or 0),
-		0
-	)
+	UiElement(backgroundRect.x, backgroundRect.y, backgroundRect.xEnd, backgroundRect.yEnd, (backgroundRect.x > 0 and (#builderRects > 1 and 0 or 1) or 0), 1, ((posY - height > 0 or backgroundRect.x <= 0) and 1 or 0), 0)
 
 	if selectedBuildersCount > 1 and activeBuilder then
 		height = backgroundRect:getHeight()
-		UiElement(
-			buildersRect.x,
-			buildersRect.y,
-			buildersRect.xEnd + bgpadding * 2,
-			buildersRect.yEnd + bgpadding + (iconMargin * 2),
-			(backgroundRect.x > 0 and 1 or 0),
-			1,
-			((posY - height > 0 or backgroundRect.x <= 0) and 1 or 0),
-			0,
-			1,
-			1,
-			0
-		)
+		UiElement(buildersRect.x, buildersRect.y, buildersRect.xEnd + bgpadding * 2, buildersRect.yEnd + bgpadding + (iconMargin * 2), (backgroundRect.x > 0 and 1 or 0), 1, ((posY - height > 0 or backgroundRect.x <= 0) and 1 or 0), 0, 1, 1, 0)
 	end
 end
 
@@ -1994,20 +1885,7 @@ local function drawButton(rect)
 		local icon = ":l:" .. rect.opts.icon
 		gl.Color(dim, dim, dim, 0.9)
 		gl.Texture(icon)
-		gl.BeginEnd(
-			GL.QUADS,
-			TexRectRound,
-			rect.x + (bgpadding / 2),
-			rect.yEnd - iconSize,
-			rect.x + iconSize,
-			rect.yEnd - (bgpadding / 2),
-			0,
-			0,
-			0,
-			0,
-			0,
-			0.05
-		) -- this method with a lil zoom prevents faint edges aroudn the image
+		gl.BeginEnd(GL.QUADS, TexRectRound, rect.x + (bgpadding / 2), rect.yEnd - iconSize, rect.x + iconSize, rect.yEnd - (bgpadding / 2), 0, 0, 0, 0, 0, 0.05) -- this method with a lil zoom prevents faint edges aroudn the image
 		--	gl.TexRect(px, sy - iconSize, px + iconSize, sy)
 		gl.Texture(false)
 	end
@@ -2019,38 +1897,16 @@ local function drawButton(rect)
 	if hovered then
 		-- gloss highlight
 		gl.Blending(GL_SRC_ALPHA, GL_ONE)
-		RectRound(
-			rect.x,
-			rect.yEnd - ((rect.yEnd - rect.y) * 0.42),
-			rect.xEnd,
-			rect.yEnd,
-			padding * 1.5,
-			2,
-			2,
-			0,
-			0,
-			{ 1, 1, 1, 0.035 },
-			{ 1, 1, 1, (disableInput and 0.11 or 0.24) }
-		)
-		RectRound(
-			rect.x,
-			rect.y,
-			rect.xEnd,
-			rect.y + ((rect.yEnd - rect.y) * 0.5),
-			padding * 1.5,
-			0,
-			0,
-			2,
-			2,
-			{ 1, 1, 1, (disableInput and 0.035 or 0.075) },
-			{ 1, 1, 1, 0 }
-		)
+		RectRound(rect.x, rect.yEnd - ((rect.yEnd - rect.y) * 0.42), rect.xEnd, rect.yEnd, padding * 1.5, 2, 2, 0, 0, { 1, 1, 1, 0.035 }, { 1, 1, 1, (disableInput and 0.11 or 0.24) })
+		RectRound(rect.x, rect.y, rect.xEnd, rect.y + ((rect.yEnd - rect.y) * 0.5), padding * 1.5, 0, 0, 2, 2, { 1, 1, 1, (disableInput and 0.035 or 0.075) }, { 1, 1, 1, 0 })
 		gl.Blending(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 	end
 end
 
 local function drawHighlights()
-	if highlight.count == 0 or not next(highlight.items) then return end
+	if highlight.count == 0 or not next(highlight.items) then
+		return
+	end
 	local now = os.clock()
 	for uDefID, hl in pairs(highlight.items) do
 		local cellId = uDefCellIds[uDefID]
@@ -2070,7 +1926,7 @@ local function drawHighlights()
 			local brighten = 0.10 + 0.22 * pulse
 			gl.Blending(GL_SRC_ALPHA, GL_ONE)
 			gl.Color(r * brighten, g * brighten, b * brighten, 1)
-			gl.Texture('#' .. uDefID)
+			gl.Texture("#" .. uDefID)
 			UiUnit(x1, y1, x2, y2, cornerSize, 1, 1, 1, 1, defaultCellZoom)
 			gl.Texture(false)
 
@@ -2085,11 +1941,7 @@ local function drawHighlights()
 			-- Soft inner glow fading inward
 			local glowAlpha = 0.10 + 0.20 * pulse
 			local glowWidth = thickness * 3
-			WG.FlowUI.Draw.RectRoundOutline(
-				x1 + thickness, y1 + thickness, x2 - thickness, y2 - thickness,
-				math_max(0, cs - thickness), glowWidth, 1, 1, 1, 1,
-				{ r, g, b, glowAlpha }, { r, g, b, 0 }
-			)
+			WG.FlowUI.Draw.RectRoundOutline(x1 + thickness, y1 + thickness, x2 - thickness, y2 - thickness, math_max(0, cs - thickness), glowWidth, 1, 1, 1, 1, { r, g, b, glowAlpha }, { r, g, b, 0 })
 
 			gl.Blending(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 		end
@@ -2148,13 +2000,13 @@ local function drawCell(rect)
 	end
 
 	-- unit icon
-	local texprefix = ''
+	local texprefix = ""
 	if disabled then
 		gl.Color(0.4, 0.4, 0.4, 1)
-		texprefix = 't0.3,0.3,0.3'
+		texprefix = "t0.3,0.3,0.3"
 	elseif underConstructionDim then
 		gl.Color(0.77, 0.77, 0.77, 1)
-		texprefix = 't0.63,0.63,0.63'
+		texprefix = "t0.63,0.63,0.63"
 	else
 		gl.Color(1, 1, 1, 1)
 	end
@@ -2162,57 +2014,17 @@ local function drawCell(rect)
 	local groupIcon = rect.opts.groupIcon
 	local unitGroup = rect.opts.unitGroup
 
-	UiUnit(
-		rect.x + cellPadding + iconPadding,
-		rect.y + cellPadding + iconPadding,
-		rect.xEnd - cellPadding - iconPadding,
-		rect.yEnd - cellPadding - iconPadding,
-		cornerSize,
-		1,
-		1,
-		1,
-		1,
-		usedZoom,
-		nil,
-		disabled and 0 or nil,
-		unitTexture,
-		groupIcon and (groupIcon and ":l" .. texprefix .. ":" .. groupIcon or nil) or nil,
-		unitGroup and (unitGroup and ":l" .. texprefix .. ":" .. unitGroup or nil) or nil,
-		{ rect.opts.metalCost, rect.opts.energyCost },
-		tonumber(queuenr)
-	)
+	UiUnit(rect.x + cellPadding + iconPadding, rect.y + cellPadding + iconPadding, rect.xEnd - cellPadding - iconPadding, rect.yEnd - cellPadding - iconPadding, cornerSize, 1, 1, 1, 1, usedZoom, nil, disabled and 0 or nil, unitTexture, groupIcon and (groupIcon and ":l" .. texprefix .. ":" .. groupIcon or nil) or nil, unitGroup and (unitGroup and ":l" .. texprefix .. ":" .. unitGroup or nil) or nil, { rect.opts.metalCost, rect.opts.energyCost }, tonumber(queuenr))
 
 	-- colorize/highlight unit icon
 	if cellColor then
 		gl.Blending(GL.DST_ALPHA, GL.ONE_MINUS_SRC_COLOR)
 		gl.Color(cellColor[1], cellColor[2], cellColor[3], cellColor[4])
 		gl.Texture(unitTexture)
-		UiUnit(
-			rect.x + cellPadding + iconPadding,
-			rect.y + cellPadding + iconPadding,
-			rect.xEnd - cellPadding - iconPadding,
-			rect.yEnd - cellPadding - iconPadding,
-			cornerSize,
-			1,
-			1,
-			1,
-			1,
-			usedZoom
-		)
+		UiUnit(rect.x + cellPadding + iconPadding, rect.y + cellPadding + iconPadding, rect.xEnd - cellPadding - iconPadding, rect.yEnd - cellPadding - iconPadding, cornerSize, 1, 1, 1, 1, usedZoom)
 		if cellColor[4] > 0 then
 			gl.Blending(GL_SRC_ALPHA, GL_ONE)
-			UiUnit(
-				rect.x + cellPadding + iconPadding,
-				rect.y + cellPadding + iconPadding,
-				rect.xEnd - cellPadding - iconPadding,
-				rect.yEnd - cellPadding - iconPadding,
-				cornerSize,
-				1,
-				1,
-				1,
-				1,
-				usedZoom
-			)
+			UiUnit(rect.x + cellPadding + iconPadding, rect.y + cellPadding + iconPadding, rect.xEnd - cellPadding - iconPadding, rect.yEnd - cellPadding - iconPadding, cornerSize, 1, 1, 1, 1, usedZoom)
 		end
 		gl.Blending(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 	end
@@ -2233,23 +2045,11 @@ local function drawCell(rect)
 				end
 				local costPrice = formatPrice(math.floor(topValue))
 				local costPriceText = costColor .. costPrice
-				font2:Print(
-					costPriceText,
-					rect.xEnd - cellPadding - (cellInnerSize * 0.048),
-					rect.y + cellPadding + (priceFontSize * 1.35),
-					priceFontSize,
-					"ro"
-				)
+				font2:Print(costPriceText, rect.xEnd - cellPadding - (cellInnerSize * 0.048), rect.y + cellPadding + (priceFontSize * 1.35), priceFontSize, "ro")
 			elseif not costOverride.top then
 				local metalColor = disabled and "\255\125\125\125" or "\255\245\245\245"
 				local metalPriceText = metalColor .. metalPrice
-				font2:Print(
-					metalPriceText,
-					rect.xEnd - cellPadding - (cellInnerSize * 0.048),
-					rect.y + cellPadding + (priceFontSize * 1.35),
-					priceFontSize,
-					"ro"
-				)
+				font2:Print(metalPriceText, rect.xEnd - cellPadding - (cellInnerSize * 0.048), rect.y + cellPadding + (priceFontSize * 1.35), priceFontSize, "ro")
 			end
 
 			if costOverride.bottom and not costOverride.bottom.disabled then
@@ -2259,43 +2059,19 @@ local function drawCell(rect)
 				end
 				local costPrice = formatPrice(math.floor(bottomValue))
 				local costPriceText = costColor .. costPrice
-				font2:Print(
-					costPriceText,
-					rect.xEnd - cellPadding - (cellInnerSize * 0.048),
-					rect.y + cellPadding + (priceFontSize * 0.35),
-					priceFontSize,
-					"ro"
-				)
+				font2:Print(costPriceText, rect.xEnd - cellPadding - (cellInnerSize * 0.048), rect.y + cellPadding + (priceFontSize * 0.35), priceFontSize, "ro")
 			elseif not costOverride.bottom then
 				local energyColor = disabled and "\255\135\135\135" or "\255\255\255\000"
 				local energyPriceText = energyColor .. energyPrice
-				font2:Print(
-					energyPriceText,
-					rect.xEnd - cellPadding - (cellInnerSize * 0.048),
-					rect.y + cellPadding + (priceFontSize * 0.35),
-					priceFontSize,
-					"ro"
-				)
+				font2:Print(energyPriceText, rect.xEnd - cellPadding - (cellInnerSize * 0.048), rect.y + cellPadding + (priceFontSize * 0.35), priceFontSize, "ro")
 			end
 		else
 			local metalColor = disabled and "\255\125\125\125" or "\255\245\245\245"
 			local energyColor = disabled and "\255\135\135\135" or "\255\255\255\000"
 			local metalPriceText = metalColor .. metalPrice
 			local energyPriceText = energyColor .. energyPrice
-			font2:Print(
-				metalPriceText,
-				rect.xEnd - cellPadding - (cellInnerSize * 0.048),
-				rect.y + cellPadding + (priceFontSize * 1.35),
-				priceFontSize,
-				"ro"
-			)
-			font2:Print(
-				energyPriceText,
-				rect.xEnd - cellPadding - (cellInnerSize * 0.048),
-				rect.y + cellPadding + (priceFontSize * 0.35),
-				priceFontSize,
-				"ro"
-			)
+			font2:Print(metalPriceText, rect.xEnd - cellPadding - (cellInnerSize * 0.048), rect.y + cellPadding + (priceFontSize * 1.35), priceFontSize, "ro")
+			font2:Print(energyPriceText, rect.xEnd - cellPadding - (cellInnerSize * 0.048), rect.y + cellPadding + (priceFontSize * 0.35), priceFontSize, "ro")
 		end
 	end
 
@@ -2305,13 +2081,7 @@ local function drawCell(rect)
 	if hotkeyText then
 		local keyFontSize = priceFontSize * 1.1
 		local hotkeyColor = disabled and "\255\100\100\100" or "\255\215\255\215"
-		font2:Print(
-			hotkeyColor .. hotkeyText,
-			rect.xEnd - cellPadding - (cellInnerSize * 0.048),
-			rect.yEnd - cellPadding - keyFontSize,
-			keyFontSize,
-			"ro"
-		)
+		font2:Print(hotkeyColor .. hotkeyText, rect.xEnd - cellPadding - (cellInnerSize * 0.048), rect.yEnd - cellPadding - keyFontSize, keyFontSize, "ro")
 	end
 
 	-- factory queue number
@@ -2332,13 +2102,7 @@ local function drawCell(rect)
 			{ 0.15, 0.15, 0.15, 0.95 },
 			{ 0.25, 0.25, 0.25, 0.95 }
 		)
-		font2:Print(
-			"\255\190\255\190" .. queuenr,
-			rect.x + cellPadding + textPad,
-			rect.y + cellPadding + math_floor(cellInnerSize * 0.735),
-			queueFontSize,
-			"o"
-		)
+		font2:Print("\255\190\255\190" .. queuenr, rect.x + cellPadding + textPad, rect.y + cellPadding + math_floor(cellInnerSize * 0.735), queueFontSize, "o")
 	end
 
 	if quotaNumber and quotaNumber ~= 0 then
@@ -2348,7 +2112,7 @@ local function drawCell(rect)
 		local textWidth = font2:GetTextWidth(quotaText) * queueFontSize
 		if textWidth > 0.75 * cellInnerSize then
 			local newFontSize = queueFontSize * 0.75 * cellInnerSize / textWidth
-			textPad = textPad * newFontSize/queueFontSize
+			textPad = textPad * newFontSize / queueFontSize
 			textWidth = font2:GetTextWidth(quotaText) * newFontSize
 			queueFontSize = newFontSize
 		end
@@ -2365,13 +2129,7 @@ local function drawCell(rect)
 			{ 0.15, 0.15, 0.15, 0.95 },
 			{ 0.25, 0.25, 0.25, 0.95 }
 		)
-		font2:Print(
-			"\255\255\130\190" .. quotaText,
-			rect.x + cellPadding + textPad,
-			rect.y + cellPadding + (math_floor(cellInnerSize * 0.365) - font2:GetTextHeight(quotaNumber)*queueFontSize)/2,
-			queueFontSize,
-			"o"
-		)
+		font2:Print("\255\255\130\190" .. quotaText, rect.x + cellPadding + textPad, rect.y + cellPadding + (math_floor(cellInnerSize * 0.365) - font2:GetTextHeight(quotaNumber) * queueFontSize) / 2, queueFontSize, "o")
 	end
 end
 
@@ -2386,13 +2144,7 @@ local function drawButtonHotkey(rect)
 	local textPadding = bgpadding * 2
 
 	local text = "\255\215\255\215" .. rect.opts.keyText
-	font2:Print(
-		text,
-		rect.xEnd - textPadding,
-		(rect.y - (rect.y - rect.yEnd) / 2) - keyFontHeightOffset,
-		hotkeyFontSize,
-		"ro"
-	)
+	font2:Print(text, rect.xEnd - textPadding, (rect.y - (rect.y - rect.yEnd) / 2) - keyFontHeightOffset, hotkeyFontSize, "ro")
 end
 
 local function drawCategories()
@@ -2402,13 +2154,7 @@ local function drawCategories()
 		local fontHeight = rect.opts.nameHeight * categoryFontSize
 		local fontHeightOffset = fontHeight * 0.34
 
-		font2:Print(
-			rect.opts.name,
-			rect.x + (bgpadding * 7),
-			(rect.y + rect:getHeight() / 2) - fontHeightOffset,
-			categoryFontSize,
-			"o"
-		)
+		font2:Print(rect.opts.name, rect.x + (bgpadding * 7), (rect.y + rect:getHeight() / 2) - fontHeightOffset, categoryFontSize, "o")
 
 		drawButton(rect)
 
@@ -2420,13 +2166,7 @@ local function drawCategories()
 
 		local fontHeight = rect.opts.nameHeight * categoryFontSize
 		local fontHeightOffset = fontHeight * 0.34
-		font2:Print(
-			rect.opts.name,
-			rect.x + (bgpadding * 7),
-			(rect.y + rect:getHeight() / 2) - fontHeightOffset,
-			categoryFontSize,
-			"o"
-		)
+		font2:Print(rect.opts.name, rect.x + (bgpadding * 7), (rect.y + rect:getHeight() / 2) - fontHeightOffset, categoryFontSize, "o")
 
 		if not rect.current then
 			drawButtonHotkey(rect)
@@ -2464,13 +2204,7 @@ local function drawPageButtons()
 	local fontHeight = font2:GetTextHeight(nextPageText) * pageFontSize
 	local fontHeightOffset = fontHeight * 0.34
 
-	font2:Print(
-		nextPageText,
-		nextPageRect.x + (bgpadding * 3),
-		(nextPageRect.y + (buttonHeight / 2)) - fontHeightOffset,
-		pageFontSize,
-		"o"
-	)
+	font2:Print(nextPageText, nextPageRect.x + (bgpadding * 3), (nextPageRect.y + (buttonHeight / 2)) - fontHeightOffset, pageFontSize, "o")
 
 	drawButtonHotkey(nextPageRect)
 	drawButton(nextPageRect)
@@ -2499,18 +2233,11 @@ local function drawBuildModeButtons()
 	if stickToBottom then
 		local rect = labBuildModeRect
 		local fullText = "\255\245\245\245" .. "Enable Build Mode"
-		local buildModeText, _ =
-			font2:WrapText(fullText, categoriesRect:getWidth() - (bgpadding * 2), nil, pageFontSize * 1.1)
+		local buildModeText, _ = font2:WrapText(fullText, categoriesRect:getWidth() - (bgpadding * 2), nil, pageFontSize * 1.1)
 		local buttonHeight = rect:getHeight()
 		local fontHeight = font2:GetTextHeight(buildModeText) * pageFontSize
 		local fontHeightOffset = fontHeight * 0.24
-		font2:Print(
-			buildModeText,
-			rect.x + (bgpadding * 3),
-			(rect.y + (buttonHeight / 2)) - fontHeightOffset,
-			pageFontSize,
-			"n"
-		)
+		font2:Print(buildModeText, rect.x + (bgpadding * 3), (rect.y + (buttonHeight / 2)) - fontHeightOffset, pageFontSize, "n")
 
 		-- draw hotkeys differently for this button
 		local keyFontHeight = font2:GetTextHeight(hotkeys) * hotkeyFontSize
@@ -2526,13 +2253,7 @@ local function drawBuildModeButtons()
 		local buttonHeight = labBuildModeRect:getHeight()
 		local fontHeight = font2:GetTextHeight(buildModeText) * pageFontSize
 		local fontHeightOffset = fontHeight * 0.24
-		font2:Print(
-			buildModeText,
-			labBuildModeRect.x + (bgpadding * 3),
-			(labBuildModeRect.y + (buttonHeight / 2)) - fontHeightOffset,
-			pageFontSize,
-			"o"
-		)
+		font2:Print(buildModeText, labBuildModeRect.x + (bgpadding * 3), (labBuildModeRect.y + (buttonHeight / 2)) - fontHeightOffset, pageFontSize, "o")
 
 		labBuildModeRect.opts.keyText = hotkeys
 		labBuildModeRect.opts.keyTextHeight = font2:GetTextHeight(hotkeys)
@@ -2557,69 +2278,30 @@ local function drawBuilder(rect)
 	local rectSize = rect.xEnd - rect.x
 
 	gl.Color(lightness, lightness, lightness, 1)
-	UiUnit(
-		rect.x,
-		rect.y,
-		rect.xEnd,
-		rect.yEnd,
-		math.ceil(bgpadding * 0.5),
-		1,
-		1,
-		1,
-		1,
-		zoom,
-		nil,
-		math_max(0.1, highlightOpacity or 0.1),
-		"#" .. unitDefID,
-		nil,
-		nil,
-		nil,
-		nil
-	)
+	UiUnit(rect.x, rect.y, rect.xEnd, rect.yEnd, math.ceil(bgpadding * 0.5), 1, 1, 1, 1, zoom, nil, math_max(0.1, highlightOpacity or 0.1), "#" .. unitDefID, nil, nil, nil, nil)
 
 	-- builder count number
 	if count > 1 then
 		local countFontSize = rectSize * 0.3
 		local pad = math_floor(rectSize * 0.03)
-		font2:Print(
-			"\255\240\240\240" .. count,
-			rect.x + (pad * 2),
-			rect.y + pad + math_floor(countFontSize * 2.2),
-			countFontSize,
-			"o"
-		)
+		font2:Print("\255\240\240\240" .. count, rect.x + (pad * 2), rect.y + pad + math_floor(countFontSize * 2.2), countFontSize, "o")
 	end
 
 	if highlightOpacity then
 		gl.Blending(GL_SRC_ALPHA, GL_ONE)
 		gl.Color(1, 1, 1, highlightOpacity)
-		RectRound(
-			rect.x,
-			rect.y,
-			rect.xEnd,
-			rect.yEnd,
-			math_min(math_max(1, math_floor((rect.xEnd - rect.x) * 0.024)), math_floor((vsy * 0.0015) + 0.5))
-		)
+		RectRound(rect.x, rect.y, rect.xEnd, rect.yEnd, math_min(math_max(1, math_floor((rect.xEnd - rect.x) * 0.024)), math_floor((vsy * 0.0015) + 0.5)))
 		gl.Blending(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 	end
 
 	-- construction progress overlay on the active builder icon
 	if rect.opts.current and backgroundRect.opts.builderUnderConstruction then
 		gl.Blending(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-		RectRoundProgress(
-			rect.x,
-			rect.y,
-			rect.xEnd,
-			rect.yEnd,
-			math_min(math_max(1, math_floor((rect.xEnd - rect.x) * 0.024)), math_floor((vsy * 0.0015) + 0.5)),
-			1 - (backgroundRect.opts.builderProgress or 0),
-			{ 0.05, 0.05, 0.05, 0.72 }
-		)
+		RectRoundProgress(rect.x, rect.y, rect.xEnd, rect.yEnd, math_min(math_max(1, math_floor((rect.xEnd - rect.x) * 0.024)), math_floor((vsy * 0.0015) + 0.5)), 1 - (backgroundRect.opts.builderProgress or 0), { 0.05, 0.05, 0.05, 0.72 })
 	end
 end
 
 local function drawBuilders()
-
 	-- draw builders
 	for i = 1, selectedBuildersCount do
 		drawBuilder(builderRects[i])
@@ -2630,13 +2312,7 @@ local function drawBuilders()
 	local fontSize = rectHeight * 1.2
 	local textHeight = nextBuilderRect.opts.nameHeight * fontSize
 
-	font2:Print(
-		"\255\255\255\255" .. nextBuilderRect.opts.name,
-		nextBuilderRect.x + math_floor(rectHeight * 0.2),
-		nextBuilderRect.y + (rectHeight / 2) - math_floor(textHeight / 2),
-		fontSize,
-		"o"
-	)
+	font2:Print("\255\255\255\255" .. nextBuilderRect.opts.name, nextBuilderRect.x + math_floor(rectHeight * 0.2), nextBuilderRect.y + (rectHeight / 2) - math_floor(textHeight / 2), fontSize, "o")
 
 	drawButton(nextBuilderRect)
 	drawButtonHotkey(nextBuilderRect)
@@ -2650,11 +2326,10 @@ end
 
 local function drawBuildMenu()
 	font2:Begin(true)
-	font2:SetTextColor(1,1,1,1)
-	font2:SetOutlineColor(0,0,0,1)
+	font2:SetTextColor(1, 1, 1, 1)
+	font2:SetOutlineColor(0, 0, 0, 1)
 
-	local drawBackScreen = (currentCategory and not builderIsFactory)
-		or (builderIsFactory and useLabBuildMode and labBuildModeActive)
+	local drawBackScreen = (currentCategory and not builderIsFactory) or (builderIsFactory and useLabBuildMode and labBuildModeActive)
 
 	if activeBuilder and not builderIsFactory then
 		drawCategories()
@@ -2676,7 +2351,7 @@ local function drawBuildMenu()
 
 	-- under-construction warning replaces/precedes other factory controls
 	if builderIsFactory and backgroundRect.opts.builderUnderConstruction then
-		local warningText = "\255\255\200\50" .. Spring.I18N("ui.buildMenu.underConstruction", { default = "Under Construction" })
+		local warningText = "\255\255\200\50" .. BAR.I18N("ui.buildMenu.underConstruction", { default = "Under Construction" })
 		local fontSize = pageFontSize * 1.1
 		local containerHeight = categoriesRect:getHeight()
 		local fontHeight = font2:GetTextHeight(warningText) * fontSize
@@ -2738,14 +2413,11 @@ function widget:MousePress(x, y, button)
 	if Spring.IsGUIHidden() then
 		return
 	end
-	if WG["topbar"] and WG["topbar"].showingQuit() then
+	if WG.topbar and WG.topbar.showingQuit() then
 		return
 	end
 
-	if
-		(buildmenuShows and backgroundRect:contains(x, y))
-		or (selectedBuildersCount > 1 and (buildersRect:contains(x, y) or nextBuilderRect:contains(x, y)))
-	then
+	if (buildmenuShows and backgroundRect:contains(x, y)) or (selectedBuildersCount > 1 and (buildersRect:contains(x, y) or nextBuilderRect:contains(x, y))) then
 		if activeBuilder then
 			if pages > 1 then
 				if nextPageRect and nextPageRect:contains(x, y) then
@@ -2801,12 +2473,7 @@ function widget:MousePress(x, y, button)
 
 				for _, cellRect in pairs(cellRects) do
 					local unitDefID = cellRect.opts.uDefID
-					if
-						unitDefID
-						and unitTranslatedHumanName[unitDefID]
-						and cellRect:contains(x, y)
-						and not cellRect.opts.disabled
-					then
+					if unitDefID and unitTranslatedHumanName[unitDefID] and cellRect:contains(x, y) and not cellRect.opts.disabled then
 						local alt, ctrl, meta, shift = Spring.GetModKeyState()
 						if button ~= 3 then
 							if builderIsFactory and WG.Quotas and WG.Quotas.isOnQuotaMode(activeBuilderID) and not alt then
@@ -2830,8 +2497,12 @@ function widget:MousePress(x, y, button)
 						elseif builderIsFactory and spGetCmdDescIndex(-unitDefID) then
 							local function decreaseQuota()
 								local amount = modKeyMultiplier.click.right
-								if ctrl then amount = amount * modKeyMultiplier.click.ctrl end
-								if shift then amount = amount * modKeyMultiplier.click.shift end
+								if ctrl then
+									amount = amount * modKeyMultiplier.click.ctrl
+								end
+								if shift then
+									amount = amount * modKeyMultiplier.click.shift
+								end
 								updateQuotaNumber(unitDefID, amount)
 							end
 
@@ -2887,30 +2558,18 @@ local function checkGuishaderBuilders()
 				dlistGuishaderBuildersNext = gl.DeleteList(dlistGuishaderBuildersNext)
 			end
 			dlistGuishaderBuilders = gl.CreateList(function()
-				RectRound(
-						buildersRect.x,
-						buildersRect.y,
-						buildersRect.xEnd + (bgpadding * 2),
-						buildersRect.yEnd + bgpadding + (iconMargin * 2),
-						elementCorner
-				)
+				RectRound(buildersRect.x, buildersRect.y, buildersRect.xEnd + (bgpadding * 2), buildersRect.yEnd + bgpadding + (iconMargin * 2), elementCorner)
 			end)
-			WG["guishader"].InsertDlist(dlistGuishaderBuilders, "buildmenubuilders")
+			WG.guishader.InsertDlist(dlistGuishaderBuilders, "buildmenubuilders")
 			dlistGuishaderBuildersNext = gl.CreateList(function()
-				RectRound(
-						nextBuilderRect.x,
-						nextBuilderRect.y,
-						nextBuilderRect.xEnd,
-						nextBuilderRect.yEnd,
-						elementCorner * 0.5
-				)
+				RectRound(nextBuilderRect.x, nextBuilderRect.y, nextBuilderRect.xEnd, nextBuilderRect.yEnd, elementCorner * 0.5)
 			end)
-			WG["guishader"].InsertDlist(dlistGuishaderBuildersNext, "buildmenubuildersnext")
+			WG.guishader.InsertDlist(dlistGuishaderBuildersNext, "buildmenubuildersnext")
 		end
 	elseif dlistGuishaderBuilders then
 		prevSelectedBuildersCount = 0
-		WG["guishader"].DeleteDlist("buildmenubuilders")
-		WG["guishader"].DeleteDlist("buildmenubuildersNext")
+		WG.guishader.DeleteDlist("buildmenubuilders")
+		WG.guishader.DeleteDlist("buildmenubuildersNext")
 		dlistGuishaderBuilders = nil
 		dlistGuishaderBuildersNext = nil
 	end
@@ -2923,20 +2582,19 @@ end
 function widget:DrawScreen()
 	gl.Blending(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 	if not (activeBuilder or alwaysShow) then
-		if WG["guishader"] and dlistGuishader then
+		if WG.guishader and dlistGuishader then
 			if dlistGuishader then
-				WG["guishader"].RemoveDlist("buildmenu")
+				WG.guishader.RemoveDlist("buildmenu")
 			end
 			if dlistGuishaderBuilders then
-				WG["guishader"].RemoveDlist("buildmenubuilders")
-				WG["guishader"].RemoveDlist("buildmenubuildersnext")
+				WG.guishader.RemoveDlist("buildmenubuilders")
+				WG.guishader.RemoveDlist("buildmenubuildersnext")
 			end
 		end
 	else
-
-		if WG["guishader"] then
+		if WG.guishader then
 			if dlistGuishader then
-				WG["guishader"].InsertDlist(dlistGuishader, "buildmenu")
+				WG.guishader.InsertDlist(dlistGuishader, "buildmenu")
 			end
 			checkGuishaderBuilders()
 		end
@@ -2951,40 +2609,34 @@ function widget:DrawScreen()
 			end
 			redraw = nil
 			if not buildmenuBgTex then
-				buildmenuBgTex = gl.CreateTexture(math_floor(backgroundRect.xEnd-backgroundRect.x), math_floor(buildersRectYend-backgroundRect.y), {
+				buildmenuBgTex = gl.CreateTexture(math_floor(backgroundRect.xEnd - backgroundRect.x), math_floor(buildersRectYend - backgroundRect.y), {
 					target = GL.TEXTURE_2D,
 					format = GL.RGBA,
 					fbo = true,
 				})
 			end
 			if buildmenuBgTex then
-				gl.R2tHelper.RenderToTexture(buildmenuBgTex,
-					function()
-						gl.Translate(-1, -1, 0)
-						gl.Scale(2 / math_floor(backgroundRect.xEnd-backgroundRect.x), 2 / math_floor(buildersRectYend-backgroundRect.y), 0)
-						gl.Translate(-backgroundRect.x, -backgroundRect.y, 0)
-						drawBuildMenuBg()
-					end,
-					true
-				)
+				gl.R2tHelper.RenderToTexture(buildmenuBgTex, function()
+					gl.Translate(-1, -1, 0)
+					gl.Scale(2 / math_floor(backgroundRect.xEnd - backgroundRect.x), 2 / math_floor(buildersRectYend - backgroundRect.y), 0)
+					gl.Translate(-backgroundRect.x, -backgroundRect.y, 0)
+					drawBuildMenuBg()
+				end, true)
 			end
 			if not buildmenuTex then
-				buildmenuTex = gl.CreateTexture(math_floor(backgroundRect.xEnd-backgroundRect.x)*2, math_floor(buildersRectYend-backgroundRect.y)*2, {	--*(vsy<1400 and 2 or 2)
+				buildmenuTex = gl.CreateTexture(math_floor(backgroundRect.xEnd - backgroundRect.x) * 2, math_floor(buildersRectYend - backgroundRect.y) * 2, { --*(vsy<1400 and 2 or 2)
 					target = GL.TEXTURE_2D,
 					format = GL.RGBA,
 					fbo = true,
 				})
 			end
 			if buildmenuTex and gridmenuUnitpicsWarmDone and not warmedGridmenuUnitpicThisFrame then
-				gl.R2tHelper.RenderToTexture(buildmenuTex,
-					function()
-						gl.Translate(-1, -1, 0)
-						gl.Scale(2 / math_floor(backgroundRect.xEnd-backgroundRect.x), 2 / math_floor(buildersRectYend-backgroundRect.y), 0)
-						gl.Translate(-backgroundRect.x, -backgroundRect.y, 0)
-						drawBuildMenu()
-					end,
-					true
-				)
+				gl.R2tHelper.RenderToTexture(buildmenuTex, function()
+					gl.Translate(-1, -1, 0)
+					gl.Scale(2 / math_floor(backgroundRect.xEnd - backgroundRect.x), 2 / math_floor(buildersRectYend - backgroundRect.y), 0)
+					gl.Translate(-backgroundRect.x, -backgroundRect.y, 0)
+					drawBuildMenu()
+				end, true)
 			end
 			if not gridmenuUnitpicsWarmDone or warmedGridmenuUnitpicThisFrame then
 				redraw = true
@@ -3109,7 +2761,7 @@ function widget:SelectionChanged(newSel)
 		if alwaysShow then
 			refreshCommands()
 		else
-			WG["buildmenu"].hoverID = nil
+			WG.buildmenu.hoverID = nil
 		end
 
 		return
@@ -3135,7 +2787,7 @@ function widget:SelectionChanged(newSel)
 		if alwaysShow then
 			refreshCommands()
 		else
-			WG["buildmenu"].hoverID = nil
+			WG.buildmenu.hoverID = nil
 		end
 
 		return
@@ -3164,7 +2816,7 @@ end
 
 function widget:PlayerChanged()
 	isSpec = Spring.GetSpectatingState()
-	myTeamID = Spring.GetMyTeamID()
+	myTeamID = Spring.GetLocalTeamID()
 end
 
 function widget:GetConfigData()
@@ -3218,7 +2870,7 @@ end
 
 function widget:UnitBlocked(unitDefID, reasons)
 	units.unitRestricted[unitDefID] = next(reasons) ~= nil
-	units.unitHidden[unitDefID] = reasons["hidden"] ~= nil
+	units.unitHidden[unitDefID] = reasons.hidden ~= nil
 	if not delayRefresh or delayRefresh < Spring.GetGameSeconds() then
 		delayRefresh = Spring.GetGameSeconds() + 0.5 -- delay so multiple sequential UnitBlocked calls are batched in a single update.
 	end
@@ -3233,11 +2885,11 @@ function widget:Shutdown()
 		gl.DeleteTexture(buildmenuTex)
 		buildmenuTex = nil
 	end
-	if WG["guishader"] and dlistGuishader then
-		WG["guishader"].DeleteDlist("buildmenu")
-		WG["guishader"].DeleteDlist("buildmenubuilders")
-		WG["guishader"].DeleteDlist("buildmenubuildersnext")
+	if WG.guishader and dlistGuishader then
+		WG.guishader.DeleteDlist("buildmenu")
+		WG.guishader.DeleteDlist("buildmenubuilders")
+		WG.guishader.DeleteDlist("buildmenubuildersnext")
 		dlistGuishader = nil
 	end
-	WG["buildmenu"] = nil
+	WG.buildmenu = nil
 end

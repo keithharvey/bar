@@ -2,12 +2,12 @@ local widget = widget ---@type Widget
 
 function widget:GetInfo()
 	return {
-		name    = "DrawFeatureShape GL4",
-		desc    = "Instanced feature ghosts at arbitrary transforms. Use WG.DrawFeatureShapeGL4",
-		author  = "PtaQ",
-		date    = "July 2026",
+		name = "DrawFeatureShape GL4",
+		desc = "Instanced feature ghosts at arbitrary transforms. Use WG.DrawFeatureShapeGL4",
+		author = "PtaQ",
+		date = "July 2026",
 		license = "GNU GPL, v2 or later",
-		layer   = -9998,
+		layer = -9998,
 		enabled = false,
 		depends = { "gl4" },
 	}
@@ -411,20 +411,11 @@ local function drawFeatureShapeTest(_cmd, _line, args)
 				offsetted = offsetted + 1
 			end
 
-			testHandles[#testHandles + 1] =
-				DrawFeatureShapeGL4(featureDefID, x + nudge, y, z, yaw, pitch, roll, 0.75, 0.2, 1.0, 0.4, 0.5, nil, "test")
+			testHandles[#testHandles + 1] = DrawFeatureShapeGL4(featureDefID, x + nudge, y, z, yaw, pitch, roll, 0.75, 0.2, 1.0, 0.4, 0.5, nil, "test")
 		end
 	end
 
-	Echo(
-		"[DrawFeatureShape GL4] "
-			.. #testHandles
-			.. " ghosts ("
-			.. (#testHandles - offsetted)
-			.. " overlaid, "
-			.. offsetted
-			.. " nudged 60 east); run again to clear"
-	)
+	Echo("[DrawFeatureShape GL4] " .. #testHandles .. " ghosts (" .. (#testHandles - offsetted) .. " overlaid, " .. offsetted .. " nudged 60 east); run again to clear")
 	return true
 end
 
