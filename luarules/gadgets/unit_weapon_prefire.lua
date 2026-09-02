@@ -60,21 +60,23 @@ local prefireInterval = 30 -- frames between aim requests to one unit
 --------------------------------------------------------------------------------
 -- Unit defs
 
--- Weapons that acquire targets on their own, indexed like UnitDef.weapons.
+-- Weapons that acquire targets on their own, numbered like UnitDef.weapons.
+---@type table<integer, integer[]>
 local weaponsByDef = {}
+---@type table<integer, number>
 local rangeByDef = {}
-for unitDefID = 1, #UnitDefs do
-	local unitDef = UnitDefs[unitDefID]
+for unitDefID, unitDef in pairs(UnitDefs) do
 	if unitDef.canAttack and unitDef.maxWeaponRange > 0 then
-		local weapons
-		for weaponNum, weapon in ipairs(unitDef.weapons) do
+		local weapons = {} ---@type integer[]
+		local unitWeapons = unitDef.weapons
+		for weaponNum = 1, #unitWeapons do
+			local weapon = unitWeapons[weaponNum]
 			local weaponDef = WeaponDefs[weapon.weaponDef]
-			if weapon.slavedTo == 0 and weaponDef.type ~= "Shield" and weaponDef.range > 10 then
-				weapons = weapons or {}
+			if weapon.slavedTo == 0 and weaponDef and weaponDef.type ~= "Shield" and weaponDef.range > 10 then
 				weapons[#weapons + 1] = weaponNum
 			end
 		end
-		if weapons then
+		if #weapons > 0 then
 			weaponsByDef[unitDefID] = weapons
 			rangeByDef[unitDefID] = unitDef.maxWeaponRange
 		end
@@ -84,6 +86,7 @@ end
 -- unitDefID => false when no weapon can be prefired, else { [weaponNum] = aim piece }.
 -- Only COB scripts answer AimFromWeaponN/QueryWeaponN this way; Lua-scripted units
 -- raise an error and are marked false.
+---@type table<integer, table<integer, integer>|false>
 local aimPiecesByDef = {}
 
 local function scriptPiece(unitID, functionName)
@@ -95,18 +98,21 @@ local function scriptPiece(unitID, functionName)
 end
 
 local function resolveAimPieces(unitID, unitDefID)
-	local weapons = weaponsByDef[unitDefID]
-	local aimPieces = false
-	if weapons then
-		for i = 1, #weapons do
-			local weaponNum = weapons[i]
-			local aimPiece = scriptPiece(unitID, "AimFromWeapon" .. weaponNum)
-			local muzzlePiece = scriptPiece(unitID, "QueryWeapon" .. weaponNum)
-			if aimPiece and muzzlePiece and aimPiece ~= muzzlePiece then
-				aimPieces = aimPieces or {}
-				aimPieces[weaponNum] = aimPiece
-			end
+	local weapons = weaponsByDef[unitDefID] or {}
+	local aimPieces = {} ---@type table<integer, integer>
+	local found = false
+	for i = 1, #weapons do
+		local weaponNum = weapons[i]
+		local aimPiece = scriptPiece(unitID, "AimFromWeapon" .. weaponNum)
+		local muzzlePiece = scriptPiece(unitID, "QueryWeapon" .. weaponNum)
+		if aimPiece and muzzlePiece and aimPiece ~= muzzlePiece then
+			aimPieces[weaponNum] = aimPiece
+			found = true
 		end
+	end
+	if not found then
+		aimPiecesByDef[unitDefID] = false
+		return false
 	end
 	aimPiecesByDef[unitDefID] = aimPieces
 	return aimPieces
@@ -132,6 +138,9 @@ local function requestAim(unitID, weaponNum, x, y, z)
 	end
 	prefireFrames[unitID] = frame
 	local ux, uy, uz = spGetUnitPosition(unitID, true)
+	if not ux or not uy or not uz then
+		return
+	end
 	local dx, dy, dz = x - ux, y - uy, z - uz
 	local heading = spGetHeadingFromVector(dx, dz) - spGetUnitHeading(unitID)
 	if heading > 32767 then
@@ -159,7 +168,10 @@ end
 ---@return boolean
 local function prefireTargetPos(unitID, weaponNum, x, y, z)
 	local px, py, pz = aimPiecePosition(unitID, weaponNum)
-	if not px or not spGetUnitWeaponHaveFreeLineOfFire(unitID, weaponNum, px, py, pz, x, y, z) then
+	if not px or not py or not pz then
+		return false
+	end
+	if not spGetUnitWeaponHaveFreeLineOfFire(unitID, weaponNum, px, py, pz, x, y, z) then
 		return false
 	end
 	requestAim(unitID, weaponNum, x, y, z)
@@ -174,7 +186,10 @@ end
 ---@return boolean
 local function prefireTargetUnit(unitID, weaponNum, targetID)
 	local px, py, pz = aimPiecePosition(unitID, weaponNum)
-	if not px or not spGetUnitWeaponHaveFreeLineOfFire(unitID, weaponNum, px, py, pz, targetID) then
+	if not px or not py or not pz then
+		return false
+	end
+	if not spGetUnitWeaponHaveFreeLineOfFire(unitID, weaponNum, px, py, pz, targetID) then
 		return false
 	end
 	local _, _, _, x, y, z = spGetUnitPosition(targetID, true)
@@ -236,7 +251,8 @@ end
 
 local function pollUnit(unitID, unitDefID)
 	local aimPieces = aimPiecesByDef[unitDefID]
-	if hasWeaponTarget(unitID, weaponsByDef[unitDefID]) then
+	local weapons = weaponsByDef[unitDefID]
+	if not aimPieces or not weapons or hasWeaponTarget(unitID, weapons) then
 		return
 	end
 	local cmdID, _, _, param1, param2, param3 = spGetUnitCurrentCommand(unitID)
@@ -247,7 +263,7 @@ local function pollUnit(unitID, unitDefID)
 			prefireUnitTarget(unitID, aimPieces, param1)
 		end
 	elseif spGetUnitStates(unitID, false) == FIRESTATE_FIREATWILL then
-		local enemyID = spGetUnitNearestEnemy(unitID, rangeByDef[unitDefID], true)
+		local enemyID = spGetUnitNearestEnemy(unitID, rangeByDef[unitDefID] or 0, true)
 		if enemyID then
 			prefireUnitTarget(unitID, aimPieces, enemyID)
 		end
@@ -263,10 +279,14 @@ function gadget:GameFrame(frame)
 	end
 end
 
-function gadget:UnitCreated(unitID, unitDefID)
+local function trackUnit(unitID, unitDefID)
 	if weaponsByDef[unitDefID] and getAimPieces(unitID, unitDefID) then
 		trackedUnits[unitID] = unitDefID
 	end
+end
+
+function gadget:UnitCreated(unitID, unitDefID)
+	trackUnit(unitID, unitDefID)
 end
 
 function gadget:UnitDestroyed(unitID)
@@ -276,6 +296,9 @@ end
 
 function gadget:Initialize()
 	for _, unitID in ipairs(Spring.GetAllUnits()) do
-		gadget:UnitCreated(unitID, spGetUnitDefID(unitID))
+		local unitDefID = spGetUnitDefID(unitID)
+		if unitDefID then
+			trackUnit(unitID, unitDefID)
+		end
 	end
 end

@@ -30,25 +30,36 @@ local function hasWeaponTarget(unitID)
 	return ttype ~= nil and ttype ~= 0
 end
 
-local function probe(unitID, tx, ty, tz)
+local function probe(unitID, tx, ty, tz) -- luacheck: no unused (read through locals)
 	local r = SyncedRun(function(locals)
-		local unitID, x, y, z = locals.unitID, locals.tx, locals.ty, locals.tz
+		local probeID, x, y, z = locals.unitID, locals.tx, locals.ty, locals.tz
 		local function run()
-			local pieces = Spring.GetUnitPieceMap(unitID)
+			local pieces = Spring.GetUnitPieceMap(probeID) or {}
 			local function lofFrom(pieceName)
-				local px, py, pz = Spring.GetUnitPiecePosDir(unitID, pieces[pieceName])
-				return string.format("%s(y=%.1f)=%s", pieceName, py, tostring(Spring.GetUnitWeaponHaveFreeLineOfFire(unitID, 1, px, py, pz, x, y, z)))
+				local px, py, pz = Spring.GetUnitPiecePosDir(probeID, pieces[pieceName])
+				if not px or not py or not pz then
+					return pieceName .. "=?"
+				end
+				return string.format(
+					"%s(y=%.1f)=%s",
+					pieceName,
+					py,
+					tostring(Spring.GetUnitWeaponHaveFreeLineOfFire(probeID, 1, px, py, pz, x, y, z))
+				)
 			end
+			-- nil source: the engine's own aim-from point, which for missiles is the muzzle
+			---@diagnostic disable-next-line: param-type-mismatch
+			local defaultLof = Spring.GetUnitWeaponHaveFreeLineOfFire(probeID, 1, nil, nil, nil, x, y, z)
 			return string.format(
 				"range=%s lof: default=%s %s %s %s",
-				tostring(Spring.GetUnitWeaponTestRange(unitID, 1, x, y, z)),
-				tostring(Spring.GetUnitWeaponHaveFreeLineOfFire(unitID, 1, nil, nil, nil, x, y, z)),
+				tostring(Spring.GetUnitWeaponTestRange(probeID, 1, x, y, z)),
+				tostring(defaultLof),
 				lofFrom("aimpoint"),
 				lofFrom("lbarrel"),
 				lofFrom("aimy1")
 			)
 		end
-		return CallAsTeam(Spring.GetUnitTeam(unitID), run)
+		return CallAsTeam(Spring.GetUnitTeam(probeID), run)
 	end)
 	return r
 end
@@ -62,11 +73,11 @@ local function test()
 
 	-- flatten the area, then raise a ridge halfway to the target
 	SyncedRun(function(locals)
-		local cx, cz = locals.cx, locals.cz
-		Spring.LevelHeightMap(cx - 200, cz - 200, cx + 600, cz + 200, 100)
+		local hx, hz = locals.cx, locals.cz
+		Spring.LevelHeightMap(hx - 200, hz - 200, hx + 600, hz + 200, 100)
 		Spring.SetHeightMapFunc(function()
-			for x = cx + 160, cx + 200, 8 do
-				for z = cz - 120, cz + 120, 8 do
+			for x = hx + 160, hx + 200, 8 do
+				for z = hz - 120, hz + 120, 8 do
 					Spring.SetHeightMap(x, z, 100 + 9)
 				end
 			end
@@ -88,7 +99,14 @@ local function test()
 	end, 130)
 	echo(string.format("weapon picked the target up after %d frames", Spring.GetGameFrame() - orderFrame))
 	local listed = SyncedProxy.gadgetHandler.GG.GetUnitTargetList(attacker) ~= nil
-	echo(string.format("after set target: listed=%s weaponTarget=%s %s", tostring(listed), tostring(hasWeaponTarget(attacker)), probe(attacker, tx, ty, tz)))
+	echo(
+		string.format(
+			"after set target: listed=%s weaponTarget=%s %s",
+			tostring(listed),
+			tostring(hasWeaponTarget(attacker)),
+			probe(attacker, tx, ty, tz)
+		)
+	)
 	local restFired = hasWeaponTarget(attacker)
 
 	-- raise the arm: one attack on the open floor in front, then remove the order
@@ -97,7 +115,14 @@ local function test()
 	Spring.GiveOrderToUnit(attacker, CMD.STOP, {}, 0)
 	Spring.GiveOrderToUnit(attacker, CMD_SET_TARGET, { tx, ty, tz }, 0)
 	Test.waitFrames(60)
-	echo(string.format("arm raised: listed=%s weaponTarget=%s %s", tostring(SyncedProxy.gadgetHandler.GG.GetUnitTargetList(attacker) ~= nil), tostring(hasWeaponTarget(attacker)), probe(attacker, tx, ty, tz)))
+	echo(
+		string.format(
+			"arm raised: listed=%s weaponTarget=%s %s",
+			tostring(SyncedProxy.gadgetHandler.GG.GetUnitTargetList(attacker) ~= nil),
+			tostring(hasWeaponTarget(attacker)),
+			probe(attacker, tx, ty, tz)
+		)
+	)
 	local raisedFired = hasWeaponTarget(attacker)
 
 	-- same ridge, but the target is an enemy unit behind it
@@ -114,7 +139,13 @@ local function test()
 		return hasWeaponTarget(bot2) or Spring.GetGameFrame() > orderFrame + 120
 	end, 130)
 	local unitTargetFired = hasWeaponTarget(bot2)
-	echo(string.format("unit target behind ridge: weapon has target=%s after %d frames", tostring(unitTargetFired), Spring.GetGameFrame() - orderFrame))
+	echo(
+		string.format(
+			"unit target behind ridge: weapon has target=%s after %d frames",
+			tostring(unitTargetFired),
+			Spring.GetGameFrame() - orderFrame
+		)
+	)
 
 	-- a Lua-scripted unit must not break the prefire path
 	local lus = SyncedRun(function(locals)
@@ -123,22 +154,32 @@ local function test()
 	Test.waitFrames(30)
 	Spring.GiveOrderToUnit(lus, CMD_SET_TARGET, { tx, ty, tz }, 0)
 	Test.waitFrames(60)
-	echo("lua-scripted commander with the same target: listed=" .. tostring(SyncedProxy.gadgetHandler.GG.GetUnitTargetList(lus) ~= nil))
+	echo(
+		"lua-scripted commander with the same target: listed="
+			.. tostring(SyncedProxy.gadgetHandler.GG.GetUnitTargetList(lus) ~= nil)
+	)
 
 	-- a plain Attack order on the ground behind the ridge
 	local bot3 = SyncedRun(function(locals)
 		return Spring.CreateUnit(locals.attackerName, locals.cx, 100, locals.cz - 60, 1, locals.myTeam)
 	end)
 	Test.waitFrames(60)
-	local sx = Spring.GetUnitPosition(bot3)
+	local sx = Spring.GetUnitPosition(bot3) or 0
 	Spring.GiveOrderToUnit(bot3, CMD.ATTACK, { tx, ty, tz - 60 }, 0)
 	orderFrame = Spring.GetGameFrame()
 	Test.waitUntil(function()
 		return hasWeaponTarget(bot3) or Spring.GetGameFrame() > orderFrame + 150
 	end, 160)
 	local attackFired = hasWeaponTarget(bot3)
-	local ex = Spring.GetUnitPosition(bot3)
-	echo(string.format("attack order behind ridge: weapon has target=%s after %d frames, walked %.0f elmos", tostring(attackFired), Spring.GetGameFrame() - orderFrame, ex - sx))
+	local ex = Spring.GetUnitPosition(bot3) or 0
+	echo(
+		string.format(
+			"attack order behind ridge: weapon has target=%s after %d frames, walked %.0f elmos",
+			tostring(attackFired),
+			Spring.GetGameFrame() - orderFrame,
+			ex - sx
+		)
+	)
 
 	-- an idle bot on fire-at-will with an armed enemy behind the ridge
 	local bot4 = SyncedRun(function(locals)
@@ -152,7 +193,14 @@ local function test()
 		return hasWeaponTarget(bot4) or Spring.GetGameFrame() > orderFrame + 200
 	end, 210)
 	local autoFired = hasWeaponTarget(bot4)
-	echo(string.format("auto-target behind ridge: weapon has target=%s after %d frames, enemy in LOS=%s", tostring(autoFired), Spring.GetGameFrame() - orderFrame, tostring(Spring.IsUnitInLos(enemy2, Spring.GetLocalAllyTeamID()))))
+	echo(
+		string.format(
+			"auto-target behind ridge: weapon has target=%s after %d frames, enemy in LOS=%s",
+			tostring(autoFired),
+			Spring.GetGameFrame() - orderFrame,
+			tostring(Spring.IsUnitInLos(enemy2, Spring.GetLocalAllyTeamID()))
+		)
+	)
 
 	assert(listed, "set target was dropped")
 	assert(attackFired, "Rocketeer never fires at an Attack order on ground behind a ridge while its arm is at rest")
