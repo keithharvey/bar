@@ -1,5 +1,6 @@
 local PolicyBuilder = require("modules/policy_builder")
 local Modules = require("modules/enums").Modules
+local Defs = require("modules/defs/contract")
 
 ---@class TransportApproachContext where a carrier meets the ground: shared by load and unload
 ---@field goalY number
@@ -65,6 +66,14 @@ local LoadedSpeed = {
 	CommanderDrag = "CommanderDrag",
 }
 
+---@class TransportUnitDefStages the stages transport adds to the defs module's unit_def fold
+---@field EnemyTransport string transportByEnemy written onto every def from the transportenemy option
+
+---@type TransportUnitDefStages
+local UnitDef = {
+	EnemyTransport = "EnemyTransport",
+}
+
 ---@class TransportPipelines what LoadPolicies("transport") hands back
 ---@field load AssembledPipeline<TransportLoadContext, boolean>
 ---@field unload AssembledPipeline<TransportUnloadContext, boolean>
@@ -74,9 +83,11 @@ local LoadedSpeed = {
 ---@field Load TransportLoadStages
 ---@field Unload TransportUnloadStages
 ---@field LoadedSpeed TransportLoadedSpeedStages
+---@field UnitDef TransportUnitDefStages
 
 return PolicyBuilder.Contract(Modules.Transport, {
 	Load = PolicyBuilder.Single(Load),
 	Unload = PolicyBuilder.Single(Unload),
 	LoadedSpeed = PolicyBuilder.Product(LoadedSpeed),
+	UnitDef = PolicyBuilder.Contributes(Defs.UnitDef, UnitDef),
 })
