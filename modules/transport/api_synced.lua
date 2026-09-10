@@ -1,3 +1,7 @@
+-- Transport's api in the synced handle: setting a passenger down where it will not stand on an ally, which is the one thing the
+-- module does to the synced engine that a gadget or an action asks for by name.
+local Synced = {}
+
 local Traits = require("modules/transport/lib/traits")
 
 local MAP_SIZE_X, MAP_SIZE_Z = Game.mapSizeX, Game.mapSizeZ
@@ -20,10 +24,11 @@ end
 
 ---@class TransportUnstack
 local Unstack = {}
+Synced.Unstack = Unstack
 
 ---@param unitID integer
 ---@return table<integer, integer> turrets nano turret -> its def
-function Unstack.TurretsUnder(unitID)
+local function turretsUnder(unitID)
 	local turrets = {}
 	local x, _, z = Spring.GetUnitPosition(unitID)
 	if x == nil then
@@ -36,6 +41,14 @@ function Unstack.TurretsUnder(unitID)
 		end
 	end
 	return turrets
+end
+
+---@param unstacking table<integer, integer> nano turret -> its def
+---@param unitID integer
+function Unstack.Wake(unstacking, unitID)
+	for turretID, turretDefID in pairs(turretsUnder(unitID)) do
+		unstacking[turretID] = turretDefID
+	end
 end
 
 ---@param unitID integer
@@ -102,4 +115,4 @@ function Unstack.Step(unitID, unitDefID)
 	return false
 end
 
-return Unstack
+return Synced
