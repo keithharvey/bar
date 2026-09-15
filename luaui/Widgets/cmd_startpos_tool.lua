@@ -2252,8 +2252,11 @@ end
 ---fits, and a hull that cannot fit at all is nil.
 function R.disjointHull(points, pad)
 	local kind = R.TYPES[R.type]
-	for _, factor in ipairs({ 1, 0.5, 0.25, 0 }) do
-		local hull = R.hullAround(points, pad * factor)
+	-- The line must clear each spot's extraction radius, or it reads as cutting the mex in two;
+	-- the game judges a mex by its spot, so a tighter line would only mislead.
+	local floor = Game.extractorRadius or 80
+	for _, factor in ipairs({ 1, 0.75, 0.5 }) do
+		local hull = R.hullAround(points, math.max(floor, pad * factor))
 		if not hull then
 			return nil
 		end
