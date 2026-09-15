@@ -86,6 +86,7 @@ local MAX_ALLYTEAMS = 32 -- max configurable ally teams
 local MAX_TEAMS_PER_ALLY = 16 -- max team slots per ally team
 local SAVE_DIR = "Terraform Brush/StartPositions/"
 local STARTBOX_SAVE_DIR = "Terraform Brush/Startboxes/"
+local REGIONS_SAVE_DIR = "Terraform Brush/Regions/"
 local VERTEX_PICK_DIST_SQ = 60 * 60 -- world distance^2 to pick a startbox vertex
 
 -- Team colors matching game_autocolors.lua FFA palette (0-1 float RGBA); extended past 16 for 256-player support
@@ -520,11 +521,7 @@ local function addPosition(x, z, allyTeam, teamSlot)
 	-- via modOption `startpos_max_slope`.
 	if not isPlaceableForCommander(x, z) then
 		Echo(
-			"[StartPos Tool] Skipped: slope exceeds commander tolerance at ("
-				.. math_floor(x)
-				.. ","
-				.. math_floor(z)
-				.. ")"
+			"[Regions] Skipped: slope exceeds commander tolerance at (" .. math_floor(x) .. "," .. math_floor(z) .. ")"
 		)
 		return false
 	end
@@ -1228,7 +1225,7 @@ function boxExport.encode()
 	-- Json is a LuaUI global (luaui/system.lua). Including the module directly fails in this
 	-- sandbox: it opens with `local base = _G`, and _G is not exposed here.
 	if not Json then
-		Echo("[StartPos Tool] Json unavailable; cannot encode.")
+		Echo("[Regions] Json unavailable; cannot encode.")
 		return nil
 	end
 	boxExport.b64 = boxExport.b64 or VFS.Include("common/luaUtilities/base64.lua")
@@ -1249,12 +1246,12 @@ end
 local function copyStartboxOverride()
 	local value, boxes = boxExport.encode()
 	if not value then
-		Echo("[StartPos Tool] No startboxes to copy.")
+		Echo("[Regions] No startboxes to copy.")
 		return false
 	end
 
 	Spring.SetClipboard("!bSet mapmetadata_startbox_override " .. value)
-	Echo(string.format("[StartPos Tool] Copied !bSet for %d startbox(es), %d chars of value.", boxes, #value))
+	Echo(string.format("[Regions] Copied !bSet for %d startbox(es), %d chars of value.", boxes, #value))
 
 	return true
 end
@@ -1647,10 +1644,10 @@ local function saveStartPositions(name, explicitPath)
 	if file then
 		file:write(content)
 		file:close()
-		Echo("[StartPos Tool] Saved start positions to: " .. filename)
+		Echo("[Regions] Saved start positions to: " .. filename)
 		return true
 	else
-		Echo("[StartPos Tool] ERROR: Could not write to: " .. filename)
+		Echo("[Regions] ERROR: Could not write to: " .. filename)
 		return false
 	end
 end
@@ -1666,10 +1663,10 @@ local function loadStartPositions(name, explicitPath)
 			addPosition(pos.x, pos.z, pos.allyTeam or i, pos.teamSlot or 1)
 		end
 		undoHistory = {} -- load is a clean slate
-		Echo("[StartPos Tool] Loaded start positions from: " .. filename)
+		Echo("[Regions] Loaded start positions from: " .. filename)
 		return true
 	else
-		Echo("[StartPos Tool] No saved config found: " .. filename)
+		Echo("[Regions] No saved config found: " .. filename)
 		return false
 	end
 end
@@ -1730,10 +1727,10 @@ local function saveStartboxes(name, explicitPath)
 	if file then
 		file:write(content)
 		file:close()
-		Echo("[StartPos Tool] Saved startboxes to: " .. filename)
+		Echo("[Regions] Saved startboxes to: " .. filename)
 		return true
 	else
-		Echo("[StartPos Tool] ERROR: Could not write to: " .. filename)
+		Echo("[Regions] ERROR: Could not write to: " .. filename)
 		return false
 	end
 end
@@ -1777,10 +1774,10 @@ local function loadStartboxes(name, explicitPath)
 			end
 		end
 		renumberBoxAllyTeams()
-		Echo("[StartPos Tool] Loaded startboxes from: " .. filename)
+		Echo("[Regions] Loaded startboxes from: " .. filename)
 		return true
 	else
-		Echo("[StartPos Tool] No saved startbox config found: " .. filename)
+		Echo("[Regions] No saved startbox config found: " .. filename)
 		return false
 	end
 end
@@ -1828,7 +1825,7 @@ local function generateStartScript(opts)
 
 	local boxes = R.startList
 	if #boxes == 0 then
-		Echo("[StartPos Tool] No startboxes to export.")
+		Echo("[Regions] No startboxes to export.")
 		return nil
 	end
 
@@ -1980,10 +1977,10 @@ local function saveStartScript(name, opts)
 	if file then
 		file:write(script)
 		file:close()
-		Echo("[StartPos Tool] Saved start script to: " .. filename)
+		Echo("[Regions] Saved start script to: " .. filename)
 		return true
 	else
-		Echo("[StartPos Tool] ERROR: Could not write to: " .. filename)
+		Echo("[Regions] ERROR: Could not write to: " .. filename)
 		return false
 	end
 end
@@ -2453,7 +2450,7 @@ function R.seedFromMatch()
 	end
 	if #current.areas > 0 or #current.positions > 0 then
 		Echo(
-			"[StartPos Tool] Opened on the match's starts: "
+			"[Regions] Opened on the match's starts: "
 				.. #current.areas
 				.. " area(s), "
 				.. #current.positions
@@ -2470,12 +2467,12 @@ local function activate(mode)
 	end
 	R.seedFromMatch()
 	R.applyMode()
-	Echo("[StartPos Tool] Activated: " .. R.TYPES[R.type].label:upper() .. " / " .. R.strategy:upper())
+	Echo("[Regions] Activated: " .. R.TYPES[R.type].label:upper() .. " / " .. R.strategy:upper())
 end
 
 local function deactivate()
 	if active then
-		Echo("[StartPos Tool] Deactivated")
+		Echo("[Regions] Deactivated")
 	end
 	active = false
 	dragging = false
@@ -2824,14 +2821,19 @@ function R.copyLayout()
 	Spring.SetClipboard(blob)
 	R.error = ""
 	R.bump()
-	Echo("[StartPos Tool] Mex region layout copied: paste it as the mex_regions_layout modoption")
+	Echo("[Regions] Mex region layout copied: paste it as the mex_regions_layout modoption")
 	return true
 end
 
 ---The mex layer as the map project keeps it: anchors, like startboxes, plus each region's fields.
 function R.save(explicitPath)
 	if #R.mexList == 0 then
+		Echo("[Regions] No regions to save.")
 		return false, "no regions drawn"
+	end
+	if not explicitPath then
+		Spring.CreateDir(REGIONS_SAVE_DIR)
+		explicitPath = REGIONS_SAVE_DIR .. getMapName() .. ".lua"
 	end
 	local lines = {}
 	lines[#lines + 1] = "-- Regions"
@@ -2876,19 +2878,22 @@ function R.save(explicitPath)
 	lines[#lines + 1] = "return regions"
 	local file = io.open(explicitPath, "w")
 	if not file then
-		Echo("[StartPos Tool] ERROR: could not write " .. explicitPath)
+		Echo("[Regions] ERROR: could not write " .. explicitPath)
 		return false
 	end
 	file:write(table.concat(lines, "\n"))
 	file:close()
+	Echo("[Regions] Saved regions to: " .. explicitPath)
 	return true
 end
 
 function R.load(explicitPath)
+	explicitPath = explicitPath or (REGIONS_SAVE_DIR .. getMapName() .. ".lua")
 	local ok, data = pcall(function()
 		return VFS.Include(explicitPath, nil, VFS.RAW_FIRST)
 	end)
 	if not ok or type(data) ~= "table" then
+		Echo("[Regions] No saved regions found: " .. explicitPath)
 		return false
 	end
 	for i = 1, #R.mexList do
@@ -2920,6 +2925,7 @@ function R.load(explicitPath)
 	end
 	R.selectedIdx = nil
 	R.bump()
+	Echo("[Regions] Loaded regions from: " .. explicitPath)
 	return true
 end
 

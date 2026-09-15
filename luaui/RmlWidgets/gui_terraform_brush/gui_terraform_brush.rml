@@ -530,9 +530,6 @@
 			<div id="btn-sp-copy" class="tf-action-btn" style="flex: 1;" data-event-mousedown="onSpCopy()">
 				<div class="tf-action-btn-text">COPY</div>
 			</div>
-			<div id="btn-sp-region-copy" class="tf-action-btn" style="flex: 1;" data-if="stpRegionType == 'mex_region'" data-event-mousedown="onSpRegionCopy()">
-				<div class="tf-action-btn-text">COPY LAYOUT</div>
-			</div>
 		</div>
 		</div><!-- /section-st-save -->
 		</div><!-- /frame-st-save -->

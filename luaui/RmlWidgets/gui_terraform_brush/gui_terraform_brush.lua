@@ -5122,26 +5122,45 @@ local initialModel = {
 			WG.StartPosTool.clearAllStartboxes()
 		end
 	end,
+	-- SAVE, LOAD and COPY act on the layer showing: a start's positions and areas, or the
+	-- regions of any other type. COPY puts the layer's lobby value on the clipboard: the
+	-- startbox override as a !bSet, or the region layout for the modoption.
 	onSpSave = function(_event)
 		playSound("apply")
-		if WG.StartPosTool then
-			WG.StartPosTool.saveStartPositions()
-			WG.StartPosTool.saveStartboxes()
+		local st = WG.StartPosTool
+		if not st then
+			return
+		end
+		if st.getState().regionType == "start" then
+			st.saveStartPositions()
+			st.saveStartboxes()
+		else
+			st.saveRegions()
 		end
 	end,
-	-- Copies the startbox override as a !bSet the user can paste into lobby chat. Startbox
-	-- only: start positions travel as a different modoption entirely.
 	onSpCopy = function(_event)
 		playSound("apply")
-		if WG.StartPosTool then
-			WG.StartPosTool.copyStartboxOverride()
+		local st = WG.StartPosTool
+		if not st then
+			return
+		end
+		if st.getState().regionType == "start" then
+			st.copyStartboxOverride()
+		else
+			st.copyLayout()
 		end
 	end,
 	onSpLoad = function(_event)
 		playSound("apply")
-		if WG.StartPosTool then
-			WG.StartPosTool.loadStartPositions()
-			WG.StartPosTool.loadStartboxes()
+		local st = WG.StartPosTool
+		if not st then
+			return
+		end
+		if st.getState().regionType == "start" then
+			st.loadStartPositions()
+			st.loadStartboxes()
+		else
+			st.loadRegions()
 		end
 	end,
 	-- Phase 2 step 6: tf_splat model-king handlers — defined here (not in M.attach)
