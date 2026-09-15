@@ -106,18 +106,42 @@ describe("the spot holder fact", function()
 		assert.are.equal(2, holderAt(195, 195, 3))
 	end)
 
-	it("judges a mex by the spot it targets, not by where its footprint centre lands", function()
+	it("judges a mex by the spot it targets, through the published holdings", function()
+		local Shared = VFS.Include("modules/economy/lib/mex_regions/shared.lua") ---@type MexRegionsShared
+		local params = {} ---@type table<integer, string>
+		local repo = {
+			GetGameRulesParam = function()
+				return published
+			end,
+			GetModOptions = function()
+				return { [EconomyEnums.ModOptions.MexSplitting] = mexIncome }
+			end,
+			GetTeamList = function()
+				return { 0, 1, 2, 3 }
+			end,
+			GetTeamRulesParam = function(teamID)
+				return params[teamID]
+			end,
+			SetTeamRulesParam = function(teamID, _, value)
+				params[teamID] = value
+			end,
+		}
+		Shared.Holdings.Write(repo, 0, { regions = { "nw" }, spots = { Shared.SpotKey(5, 5) } })
+		Shared.Holdings.Write(repo, 2, { regions = { "se" }, spots = { Shared.SpotKey(195, 195) } })
 		local facts = ModuleHandler.EnrichWith(
 			resolved,
 			nil,
 			{ x = 60, z = 60, spotX = 5, spotZ = 5, unitDefID = 7, builderTeam = 3 },
-			springRepo
+			repo
 		)
 		assert.are.equal(
 			0,
 			facts[ConstructionContract.PlacementFacts.SpotHolder],
 			"the build lands outside, the spot is inside"
 		)
+		local byKey = Shared.HolderBySpot(repo, { 0, 1, 2, 3 })
+		assert.are.equal(2, byKey[Shared.SpotKey(195.4, 194.6)], "keys round to whole elmos")
+		assert.is_nil(byKey[Shared.SpotKey(100, 100)], "a spot nobody holds")
 	end)
 
 	it("falls back to the builder before the deal and outside every region", function()

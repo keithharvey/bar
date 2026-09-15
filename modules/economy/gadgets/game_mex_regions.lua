@@ -81,7 +81,8 @@ function gadget:Initialize()
 		return
 	end
 	Spring.Log(TAG, LOG.INFO, #regions .. " regions from " .. source)
-	MexRegions.Deal(teamStarts(), Spring)
+	local finder = GG.resource_spot_finder
+	MexRegions.Deal(teamStarts(), Spring, finder and not finder.isMetalMap and finder.metalSpotsList or {})
 end
 
 -- Chat once the players are in to read it. Which regions are whose is on the map, colour-coded

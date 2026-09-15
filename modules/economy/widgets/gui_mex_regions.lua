@@ -18,7 +18,23 @@ if Spring.GetModOptions()[EconomyEnums.ModOptions.MexSplitting] ~= EconomyEnums.
 end
 
 local Deal = VFS.Include("modules/economy/lib/mex_regions/deal.lua") ---@type MexRegionsDealLib
+local Shared = VFS.Include("modules/economy/lib/mex_regions/shared.lua") ---@type MexRegionsShared
 local readDeal = Deal.Reader()
+
+---Region name -> holding team, from the typed per-team records every widget can read.
+---@return table<string, integer>
+local function holderByRegion()
+	local byRegion = {}
+	for _, teamID in ipairs(Spring.GetTeamList()) do
+		local record = Shared.Holdings.Read(Spring, teamID) ---@type MexHoldingsRecord|nil
+		if record and record.regions then
+			for _, name in ipairs(record.regions) do
+				byRegion[name] = teamID
+			end
+		end
+	end
+	return byRegion
+end
 
 local glColor = gl.Color
 local glLineWidth = gl.LineWidth
@@ -68,8 +84,9 @@ local function stylesFor(deal)
 	end
 	styledFor = deal
 	styles = {}
+	local holders = holderByRegion()
 	for i, region in ipairs(deal.regions) do
-		local holder = deal.claims[region.name]
+		local holder = holders[region.name]
 		local label = region.name
 		if holder ~= nil then
 			local players = Spring.GetPlayerList(holder)

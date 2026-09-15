@@ -3,6 +3,7 @@ local ConstructionContract = VFS.Include("modules/construction/contract.lua") --
 local EconomyEnums = VFS.Include("modules/economy/enums.lua")
 local Claims = VFS.Include("modules/economy/lib/mex_regions/claims.lua") ---@type MexRegionsClaimsLib
 local Deal = VFS.Include("modules/economy/lib/mex_regions/deal.lua") ---@type MexRegionsDealLib
+local Shared = VFS.Include("modules/economy/lib/mex_regions/shared.lua") ---@type MexRegionsShared
 
 -- The deal. Each team in turn takes its nearest region nobody holds yet, round after round, until
 -- every region is held. Seven regions and four teams: three teams hold two, one holds one, and
@@ -64,9 +65,15 @@ Policies.On(ConstructionContract.PlacementFacts)
 		if engine.GetModOptions()[EconomyEnums.ModOptions.MexSplitting] ~= EconomyEnums.MexSplitting.MapAssigned then
 			return nil
 		end
+		-- A mex with a spot is judged by the published holdings, a lookup; anything else, or a
+		-- mex the finder could not place on a spot, falls back to the geometry.
+		if ctx.spotX and ctx.spotZ then
+			local byKey = Shared.HolderBySpot(engine, engine.GetTeamList())
+			return byKey[Shared.SpotKey(ctx.spotX, ctx.spotZ)]
+		end
 		local deal = readDeal(engine)
 		if deal == nil then
 			return nil
 		end
-		return Claims.OwnerAt(deal.regions, deal.claims, ctx.spotX or ctx.x, ctx.spotZ or ctx.z)
+		return Claims.OwnerAt(deal.regions, deal.claims, ctx.x, ctx.z)
 	end)
