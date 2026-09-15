@@ -210,8 +210,8 @@
 			<!-- Hints -->
 			<div class="text-sm text-keybind mb-1" data-if="stpHint == 'select'">LMB: select a region or a position · Drag positions, vertices and edges · Nothing is created</div>
 			<div class="text-sm text-keybind mb-1" data-if="stpHint == 'points'">LMB: place a start position · Drag to move · RMB: remove</div>
-			<div class="text-sm text-keybind mb-1" data-if="stpHint == 'mexes'">LMB drag: circle the mexes · Release: a region closes around the spots inside · Shift+drag: gather more first · RMB: drop the gathered</div>
-			<div class="text-sm text-keybind mb-1" data-if="stpGatheredSpots != '0'">{{stpGatheredSpots}} spots gathered, waiting for the closing drag</div>
+			<div class="text-sm text-keybind mb-1" data-if="stpHint == 'mexes'">LMB drag: select the mexes inside · Alt+drag: deselect · Click a mex: toggle · Ctrl+Z: one step back · RMB: close the region · Esc: clear</div>
+			<div class="text-sm text-keybind mb-1" data-if="stpGatheredSpots != '0'">{{stpGatheredSpots}} spots selected · RMB closes the region shown</div>
 			<div class="text-sm text-keybind mb-1" data-if="stpHint == 'square'">LMB drag: a square · Drag edges to resize · Click inside to select</div>
 			<div class="text-sm text-keybind mb-1" data-if="stpHint == 'polygon'">LMB: add vertex · LMB drag from empty: free-draw · RMB: close (3+ vertices) · Esc: cancel · Drag vertices to move · Click inside to select</div>
 			<div class="text-sm text-keybind mb-1" data-if="stpAreaTarget != ''">The next area drawn becomes Start {{stpAreaTarget}}'s</div>

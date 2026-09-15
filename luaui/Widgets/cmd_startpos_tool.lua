@@ -165,7 +165,8 @@ local R = {
 	geometry = "point", -- what a click makes: "point" | "square" | "polygon", from the type's shapes
 	editMode = "select", -- "select": a click picks or drags what exists; "create": a click makes a region
 	radial = nil, -- "mexes" draw: the circle being dragged, { cx, cz, r }
-	radialPending = {}, -- "mexes" draw: spots gathered by shift-drags, waiting for the closing drag
+	radialPending = {}, -- "mexes" draw: the live selection of spots the region will close around
+	radialHistory = {}, -- "mexes" draw: the selection before each gesture, so Ctrl+Z steps back one
 	pending = { name = "", group = "" }, -- fields a new mex region takes before its first vertex
 	error = "",
 	revision = 0,
@@ -2152,6 +2153,104 @@ function R.spotsInRadial()
 	return inside
 end
 
+---Whether a spot is in the live selection.
+function R.selected(spot)
+	for _, s in ipairs(R.radialPending) do
+		if s == spot then
+			return true
+		end
+	end
+	return false
+end
+
+---The metal spot under the cursor, if the cursor is close enough to mean it.
+function R.nearestSpot(mx, my)
+	local wx, wz = getWorldMousePosition()
+	if not wx then
+		return nil
+	end
+	local finder = WG.resource_spot_finder
+	local best, bestD = nil, 90 * 90
+	for _, spot in ipairs(finder and finder.metalSpotsList or {}) do
+		local d = (spot.x - wx) ^ 2 + (spot.z - wz) ^ 2
+		if d < bestD and not R.heldByASibling(spot.x, spot.z) then
+			best, bestD = spot, d
+		end
+	end
+	return best
+end
+
+---One edit of the live selection, recorded so Ctrl+Z can take it back.
+function R.gesture(spots, removing)
+	local before = {}
+	for i, s in ipairs(R.radialPending) do
+		before[i] = s
+	end
+	local set = {}
+	for _, s in ipairs(R.radialPending) do
+		set[s] = true
+	end
+	for _, s in ipairs(spots) do
+		set[s] = not removing or nil
+	end
+	local after = {}
+	for _, s in ipairs(before) do
+		if set[s] then
+			after[#after + 1] = s
+			set[s] = nil
+		end
+	end
+	for _, s in ipairs(spots) do
+		if set[s] then
+			after[#after + 1] = s
+			set[s] = nil
+		end
+	end
+	if #after == #before then
+		return
+	end
+	R.radialHistory[#R.radialHistory + 1] = before
+	R.radialPending = after
+	R.error = ""
+	R.bump()
+end
+
+---Ctrl+Z on the live selection: the gesture before this one.
+function R.ungesture()
+	local before = table.remove(R.radialHistory)
+	if not before then
+		return false
+	end
+	R.radialPending = before
+	R.bump()
+	return true
+end
+
+---Closes the region around the live selection.
+function R.closeSelection()
+	local gathered = R.radialPending
+	if #gathered == 0 then
+		return false
+	end
+	local pad = (Game.extractorRadius or 80) * 1.5
+	local hull = R.disjointHull(gathered, pad)
+	if not hull then
+		R.error = "those spots sit against a neighbouring region; no hull fits between"
+		R.bump()
+		return false
+	end
+	for i, v in ipairs(hull) do
+		local x, z = clampToMap(v.x, v.z)
+		hull[i] = { x = x, z = z }
+	end
+	currentBoxVerts = hull
+	drawingBox = true
+	finishStartbox(1)
+	R.radialPending = {}
+	R.radialHistory = {}
+	return true
+end
+
 ---A hull that shares no ground with a sibling on a disjoint type: the padding shrinks until it
 ---fits, and a hull that cannot fit at all is nil.
 function R.disjointHull(points, pad)
@@ -2203,6 +2302,7 @@ function R.applyMode()
 	end
 	R.radial = nil
 	R.radialPending = {}
+	R.radialHistory = {}
 	currentBoxVerts = {}
 	drawingBox = false
 	boxRectActive = false
@@ -3215,10 +3315,9 @@ function widget:MousePress(mx, my, button)
 					end
 				end
 			end
-			-- RMB with mexes gathered by shift-drags: drop them
+			-- RMB with a live mex selection: close the region around it
 			if #R.radialPending > 0 then
-				R.radialPending = {}
-				R.bump()
+				R.closeSelection()
 				return true
 			end
 			-- RMB: Finish current polygon OR cancel drag-rect / free-draw, else remove last placed box
@@ -3615,51 +3714,23 @@ function widget:MouseRelease(mx, my, button)
 
 	-- Startbox: finish freedraw on release — smooth via Chaikin, decimate, fit to spline
 	if subMode == "startbox" and R.radial and button == 1 then
+		-- The selection is live: a drag adds the spots inside its circle, an Alt-drag takes
+		-- them out, and a click on one spot toggles it. Each gesture is one undo step. RMB
+		-- closes the region around the selection; nothing closes on release.
 		local inside = R.spotsInRadial()
+		local clicked = R.radial.r < 24
 		R.radial = nil
-		-- Shift appends this circle's spots to the pending set; a plain release closes the
-		-- region around everything gathered so far plus this circle.
 		local _, _, _, shift = Spring.GetModKeyState()
-		local gathered = {}
-		local seen = {}
-		for _, spot in ipairs(R.radialPending) do
-			gathered[#gathered + 1] = spot
-			seen[spot] = true
-		end
-		for _, spot in ipairs(inside) do
-			if not seen[spot] then
-				gathered[#gathered + 1] = spot
-				seen[spot] = true
+		local alt = select(1, Spring.GetModKeyState())
+		local removing = alt == true
+		if clicked then
+			inside = { R.nearestSpot(mx, my) }
+			if not inside[1] then
+				return true
 			end
+			removing = R.selected(inside[1])
 		end
-		if shift then
-			R.radialPending = gathered
-			R.error = ""
-			R.bump()
-			return true
-		end
-		R.radialPending = {}
-		if #gathered == 0 then
-			R.error = "no metal spots inside the circle"
-			R.bump()
-			return true
-		end
-		local pad = (Game.extractorRadius or 80) * 1.5
-		local hull = R.disjointHull(gathered, pad)
-		if not hull then
-			R.error = "those spots sit against a neighbouring region; no hull fits between"
-			R.bump()
-			return true
-		end
-		if hull and #hull >= 3 then
-			for i, v in ipairs(hull) do
-				local x, z = clampToMap(v.x, v.z)
-				hull[i] = { x = x, z = z }
-			end
-			currentBoxVerts = hull
-			drawingBox = true
-			finishStartbox(1)
-		end
+		R.gesture(inside, removing)
 		return true
 	end
 
@@ -3771,6 +3842,12 @@ function widget:KeyPress(key, mods, isRepeat)
 		freeDrawActive = false
 		freeDrawPts = {}
 		R.radialPending = {}
+		R.radialHistory = {}
+		return true
+	end
+	-- Ctrl+Z with a live mex selection: one gesture back, before the editor's own undo.
+	if key == 122 and mods.ctrl and not mods.shift and #R.radialHistory > 0 then
+		R.ungesture()
 		return true
 	end
 	-- Ctrl+Z: undo last placement
@@ -4606,13 +4683,30 @@ function widget:DrawWorld()
 		end
 	end
 
-	-- Spots gathered by shift-drags, waiting for the closing drag
+	-- The live mex selection, and the region it would close to
 	if subMode == "startbox" and #R.radialPending > 0 then
 		local color = R.nextColor()
 		glColor(color[1], color[2], color[3], 0.9)
 		glLineWidth(2.5)
 		for _, spot in ipairs(R.radialPending) do
 			glDrawGroundCircle(spot.x, GetGroundHeight(spot.x, spot.z) or 0, spot.z, 46, 16)
+		end
+		local preview = R.disjointHull(R.radialPending, (Game.extractorRadius or 80) * 1.5)
+		if preview and #preview >= 3 then
+			local ring = strengthEdit.spline.TessellateRing(strengthEdit.buildRing((function()
+				local anchors = {}
+				for i, v in ipairs(preview) do
+					anchors[i] = { x = v.x, z = v.z, strength = 1 }
+				end
+				return anchors
+			end)()))
+			glColor(color[1], color[2], color[3], 0.5)
+			glLineWidth(2.0)
+			glBeginEnd(GL_LINE_LOOP, function()
+				for _, p in ipairs(ring) do
+					glVertex(p[1], (GetGroundHeight(p[1], p[2]) or 0) + 5, p[2])
+				end
+			end)
 		end
 	end
 
