@@ -53,7 +53,7 @@ Policies.On(Contract.MexRegions)
 
 local readDeal = Deal.Reader()
 
--- Construction's spot holder, under Map Assigned: the team holding the region under the spot, read
+-- Construction's spot holder, under Map Assigned: the team holding the region,
 -- from the deal the synced side published. Declines otherwise, before the deal, outside every
 -- region, and in a region nobody holds, so construction's default answers: the builder holds it.
 -- A policy file runs in the plain global environment, not a gadget's, so it reads through the
