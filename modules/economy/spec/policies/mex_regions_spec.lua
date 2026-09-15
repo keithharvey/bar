@@ -106,6 +106,20 @@ describe("the spot holder fact", function()
 		assert.are.equal(2, holderAt(195, 195, 3))
 	end)
 
+	it("judges a mex by the spot it targets, not by where its footprint centre lands", function()
+		local facts = ModuleHandler.EnrichWith(
+			resolved,
+			nil,
+			{ x = 60, z = 60, spotX = 5, spotZ = 5, unitDefID = 7, builderTeam = 3 },
+			springRepo
+		)
+		assert.are.equal(
+			0,
+			facts[ConstructionContract.PlacementFacts.SpotHolder],
+			"the build lands outside, the spot is inside"
+		)
+	end)
+
 	it("falls back to the builder before the deal and outside every region", function()
 		published = nil
 		assert.are.equal(3, holderAt(5, 5, 3))

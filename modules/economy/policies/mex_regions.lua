@@ -68,5 +68,5 @@ Policies.On(ConstructionContract.PlacementFacts)
 		if deal == nil then
 			return nil
 		end
-		return Claims.OwnerAt(deal.regions, deal.claims, ctx.x, ctx.z)
+		return Claims.OwnerAt(deal.regions, deal.claims, ctx.spotX or ctx.x, ctx.spotZ or ctx.z)
 	end)
