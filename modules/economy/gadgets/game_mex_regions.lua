@@ -45,21 +45,6 @@ local function tellEveryone(message)
 	end
 end
 
----@param teamID integer
----@return string
-local function teamLabel(teamID)
-	local leader = (Spring.GetPlayerList(teamID) or {})[1]
-	if leader ~= nil then
-		return (Spring.GetPlayerInfo(leader, false))
-	end
-	local _, _, _, isAI = Spring.GetTeamInfo(teamID, false)
-	if isAI then
-		local _, aiName = Spring.GetAIInfo(teamID)
-		return type(aiName) == "string" and aiName or ("team " .. teamID)
-	end
-	return "team " .. teamID
-end
-
 function gadget:Initialize()
 	local regions, source, reason = MexRegions.Load(Spring)
 	if regions == nil then
@@ -92,13 +77,13 @@ function gadget:GameFrame(frame)
 	end
 	MexRegions.Deal(teams, Spring)
 
+	-- Which regions are whose is on the map, colour-coded where a mex would go; chat says only
+	-- that the rule is on, and warns when the deal left a team without a region.
+	tellEveryone("Mex placement is restricted to map-assigned regions, dealt by the lobby's Mex Splitting setting.")
 	local holdings = MexRegions.Holdings()
 	local unheld = 0
 	for _, team in ipairs(teams) do
-		local names = holdings[team.teamID]
-		if names ~= nil then
-			tellEveryone(TAG .. ": " .. teamLabel(team.teamID) .. " holds " .. table.concat(names, ", "))
-		else
+		if holdings[team.teamID] == nil then
 			unheld = unheld + 1
 		end
 	end
