@@ -55,6 +55,16 @@ function Placement.Decide(unitDefID, builderTeam, x, y, z, springRepo)
 			table.contains(UnitCategories.TypesFor(opts.unit_sharing_mode), ConstructionEnums.UnitType.Utility)
 	end
 	local kind = extractorKinds()[unitDefID]
+	-- A mex is judged by the spot it mines, not by where its footprint centre lands: the same
+	-- placement is valid over a range of positions around the spot, and a region holds spots.
+	local spotX, spotZ
+	if kind == "mex" then
+		local finder = GG and GG.resource_spot_finder
+		local spot = finder and finder.GetClosestMexSpot and finder.GetClosestMexSpot(x, z)
+		if spot then
+			spotX, spotZ = spot.x, spot.z
+		end
+	end
 	---@type ConstructionPlacementContext
 	local ctx = {
 		unitDefID = unitDefID,
@@ -65,6 +75,8 @@ function Placement.Decide(unitDefID, builderTeam, x, y, z, springRepo)
 		extractor = kind,
 		alliedExtractorNearby = kind ~= nil and otherTeamsExtractorNearby(kind, builderTeam, x, z, springRepo),
 		utilitySharing = utilitySharing,
+		spotX = spotX,
+		spotZ = spotZ,
 		spotHolder = builderTeam, -- the identity until the facts answer
 	}
 	local facts = ModuleHandler.Enrich(Contract.PlacementFacts, opts, ctx, springRepo)

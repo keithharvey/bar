@@ -74,6 +74,8 @@ local Build = {
 ---@field extractor "mex"|"geo"|nil what the def extracts, if anything
 ---@field alliedExtractorNearby boolean another team's extractor already sits in the radius
 ---@field utilitySharing boolean the sharing mode lets utility buildings change hands
+---@field spotX number|nil for a mex, the metal spot it targets: the nearest spot to the build position, which is what the footprint yields from wherever it lands
+---@field spotZ number|nil
 ---@field spotHolder integer the team that holds this spot, a fact another module may provide; the builder itself when nobody else does
 
 ---@class ConstructionPlacementStages: PolicyStages<ConstructionPlacementContext, boolean>
