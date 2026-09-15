@@ -3269,6 +3269,15 @@ function widget:MousePress(mx, my, button)
 					return true
 				end
 			end
+			-- Starting a new region is leaving the old one: nothing stays selected past the first
+			-- gesture, except on the start layer, where the selection is the team the area is for.
+			if
+				R.type ~= "start"
+				and R.selectedIdx ~= nil
+				and (startboxMode == "radial" or startboxMode == "polygon")
+			then
+				R.select(nil)
+			end
 			if startboxMode == "radial" then
 				-- Drag a circle around the mexes; the region closes around what is inside on release.
 				R.radial = { cx = wx, cz = wz, r = 0 }

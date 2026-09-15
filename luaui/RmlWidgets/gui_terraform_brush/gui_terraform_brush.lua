@@ -3893,6 +3893,8 @@ local initialModel = {
 	stpSelectedVertices = "0",
 	stpRegionError = "",
 	stpRegionListTitle = "STARTS",
+	stpDetailsTitle = "DETAILS",
+	stpDetailsMode = "prompt",
 	stpClearLabel = "CLEAR ALL",
 	-- Diffuse painter (Phase A MVP)
 	dfpRadiusStr = "128",

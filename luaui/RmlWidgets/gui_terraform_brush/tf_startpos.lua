@@ -156,6 +156,16 @@ function M.sync(doc, ctx, stpState, setSummary)
 		setRg("stpSelectedVertices", tostring(stpState.selected and stpState.selected.vertexCount or 0))
 		setRg("stpRegionError", stpState.regionError or "")
 		setRg("stpRegionListTitle", (stpState.regionType == "start") and "STARTS" or (typeLabel:upper() .. "S"))
+		-- One frame for what you picked or what you are making: Details with a selection, the
+		-- new region's fields while creating on a type that has any, a prompt otherwise.
+		local detailsMode = "prompt"
+		if stpState.selected then
+			detailsMode = "details"
+		elseif stpState.editMode == "create" and stpState.regionType == "mex_region" then
+			detailsMode = "new"
+		end
+		setRg("stpDetailsMode", detailsMode)
+		setRg("stpDetailsTitle", (detailsMode == "new") and ("NEW " .. typeLabel:upper()) or "DETAILS")
 		setRg(
 			"stpClearLabel",
 			(stpState.regionType == "start") and "CLEAR ALL" or ("CLEAR " .. typeLabel:upper() .. "S")

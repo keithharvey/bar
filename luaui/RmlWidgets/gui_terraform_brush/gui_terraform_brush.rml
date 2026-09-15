@@ -230,15 +230,6 @@
 				<div class="tf-collapsible-title">{{stpRegionListTitle}}</div>
 			</div>
 		<div id="section-st-region">
-			<!-- New mex region: its fields before its first vertex -->
-			<div id="sp-new-region" data-if="stpRegionType == 'mex_region'">
-				<div class="text-lg text-light font-bold mb-1">NEW REGION</div>
-				<div class="text-sm text-light">Name (optional)</div>
-				<input type="text" id="sp-region-name" class="ll-search-input mb-1" style="width:100%;" data-event-change="onSpRegionPendingChange()" />
-				<div class="text-sm text-light">Group</div>
-				<input type="text" id="sp-region-group" class="ll-search-input mb-1" style="width:100%;" data-event-change="onSpRegionPendingChange()" />
-				<div id="sp-group-picker" class="flex flex-row gap-1 mb-1 tf-chip-row"></div>
-			</div>
 			<div class="text-sm mb-1" style="color: #ff8080;" data-if="stpRegionError != ''">{{stpRegionError}}</div>
 
 			<!-- The layer's regions -->
@@ -251,10 +242,20 @@
 		<div class="tf-section-frame" id="frame-st-details">
 			<div id="btn-toggle-st-details" class="tf-section-title-row" style="cursor: pointer;">
 				<img id="img-toggle-st-details" class="tf-icon-sm" src="/luaui/images/terraform_brush/minus.png" />
-				<div class="tf-collapsible-title">DETAILS</div>
+				<div class="tf-collapsible-title">{{stpDetailsTitle}}</div>
 			</div>
 		<div id="section-st-details">
-			<div class="text-xs text-keybind mb-1" data-if="!stpSelected">Click a region on the map, or a row above, to see it here.</div>
+			<div class="text-xs text-keybind mb-1" data-if="stpDetailsMode == 'prompt'">Click a region on the map, or a row above, to see it here.</div>
+			<div data-if="stpDetailsMode == 'new'">
+			<!-- New mex region: its fields before its first vertex -->
+			<div id="sp-new-region">
+				<div class="text-sm text-light">Name (optional)</div>
+				<input type="text" id="sp-region-name" class="ll-search-input mb-1" style="width:100%;" data-event-change="onSpRegionPendingChange()" />
+				<div class="text-sm text-light">Group</div>
+				<input type="text" id="sp-region-group" class="ll-search-input mb-1" style="width:100%;" data-event-change="onSpRegionPendingChange()" />
+				<div id="sp-group-picker" class="flex flex-row gap-1 mb-1 tf-chip-row"></div>
+			</div>
+			</div>
 			<!-- Details: the selected region's fields and tags. Each type's block is its own data-if. -->
 			<div id="sp-details" data-if="stpSelected">
 				<div data-if="stpRegionType == 'start'">
