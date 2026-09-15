@@ -57,6 +57,32 @@ local function colourOf(teamID)
 	return { r or 1, g or 1, b or 1 }
 end
 
+-- What each region draws with is fixed for the life of a deal: worked out once when the deal
+-- changes, never per frame (player lookups allocate, and there is one per region per frame
+-- otherwise).
+local styledFor = nil ---@type table|nil the deal these styles were built for
+local styles = {} ---@type { colour: number[], label: string }[]
+local function stylesFor(deal)
+	if styledFor == deal then
+		return styles
+	end
+	styledFor = deal
+	styles = {}
+	for i, region in ipairs(deal.regions) do
+		local holder = deal.claims[region.name]
+		local label = region.name
+		if holder ~= nil then
+			local players = Spring.GetPlayerList(holder)
+			local name = players and players[1] and Spring.GetPlayerInfo(players[1], false) or nil
+			label = label .. " · " .. (name or ("team " .. holder))
+		else
+			label = label .. " · open"
+		end
+		styles[i] = { colour = colourOf(holder), label = label }
+	end
+	return styles
+end
+
 function widget:DrawWorldPreUnit()
 	if not showing() then
 		return
@@ -65,9 +91,10 @@ function widget:DrawWorldPreUnit()
 	if not deal then
 		return
 	end
+	local style = stylesFor(deal)
 	glLineWidth(3.0)
-	for _, region in ipairs(deal.regions) do
-		local c = colourOf(deal.claims[region.name])
+	for i, region in ipairs(deal.regions) do
+		local c = style[i].colour
 		glColor(c[1], c[2], c[3], 0.9)
 		glBeginEnd(GL_LINE_LOOP, function()
 			local poly = region.polygon
@@ -96,22 +123,14 @@ function widget:DrawScreenEffects()
 	if not deal then
 		return
 	end
-	for _, region in ipairs(deal.regions) do
+	local style = stylesFor(deal)
+	for i, region in ipairs(deal.regions) do
 		local gy = GetGroundHeight(region.centerX, region.centerZ) or 0
 		local sx, sy, sz = WorldToScreenCoords(region.centerX, gy, region.centerZ)
 		if sz and sz > 0 and sz < 1 then
-			local holder = deal.claims[region.name]
-			local c = colourOf(holder)
-			local label = region.name
-			if holder ~= nil then
-				local players = Spring.GetPlayerList(holder)
-				local name = players and players[1] and Spring.GetPlayerInfo(players[1], false) or nil
-				label = label .. " · " .. (name or ("team " .. holder))
-			else
-				label = label .. " · open"
-			end
+			local c = style[i].colour
 			glColor(c[1], c[2], c[3], 1)
-			glText(label, sx, sy, 14, "cdo")
+			glText(style[i].label, sx, sy, 14, "cdo")
 		end
 	end
 	glColor(1, 1, 1, 1)

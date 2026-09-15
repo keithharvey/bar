@@ -4691,19 +4691,24 @@ function widget:DrawWorld()
 		for _, spot in ipairs(R.radialPending) do
 			glDrawGroundCircle(spot.x, GetGroundHeight(spot.x, spot.z) or 0, spot.z, 46, 16)
 		end
-		local preview = R.disjointHull(R.radialPending, (Game.extractorRadius or 80) * 1.5)
-		if preview and #preview >= 3 then
-			local ring = strengthEdit.spline.TessellateRing(strengthEdit.buildRing((function()
+		-- The preview ring is rebuilt when the selection changes, not every frame.
+		if R.previewFor ~= R.radialPending then
+			R.previewFor = R.radialPending
+			R.previewRing = nil
+			local preview = R.disjointHull(R.radialPending, (Game.extractorRadius or 80) * 1.5)
+			if preview and #preview >= 3 then
 				local anchors = {}
 				for i, v in ipairs(preview) do
-					anchors[i] = { x = v.x, z = v.z, strength = 1 }
+					anchors[i] = { v.x, v.z, 1 }
 				end
-				return anchors
-			end)()))
+				R.previewRing = strengthEdit.spline.TessellateRing(anchors)
+			end
+		end
+		if R.previewRing then
 			glColor(color[1], color[2], color[3], 0.5)
 			glLineWidth(2.0)
 			glBeginEnd(GL_LINE_LOOP, function()
-				for _, p in ipairs(ring) do
+				for _, p in ipairs(R.previewRing) do
 					glVertex(p[1], (GetGroundHeight(p[1], p[2]) or 0) + 5, p[2])
 				end
 			end)
