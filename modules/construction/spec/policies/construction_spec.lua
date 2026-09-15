@@ -105,7 +105,7 @@ describe("construction policies", function()
 	end)
 
 	describe("placement", function()
-		local spot = { unitDefID = 7, builderTeam = 0, x = 0, y = 0, z = 0 }
+		local spot = { unitDefID = 7, builderTeam = 0, x = 0, y = 0, z = 0, spotHolder = 0 }
 		local function at(extra)
 			local ctx = {}
 			for k, v in pairs(spot) do
@@ -142,6 +142,20 @@ describe("construction policies", function()
 					at({ extractor = nil, alliedExtractorNearby = true, utilitySharing = false })
 				)
 			)
+		end)
+
+		it("refuses a mex on a spot another team holds and nothing else", function()
+			assert.is_false(decide(pipelines.placement, at({ extractor = "mex", spotHolder = 1 })))
+			assert.is_true(decide(pipelines.placement, at({ extractor = "mex", spotHolder = 0 })))
+			assert.is_true(decide(pipelines.placement, at({ extractor = "geo", spotHolder = 1 })))
+			assert.is_true(decide(pipelines.placement, at({ extractor = nil, spotHolder = 1 })))
+		end)
+
+		it("holds every spot for its builder unless a module says otherwise", function()
+			local Contract = VFS.Include("modules/construction/contract.lua")
+			local resolved = ModuleHandler.LoadEnrichers(Contract.PlacementFacts)
+			local facts = ModuleHandler.EnrichWith(resolved, {}, at({ extractor = "mex", builderTeam = 3 }))
+			assert.are.equal(3, facts[Contract.PlacementFacts.SpotHolder])
 		end)
 	end)
 end)

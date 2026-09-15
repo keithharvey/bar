@@ -42,9 +42,17 @@ Policies.On(placement)
 	.Unless(placement.AlliedExtractorOccupied, function(ctx)
 		return ctx.extractor ~= nil and ctx.alliedExtractorNearby and not ctx.utilitySharing
 	end)
+	.Unless(placement.SpotHeldByAnotherTeam, function(ctx)
+		return ctx.extractor == "mex" and ctx.spotHolder ~= ctx.builderTeam
+	end)
 	.Answer(placement.Allowed, function()
 		return true
 	end)
+
+-- Whoever asks holds the spot unless a module says otherwise; economy does under Map Assigned.
+Policies.On(Contract.PlacementFacts).Default(Contract.PlacementFacts.SpotHolder, function(ctx)
+	return ctx.builderTeam
+end)
 
 Policies.On(creation).Answer(creation.Allowed, function()
 	return true
