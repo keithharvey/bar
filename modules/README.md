@@ -48,7 +48,7 @@ Each module owns one concern:
 | `game` | Which game this is: the game axis, one selector, the presets, the export the lobby reads. | the runtime |
 | `transport` | Who may load and unload what, and how fast a loaded transport flies. The first module with real rules; the air transport rework builds on it. | defs |
 | `construction` | What may be built, and by whom: assist, reclaim, resurrect, build delay, geo and mex upgrades. | the runtime |
-| `economy` | How a shared pool is distributed, and where a team's mex income comes from: the Mex Splitting selector, and Map Assigned's deal of the map's regions to teams. | construction, regions |
+| `economy` | How a shared pool is distributed, and where a team's mex income comes from: the Mex Splitting selector, and Map Assigned's deal of the map's regions to each team's start area. | construction, regions, start |
 | `transfer` | What may pass between allied teams: units, resources, take, and the tax on what flows. | construction, economy |
 | `tech` | The keystones that raise a team's tier, and the tier as a fact construction and transfer read. Tech Core is its preset. | transfer, construction |
 | `combat` | Damage, targeting and protection as a lifetime. | proposed |

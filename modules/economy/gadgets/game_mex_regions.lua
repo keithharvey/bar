@@ -23,6 +23,8 @@ if Spring.GetModOptions()[EconomyEnums.ModOptions.MexSplitting] ~= EconomyEnums.
 end
 
 local MexRegions = VFS.Include("modules/economy/api.lua").MexRegions ---@type EconomyMexRegionsApi
+local Start = VFS.Include("modules/start/api.lua") ---@type StartApi
+local Geometry = VFS.Include("modules/regions/lib/geometry.lua") ---@type RegionGeometry
 
 local TAG = "Mex Regions"
 
@@ -45,6 +47,32 @@ local function tellEveryone(message)
 	end
 end
 
+---Each team starts where its ally team's area is: the deal is nearest-to-that, so it can run
+---at load, show pregame, and never move under anyone. A team with no area starts, for the
+---deal's purposes, at the middle of the map.
+---@return MexRegionsTeamStart[]
+local function teamStarts()
+	local centres = {} ---@type { [integer]: { x: number, z: number } }
+	for _, area in ipairs(Start.Current(Spring).areas) do
+		local ring = {}
+		for i, a in ipairs(area.anchors) do
+			ring[i] = { x = a.x, z = a.z }
+		end
+		local cx, cz = Geometry.Centroid(ring)
+		local allyTeamID = area.allyTeam - 1 --[[@as integer]]
+		centres[allyTeamID] = { x = cx, z = cz }
+	end
+	local teams = {} ---@type MexRegionsTeamStart[]
+	for _, teamID in ipairs(Spring.GetTeamList()) do
+		if not ignoredTeams[teamID] then
+			local allyTeamID = Spring.GetTeamAllyTeamID(teamID) or 0
+			local centre = centres[allyTeamID] or { x = Game.mapSizeX * 0.5, z = Game.mapSizeZ * 0.5 }
+			teams[#teams + 1] = { teamID = teamID, x = centre.x, z = centre.z }
+		end
+	end
+	return teams
+end
+
 function gadget:Initialize()
 	local regions, source, reason = MexRegions.Load(Spring)
 	if regions == nil then
@@ -53,13 +81,13 @@ function gadget:Initialize()
 		return
 	end
 	Spring.Log(TAG, LOG.INFO, #regions .. " regions from " .. source)
+	MexRegions.Deal(teamStarts(), Spring)
 end
 
--- Start positions are final once every GameStart has run, so the deal waits for the first frame.
-function gadget:GameFrame(frame)
-	if frame ~= 1 then
-		return
-	end
+-- Chat once the players are in to read it. Which regions are whose is on the map, colour-coded
+-- pregame and where a mex would go; chat says only that the rule is on, and warns when the deal
+-- left a team without a region.
+function gadget:GameStart()
 	if reasonNone then
 		tellEveryone(
 			"Mex income is Map Assigned, but " .. Game.mapName .. " has no region layout, so mexes are unrestricted."
@@ -67,23 +95,11 @@ function gadget:GameFrame(frame)
 		tellEveryone(TAG .. ": " .. reasonNone)
 		return
 	end
-
-	local teams = {} ---@type MexRegionsTeamStart[]
-	for _, teamID in ipairs(Spring.GetTeamList()) do
-		if not ignoredTeams[teamID] then
-			local x, _, z = Spring.GetTeamStartPosition(teamID)
-			teams[#teams + 1] = { teamID = teamID, x = x or 0, z = z or 0 }
-		end
-	end
-	MexRegions.Deal(teams, Spring)
-
-	-- Which regions are whose is on the map, colour-coded where a mex would go; chat says only
-	-- that the rule is on, and warns when the deal left a team without a region.
 	tellEveryone("Mex placement is restricted to map-assigned regions, dealt by the lobby's Mex Splitting setting.")
 	local holdings = MexRegions.Holdings()
 	local unheld = 0
-	for _, team in ipairs(teams) do
-		if holdings[team.teamID] == nil then
+	for _, teamID in ipairs(Spring.GetTeamList()) do
+		if not ignoredTeams[teamID] and holdings[teamID] == nil then
 			unheld = unheld + 1
 		end
 	end
