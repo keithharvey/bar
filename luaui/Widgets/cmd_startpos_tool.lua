@@ -2418,7 +2418,40 @@ end
 
 ---The match's own starts, from the start module, the first time the tool opens with nothing
 ---drawn: the boxes the resolver settled on and the positions the engine has.
+---The mex layer opens on the match's deal when there is one, else on the editor's own save for
+---this map, so what was drawn last time is what comes up.
+function R.seedMexRegions()
+	if #R.mexList > 0 then
+		return
+	end
+	local okDeal, Deal = pcall(VFS.Include, "modules/economy/lib/mex_regions/deal.lua")
+	local deal = okDeal and type(Deal) == "table" and Deal.Reader()(Spring) or nil
+	if deal and deal.regions and #deal.regions > 0 then
+		for _, region in ipairs(deal.regions) do
+			local vertices = {}
+			for i, p in ipairs(region.polygon) do
+				vertices[i] = { x = p[1], z = p[2] }
+			end
+			R.mexList[#R.mexList + 1] = {
+				type = "mex_region",
+				name = region.name,
+				group = region.group,
+				kind = "polygon",
+				vertices = vertices,
+				tags = {},
+			}
+		end
+		Echo("[Regions] Opened on the match's " .. #deal.regions .. " mex region(s)")
+		return
+	end
+	local file = REGIONS_SAVE_DIR .. getMapName() .. ".lua"
+	if VFS.FileExists(file, VFS.RAW_FIRST) then
+		R.load(file)
+	end
+end
+
 function R.seedFromMatch()
+	R.seedMexRegions()
 	if R.seeded or #R.startList > 0 or #positions > 0 then
 		return
 	end
