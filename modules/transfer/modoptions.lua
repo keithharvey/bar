@@ -1,4 +1,5 @@
 local ConstructionEnums = VFS.Include("modules/construction/enums.lua")
+local EconomyEnums = VFS.Include("modules/economy/enums.lua")
 local TransferEnums = VFS.Include("modules/transfer/enums.lua")
 local ModOptionHelpers = VFS.Include("modules/transfer/mode_helpers.lua")
 
@@ -191,6 +192,41 @@ return {
 		step = 0.01,
 	},
 
+	{
+		key = EconomyEnums.ModOptions.MexSplitting,
+		name = "Mex Splitting",
+		desc = "None: whoever builds the mex takes the spot. Map Assigned: the map's metal regions are dealt to teams at start, nearest first and round robin, and a mex may only go down in a region its team holds; needs a region layout for the map, without one the game says so in chat and mexes stay unrestricted. Shared: every team's extraction pools and is split back evenly.",
+		type = "list",
+		section = TransferEnums.ModeCategories.Transfer,
+		def = EconomyEnums.MexSplitting.None,
+		column = 1,
+		items = {
+			{
+				key = EconomyEnums.MexSplitting.None,
+				name = "None",
+				desc = "Whoever builds the mex takes the spot",
+			},
+			{
+				key = EconomyEnums.MexSplitting.MapAssigned,
+				name = "Map Assigned",
+				desc = "The map's regions are dealt to teams at start; mexes only go down in regions you hold",
+			},
+			{
+				key = EconomyEnums.MexSplitting.Shared,
+				name = "Shared",
+				desc = "Every team's extraction pools and is split back evenly",
+			},
+		},
+	},
+	{
+		key = EconomyEnums.ModOptions.MexRegionsLayout,
+		name = "Mex Regions: Layout",
+		desc = "The map's region layout as json, plain or base64url(zlib(json)); the lobby sets it from maps-metadata. Overrides the layout the map ships.",
+		hidden = true,
+		type = "string",
+		section = TransferEnums.ModeCategories.Transfer,
+		def = "",
+	},
 	{
 		key = "sub_header",
 		name = "-- Takes",
