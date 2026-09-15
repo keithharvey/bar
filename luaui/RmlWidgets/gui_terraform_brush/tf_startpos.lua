@@ -20,6 +20,9 @@ function M.attach(doc, ctx)
 end
 
 function M.sync(doc, ctx, stpState, setSummary)
+	-- This file is included outside the widget environment, so the global WG is nil here;
+	-- the widget hands its own through ctx.
+	local WG = ctx.WG
 	if ctx.syncTBMirrorControls then
 		ctx.syncTBMirrorControls(doc, "st")
 	end
@@ -56,6 +59,325 @@ function M.sync(doc, ctx, stpState, setSummary)
 	-- Visibility for sp-shape-options, sp-shape-row, sp-express-hint, sp-startbox-hint
 	-- is driven by data-if="stpSubMode == ..." against widgetState.dmHandle.stpSubMode
 	-- (synced above). No imperative SetClass needed here.
+
+	-- The region text inputs live inside data-if blocks, so RmlUi creates and drops them as the
+	-- form changes; each new element gets the SDL text-input capture once, or the game eats
+	-- every keystroke and the field never types.
+	if doc and widgetState.wireTextInput then
+		widgetState.stpWiredInputs = widgetState.stpWiredInputs or setmetatable({}, { __mode = "k" })
+		for _, id in ipairs({
+			"sp-region-name",
+			"sp-region-group",
+			"sp-detail-name",
+			"sp-detail-group",
+			"sp-detail-label",
+			"sp-tag-input",
+		}) do
+			local el = doc:GetElementById(id)
+			if el and not widgetState.stpWiredInputs[el] then
+				widgetState.stpWiredInputs[el] = true
+				widgetState.wireTextInput(el)
+			end
+		end
+	end
+
+	-- Regions: the tool's layer, strategy and selection into dm fields; the lists rebuilt only
+	-- when the tool says something changed (dynamic per-item closures: legitimate imperative).
+	if widgetState.dmHandle then
+		local dm = widgetState.dmHandle
+		local function setRg(f, v)
+			if dm[f] ~= v then
+				dm[f] = v
+			end
+		end
+		local labels = stpState.regionTypeLabels or {}
+		local typeLabel = labels[stpState.regionType] and labels[stpState.regionType].label or "Region"
+		setRg("stpRegionType", stpState.regionType or "start")
+		setRg("stpCategory", stpState.category or "start")
+		setRg("stpDrawingArea", stpState.drawForTeam ~= nil)
+		setRg("stpSelectedHasBox", (stpState.selected and stpState.selected.hasBox) == true)
+		setRg("stpStrategy", stpState.strategy or "express")
+		setRg("stpPlacing", stpState.placing or "points")
+		local polygonMode = stpState.regionType == "mex_region" or stpState.placing == "area"
+		setRg("stpPolygonMode", polygonMode)
+		setRg("stpShowShapeOptions", (not polygonMode) and stpState.strategy == "shape")
+		setRg("stpGeometry", stpState.geometry or "point")
+		setRg("stpEditMode", stpState.editMode or "select")
+		setRg("stpGatheredSpots", tostring(stpState.gatheredSpots or 0))
+		setRg("stpAreaTarget", tostring(stpState.areaTarget or ""))
+		local hint
+		if stpState.editMode == "select" then
+			hint = "select"
+		elseif stpState.geometry == "point" then
+			hint = "points"
+		elseif stpState.geometry == "square" then
+			hint = "square"
+		elseif stpState.geometry == "mexes" then
+			hint = "mexes"
+		else
+			hint = "polygon"
+		end
+		setRg("stpHint", hint)
+
+		-- The draw chips: the shapes this type allows, the current one lit.
+		local geoChips = doc and doc:GetElementById("sp-geometry-chips")
+		if geoChips then
+			local geoKey = table.concat(stpState.geometries or {}, ",") .. "|" .. tostring(stpState.geometry)
+			if widgetState.stpGeometryKey ~= geoKey then
+				widgetState.stpGeometryKey = geoKey
+				local labels = { point = "Point", square = "Square", polygon = "Polygon", mexes = "Mexes" }
+				local html = {}
+				for i, g in ipairs(stpState.geometries or {}) do
+					local active = (g == stpState.geometry) and " active" or ""
+					html[#html + 1] = '<div id="sp-geometry-'
+						.. i
+						.. '" class="tf-overlay-chip'
+						.. active
+						.. '"><div class="tf-overlay-chip-label">'
+						.. (labels[g] or g)
+						.. "</div></div>"
+				end
+				geoChips.inner_rml = table.concat(html)
+				for i, g in ipairs(stpState.geometries or {}) do
+					local chip = doc:GetElementById("sp-geometry-" .. i)
+					if chip then
+						chip:AddEventListener("click", function(event)
+							if WG.StartPosTool and WG.StartPosTool.setGeometry then
+								WG.StartPosTool.setGeometry(g)
+							end
+							event:StopPropagation()
+						end, false)
+					end
+				end
+			end
+		end
+		setRg("stpSelected", stpState.selected ~= nil)
+		setRg("stpSelectedAllyTeam", tostring(stpState.selected and stpState.selected.allyTeam or ""))
+		setRg("stpSelectedVertices", tostring(stpState.selected and stpState.selected.vertexCount or 0))
+		setRg("stpRegionError", stpState.regionError or "")
+		setRg("stpRegionListTitle", (stpState.regionType == "start") and "STARTS" or (typeLabel:upper() .. "S"))
+		-- One frame for what you picked or what you are making: Details with a selection, the
+		-- new region's fields while creating on a type that has any, a prompt otherwise.
+		local detailsMode = "prompt"
+		if stpState.selected then
+			detailsMode = "details"
+		elseif stpState.editMode == "create" and stpState.regionType == "mex_region" then
+			detailsMode = "new"
+		end
+		setRg("stpDetailsMode", detailsMode)
+		setRg("stpDetailsTitle", (detailsMode == "new") and ("NEW " .. typeLabel:upper()) or "DETAILS")
+		setRg(
+			"stpClearLabel",
+			(stpState.regionType == "start") and "CLEAR ALL" or ("CLEAR " .. typeLabel:upper() .. "S")
+		)
+
+		-- The category chips: one per type in the registry, the current one lit. Rebuilt when the
+		-- registry or the category changes; a chip's click picks its type.
+		local chips = doc and doc:GetElementById("sp-category-chips")
+		if chips then
+			local catKey = table.concat(stpState.categories or {}, ",") .. "|" .. tostring(stpState.category)
+			if widgetState.stpCategoryKey ~= catKey then
+				widgetState.stpCategoryKey = catKey
+				local catLabels = stpState.categoryLabels or {}
+				local html = {}
+				for i, key in ipairs(stpState.categories or {}) do
+					local label = catLabels[key] and catLabels[key].label or key
+					local active = (key == stpState.category) and " active" or ""
+					html[#html + 1] = '<div id="sp-category-'
+						.. i
+						.. '" class="tf-overlay-chip'
+						.. active
+						.. '"><div class="tf-overlay-chip-label">'
+						.. label
+						.. "</div></div>"
+				end
+				chips.inner_rml = table.concat(html)
+				for i, key in ipairs(stpState.categories or {}) do
+					local chip = doc:GetElementById("sp-category-" .. i)
+					if chip then
+						chip:AddEventListener("click", function(event)
+							if WG.StartPosTool and WG.StartPosTool.setCategory then
+								WG.StartPosTool.setCategory(key)
+							end
+							event:StopPropagation()
+						end, false)
+					end
+				end
+			end
+		end
+
+		local selKey = tostring(stpState.regionType)
+			.. ":"
+			.. tostring(stpState.selectedIdx)
+			.. ":"
+			.. tostring(stpState.selectedStart)
+		if doc and (widgetState.stpRegionRevision ~= stpState.regionRevision or widgetState.stpSelKey ~= selKey) then
+			widgetState.stpRegionRevision = stpState.regionRevision
+			local selectionChanged = widgetState.stpSelKey ~= selKey
+			widgetState.stpSelKey = selKey
+			local st = WG.StartPosTool
+
+			-- The Details inputs show the selected region's fields; only rewritten when the
+			-- selection moves, so typing is never clobbered by the per-frame sync.
+			if selectionChanged and stpState.selected then
+				local labelEl = doc:GetElementById("sp-detail-label")
+				if labelEl then
+					labelEl:SetAttribute("value", stpState.selected.name or "")
+				end
+				local nameEl = doc:GetElementById("sp-detail-name")
+				local groupEl = doc:GetElementById("sp-detail-group")
+				if nameEl then
+					nameEl:SetAttribute("value", stpState.selected.name or "")
+				end
+				if groupEl then
+					groupEl:SetAttribute("value", stpState.selected.group or "")
+				end
+			end
+
+			-- Facts about the selected region: what it is once measured.
+			local factsEl = doc:GetElementById("sp-detail-facts")
+			if factsEl then
+				local facts = stpState.selected and stpState.selected.facts or {}
+				local html = {}
+				for _, fact in ipairs(facts) do
+					html[#html + 1] = '<div class="text-sm text-light">'
+						.. fact[1]
+						.. ': <span class="text-keybind">'
+						.. fact[2]
+						.. "</span></div>"
+				end
+				factsEl.inner_rml = table.concat(html)
+			end
+
+			-- Tags on the selected region, each chip removing itself.
+			local tagList = doc:GetElementById("sp-tag-list")
+			if tagList then
+				local tags = stpState.selected and stpState.selected.tags or {}
+				local html = {}
+				for i, tag in ipairs(tags) do
+					html[#html + 1] = '<div id="sp-tag-'
+						.. i
+						.. '" class="tf-overlay-chip"><div class="tf-overlay-chip-label">'
+						.. tag
+						.. " ×</div></div>"
+				end
+				tagList.inner_rml = table.concat(html)
+				for i = 1, #tags do
+					local chip = doc:GetElementById("sp-tag-" .. i)
+					if chip then
+						chip:AddEventListener("click", function(event)
+							if st and st.removeTag then
+								st.removeTag(i)
+							end
+							event:StopPropagation()
+						end, false)
+					end
+				end
+			end
+
+			-- Group picker for a new mex region: the groups other regions already use.
+			local picker = doc:GetElementById("sp-group-picker")
+			if picker then
+				local groups = stpState.mexGroups or {}
+				local html = {}
+				for i, group in ipairs(groups) do
+					html[#html + 1] = '<div id="sp-group-'
+						.. i
+						.. '" class="tf-overlay-chip"><div class="tf-overlay-chip-label">'
+						.. group
+						.. "</div></div>"
+				end
+				picker.inner_rml = table.concat(html)
+				for i, group in ipairs(groups) do
+					local chip = doc:GetElementById("sp-group-" .. i)
+					if chip then
+						chip:AddEventListener("click", function(event)
+							local groupEl = doc:GetElementById("sp-region-group")
+							if groupEl then
+								groupEl:SetAttribute("value", group)
+							end
+							if st and st.setPendingField then
+								st.setPendingField("group", group)
+							end
+							event:StopPropagation()
+						end, false)
+					end
+				end
+			end
+
+			-- The layer's rows; clicking one selects it. On the start layer a row is an ally team,
+			-- box or not; on other layers a row is a polygon.
+			local listEl = doc:GetElementById("sp-region-list")
+			if listEl then
+				local html, count, onClick = {}, 0, nil
+				if stpState.regionType == "start" then
+					local starts = stpState.starts or {}
+					count = #starts
+					for i, start in ipairs(starts) do
+						local selected = (start.allyTeam == stpState.selectedStart) and " selected" or ""
+						local desc = start.positions
+							.. " position"
+							.. (start.positions == 1 and "" or "s")
+							.. " · "
+							.. (start.hasBox and "area drawn" or "no area")
+						html[#html + 1] = '<div id="sp-region-item-'
+							.. i
+							.. '" class="ll-preset-item'
+							.. selected
+							.. '"><div class="ll-preset-name">Start '
+							.. start.allyTeam
+							.. (start.name and (" · " .. start.name) or "")
+							.. '</div><div class="ll-preset-desc">'
+							.. desc
+							.. "</div></div>"
+					end
+					onClick = function(i)
+						if st and st.selectStart then
+							st.selectStart(i)
+						end
+					end
+				else
+					local regions = stpState.regions or {}
+					count = #regions
+					for i, region in ipairs(regions) do
+						local label = (region.name or "?") .. (region.group and (" (" .. region.group .. ")") or "")
+						local selected = (i == stpState.selectedIdx) and " selected" or ""
+						html[#html + 1] = '<div id="sp-region-item-'
+							.. i
+							.. '" class="ll-preset-item'
+							.. selected
+							.. '"><div class="ll-preset-name">'
+							.. label
+							.. '</div><div class="ll-preset-desc">'
+							.. #(region.vertices or {})
+							.. " pts"
+							.. ((region.tags and #region.tags > 0) and (" · " .. #region.tags .. " tags") or "")
+							.. "</div></div>"
+					end
+					onClick = function(i)
+						if st and st.selectRegion then
+							st.selectRegion(i)
+						end
+					end
+				end
+				if count == 0 then
+					listEl.inner_rml =
+						'<div class="text-xs text-keybind" style="padding: 4dp;">Nothing on this layer yet.</div>'
+				else
+					listEl.inner_rml = table.concat(html)
+					for i = 1, count do
+						local item = doc:GetElementById("sp-region-item-" .. i)
+						if item then
+							item:AddEventListener("click", function(event)
+								onClick(i)
+								event:StopPropagation()
+							end, false)
+						end
+					end
+				end
+			end
+		end
+	end
 
 	-- Update labels via dm interpolation (Phase 2 step 4)
 	local dm = widgetState.dmHandle
@@ -101,10 +423,16 @@ function M.sync(doc, ctx, stpState, setSummary)
 	end
 
 	setSummary(
-		"START POS",
+		"REGIONS",
 		"#fdc04c",
 		"",
-		(stpState.subMode or "express"):upper(),
+		(
+			(
+				stpState.regionTypeLabels
+				and stpState.regionTypeLabels[stpState.regionType]
+				and stpState.regionTypeLabels[stpState.regionType].label
+			) or "start"
+		):upper(),
 		"Players ",
 		tostring(stpState.totalPlayers or (stpState.numAllyTeams or 2))
 			.. " ("
@@ -129,9 +457,12 @@ function M.sync(doc, ctx, stpState, setSummary)
 			"slider-sp-teams-per-ally-numbox",
 			"btn-sp-teams-per-ally-up",
 			"btn-sp-teams-per-ally-down",
-		}, sm == "startbox")
+		}, stpState.placing == "area" or stpState.regionType == "mex_region")
 		-- Rotation: shape-mode only AND non-circular shape type
-		local rotOff = (sm ~= "shape") or (stpState.shapeType == "circle")
+		local rotOff = (stpState.strategy ~= "shape")
+			or (stpState.shapeType == "circle")
+			or stpState.placing == "area"
+			or stpState.regionType == "mex_region"
 		ctx.setDisabledIds(doc, {
 			"slider-sp-rotation",
 			"slider-sp-rotation-numbox",

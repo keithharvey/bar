@@ -74,15 +74,28 @@ local Build = {
 ---@field extractor "mex"|"geo"|nil what the def extracts, if anything
 ---@field alliedExtractorNearby boolean another team's extractor already sits in the radius
 ---@field utilitySharing boolean the sharing mode lets utility buildings change hands
+---@field spotX number|nil for a mex, the metal spot it targets: the nearest spot to the build position, which is what the footprint yields from wherever it lands
+---@field spotZ number|nil
+---@field spotHolder integer the team that holds this spot, a fact another module may provide; the builder itself when nobody else does
 
 ---@class ConstructionPlacementStages: PolicyStages<ConstructionPlacementContext, boolean>
 ---@field AlliedExtractorOccupied string
+---@field SpotHeldByAnotherTeam string a mex on a spot another team holds
 ---@field Allowed string
 
 ---@type ConstructionPlacementStages
 local Placement = {
 	AlliedExtractorOccupied = "AlliedExtractorOccupied",
+	SpotHeldByAnotherTeam = "SpotHeldByAnotherTeam",
 	Allowed = "Allowed",
+}
+
+---@class ConstructionPlacementFacts: PolicyFacts<ConstructionPlacementContext>
+---@field SpotHolder string the team that holds this spot; the builder itself when nobody else does
+
+---@type ConstructionPlacementFacts
+local PlacementFacts = {
+	SpotHolder = "spotHolder",
 }
 
 ---@class ConstructionCreationContext may this team create this def at all: the build option, not one step of it
@@ -121,6 +134,7 @@ local CreationFacts = {
 ---@field Resurrect ConstructionResurrectStages
 ---@field Build ConstructionBuildStages
 ---@field Placement ConstructionPlacementStages
+---@field PlacementFacts ConstructionPlacementFacts
 ---@field Creation ConstructionCreationStages
 ---@field CreationFacts ConstructionCreationFacts
 
@@ -130,6 +144,7 @@ return PolicyBuilder.Contract(Modules.Construction, {
 	Resurrect = PolicyBuilder.Single(Resurrect),
 	Build = PolicyBuilder.Single(Build),
 	Placement = PolicyBuilder.Single(Placement),
+	PlacementFacts = PolicyBuilder.Facts(PlacementFacts),
 	Creation = PolicyBuilder.Single(Creation),
 	CreationFacts = PolicyBuilder.Facts(CreationFacts),
 })

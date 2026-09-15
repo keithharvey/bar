@@ -167,7 +167,7 @@
 			<div id="btn-startpos" class="tf-mode-btn tf-btn-startpos" data-class-active="activeTool == 'stp'" data-event-mousedown="onTfSwitchStartpos()">
 				<div class="tf-keybind-badge">S</div>
 				<img class="tf-icon-md" src="/luaui/images/terraform_brush/mode_startpos.png" />
-				<div class="tf-btn-text">STARTS</div>
+				<div class="tf-btn-text">REGIONS</div>
 			</div>
 			<div id="btn-clone" class="tf-mode-btn tf-btn-clone" data-class-active="activeTool == 'cl'" data-event-mousedown="onClOnClone()">
 				<div class="tf-keybind-badge">J</div>
@@ -189,45 +189,122 @@
 			<div class="tf-section-frame" id="frame-sp-mode">
 				<div id="btn-toggle-sp-mode" class="tf-section-title-row" style="cursor: pointer;">
 					<img id="img-toggle-sp-mode" class="tf-icon-sm" src="/luaui/images/terraform_brush/minus.png" />
-					<div class="tf-collapsible-title">START POSITIONS</div>
+					<div class="tf-collapsible-title">REGIONS</div>
 					<div id="startpos-mode-notify-dot" class="tf-notify-dot hidden"></div>
 				</div>
 			<div id="section-sp-mode">
-			<div class="flex flex-row gap-1 mb-1">
-				<div id="btn-sp-express" class="tf-mode-btn tf-sp-btn-express" data-class-active="stpSubMode == 'express'" data-event-mousedown="onSpSetSubMode('express')">
-					<img class="tf-icon-md" src="/luaui/images/terraform_brush/fp_point.png" />
-					<div class="tf-btn-text">Express</div>
+			<!-- The type is the layer: only its regions draw, and it shapes the rest of the form. -->
+			<div class="text-lg text-light font-bold mb-1">CATEGORY</div>
+			<div id="sp-category-chips" class="flex flex-row gap-1 mb-1 tf-chip-row"></div>
+			<div class="text-lg text-light font-bold mb-1">MODE</div>
+			<div class="flex flex-row gap-1 mb-1 tf-chip-row">
+				<div id="btn-sp-mode-select" class="tf-overlay-chip" data-class-active="stpEditMode == 'select'" data-event-mousedown="onSpSetEditMode('select')">
+					<div class="tf-overlay-chip-label">Select</div>
 				</div>
-				<div id="btn-sp-shape" class="tf-mode-btn tf-sp-btn-shape" data-class-active="stpSubMode == 'shape'" data-event-mousedown="onSpSetSubMode('shape')">
-					<img class="tf-icon-md" src="/luaui/images/terraform_brush/shape_hexagon.png" />
-					<div class="tf-btn-text">Shape</div>
-				</div>
-				<div id="btn-sp-startbox" class="tf-mode-btn tf-sp-btn-startbox" data-class-active="stpSubMode == 'startbox'" data-event-mousedown="onSpSetSubMode('startbox')">
-					<img class="tf-icon-md" src="/luaui/images/terraform_brush/shape_square.png" />
-					<div class="tf-btn-text">Startbox</div>
+				<div id="btn-sp-mode-create" class="tf-overlay-chip" data-class-active="stpEditMode == 'create'" data-event-mousedown="onSpSetEditMode('create')">
+					<div class="tf-overlay-chip-label">Create</div>
 				</div>
 			</div>
-			<!-- Startbox placement-mode picker (only visible in startbox submode). Same styling as main submode row. -->
-			<div id="sp-startbox-mode-row" class="flex flex-row gap-1 mb-1" data-if="stpSubMode == 'startbox'">
-				<div id="btn-sp-sbx-box" class="tf-mode-btn tf-sp-btn-sbx-box" data-class-active="stpStartboxMode == 'box'" data-event-mousedown="onSpSetStartboxMode('box')">
-					<img class="tf-icon-md" src="/luaui/images/terraform_brush/shape_square.png" />
-					<div class="tf-btn-text">Box</div>
-				</div>
-				<div id="btn-sp-sbx-polygon" class="tf-mode-btn tf-sp-btn-sbx-polygon" data-class-active="stpStartboxMode == 'polygon'" data-event-mousedown="onSpSetStartboxMode('polygon')">
-					<img class="tf-icon-md" src="/luaui/images/terraform_brush/shape_hexagon.png" />
-					<div class="tf-btn-text">Polygon</div>
-				</div>
-				<div id="btn-sp-sbx-freedraw" class="tf-mode-btn tf-sp-btn-sbx-freedraw" data-class-active="stpStartboxMode == 'freedraw'" data-event-mousedown="onSpSetStartboxMode('freedraw')">
-					<img class="tf-icon-md" src="/luaui/images/terraform_brush/freedraw.png" />
-					<div class="tf-btn-text">Free</div>
-				</div>
-			</div>
+			<div class="text-lg text-light font-bold mb-1" data-if="stpEditMode == 'create'">DRAW</div>
+			<div id="sp-geometry-chips" class="flex flex-row gap-1 mb-1 tf-chip-row" data-if="stpEditMode == 'create'"></div>
+			<!-- Hints -->
+			<div class="text-sm text-keybind mb-1" data-if="stpHint == 'select'">LMB: select a region or a position · Drag positions, vertices and edges · Nothing is created</div>
+			<div class="text-sm text-keybind mb-1" data-if="stpHint == 'points'">LMB: place a start position · Drag to move · RMB: remove</div>
+			<div class="text-sm text-keybind mb-1" data-if="stpHint == 'mexes'">LMB drag: select the mexes inside · Alt+drag: deselect · Click a mex: toggle · Ctrl+Z: one step back · RMB: close the region · Esc: clear</div>
+			<div class="text-sm text-keybind mb-1" data-if="stpGatheredSpots != '0'">{{stpGatheredSpots}} spots selected · RMB closes the region shown</div>
+			<div class="text-sm text-keybind mb-1" data-if="stpHint == 'square'">LMB drag: a square · Drag edges to resize · Click inside to select</div>
+			<div class="text-sm text-keybind mb-1" data-if="stpHint == 'polygon'">LMB: add vertex · LMB drag from empty: free-draw · RMB: close (3+ vertices) · Esc: cancel · Drag vertices to move · Click inside to select</div>
+			<div class="text-sm text-keybind mb-1" data-if="stpAreaTarget != ''">The next area drawn becomes Start {{stpAreaTarget}}'s</div>
+
 			</div><!-- /section-sp-mode -->
 			</div><!-- /frame-sp-mode -->
 		</div>
 
 		<!-- Start Positions controls (visible only when StartPos tool active) -->
 		<div id="tf-startpos-controls" data-if="activeTool == 'stp'">
+
+		<!-- ST: REGION — the layer's regions, and the fields a new one takes -->
+		<div class="tf-section-frame" id="frame-st-region">
+			<div id="btn-toggle-st-region" class="tf-section-title-row" style="cursor: pointer;">
+				<img id="img-toggle-st-region" class="tf-icon-sm" src="/luaui/images/terraform_brush/minus.png" />
+				<div class="tf-collapsible-title">{{stpRegionListTitle}}</div>
+			</div>
+		<div id="section-st-region">
+			<div class="text-sm mb-1" style="color: #ff8080;" data-if="stpRegionError != ''">{{stpRegionError}}</div>
+
+			<!-- The layer's regions -->
+			<div id="sp-region-list" class="mb-1"></div>
+
+		</div><!-- /section-st-region -->
+		</div><!-- /frame-st-region -->
+
+		<!-- ST: DETAILS — the selected region: its fields, tags and facts -->
+		<div class="tf-section-frame" id="frame-st-details">
+			<div id="btn-toggle-st-details" class="tf-section-title-row" style="cursor: pointer;">
+				<img id="img-toggle-st-details" class="tf-icon-sm" src="/luaui/images/terraform_brush/minus.png" />
+				<div class="tf-collapsible-title">{{stpDetailsTitle}}</div>
+			</div>
+		<div id="section-st-details">
+			<div class="text-xs text-keybind mb-1" data-if="stpDetailsMode == 'prompt'">Click a region on the map, or a row above, to see it here.</div>
+			<div data-if="stpDetailsMode == 'new'">
+			<!-- New mex region: its fields before its first vertex -->
+			<div id="sp-new-region">
+				<div class="text-sm text-light">Name (optional)</div>
+				<input type="text" id="sp-region-name" class="ll-search-input mb-1" style="width:100%;" data-event-change="onSpRegionPendingChange()" />
+				<div class="text-sm text-light">Group</div>
+				<input type="text" id="sp-region-group" class="ll-search-input mb-1" style="width:100%;" data-event-change="onSpRegionPendingChange()" />
+				<div id="sp-group-picker" class="flex flex-row gap-1 mb-1 tf-chip-row"></div>
+			</div>
+			</div>
+			<!-- Details: the selected region's fields and tags. Each type's block is its own data-if. -->
+			<div id="sp-details" data-if="stpSelected">
+				<div data-if="stpRegionType == 'start'">
+					<div class="text-sm text-light mb-1">Start for ally team {{stpSelectedAllyTeam}}</div>
+					<div data-if="stpSelectedHasBox">
+						<div class="text-sm text-light">Label</div>
+						<input type="text" id="sp-detail-label" class="ll-search-input mb-1" style="width:100%;" data-event-change="onSpRegionFieldChange('label')" />
+					</div>
+					<div class="flex flex-row gap-1 mb-1" data-if="stpSelectedHasBox">
+						<div id="btn-sp-draw-area" class="tf-action-btn" style="flex:1;" data-if="!stpDrawingArea" data-event-mousedown="onSpDrawArea()">
+							<div class="tf-action-btn-text">REDRAW AREA</div>
+						</div>
+						<div id="btn-sp-cancel-area" class="tf-action-btn" style="flex:1;" data-if="stpDrawingArea" data-event-mousedown="onSpCancelArea()">
+							<div class="tf-action-btn-text">KEEP AREA</div>
+						</div>
+						<div id="btn-sp-remove-area" class="tf-action-btn" style="flex:1;" data-event-mousedown="onSpRemoveArea()">
+							<div class="tf-action-btn-text">REMOVE AREA</div>
+						</div>
+					</div>
+				</div>
+				<div data-if="stpRegionType == 'mex_region'">
+					<div class="text-sm text-light">Name</div>
+					<input type="text" id="sp-detail-name" class="ll-search-input mb-1" style="width:100%;" data-event-change="onSpRegionFieldChange('name')" />
+					<div class="text-sm text-light">Group</div>
+					<input type="text" id="sp-detail-group" class="ll-search-input mb-1" style="width:100%;" data-event-change="onSpRegionFieldChange('group')" />
+					<div class="text-sm text-light mb-1">{{stpSelectedVertices}} vertices</div>
+				</div>
+				<div class="text-sm text-light">Tags</div>
+				<div class="flex flex-row gap-1 items-center mb-1">
+					<input type="text" id="sp-tag-input" class="ll-search-input" style="flex:1;" data-event-change="onSpRegionAddTag()" />
+					<div id="btn-sp-tag-add" class="tf-sm-btn" data-event-mousedown="onSpRegionAddTag()"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/plus.png" /></div>
+				</div>
+				<div id="sp-tag-list" class="flex flex-row gap-1 mb-1 tf-chip-row"></div>
+				<!-- What the region is, derived: the facts the game and the deal would see -->
+				<div class="text-lg text-light font-bold mb-1">FACTS</div>
+				<div id="sp-detail-facts" class="mb-1"></div>
+				<div class="flex flex-row gap-1 mb-1">
+					<div id="btn-sp-region-remove" class="tf-action-btn" style="flex:1;" data-if="stpRegionType != 'start'" data-event-mousedown="onSpRegionRemove()">
+						<div class="tf-action-btn-text">REMOVE</div>
+					</div>
+					<div id="btn-sp-region-deselect" class="tf-action-btn" style="flex:1;" data-event-mousedown="onSpRegionDeselect()">
+						<div class="tf-action-btn-text">DESELECT</div>
+					</div>
+				</div>
+			</div>
+
+		</div><!-- /section-st-details -->
+		</div><!-- /frame-st-details -->
+
 
 		<!-- ST: DISPLAY -->
 		<div class="tf-section-frame tf-collapsed" id="frame-st-overlays">
@@ -389,6 +466,7 @@
 			</div>
 		<div id="section-st-controls">
 
+			<div id="sp-start-controls" data-if="stpRegionType == 'start'">
 			<!-- Ally Teams count -->
 			<div class="flex flex-row items-center mb-1">
 				<div class="text-lg text-light font-bold">Ally Teams</div>
@@ -424,105 +502,10 @@
 				<div class="text-lg text-light font-bold" style="flex:1;">Placement</div>
 				<div id="btn-sp-placement-mode" class="tf-sm-btn" style="padding: 2dp 10dp;" data-event-mousedown="onSpTogglePlacement()">{{stpPlacementModeStr}}</div>
 			</div>
-
-			<!-- Shape Count (for shape mode) -->
-			<div id="sp-shape-options" data-if="stpSubMode == 'shape'">
-				<div class="flex flex-row items-center mb-1">
-					<div class="text-lg text-light font-bold">Positions</div>
-					<div id="sp-count-label" class="text-lg text-light">{{stpCountStr}}</div>
-					<div id="slider-sp-count-transport-toggle" class="tf-transport-toggle" style="margin-left: 6dp;">DYNAMIC</div>
-					<div id="slider-sp-count-transport" class="tf-transport-group hidden">
-						<div id="slider-sp-count-back" class="tf-transport-btn"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/transport_back.png" /></div>
-						<div id="slider-sp-count-play" class="tf-transport-btn"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/passthrough_play.png" /></div>
-						<div id="slider-sp-count-fwd"  class="tf-transport-btn"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/transport_fwd.png" /></div>
-					</div>
-				</div>
-				<div class="flex flex-row gap-1 items-center mb-1">
-					<div id="btn-sp-count-down" class="tf-sm-btn" data-event-mousedown="onSpCountDown()"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/minus.png" /></div>
-					<input id="slider-sp-count" type="range" class="tf-slider" min="2" max="256" step="1" value="4" style="flex:1;" data-event-change="onSpCountChange()" />
-					<div id="btn-sp-count-up" class="tf-sm-btn" data-event-mousedown="onSpCountUp()"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/plus.png" /></div>
-					<input type="text" id="slider-sp-count-numbox" class="tf-slider-numbox" value="4" />
-				</div>
-
-				<!-- Shape Size -->
-				<div class="flex flex-row items-center mb-1">
-					<div class="text-lg text-light font-bold">Size</div>
-					<div id="sp-size-label" class="text-lg text-light">{{stpSizeStr}}</div>
-					<div id="sp-slider-size-transport-toggle" class="tf-transport-toggle" style="margin-left: 6dp;">DYNAMIC</div>
-					<div id="sp-slider-size-transport" class="tf-transport-group hidden">
-						<div id="sp-slider-size-back" class="tf-transport-btn"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/transport_back.png" /></div>
-						<div id="sp-slider-size-play" class="tf-transport-btn"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/passthrough_play.png" /></div>
-						<div id="sp-slider-size-fwd"  class="tf-transport-btn"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/transport_fwd.png" /></div>
-					</div>
-				</div>
-				<div class="flex flex-row gap-1 items-center mb-1">
-					<div id="btn-sp-size-down" class="tf-sm-btn" data-event-mousedown="onSpSizeDown()"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/minus.png" /></div>
-					<input id="slider-sp-size" type="range" class="tf-slider" min="64" max="16384" step="32" value="2000" style="flex:1;" data-event-change="onSpSizeChange()" />
-					<div id="btn-sp-size-up" class="tf-sm-btn" data-event-mousedown="onSpSizeUp()"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/plus.png" /></div>
-					<input type="text" id="slider-sp-size-numbox" class="tf-slider-numbox" value="2000" />
-				</div>
-
-				<!-- Shape Rotation -->
-				<div class="flex flex-row items-center mb-1">
-					<div class="text-lg text-light font-bold">Rotation</div>
-					<div id="sp-rotation-label" class="text-lg text-light">{{stpRotationStr}}</div>
-					<div id="sp-slider-rotation-transport-toggle" class="tf-transport-toggle" style="margin-left: 6dp;">DYNAMIC</div>
-					<div id="sp-slider-rotation-transport" class="tf-transport-group hidden">
-						<div id="sp-slider-rotation-back" class="tf-transport-btn"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/transport_back.png" /></div>
-						<div id="sp-slider-rotation-play" class="tf-transport-btn"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/passthrough_play.png" /></div>
-						<div id="sp-slider-rotation-fwd"  class="tf-transport-btn"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/transport_fwd.png" /></div>
-					</div>
-				</div>
-				<div class="flex flex-row gap-1 items-center mb-1">
-					<div id="btn-sp-rot-ccw" class="tf-sm-btn" data-event-mousedown="onSpRotCCW()"><img class="tf-icon-sm" src="/luaui/images/terraform_brush/rot_ccw.png" /></div>
-					<input id="slider-sp-rotation" type="range" class="tf-slider" min="0" max="359" step="1" value="0" style="flex:1;" data-event-change="onSpRotChange()" />
-					<div id="btn-sp-rot-cw" class="tf-sm-btn" data-event-mousedown="onSpRotCW()"><img class="tf-icon-sm" src="/luaui/images/terraform_brush/rot_cw.png" /></div>
-					<input type="text" id="slider-sp-rotation-numbox" class="tf-slider-numbox" value="0" />
-				</div>
-
-				<!-- Random Positions button -->
-				<div class="flex flex-row gap-1 mb-1">
-					<div id="btn-sp-random" class="tf-action-btn" style="flex: 1;" data-event-mousedown="onSpRandom()">
-						<div class="tf-action-btn-text">RANDOM POSITIONS</div>
-					</div>
-				</div>
-			</div>
-
-			<!-- Shape selector -->
-			<div id="sp-shape-row" data-if="stpSubMode == 'shape'">
-				<div class="text-lg text-light font-bold mb-1">SHAPE</div>
-				<div class="flex flex-row gap-1 mb-1">
-					<div id="btn-sp-shape-circle" class="tf-mode-btn" data-class-active="stpShapeMode == 'circle'" data-event-mousedown="onSpSetShape('circle')">
-						<img class="tf-icon-md" src="/luaui/images/terraform_brush/shape_circle.png" />
-						<div class="tf-btn-text">Circle</div>
-					</div>
-					<div id="btn-sp-shape-square" class="tf-mode-btn" data-class-active="stpShapeMode == 'square'" data-event-mousedown="onSpSetShape('square')">
-						<img class="tf-icon-md" src="/luaui/images/terraform_brush/shape_square.png" />
-						<div class="tf-btn-text">Square</div>
-					</div>
-					<div id="btn-sp-shape-hexagon" class="tf-mode-btn" data-class-active="stpShapeMode == 'hexagon'" data-event-mousedown="onSpSetShape('hexagon')">
-						<img class="tf-icon-md" src="/luaui/images/terraform_brush/shape_hexagon.png" />
-						<div class="tf-btn-text">Hex</div>
-					</div>
-					<div id="btn-sp-shape-triangle" class="tf-mode-btn" data-class-active="stpShapeMode == 'triangle'" data-event-mousedown="onSpSetShape('triangle')">
-						<img class="tf-icon-md" src="/luaui/images/terraform_brush/shape_triangle.png" />
-						<div class="tf-btn-text">Tri</div>
-					</div>
-				</div>
-			</div>
-
-			<!-- Express mode hint -->
-			<div id="sp-express-hint" data-if="stpSubMode == 'express'">
-			</div>
-			<!-- Startbox mode hint -->
-			<div id="sp-startbox-hint" data-if="stpSubMode == 'startbox'">
-				<div id="sp-sbx-hint-box" class="text-sm text-keybind mb-1" data-if="stpStartboxMode == 'box'">LMB drag: rectangle &amp;middot; RMB: remove last box &amp;middot; Drag vertices to reshape</div>
-				<div id="sp-sbx-hint-polygon" class="text-sm text-keybind mb-1" data-if="stpStartboxMode == 'polygon'">LMB: add vertex &amp;middot; RMB: finish box &amp;middot; Drag vertices to move</div>
-				<div id="sp-sbx-hint-freedraw" class="text-sm text-keybind mb-1" data-if="stpStartboxMode == 'freedraw'">LMB drag: free-draw (smoothed) &amp;middot; RMB: cancel &amp;middot; Drag vertices to tweak</div>
-			</div>
+			</div><!-- /sp-start-controls -->
 
 			<!-- Action buttons -->
-			<div class="flex flex-row gap-1 mb-1">
+			<div class="flex flex-row gap-1 mb-1" data-if="stpRegionType == 'start'">
 				<div id="btn-sp-clear" class="tf-action-btn" style="flex: 1;" data-event-mousedown="onSpClear()">
 					<div class="tf-action-btn-text">CLEAR ALL</div>
 				</div>

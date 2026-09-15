@@ -42,11 +42,13 @@ Each module owns one concern:
 
 | Module | Owns | Requires |
 |---|---|---|
+| `regions` | Contained space on the map with facts attached, drawn as a point or a polygon: the rules and facts every region type shares, and the layout codec. Types are contributed by the modules that own them, through a `region_types.lua`. The terraformer draws them through its api. | the runtime |
+| `start` | A team's start as a region: its positions and the area they sit in. Its facts default to the match's own startboxes and start positions, so an editor opens on what the map plays with. | regions |
 | `defs` | Def post-processing as a pipeline every unit and weapon def pass, and where a module adds its own stage. | the runtime |
 | `game` | Which game this is: the game axis, one selector, the presets, the export the lobby reads. | the runtime |
 | `transport` | Who may load and unload what, and how fast a loaded transport flies. The first module with real rules; the air transport rework builds on it. | defs |
 | `construction` | What may be built, and by whom: assist, reclaim, resurrect, build delay, geo and mex upgrades. | the runtime |
-| `economy` | How a shared pool is distributed. | the runtime |
+| `economy` | How a shared pool is distributed, and where a team's mex income comes from: the Mex Splitting selector, and Map Assigned's deal of the map's regions to each team's start area. | construction, regions, start |
 | `transfer` | What may pass between allied teams: units, resources, take, and the tax on what flows. | construction, economy |
 | `tech` | The keystones that raise a team's tier, and the tier as a fact construction and transfer read. Tech Core is its preset. | transfer, construction |
 | `combat` | Damage, targeting and protection as a lifetime. | proposed |

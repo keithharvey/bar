@@ -1,5 +1,6 @@
 local Debuff = VFS.Include("modules/construction/lib/build_debuff.lua")
 local Creation = VFS.Include("modules/construction/lib/creation.lua")
+local Placement = VFS.Include("modules/construction/lib/placement.lua")
 
 ---@class ConstructionApi
 return {
@@ -18,5 +19,23 @@ return {
 	---@param teamID integer
 	RefreshCreation = function(teamID)
 		Creation.Refresh(teamID, Spring)
+	end,
+
+	---Whether a builder of this team may put this def down here: the placement decision, asked at
+	---command time so an order the build would refuse never reaches the queue.
+	---@param unitDefID integer
+	---@param builderTeam integer
+	---@param x number
+	---@param y number
+	---@param z number
+	---@return boolean
+	MayPlace = function(unitDefID, builderTeam, x, y, z)
+		return Placement.Decide(unitDefID, builderTeam, x, y, z, Spring)
+	end,
+
+	---@param unitDefID integer
+	---@return boolean
+	IsExtractor = function(unitDefID)
+		return Placement.IsExtractor(unitDefID)
 	end,
 }

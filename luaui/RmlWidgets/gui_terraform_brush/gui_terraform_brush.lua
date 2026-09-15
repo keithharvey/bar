@@ -3875,6 +3875,27 @@ local initialModel = {
 	sfMeasureStickyMode = false,
 	stpSubMode = "",
 	stpStartboxMode = "",
+	stpRegionType = "start",
+	stpCategory = "start",
+	stpDrawingArea = false,
+	stpGeometry = "point",
+	stpEditMode = "select",
+	stpGatheredSpots = "0",
+	stpAreaTarget = "",
+	stpSelectedHasBox = false,
+	stpStrategy = "express",
+	stpPlacing = "points",
+	stpPolygonMode = false,
+	stpShowShapeOptions = false,
+	stpHint = "points",
+	stpSelected = false,
+	stpSelectedAllyTeam = "",
+	stpSelectedVertices = "0",
+	stpRegionError = "",
+	stpRegionListTitle = "STARTS",
+	stpDetailsTitle = "DETAILS",
+	stpDetailsMode = "prompt",
+	stpClearLabel = "CLEAR ALL",
 	-- Diffuse painter (Phase A MVP)
 	dfpRadiusStr = "128",
 	dfpStrengthStr = "1.00",
@@ -4910,6 +4931,111 @@ local initialModel = {
 			WG.StartPosTool.setStartboxMode(mode)
 		end
 	end,
+	-- Regions: the layer, the create strategy, and what a start places, as three axes.
+	onSpSetRegionType = function(_event, typeKey)
+		playSound("modeSwitch")
+		if WG.StartPosTool and WG.StartPosTool.setRegionType then
+			WG.StartPosTool.setRegionType(typeKey)
+		end
+	end,
+	onSpRegionPendingChange = function(_event)
+		local st = WG.StartPosTool
+		local doc = widgetState.document
+		if not (st and st.setPendingField and doc) then
+			return
+		end
+		local nameEl = doc:GetElementById("sp-region-name")
+		local groupEl = doc:GetElementById("sp-region-group")
+		st.setPendingField("name", nameEl and nameEl:GetAttribute("value") or "")
+		st.setPendingField("group", groupEl and groupEl:GetAttribute("value") or "")
+	end,
+	-- The selected region's fields, from the Details inputs.
+	onSpRegionFieldChange = function(_event, key)
+		local st = WG.StartPosTool
+		local doc = widgetState.document
+		if not (st and st.setRegionField and doc) then
+			return
+		end
+		-- A start's label is the name field behind its own input, sp-detail-label; every other
+		-- field's input is sp-detail-<key>. Both inputs exist in the document whatever the layer,
+		-- so the key says which one, never a fallback.
+		local field = key
+		if key == "label" then
+			field = "name"
+		end
+		local el = doc:GetElementById("sp-detail-" .. key)
+		if el then
+			st.setRegionField(field, el:GetAttribute("value") or "")
+		end
+	end,
+	onSpRegionAddTag = function(_event)
+		local st = WG.StartPosTool
+		local doc = widgetState.document
+		if not (st and st.addTag and doc) then
+			return
+		end
+		local el = doc:GetElementById("sp-tag-input")
+		if el and st.addTag(el:GetAttribute("value") or "") then
+			el:SetAttribute("value", "")
+			playSound("apply")
+		end
+	end,
+	onSpDrawArea = function(_event)
+		local st = WG.StartPosTool
+		if st and st.drawArea and st.getState then
+			local team = st.getState().selectedStart
+			if team and st.drawArea(team) then
+				playSound("modeSwitch")
+			end
+		end
+	end,
+	onSpSetEditMode = function(_event, mode)
+		playSound("modeSwitch")
+		if WG.StartPosTool and WG.StartPosTool.setEditMode then
+			WG.StartPosTool.setEditMode(mode)
+		end
+	end,
+	onSpSetGeometry = function(_event, g)
+		playSound("modeSwitch")
+		if WG.StartPosTool and WG.StartPosTool.setGeometry then
+			WG.StartPosTool.setGeometry(g)
+		end
+	end,
+	onSpCancelArea = function(_event)
+		if WG.StartPosTool and WG.StartPosTool.cancelArea then
+			WG.StartPosTool.cancelArea()
+		end
+	end,
+	onSpRemoveArea = function(_event)
+		local st = WG.StartPosTool
+		if st and st.removeArea and st.getState then
+			local team = st.getState().selectedStart
+			if team then
+				playSound("reset")
+				st.removeArea(team)
+			end
+		end
+	end,
+	onSpRegionRemove = function(_event)
+		local st = WG.StartPosTool
+		if st and st.removeRegion and st.getState then
+			local sel = st.getState().selectedIdx
+			if sel then
+				playSound("reset")
+				st.removeRegion(sel)
+			end
+		end
+	end,
+	onSpRegionDeselect = function(_event)
+		if WG.StartPosTool and WG.StartPosTool.selectRegion then
+			WG.StartPosTool.selectRegion(nil)
+		end
+	end,
+	onSpRegionCopy = function(_event)
+		if WG.StartPosTool and WG.StartPosTool.copyLayout and WG.StartPosTool.copyLayout() then
+			playSound("apply")
+		end
+	end,
 	onSpCountChange = function(_event)
 		if uiState.updatingFromCode then
 			return
@@ -4988,30 +5114,53 @@ local initialModel = {
 	onSpClear = function(_event)
 		playSound("apply")
 		if WG.StartPosTool then
-			WG.StartPosTool.clearAllPositions()
+			-- Clears the layer: a start's points and areas together, or every mex region.
+			local st = WG.StartPosTool.getState and WG.StartPosTool.getState()
+			if not st or st.regionType == "start" then
+				WG.StartPosTool.clearAllPositions()
+			end
 			WG.StartPosTool.clearAllStartboxes()
 		end
 	end,
+	-- SAVE, LOAD and COPY act on the layer showing: a start's positions and areas, or the
+	-- regions of any other type. COPY puts the layer's lobby value on the clipboard: the
+	-- startbox override as a !bSet, or the region layout for the modoption.
 	onSpSave = function(_event)
 		playSound("apply")
-		if WG.StartPosTool then
-			WG.StartPosTool.saveStartPositions()
-			WG.StartPosTool.saveStartboxes()
+		local st = WG.StartPosTool
+		if not st then
+			return
+		end
+		if st.getState().regionType == "start" then
+			st.saveStartPositions()
+			st.saveStartboxes()
+		else
+			st.saveRegions()
 		end
 	end,
-	-- Copies the startbox override as a !bSet the user can paste into lobby chat. Startbox
-	-- only: start positions travel as a different modoption entirely.
 	onSpCopy = function(_event)
 		playSound("apply")
-		if WG.StartPosTool then
-			WG.StartPosTool.copyStartboxOverride()
+		local st = WG.StartPosTool
+		if not st then
+			return
+		end
+		if st.getState().regionType == "start" then
+			st.copyStartboxOverride()
+		else
+			st.copyLayout()
 		end
 	end,
 	onSpLoad = function(_event)
 		playSound("apply")
-		if WG.StartPosTool then
-			WG.StartPosTool.loadStartPositions()
-			WG.StartPosTool.loadStartboxes()
+		local st = WG.StartPosTool
+		if not st then
+			return
+		end
+		if st.getState().regionType == "start" then
+			st.loadStartPositions()
+			st.loadStartboxes()
+		else
+			st.loadRegions()
 		end
 	end,
 	-- Phase 2 step 6: tf_splat model-king handlers — defined here (not in M.attach)
