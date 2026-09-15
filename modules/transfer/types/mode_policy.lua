@@ -17,7 +17,7 @@
 ---@field Delay fun(noun: TransferGrant, seconds: number): TransferModeChain
 ---@field Gate fun(noun: TransferGrant, t2: number, t3: number): TransferModeChain
 ---@field Open fun(noun: TransferGrant, t2: number, t3: number): TransferModeChain
----@field MexSplitting fun(which: MexSplittingKey): TransferModeChain Where a team's mex income comes from: writes mex_splitting with the given key. A rule verb, so it comes back pinned.
+---@field MexSplitting fun(which: MexSplittingKey): TransferModeChain How a lobby chooses to allocate a team's mex income
 
 ---@param name string
 ---@return TransferModeChain
