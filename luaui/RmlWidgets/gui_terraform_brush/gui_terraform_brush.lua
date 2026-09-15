@@ -4954,13 +4954,16 @@ local initialModel = {
 		if not (st and st.setRegionField and doc) then
 			return
 		end
-		-- A start's label input is sp-detail-label; every other field is sp-detail-<key>.
-		local el = doc:GetElementById("sp-detail-" .. key)
-		if key == "name" and not el then
-			el = doc:GetElementById("sp-detail-label")
+		-- A start's label is the name field behind its own input, sp-detail-label; every other
+		-- field's input is sp-detail-<key>. Both inputs exist in the document whatever the layer,
+		-- so the key says which one, never a fallback.
+		local field = key
+		if key == "label" then
+			field = "name"
 		end
+		local el = doc:GetElementById("sp-detail-" .. key)
 		if el then
-			st.setRegionField(key, el:GetAttribute("value") or "")
+			st.setRegionField(field, el:GetAttribute("value") or "")
 		end
 	end,
 	onSpRegionAddTag = function(_event)

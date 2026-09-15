@@ -2687,7 +2687,14 @@ function R.setField(key, value)
 		candidate[field.key] = box[field.key]
 	end
 	candidate[key] = value ~= "" and value or nil
-	local problems = R.api.Check(R.type, candidate, startboxes, true)
+	-- The candidate is a copy, so the region itself must not count as its own sibling.
+	local siblings = {}
+	for _, other in ipairs(startboxes) do
+		if other ~= box then
+			siblings[#siblings + 1] = other
+		end
+	end
+	local problems = R.api.Check(R.type, candidate, siblings, true)
 	if problems[1] then
 		R.error = problems[1]
 		R.bump()

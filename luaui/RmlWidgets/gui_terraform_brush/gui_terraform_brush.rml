@@ -261,7 +261,7 @@
 					<div class="text-sm text-light mb-1">Start for ally team {{stpSelectedAllyTeam}}</div>
 					<div data-if="stpSelectedHasBox">
 						<div class="text-sm text-light">Label</div>
-						<input type="text" id="sp-detail-label" class="ll-search-input mb-1" style="width:100%;" data-event-change="onSpRegionFieldChange('name')" />
+						<input type="text" id="sp-detail-label" class="ll-search-input mb-1" style="width:100%;" data-event-change="onSpRegionFieldChange('label')" />
 					</div>
 					<div class="flex flex-row gap-1 mb-1" data-if="stpSelectedHasBox">
 						<div id="btn-sp-draw-area" class="tf-action-btn" style="flex:1;" data-if="!stpDrawingArea" data-event-mousedown="onSpDrawArea()">
