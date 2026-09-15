@@ -1261,6 +1261,22 @@ local function stepStartPos()
 	return true
 end
 
+local function stepRegions()
+	local st = WG.StartPosTool
+	if not (st and st.saveRegions) then
+		sectionSkip("regions", "startpos tool not loaded")
+		return true
+	end
+	local path = job.dir .. "regions.lua"
+	local ok, reason = st.saveRegions(path)
+	if ok then
+		sectionOk("regions", "regions.lua", fileSize(path))
+	else
+		sectionSkip("regions", reason or "write failed")
+	end
+	return true
+end
+
 local function stepEnvironment()
 	local ui = WG.TerraformBrushUI
 	if not (ui and ui.buildEnvConfigContent) then
@@ -1527,6 +1543,7 @@ local SECTION_FILES = {
 	decals = { "decals.lua" },
 	startpos = { "startpos.lua" },
 	startboxes = { "startboxes.lua" },
+	regions = { "regions.lua" },
 	lights = { "lights.lua" },
 	labels = { "labels.lua" },
 	environment = { "environment.lua" },
@@ -1652,6 +1669,7 @@ local function stepManifest()
 		"decals",
 		"startpos",
 		"startboxes",
+		"regions",
 		"lights",
 		"labels",
 		"environment",
@@ -1745,6 +1763,7 @@ local STEPS = {
 	{ name = "lights", run = stepLights },
 	{ name = "labels", run = stepLabels },
 	{ name = "startpos", run = stepStartPos },
+	{ name = "regions", run = stepRegions },
 	{ name = "environment", run = stepEnvironment },
 	{ name = "weather", run = stepWeather },
 	{ name = "grass", run = stepGrass },
@@ -2849,6 +2868,18 @@ local function phaseStartposGrass(c)
 			end
 		else
 			loadSkip("startboxes", "startpos tool widget not loaded")
+		end
+	end
+	local regionsPath = sectionFile("regions")
+	if regionsPath then
+		if st and st.loadRegions then
+			if st.loadRegions(regionsPath) then
+				loadOk("regions", nil)
+			else
+				loadSkip("regions", "startpos tool rejected the file")
+			end
+		else
+			loadSkip("regions", "startpos tool widget not loaded")
 		end
 	end
 	local grassPath, grassSec = sectionFile("grass")

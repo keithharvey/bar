@@ -21,7 +21,7 @@ function test()
 	local spots = SyncedRun(function(locals)
 		local state = gadgetHandler.GG.__moduleState.economy ---@type EconomyState
 		assert(state and state.mexRegions and state.mexClaims, "economy has not dealt the regions")
-		local Claims = VFS.Include("modules/economy/lib/mex_regions/claims.lua")
+		local Claims = VFS.Include("modules/economy/lib/mex_regions/claims.lua") ---@type MexRegionsClaimsLib
 		local mine, theirs
 		for _, spot in ipairs(gadgetHandler.GG.resource_spot_finder.metalSpotsList) do
 			local owner = Claims.OwnerAt(state.mexRegions, state.mexClaims, spot.x, spot.z)

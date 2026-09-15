@@ -143,7 +143,48 @@ local shapeRotation = 0 -- degrees
 local shapeCount = 4 -- number of positions to place with shape
 
 -- Startbox state
-local startboxes = {} -- { {vertices={{x=,z=}, ...}, allyTeam=}, ... }
+-- Regions. The type is the layer: one list per type, and `startboxes` is the ACTIVE list, the
+-- one every polygon path (draw, hit-test, drag, undo) edits. Switching type swaps the pointer,
+-- so the polygon code stays as it was written for startboxes. Start regions are a box per
+-- ally team plus that team's positions; mex regions are named polygons the game deals out.
+-- One table for the region layer's state and verbs: this chunk sits at Lua's 200-local ceiling.
+local R = {
+	startList = {}, -- { {vertices={{x=,z=}, ...}, allyTeam=}, ... }
+	mexList = {}, -- { {vertices=..., kind=, type="mex_region", name=, group=, tags={}}, ... }
+	type = "start", -- "start" | "mex_region": the layer
+	strategy = "express", -- "express" | "shape": how a new region is made
+	placing = "points", -- start type only: "points" | "area"
+	selectedIdx = nil, -- index into the active list
+	selectedStart = nil, -- start layer: the ally team whose start is selected, box or not
+	pendingVertex = nil, -- a press in polygon mode, resolved on release: a vertex, or a free-draw if it moved
+	-- What the dropdown offers: the region types, from the module. A type drawable as a point
+	-- places positions on click, and drawing its area is an action on the selected region
+	-- (drawForTeam) until the polygon closes; a polygon-only type is always drawing.
+	category = "start",
+	drawForTeam = nil, -- start layer: the ally team whose area the current polygon becomes
+	geometry = "point", -- what a click makes: "point" | "square" | "polygon", from the type's shapes
+	editMode = "select", -- "select": a click picks or drags what exists; "create": a click makes a region
+	radial = nil, -- "mexes" draw: the circle being dragged, { cx, cz, r }
+	radialPending = {}, -- "mexes" draw: spots gathered by shift-drags, waiting for the closing drag
+	pending = { name = "", group = "" }, -- fields a new mex region takes before its first vertex
+	error = "",
+	revision = 0,
+	COLOR = { 0.35, 0.85, 1.0, 1.0 },
+}
+-- The types, their rules and their facts are the regions module's; this widget draws.
+R.api = VFS.Include("modules/regions/api.lua") ---@type RegionsApi
+R.ORDER, R.TYPES = R.api.Types()
+R.CATEGORY_ORDER = R.ORDER
+R.CATEGORIES = {}
+for _, key in ipairs(R.ORDER) do
+	local kind = R.TYPES[key]
+	local placesPoints = false
+	for _, g in ipairs(kind.geometries) do
+		placesPoints = placesPoints or g == "point"
+	end
+	R.CATEGORIES[key] = { key = key, label = kind.label, type = key, placing = placesPoints and "points" or "area" }
+end
+local startboxes = R.startList
 -- Forward declarations for cached-fill-list helpers defined further down in the drawing section.
 -- Needed because removeLastStartbox / clearAllStartboxes / drag handlers reference them from
 -- this upper part of the file.
@@ -248,6 +289,21 @@ end
 
 -- Unique color per (allyTeam, teamSlot) pair — gives every player a distinct color
 -- when multiple teams per allyteam are used. playerIdx = (allyTeam-1)*numTeamsPerAlly + teamSlot.
+---The colour a region draws in: its team's on the start layer, one colour for every mex region.
+function R.color(box, bi)
+	if R.type == "mex_region" then
+		return R.COLOR
+	end
+	return getColorForAllyTeam(box.allyTeam or bi)
+end
+
+function R.nextColor()
+	if R.type == "mex_region" then
+		return R.COLOR
+	end
+	return getColorForAllyTeam(#startboxes + 1)
+end
+
 local function getColorForPlayer(playerIdx)
 	local idx = ((playerIdx - 1) % #TEAM_COLORS) + 1
 	return TEAM_COLORS[idx]
@@ -482,6 +538,7 @@ local function addPosition(x, z, allyTeam, teamSlot)
 		teamSlot = teamSlot,
 		playerIdx = playerIdx,
 	}
+	R.bump() -- the starts list counts positions per team
 	return true
 end
 
@@ -511,6 +568,7 @@ local function advanceNextPlayer()
 end
 
 local function removePosition(idx)
+	R.bump()
 	if idx >= 1 and idx <= #positions then
 		table.remove(positions, idx)
 		return true
@@ -549,6 +607,7 @@ local function findNearestPosition(wx, wz)
 end
 
 local function clearAllPositions()
+	R.bump()
 	positions = {}
 	nextAllyTeam = 1
 	nextTeamSlot = 1
@@ -626,19 +685,117 @@ end
 -- modoption format means by order (box 1 is allyTeam 0) and it makes a delete impossible to
 -- desync. One box per team falls out of it.
 local function renumberBoxAllyTeams()
-	for i = 1, #startboxes do
-		startboxes[i].allyTeam = i
+	for i = 1, #R.startList do
+		R.startList[i].allyTeam = i
 	end
 end
 
-local function finishStartbox()
+function R.bump()
+	R.revision = R.revision + 1
+end
+
+---A new region needs its fields before its first vertex: the module's rules, fields only.
+---@return string|nil reason
+function R.validatePending()
+	if R.type ~= "mex_region" then
+		return nil
+	end
+	local candidate = { type = R.type, name = R.pending.name, group = R.pending.group ~= "" and R.pending.group or nil }
+	local problems = R.api.Check(R.type, candidate, R.mexList, true)
+	return problems[1]
+end
+
+---Fields a freshly finished polygon takes from the pending region, when the layer is mex.
+function R.stampNew(box)
+	if R.type == "mex_region" then
+		box.type = "mex_region"
+		local name = R.pending.name
+		if name == nil or name == "" then
+			local n = #R.mexList
+			repeat
+				name = "region " .. n
+				n = n + 1
+				local taken = false
+				for _, other in ipairs(R.mexList) do
+					taken = taken or other.name == name
+				end
+			until not taken
+		end
+		box.name = name
+		box.group = R.pending.group ~= "" and R.pending.group or nil
+		box.tags = {}
+		R.pending.name = ""
+		R.error = ""
+	else
+		box.tags = box.tags or {}
+		-- The polygon was appended; move it onto the team it lands on, replacing that team's
+		-- old area if it had one. Boxes are indexed by team, contiguously.
+		local target = math.min(R.areaTarget(), #startboxes)
+		if target < #startboxes then
+			local appended = table.remove(startboxes)
+			if startboxes[target] then
+				freeBoxFillList(startboxes[target])
+			end
+			startboxes[target] = appended
+		end
+		box.allyTeam = target
+		R.drawForTeam = nil
+		R.selectedStart = target
+		R.selectedIdx = target
+		R.newIdx = target
+		R.bump()
+		return
+	end
+	R.selectedIdx = #startboxes
+	if R.type == "start" then
+		R.selectedStart = box.allyTeam
+	end
+	R.bump()
+end
+
+---Closes the polygon being drawn. Every hand-drawn or generated polygon is a spline of
+---anchors through the shared centripetal Catmull-Rom tessellator: strength 0 anchors are
+---sharp corners, so a clicked polygon is exactly its vertices, and strength 1 anchors are a
+---smooth outline, which is what a mex hull gets. Only a dragged rect stays "box"-kind, for
+---its edge handles. Nothing is filled until the shape is closed.
+---@param strength number|nil anchor strength for the new polygon; nil keeps a plain ring
+local function finishStartbox(strength)
 	if #currentBoxVerts >= 3 then
-		startboxes[#startboxes + 1] = {
-			vertices = currentBoxVerts,
-			allyTeam = #startboxes + 1,
-		}
+		local box = { allyTeam = #startboxes + 1 }
+		if strength ~= nil then
+			box.kind = "spline"
+			box.controls = {}
+			for i, v in ipairs(currentBoxVerts) do
+				box.controls[i] = { x = v.x, z = v.z, strength = strength }
+			end
+			box.vertices = {}
+			R.tessellate(box)
+		else
+			box.vertices = currentBoxVerts
+		end
+		-- The module has the last word on the shape: a region its type refuses is not made.
+		if R.type == "mex_region" then
+			local candidate = {
+				type = R.type,
+				name = R.pending.name ~= "" and R.pending.name or nil,
+				group = R.pending.group ~= "" and R.pending.group or nil,
+				vertices = box.vertices,
+			}
+			local problems = R.api.Check(R.type, candidate, startboxes, false)
+			if problems[1] then
+				R.error = problems[1]
+				currentBoxVerts = {}
+				drawingBox = false
+				R.bump()
+				return
+			end
+		end
+		startboxes[#startboxes + 1] = box
+		R.newIdx = nil
+		R.stampNew(startboxes[#startboxes])
 		renumberBoxAllyTeams()
-		boxUndo.push("add", #startboxes, startboxes[#startboxes])
+		local idx = R.newIdx or #startboxes
+		boxUndo.push("add", idx, startboxes[idx])
 	end
 	currentBoxVerts = {}
 	drawingBox = false
@@ -761,6 +918,7 @@ local function retessellateSpline(box)
 	box.vertices = out
 	box._fillNeedsRebuild = true
 end
+R.tessellate = retessellateSpline
 
 -- A polygon keeps its vertices as its anchors until a corner is first curved; only then does
 -- it need a control ring with a derived outline. Axis-aligned rects never curve.
@@ -821,6 +979,10 @@ local function removeLastStartbox()
 		boxUndo.push("remove", #startboxes, startboxes[#startboxes])
 		freeBoxFillList(startboxes[#startboxes])
 		table.remove(startboxes, #startboxes)
+		if R.selectedIdx and not startboxes[R.selectedIdx] then
+			R.selectedIdx = nil
+		end
+		R.bump()
 		renumberBoxAllyTeams()
 	end
 end
@@ -832,7 +994,11 @@ local function clearAllStartboxes()
 	for i = 1, #startboxes do
 		freeBoxFillList(startboxes[i])
 	end
-	startboxes = {}
+	for k in pairs(startboxes) do
+		startboxes[k] = nil
+	end
+	R.selectedIdx = nil
+	R.bump()
 	-- Entries indexed into the list we just emptied are not reversible, so drop them rather
 	-- than let Ctrl+Z act on stale positions. Clearing is not itself undoable.
 	for i = #undoHistory, 1, -1 do
@@ -851,6 +1017,13 @@ function boxUndo.snap(box)
 	end
 	local anchors = box.controls or box.vertices or {}
 	local out = { kind = box.kind, allyTeam = box.allyTeam, anchors = {} }
+	out.type, out.name, out.group = box.type, box.name, box.group
+	if box.tags then
+		out.tags = {}
+		for k = 1, #box.tags do
+			out.tags[k] = box.tags[k]
+		end
+	end
 	for k = 1, #anchors do
 		local a = anchors[k]
 		out.anchors[k] = { x = a.x, z = a.z, strength = a.strength }
@@ -866,6 +1039,13 @@ function boxUndo.build(snap)
 		anchors[k] = { x = a.x, z = a.z, strength = a.strength }
 	end
 	local box = { kind = snap.kind, allyTeam = snap.allyTeam }
+	box.type, box.name, box.group = snap.type, snap.name, snap.group
+	if snap.tags then
+		box.tags = {}
+		for k = 1, #snap.tags do
+			box.tags[k] = snap.tags[k]
+		end
+	end
 	if snap.kind == "spline" then
 		box.controls = anchors
 		box.vertices = {}
@@ -882,6 +1062,7 @@ end
 function boxUndo.push(op, idx, box)
 	undoHistory[#undoHistory + 1] = {
 		mode = "startbox",
+		region = R.type,
 		op = op,
 		idx = idx,
 		box = boxUndo.snap(box),
@@ -900,6 +1081,18 @@ function boxUndo.commit()
 	boxUndo.pending = nil
 	if not pend or not pend.box then
 		return
+	end
+	-- A drop the type refuses goes back where it was picked up, and the panel says why.
+	local edited = startboxes[pend.idx]
+	if edited and R.api then
+		local problems = R.api.Check(R.type, edited, startboxes, false)
+		if problems[1] then
+			freeBoxFillList(edited)
+			startboxes[pend.idx] = boxUndo.build(pend.box)
+			R.error = problems[1]
+			R.bump()
+			return
+		end
 	end
 	-- A click that only selects a handle must not leave a no-op entry behind, or Ctrl+Z
 	-- appears to do nothing.
@@ -978,8 +1171,8 @@ end
 function boxExport.arrangement()
 	local sizeX, sizeZ = Game.mapSizeX, Game.mapSizeZ
 	local out = {}
-	for bi = 1, #startboxes do
-		local box = startboxes[bi]
+	for bi = 1, #R.startList do
+		local box = R.startList[bi]
 		-- Not getEditHandles: this runs above its declaration. The only thing it adds is a nil
 		-- for rect kinds, and box.vertices is the right answer for those anyway.
 		local anchors = box.controls or box.vertices
@@ -1504,9 +1697,12 @@ local function saveStartboxes(name, explicitPath)
 	lines[#lines + 1] = "-- Generated by Start Positions Tool"
 	lines[#lines + 1] = ""
 	lines[#lines + 1] = "local startboxes = {"
-	for i, box in ipairs(startboxes) do
+	for i, box in ipairs(R.startList) do
 		lines[#lines + 1] = string.format("  [%d] = {", i)
 		lines[#lines + 1] = string.format("    allyTeam = %d,", box.allyTeam)
+		if box.name then
+			lines[#lines + 1] = string.format("    name = %q,", box.name)
+		end
 		lines[#lines + 1] = string.format("    kind = %q,", box.kind or "polygon")
 		-- Anchors, never the tessellated ring: the ring is derived and a curve cannot be
 		-- recovered from it. Strength is omitted when zero, matching the shared schema.
@@ -1547,26 +1743,35 @@ local function loadStartboxes(name, explicitPath)
 		return VFS.Include(filename, nil, VFS.RAW_FIRST)
 	end)
 	if ok and data then
-		clearAllStartboxes()
+		for i = 1, #R.startList do
+			freeBoxFillList(R.startList[i])
+		end
+		for k in pairs(R.startList) do
+			R.startList[k] = nil
+		end
 		for i, box in ipairs(data) do
 			-- anchors is the current shape; vertices is what older saves hold, and those had no
 			-- curvature to lose, so loading them as plain polygons is faithful.
 			local anchors = box.anchors
 			if anchors and box.kind ~= "box" then
-				startboxes[i] = {
+				R.startList[i] = {
 					controls = anchors,
 					vertices = {},
 					kind = "spline",
 					allyTeam = box.allyTeam or i,
+					name = box.name,
+					tags = box.tags or {},
 				}
-				retessellateSpline(startboxes[i])
+				retessellateSpline(R.startList[i])
 			else
 				-- Axis-aligned rects never curve, so their anchors are their vertices.
 				local verts = box.vertices or anchors
-				startboxes[i] = {
+				R.startList[i] = {
 					vertices = verts,
 					allyTeam = box.allyTeam or i,
 					kind = box.kind,
+					name = box.name,
+					tags = box.tags or {},
 				}
 			end
 		end
@@ -1620,7 +1825,7 @@ local function generateStartScript(opts)
 	local mapSizeX = Game.mapSizeX
 	local mapSizeZ = Game.mapSizeZ
 
-	local boxes = startboxes
+	local boxes = R.startList
 	if #boxes == 0 then
 		Echo("[StartPos Tool] No startboxes to export.")
 		return nil
@@ -1786,10 +1991,386 @@ end
 -- Activate / Deactivate / State
 -- ============================================================
 
+-- The panel's three axes become the one internal mode the polygon and point code was written
+-- against: the layer picks the list `startboxes` points at, and "startbox" is the internal name
+-- for polygon editing whatever the layer.
+---The ways a type may be drawn, from its shapes: a point, or a polygon as a dragged square or
+---clicked vertices.
+function R.geometriesFor(typeKey)
+	local kind = R.TYPES[typeKey]
+	local out = {}
+	for _, g in ipairs(kind and kind.geometries or {}) do
+		if g == "point" then
+			out[#out + 1] = "point"
+		elseif g == "polygon" then
+			out[#out + 1] = "square"
+			out[#out + 1] = "polygon"
+			local finder = WG.resource_spot_finder
+			if finder and finder.metalSpotsList and not finder.isMetalMap and #finder.metalSpotsList > 0 then
+				out[#out + 1] = "mexes"
+			end
+		end
+	end
+	return out
+end
+
+---A contiguous polygon around a set of points: their convex hull, pushed out from its centre by a
+---mex footprint so the spots sit inside rather than on the edge. Fewer than three distinct points
+---get a ring around their centre instead.
+function R.hullAround(points, pad)
+	local n = #points
+	if n == 0 then
+		return nil
+	end
+	local cx, cz = 0, 0
+	for _, p in ipairs(points) do
+		cx, cz = cx + p.x, cz + p.z
+	end
+	cx, cz = cx / n, cz / n
+	local hull
+	if n < 3 then
+		local reach = pad
+		for _, p in ipairs(points) do
+			reach = math.max(reach, math.sqrt((p.x - cx) ^ 2 + (p.z - cz) ^ 2) + pad)
+		end
+		-- Four anchors at full strength are a circle once the spline rounds them; twelve would
+		-- only be twelve handles to drag.
+		hull = {}
+		for k = 0, 3 do
+			local a = k / 4 * 2 * math.pi
+			hull[#hull + 1] = { x = cx + math.cos(a) * reach, z = cz + math.sin(a) * reach }
+		end
+		return hull
+	end
+	-- Andrew's monotone chain
+	local sorted = {}
+	for i, p in ipairs(points) do
+		sorted[i] = p
+	end
+	table.sort(sorted, function(a, b)
+		if a.x ~= b.x then
+			return a.x < b.x
+		end
+		return a.z < b.z
+	end)
+	local function cross(o, a, b)
+		return (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x)
+	end
+	local lower = {}
+	for _, p in ipairs(sorted) do
+		while #lower >= 2 and cross(lower[#lower - 1], lower[#lower], p) <= 0 do
+			lower[#lower] = nil
+		end
+		lower[#lower + 1] = p
+	end
+	local upper = {}
+	for i = #sorted, 1, -1 do
+		local p = sorted[i]
+		while #upper >= 2 and cross(upper[#upper - 1], upper[#upper], p) <= 0 do
+			upper[#upper] = nil
+		end
+		upper[#upper + 1] = p
+	end
+	lower[#lower] = nil
+	upper[#upper] = nil
+	hull = {}
+	for _, p in ipairs(lower) do
+		hull[#hull + 1] = p
+	end
+	for _, p in ipairs(upper) do
+		hull[#hull + 1] = p
+	end
+	if #hull < 3 then
+		return R.hullAround({ points[1] }, pad)
+	end
+	-- A vertex that barely bends the outline is a handle for nothing: drop it while the hull
+	-- stays a polygon. The spline rounds what is left.
+	local function bend(prev, p, nxt)
+		local ax, az = p.x - prev.x, p.z - prev.z
+		local bx, bz = nxt.x - p.x, nxt.z - p.z
+		local la, lb = math.sqrt(ax * ax + az * az), math.sqrt(bx * bx + bz * bz)
+		if la < 1 or lb < 1 then
+			return 0
+		end
+		return math.abs(ax * bz - az * bx) / (la * lb)
+	end
+	local function pruned(h)
+		if #h <= 3 then
+			return h
+		end
+		for i = 1, #h do
+			if bend(h[((i - 2) % #h) + 1], h[i], h[(i % #h) + 1]) < 0.35 then
+				table.remove(h, i)
+				return pruned(h)
+			end
+		end
+		return h
+	end
+	hull = pruned(hull)
+	local out = {}
+	for i, p in ipairs(hull) do
+		local dx, dz = p.x - cx, p.z - cz
+		local d = math.sqrt(dx * dx + dz * dz)
+		if d < 1 then
+			out[i] = { x = p.x, z = p.z }
+		else
+			out[i] = { x = p.x + dx / d * pad, z = p.z + dz / d * pad }
+		end
+	end
+	return out
+end
+
+---Whether a point already lies in a region of the active layer: on a disjoint type those spots
+---belong to someone, so the mex tool leaves them out rather than draw an overlap.
+function R.heldByASibling(x, z)
+	local kind = R.TYPES[R.type]
+	if not (kind and kind.disjoint) then
+		return false
+	end
+	for _, region in ipairs(startboxes) do
+		if region.vertices and R.api.Contains(x, z, region.vertices) then
+			return true
+		end
+	end
+	return false
+end
+
+---The metal spots inside the dragged circle that no sibling already holds.
+function R.spotsInRadial()
+	local finder = WG.resource_spot_finder
+	local spots = finder and finder.metalSpotsList or {}
+	local inside = {}
+	local rad = R.radial
+	if not rad then
+		return inside
+	end
+	for _, spot in ipairs(spots) do
+		if (spot.x - rad.cx) ^ 2 + (spot.z - rad.cz) ^ 2 <= rad.r * rad.r and not R.heldByASibling(spot.x, spot.z) then
+			inside[#inside + 1] = spot
+		end
+	end
+	return inside
+end
+
+---A hull that shares no ground with a sibling on a disjoint type: the padding shrinks until it
+---fits, and a hull that cannot fit at all is nil.
+function R.disjointHull(points, pad)
+	local kind = R.TYPES[R.type]
+	for _, factor in ipairs({ 1, 0.5, 0.25, 0 }) do
+		local hull = R.hullAround(points, pad * factor)
+		if not hull then
+			return nil
+		end
+		if not (kind and kind.disjoint) then
+			return hull
+		end
+		local clear = true
+		for _, region in ipairs(startboxes) do
+			if region.vertices and R.api.Overlaps(hull, region.vertices) then
+				clear = false
+				break
+			end
+		end
+		if clear then
+			return hull
+		end
+	end
+	return nil
+end
+
+function R.applyMode()
+	local allowed = R.geometriesFor(R.type)
+	local ok = false
+	for _, g in ipairs(allowed) do
+		ok = ok or g == R.geometry
+	end
+	if not ok then
+		R.geometry = allowed[1] or "polygon"
+	end
+	startboxes = (R.type == "mex_region") and R.mexList or R.startList
+	if R.editMode == "select" then
+		-- Every handle of every polygon stays draggable, positions too, and nothing is made.
+		R.placing = (R.geometry == "point") and "points" or "area"
+		subMode = "startbox"
+		startboxMode = "polygon"
+	elseif R.geometry == "point" then
+		R.placing = "points"
+		subMode = "express"
+	else
+		R.placing = "area"
+		subMode = "startbox"
+		startboxMode = (R.geometry == "square") and "box" or (R.geometry == "mexes") and "radial" or "polygon"
+	end
+	R.radial = nil
+	R.radialPending = {}
+	currentBoxVerts = {}
+	drawingBox = false
+	boxRectActive = false
+	boxRectStartX, boxRectStartZ, boxRectEndX, boxRectEndZ = nil, nil, nil, nil
+	freeDrawActive = false
+	freeDrawPts = {}
+	R.pendingVertex = nil
+	strengthEdit.selBox, strengthEdit.selVert = nil, nil
+	if R.selectedIdx and not startboxes[R.selectedIdx] then
+		R.selectedIdx = nil
+	end
+	R.bump()
+end
+
+function R.setType(t)
+	if R.TYPES[t] and t ~= R.type then
+		R.type = t
+		R.selectedIdx = nil
+		R.error = ""
+		R.applyMode()
+	end
+end
+
+function R.setCategory(key)
+	local cat = R.CATEGORIES[key]
+	if not cat then
+		return
+	end
+	R.category = key
+	if cat.type ~= R.type then
+		R.selectedIdx = nil
+		R.error = ""
+		R.drawForTeam = nil
+		R.geometry = R.geometriesFor(cat.type)[1] or "polygon"
+	end
+	R.type = cat.type
+	R.applyMode()
+end
+
+function R.setEditMode(mode)
+	if mode == "select" or mode == "create" then
+		R.editMode = mode
+		R.applyMode()
+	end
+end
+
+function R.setGeometry(g)
+	if g == "point" or g == "square" or g == "polygon" or g == "mexes" then
+		R.geometry = g
+		R.applyMode()
+	end
+end
+
+---Redraw the selected start's area: the next polygon closed replaces that team's box.
+function R.drawArea(allyTeam)
+	if R.type ~= "start" or not allyTeam then
+		return false
+	end
+	R.error = ""
+	R.drawForTeam = allyTeam
+	R.selectedStart = allyTeam
+	if R.geometry == "point" then
+		R.geometry = "polygon"
+	end
+	R.applyMode()
+	return true
+end
+
+---Forget which start a polygon was going to replace.
+function R.cancelArea()
+	R.drawForTeam = nil
+	R.bump()
+end
+
+---Where a closed polygon lands on the start layer: the team it was drawn for, else the selected
+---start if it has no area yet, else the next team.
+function R.areaTarget()
+	if R.drawForTeam then
+		return math.min(R.drawForTeam, #R.startList + 1)
+	end
+	if R.selectedStart and not R.startList[R.selectedStart] and R.selectedStart <= #R.startList + 1 then
+		return R.selectedStart
+	end
+	return #R.startList + 1
+end
+
+function R.removeArea(allyTeam)
+	if R.type ~= "start" or not R.startList[allyTeam] then
+		return false
+	end
+	local wasActive = startboxes
+	startboxes = R.startList
+	local ok = R.remove(allyTeam)
+	startboxes = wasActive
+	R.selectedStart = allyTeam
+	R.bump()
+	return ok
+end
+
+function R.setStrategy(st)
+	if st == "express" or st == "shape" then
+		R.strategy = st
+		R.applyMode()
+	end
+end
+
+function R.setPlacing(pl)
+	if pl == "points" or pl == "area" then
+		R.placing = pl
+		R.applyMode()
+	end
+end
+
+---The match's own starts, from the start module, the first time the tool opens with nothing
+---drawn: the boxes the resolver settled on and the positions the engine has.
+function R.seedFromMatch()
+	if R.seeded or #R.startList > 0 or #positions > 0 then
+		return
+	end
+	R.seeded = true
+	local ok, Start = pcall(VFS.Include, "modules/start/api.lua")
+	if not ok or type(Start) ~= "table" then
+		return
+	end
+	local current = Start.Current(Spring)
+	for _, area in ipairs(current.areas) do
+		local curved = false
+		for _, a in ipairs(area.anchors) do
+			curved = curved or (a.strength ~= nil and a.strength > 0)
+		end
+		local box = { allyTeam = area.allyTeam, name = area.name, tags = {} }
+		if curved then
+			box.kind = "spline"
+			box.controls = area.anchors
+			box.vertices = {}
+			retessellateSpline(box)
+		else
+			box.kind = "polygon"
+			box.vertices = area.anchors
+		end
+		R.startList[#R.startList + 1] = box
+	end
+	renumberBoxAllyTeams()
+	local slots = {}
+	for _, pos in ipairs(current.positions) do
+		slots[pos.allyTeam] = (slots[pos.allyTeam] or 0) + 1
+		addPosition(pos.x, pos.z, pos.allyTeam, slots[pos.allyTeam])
+	end
+	if #current.areas > 0 or #current.positions > 0 then
+		Echo(
+			"[StartPos Tool] Opened on the match's starts: "
+				.. #current.areas
+				.. " area(s), "
+				.. #current.positions
+				.. " position(s)"
+		)
+	end
+	R.bump()
+end
+
 local function activate(mode)
 	active = true
-	subMode = mode or "express"
-	Echo("[StartPos Tool] Activated: " .. subMode:upper())
+	if mode == "express" or mode == "shape" then
+		R.strategy = mode
+	end
+	R.seedFromMatch()
+	R.applyMode()
+	Echo("[StartPos Tool] Activated: " .. R.TYPES[R.type].label:upper() .. " / " .. R.strategy:upper())
 end
 
 local function deactivate()
@@ -1802,9 +2383,19 @@ local function deactivate()
 	drawingBox = false
 end
 
+-- Kept for callers that still speak the old sub-modes: express and shape are strategies now,
+-- and startbox is the start layer R.placing its area.
 local function setSubMode(mode)
-	if mode == "express" or mode == "shape" or mode == "startbox" then
-		subMode = mode
+	if mode == "express" or mode == "shape" then
+		R.strategy = mode
+		if R.type == "start" then
+			R.placing = "points"
+		end
+		R.applyMode()
+	elseif mode == "startbox" then
+		R.type = "start"
+		R.placing = "area"
+		R.applyMode()
 	end
 end
 
@@ -1902,12 +2493,335 @@ local function decimatePoints(pts, minDistSq)
 	return out
 end
 
+-- ============================================================
+-- Regions: selection, fields, tags, and the mex layer's exports
+-- ============================================================
+
+function R.select(idx)
+	if idx == nil or startboxes[idx] then
+		R.selectedIdx = idx
+		if R.type == "start" then
+			R.selectedStart = idx and startboxes[idx] and startboxes[idx].allyTeam or nil
+		end
+		R.bump()
+	end
+end
+
+---Start layer: a start is an ally team, with or without a box drawn for it.
+function R.selectStart(allyTeam)
+	R.selectedStart = allyTeam
+	R.selectedIdx = allyTeam and R.startList[allyTeam] and allyTeam or nil
+	R.bump()
+end
+
+---The start layer's rows: one per ally team that has positions or a box.
+function R.starts()
+	local count = #R.startList
+	local perTeam = {}
+	for _, pos in ipairs(positions) do
+		perTeam[pos.allyTeam] = (perTeam[pos.allyTeam] or 0) + 1
+		if pos.allyTeam > count then
+			count = pos.allyTeam
+		end
+	end
+	local out = {}
+	for allyTeam = 1, count do
+		out[allyTeam] = {
+			allyTeam = allyTeam,
+			positions = perTeam[allyTeam] or 0,
+			hasBox = R.startList[allyTeam] ~= nil,
+			name = R.startList[allyTeam] and R.startList[allyTeam].name or nil,
+			tags = R.startList[allyTeam] and R.startList[allyTeam].tags or nil,
+		}
+	end
+	return out
+end
+
+---What a start is: its box's facts when it has one, and its positions either way.
+function R.startFacts(allyTeam)
+	local box = R.startList[allyTeam]
+	local facts = box and R.facts(box) or {}
+	local count, cx, cz = 0, 0, 0
+	for _, pos in ipairs(positions) do
+		if pos.allyTeam == allyTeam then
+			count = count + 1
+			cx, cz = cx + pos.x, cz + pos.z
+		end
+	end
+	if not box then
+		facts[#facts + 1] = { "Area", "none drawn" }
+		if count > 0 then
+			facts[#facts + 1] = { "Positions centre", string.format("%d, %d", cx / count, cz / count) }
+		end
+	end
+	facts[#facts + 1] = { "Positions", tostring(count) }
+	return facts
+end
+
+---The fields a new mex region will take; set before the first vertex.
+function R.setPendingField(key, value)
+	if key == "name" or key == "group" then
+		R.pending[key] = value or ""
+		R.error = ""
+		R.bump()
+	end
+end
+
+---Edits a field of the selected region: any field its type declares, checked by the module.
+function R.setField(key, value)
+	local box = R.selectedIdx and startboxes[R.selectedIdx]
+	local kind = R.TYPES[R.type]
+	if not box or not kind then
+		return false
+	end
+	local declared = false
+	for _, field in ipairs(kind.fields) do
+		declared = declared or field.key == key
+	end
+	if not declared then
+		return false
+	end
+	value = value or ""
+	local candidate = { type = R.type, vertices = box.vertices }
+	for _, field in ipairs(kind.fields) do
+		candidate[field.key] = box[field.key]
+	end
+	candidate[key] = value ~= "" and value or nil
+	local problems = R.api.Check(R.type, candidate, startboxes, true)
+	if problems[1] then
+		R.error = problems[1]
+		R.bump()
+		return false
+	end
+	box[key] = value ~= "" and value or nil
+	R.error = ""
+	R.bump()
+	return true
+end
+
+---Arbitrary tags on the selected region, on any layer: what no type has claimed yet.
+function R.addTag(tag)
+	local box = R.selectedIdx and startboxes[R.selectedIdx]
+	tag = tag and tag:match("^%s*(.-)%s*$") or ""
+	if not box or tag == "" then
+		if R.type == "start" and R.selectedStart and not box then
+			R.error = "draw this start's area first; tags live on it"
+			R.bump()
+		end
+		return false
+	end
+	box.tags = box.tags or {}
+	for _, existing in ipairs(box.tags) do
+		if existing == tag then
+			return false
+		end
+	end
+	box.tags[#box.tags + 1] = tag
+	R.bump()
+	return true
+end
+
+function R.removeTag(index)
+	local box = R.selectedIdx and startboxes[R.selectedIdx]
+	if box and box.tags and box.tags[index] then
+		table.remove(box.tags, index)
+		R.bump()
+		return true
+	end
+	return false
+end
+
+function R.remove(idx)
+	local box = startboxes[idx]
+	if not box then
+		return false
+	end
+	boxUndo.push("remove", idx, box)
+	freeBoxFillList(box)
+	table.remove(startboxes, idx)
+	if R.type == "start" then
+		renumberBoxAllyTeams()
+	end
+	R.selectedIdx = nil
+	R.bump()
+	return true
+end
+
+---The distinct group names already on mex regions, for the picker.
+---What a region is once measured: the module's facts, as lines for the form, plus the shape.
+---Cached by selection and revision: getState runs every frame, and the facts enrichment is
+---not a per-frame cost (it reads every module's modoptions on the way to the live set).
+function R.factsFor(key, compute)
+	if R.factsKey ~= key then
+		R.factsKey = key
+		R.factsValue = compute()
+	end
+	return R.factsValue
+end
+
+function R.facts(box)
+	local verts = box.vertices or {}
+	if #verts < 3 then
+		return {}
+	end
+	local finder = WG.resource_spot_finder
+	local spots = finder and not finder.isMetalMap and finder.metalSpotsList or nil
+	local starts = {}
+	for _, pos in ipairs(positions) do
+		starts[#starts + 1] = { allyTeam = pos.allyTeam, x = pos.x, z = pos.z }
+	end
+	local facts = R.api.Facts({ type = box.type or R.type, vertices = verts, name = box.name, group = box.group }, {
+		spots = spots,
+		starts = starts,
+	})
+	local lines = { { "Vertices", tostring(#verts) } }
+	for _, line in ipairs(R.api.FactLines(facts)) do
+		lines[#lines + 1] = line
+	end
+	return lines
+end
+
+function R.groups()
+	local seen, out = {}, {}
+	for _, region in ipairs(R.mexList) do
+		if region.group and not seen[region.group] then
+			seen[region.group] = true
+			out[#out + 1] = region.group
+		end
+	end
+	table.sort(out)
+	return out
+end
+
+---The mex layer as the game reads it, through the module: the tessellated ring, so a curved
+---region reaches the game as the polygon the editor showed.
+function R.exportLayout()
+	return R.api.ExportLayout(R.mexList, Game.mapSizeX, Game.mapSizeZ)
+end
+
+---The layout as the mex_regions_layout modoption carries it.
+function R.encodeLayout()
+	if #R.mexList == 0 then
+		return nil
+	end
+	return R.api.EncodeLayout(R.exportLayout())
+end
+
+function R.copyLayout()
+	local blob = R.encodeLayout()
+	if not blob then
+		R.error = "no mex regions to copy"
+		R.bump()
+		return false
+	end
+	Spring.SetClipboard(blob)
+	R.error = ""
+	R.bump()
+	Echo("[StartPos Tool] Mex region layout copied: paste it as the mex_regions_layout modoption")
+	return true
+end
+
+---The mex layer as the map project keeps it: anchors, like startboxes, plus each region's fields.
+function R.save(explicitPath)
+	if #R.mexList == 0 then
+		return false, "no regions drawn"
+	end
+	local lines = {}
+	lines[#lines + 1] = "-- Regions"
+	lines[#lines + 1] = "-- Map: " .. getMapName()
+	lines[#lines + 1] = "-- Generated by Start Positions Tool; anchors in elmos"
+	lines[#lines + 1] = ""
+	lines[#lines + 1] = "local regions = {"
+	for _, region in ipairs(R.mexList) do
+		lines[#lines + 1] = "  {"
+		lines[#lines + 1] = string.format("    type = %q,", region.type or "mex_region")
+		lines[#lines + 1] = string.format("    name = %q,", region.name or "")
+		if region.group then
+			lines[#lines + 1] = string.format("    group = %q,", region.group)
+		end
+		if region.tags and #region.tags > 0 then
+			local quoted = {}
+			for i, tag in ipairs(region.tags) do
+				quoted[i] = string.format("%q", tag)
+			end
+			lines[#lines + 1] = "    tags = { " .. table.concat(quoted, ", ") .. " },"
+		end
+		lines[#lines + 1] = string.format("    kind = %q,", region.kind or "polygon")
+		lines[#lines + 1] = "    anchors = {"
+		local anchors = getEditHandles(region) or region.vertices
+		for _, v in ipairs(anchors) do
+			if v.strength and v.strength > 0 then
+				lines[#lines + 1] = string.format(
+					"      { x = %d, z = %d, strength = %.3f },",
+					math_floor(v.x),
+					math_floor(v.z),
+					v.strength
+				)
+			else
+				lines[#lines + 1] = string.format("      { x = %d, z = %d },", math_floor(v.x), math_floor(v.z))
+			end
+		end
+		lines[#lines + 1] = "    },"
+		lines[#lines + 1] = "  },"
+	end
+	lines[#lines + 1] = "}"
+	lines[#lines + 1] = ""
+	lines[#lines + 1] = "return regions"
+	local file = io.open(explicitPath, "w")
+	if not file then
+		Echo("[StartPos Tool] ERROR: could not write " .. explicitPath)
+		return false
+	end
+	file:write(table.concat(lines, "\n"))
+	file:close()
+	return true
+end
+
+function R.load(explicitPath)
+	local ok, data = pcall(function()
+		return VFS.Include(explicitPath, nil, VFS.RAW_FIRST)
+	end)
+	if not ok or type(data) ~= "table" then
+		return false
+	end
+	for i = 1, #R.mexList do
+		freeBoxFillList(R.mexList[i])
+	end
+	for k in pairs(R.mexList) do
+		R.mexList[k] = nil
+	end
+	for _, entry in ipairs(data) do
+		local anchors = entry.anchors or entry.vertices
+		if type(entry) == "table" and type(entry.name) == "string" and type(anchors) == "table" and #anchors >= 3 then
+			local region = {
+				type = "mex_region",
+				name = entry.name,
+				group = type(entry.group) == "string" and entry.group or nil,
+				tags = type(entry.tags) == "table" and entry.tags or {},
+			}
+			if entry.kind ~= "box" then
+				region.kind = "spline"
+				region.controls = anchors
+				region.vertices = {}
+				retessellateSpline(region)
+			else
+				region.kind = "box"
+				region.vertices = anchors
+			end
+			R.mexList[#R.mexList + 1] = region
+		end
+	end
+	R.selectedIdx = nil
+	R.bump()
+	return true
+end
+
 local function getState()
 	-- Startbox submode derives its ally-team count from the boxes drawn; the panel disables
 	-- the slider there and shows it as dynamic, so reporting the stale slider value would lie.
 	local allyCount = numAllyTeams
-	if subMode == "startbox" and #startboxes > 0 then
-		allyCount = #startboxes
+	if R.type == "start" and R.placing == "area" and #R.startList > 0 then
+		allyCount = #R.startList
 	end
 
 	return {
@@ -1929,6 +2843,50 @@ local function getState()
 		shapeCount = shapeCount,
 		startboxes = startboxes,
 		startboxMode = startboxMode,
+		regionType = R.type,
+		category = R.category,
+		drawForTeam = R.drawForTeam,
+		geometry = R.geometry,
+		editMode = R.editMode,
+		gatheredSpots = #R.radialPending,
+		geometries = R.geometriesFor(R.type),
+		areaTarget = R.type == "start" and R.placing == "area" and R.areaTarget() or nil,
+		categories = R.CATEGORY_ORDER,
+		categoryLabels = R.CATEGORIES,
+		regionTypes = R.ORDER,
+		regionTypeLabels = R.TYPES,
+		strategy = R.strategy,
+		placing = R.placing,
+		regions = startboxes,
+		selectedIdx = R.selectedIdx,
+		selectedStart = R.selectedStart,
+		starts = R.type == "start" and R.starts() or nil,
+		selected = (R.type == "start" and R.selectedStart and {
+			idx = R.selectedIdx,
+			type = R.type,
+			allyTeam = R.selectedStart,
+			name = R.startList[R.selectedStart] and R.startList[R.selectedStart].name or nil,
+			tags = R.startList[R.selectedStart] and R.startList[R.selectedStart].tags or {},
+			hasBox = R.startList[R.selectedStart] ~= nil,
+			vertexCount = R.startList[R.selectedStart] and #R.startList[R.selectedStart].vertices or 0,
+			facts = R.factsFor("start:" .. R.selectedStart .. ":" .. R.revision .. ":" .. #positions, function()
+				return R.startFacts(R.selectedStart)
+			end),
+		}) or (R.type ~= "start" and R.selectedIdx and startboxes[R.selectedIdx] and {
+			idx = R.selectedIdx,
+			type = R.type,
+			name = startboxes[R.selectedIdx].name,
+			group = startboxes[R.selectedIdx].group,
+			tags = startboxes[R.selectedIdx].tags or {},
+			vertexCount = #startboxes[R.selectedIdx].vertices,
+			facts = R.factsFor(R.type .. ":" .. R.selectedIdx .. ":" .. R.revision, function()
+				return R.facts(startboxes[R.selectedIdx])
+			end),
+		}) or nil,
+		pendingRegion = R.pending,
+		regionError = R.error,
+		regionRevision = R.revision,
+		mexGroups = R.groups(),
 		drawingBox = drawingBox,
 		currentBoxVerts = currentBoxVerts,
 		boxRectActive = boxRectActive,
@@ -1966,8 +2924,30 @@ function widget:MousePress(mx, my, button)
 		return false
 	end
 
+	-- A polygon in progress closes on RMB before anything else gets a say; a click that the tool
+	-- does not consume becomes a unit order, and a half-drawn polygon must never lose to that.
+	if button == 3 and drawingBox then
+		if #currentBoxVerts >= 3 then
+			finishStartbox(0)
+		else
+			currentBoxVerts = {}
+			drawingBox = false
+		end
+		return true
+	end
+
 	if subMode == "express" then
 		if button == 1 then
+			-- Selection follows where you work: the start whose position you grabbed, else the
+			-- start whose box you clicked inside. Neither consumes the click.
+			do
+				local nearIdx = findNearestPosition(wx, wz)
+				local containBi = (not nearIdx) and findBoxContaining(wx, wz) or nil
+				local team = (nearIdx and positions[nearIdx].allyTeam) or containBi
+				if team and team ~= R.selectedStart then
+					R.selectStart(team)
+				end
+			end
 			-- LMB: Check if clicking near existing position (start drag)
 			local nearIdx = findNearestPosition(wx, wz)
 			if nearIdx then
@@ -2131,11 +3111,38 @@ function widget:MousePress(mx, my, button)
 				return true
 			end
 
+			-- Select mode on the start layer: a position under the cursor is picked and dragged
+			-- before the polygon body gets a say.
+			if R.editMode == "select" and R.type == "start" then
+				local nearIdx = findNearestPosition(wx, wz)
+				if nearIdx then
+					R.selectStart(positions[nearIdx].allyTeam)
+					dragIdx = nearIdx
+					dragStartX = mx
+					dragStartY = my
+					dragging = false
+					return true
+				end
+			end
+
 			-- Body drag: if the click is inside an existing startbox (and not on any handle/edge
 			-- per the checks above), start a whole-box translation so the user can reposition
 			-- the entire polygon by grabbing it mid-area.
 			local containBi = findBoxContaining(wx, wz)
-			if containBi then
+			if containBi and R.editMode == "create" then
+				-- Create mode: a click inside an area selects it but still makes what the draw
+				-- chip says; grabbing a body to move it is Select mode's job.
+				R.selectedIdx = containBi
+				if R.type == "start" then
+					R.selectedStart = startboxes[containBi].allyTeam
+				end
+				R.bump()
+			elseif containBi then
+				R.selectedIdx = containBi
+				if R.type == "start" then
+					R.selectedStart = startboxes[containBi].allyTeam
+				end
+				R.bump()
 				boxBodyDrag = { bi = containBi, lastX = wx, lastZ = wz }
 				dragStartX = mx
 				dragStartY = my
@@ -2143,6 +3150,24 @@ function widget:MousePress(mx, my, button)
 				return true
 			end
 
+			if R.editMode == "select" then
+				-- Nothing under the cursor: select mode makes nothing of a click on empty ground.
+				return true
+			end
+			do
+				local reason = R.validatePending()
+				if reason then
+					R.error = reason
+					R.bump()
+					return true
+				end
+			end
+			if startboxMode == "radial" then
+				-- Drag a circle around the mexes; the region closes around what is inside on release.
+				R.radial = { cx = wx, cz = wz, r = 0 }
+				dragStartX, dragStartY = mx, my
+				return true
+			end
 			if startboxMode == "box" then
 				-- Drag rectangle: press to start, release to finish (like copy tool's box)
 				local sx, sz = wx, wz
@@ -2166,12 +3191,9 @@ function widget:MousePress(mx, my, button)
 				dragStartX, dragStartY = mx, my
 				return true
 			else
-				-- polygon mode: click-to-add vertex, RMB to finish
-				if not drawingBox then
-					drawingBox = true
-					currentBoxVerts = {}
-				end
-				addStartboxVertex(wx, wz)
+				-- polygon mode: a click adds a vertex, a drag from nothing free-draws (resolved on
+				-- release, see MouseMove and MouseRelease), RMB finishes
+				R.pendingVertex = { wx = wx, wz = wz, mx = mx, my = my }
 				return true
 			end
 		elseif button == 3 then
@@ -2193,9 +3215,15 @@ function widget:MousePress(mx, my, button)
 					end
 				end
 			end
+			-- RMB with mexes gathered by shift-drags: drop them
+			if #R.radialPending > 0 then
+				R.radialPending = {}
+				R.bump()
+				return true
+			end
 			-- RMB: Finish current polygon OR cancel drag-rect / free-draw, else remove last placed box
 			if startboxMode == "polygon" and drawingBox and #currentBoxVerts >= 3 then
-				finishStartbox()
+				finishStartbox(0)
 			elseif startboxMode == "polygon" and drawingBox then
 				currentBoxVerts = {}
 				drawingBox = false
@@ -2205,7 +3233,7 @@ function widget:MousePress(mx, my, button)
 			elseif freeDrawActive then
 				freeDrawActive = false
 				freeDrawPts = {}
-			else
+			elseif R.editMode == "create" then
 				removeLastStartbox()
 			end
 			return true
@@ -2239,7 +3267,7 @@ function widget:MouseMove(mx, my, dx, dy, button)
 		return true
 	end
 
-	if subMode == "express" and dragIdx then
+	if dragIdx then
 		local moved = (mx - dragStartX) ^ 2 + (my - dragStartY) ^ 2
 		if moved > DRAG_THRESHOLD_SQ then
 			dragging = true
@@ -2473,6 +3501,31 @@ function widget:MouseMove(mx, my, dx, dy, button)
 	end
 
 	-- Startbox: freedraw sample accumulation
+	if subMode == "startbox" and R.radial and button == 1 then
+		local wx, wz = getWorldMousePosition()
+		if wx then
+			R.radial.r = math.sqrt((wx - R.radial.cx) ^ 2 + (wz - R.radial.cz) ^ 2)
+		end
+		return true
+	end
+
+	if subMode == "startbox" and R.pendingVertex and button == 1 then
+		local pv = R.pendingVertex
+		local ddx, ddy = mx - pv.mx, my - pv.my
+		if ddx * ddx + ddy * ddy > 64 then
+			R.pendingVertex = nil
+			if not drawingBox then
+				-- No vertices yet: the drag is a free-drawn outline.
+				freeDrawActive = true
+				freeDrawPts = { { x = pv.wx, z = pv.wz } }
+			else
+				-- Mid-polygon: a drag is still just the next vertex.
+				addStartboxVertex(pv.wx, pv.wz)
+			end
+		end
+		return true
+	end
+
 	if subMode == "startbox" and freeDrawActive then
 		local wx, wz = getWorldMousePosition()
 		if wx then
@@ -2497,7 +3550,7 @@ function widget:MouseRelease(mx, my, button)
 		return false
 	end
 
-	if subMode == "express" and dragIdx then
+	if dragIdx then
 		dragIdx = nil
 		dragging = false
 		return true
@@ -2561,6 +3614,66 @@ function widget:MouseRelease(mx, my, button)
 	end
 
 	-- Startbox: finish freedraw on release — smooth via Chaikin, decimate, fit to spline
+	if subMode == "startbox" and R.radial and button == 1 then
+		local inside = R.spotsInRadial()
+		R.radial = nil
+		-- Shift appends this circle's spots to the pending set; a plain release closes the
+		-- region around everything gathered so far plus this circle.
+		local _, _, _, shift = Spring.GetModKeyState()
+		local gathered = {}
+		local seen = {}
+		for _, spot in ipairs(R.radialPending) do
+			gathered[#gathered + 1] = spot
+			seen[spot] = true
+		end
+		for _, spot in ipairs(inside) do
+			if not seen[spot] then
+				gathered[#gathered + 1] = spot
+				seen[spot] = true
+			end
+		end
+		if shift then
+			R.radialPending = gathered
+			R.error = ""
+			R.bump()
+			return true
+		end
+		R.radialPending = {}
+		if #gathered == 0 then
+			R.error = "no metal spots inside the circle"
+			R.bump()
+			return true
+		end
+		local pad = (Game.extractorRadius or 80) * 1.5
+		local hull = R.disjointHull(gathered, pad)
+		if not hull then
+			R.error = "those spots sit against a neighbouring region; no hull fits between"
+			R.bump()
+			return true
+		end
+		if hull and #hull >= 3 then
+			for i, v in ipairs(hull) do
+				local x, z = clampToMap(v.x, v.z)
+				hull[i] = { x = x, z = z }
+			end
+			currentBoxVerts = hull
+			drawingBox = true
+			finishStartbox(1)
+		end
+		return true
+	end
+
+	if subMode == "startbox" and R.pendingVertex and button == 1 then
+		local pv = R.pendingVertex
+		R.pendingVertex = nil
+		if not drawingBox then
+			drawingBox = true
+			currentBoxVerts = {}
+		end
+		addStartboxVertex(pv.wx, pv.wz)
+		return true
+	end
+
 	if subMode == "startbox" and freeDrawActive and button == 1 then
 		freeDrawActive = false
 		if #freeDrawPts >= 4 then
@@ -2598,10 +3711,13 @@ function widget:MouseRelease(mx, my, button)
 					kind = "spline",
 					allyTeam = #startboxes + 1,
 				}
+				R.newIdx = nil
+				R.stampNew(startboxes[#startboxes])
+				local idx = R.newIdx or #startboxes
 				-- Same path a control drag takes, so what is drawn matches what editing produces.
-				retessellateSpline(startboxes[#startboxes])
+				retessellateSpline(startboxes[idx])
 				renumberBoxAllyTeams()
-				boxUndo.push("add", #startboxes, startboxes[#startboxes])
+				boxUndo.push("add", idx, startboxes[idx])
 			end
 		end
 		freeDrawPts = {}
@@ -2646,6 +3762,17 @@ function widget:KeyPress(key, mods, isRepeat)
 	if not active then
 		return false
 	end
+	-- Escape abandons a polygon in progress on any layer, and leaves a start's draw mode.
+	if key == 27 and (drawingBox or boxRectActive or freeDrawActive or R.drawForTeam) then
+		currentBoxVerts = {}
+		drawingBox = false
+		boxRectActive = false
+		boxRectStartX, boxRectStartZ, boxRectEndX, boxRectEndZ = nil, nil, nil, nil
+		freeDrawActive = false
+		freeDrawPts = {}
+		R.radialPending = {}
+		return true
+	end
 	-- Ctrl+Z: undo last placement
 	-- Ctrl+A: give every anchor in the selected box the selected anchor's strength.
 	if key == 97 and mods.ctrl and strengthEdit.selBox and strengthEdit.selVert then -- 97 = 'a'
@@ -2668,7 +3795,7 @@ function widget:KeyPress(key, mods, isRepeat)
 		local toStack = isUndo and boxUndo.redo or undoHistory
 		local at
 		for i = #fromStack, 1, -1 do
-			if (fromStack[i].mode or "express") == subMode then
+			if (fromStack[i].mode or "express") == subMode and (fromStack[i].region or "start") == R.type then
 				at = i
 				break
 			end
@@ -2735,6 +3862,25 @@ local function buildPolygonFillList(verts, lift, cellSize)
 		cz = cz + verts[i].z
 	end
 	cx, cz = cx / n, cz / n
+	-- The fan is O(N^2) vertices per edge, each a ground sample, and the list is drawn every
+	-- frame. A region that spans the map at a 20-elmo cell is a million triangles; cap the
+	-- subdivision per edge so a large polygon takes coarser cells instead. Ground-hugging on
+	-- a region that size is not something the eye checks.
+	-- Every ring edge fans from the centroid, so the vertex count is edges x steps^2 / 2: a
+	-- tessellated spline ring with ten times the edges of a sharp one would cost ten times as
+	-- much at the same step count. Budget the whole fill instead of one edge.
+	local MAX_STEPS = math_max(6, math.min(48, math_floor(math_sqrt(40000 / n))))
+	local longest = 0
+	for i = 1, n do
+		local a1 = verts[i]
+		local b1 = verts[(i % n) + 1]
+		longest = math_max(
+			longest,
+			math_sqrt((b1.x - a1.x) ^ 2 + (b1.z - a1.z) ^ 2),
+			math_sqrt((a1.x - cx) ^ 2 + (a1.z - cz) ^ 2)
+		)
+	end
+	cellSize = math_max(cellSize, longest / MAX_STEPS)
 	return glCreateList(function()
 		glBeginEnd(GL_TRIANGLES, function()
 			-- Flat scratch buffer reused across all triangles. row[ri] holds (ri+1) vertices,
@@ -3211,18 +4357,19 @@ function widget:DrawWorld()
 		end
 	end
 
-	-- Draw startboxes (flat translucent mono-color fill via cached tessellated display list)
+	-- Draw the active layer's polygons (flat translucent mono-color fill via cached tessellated display list)
 	for bi, box in ipairs(startboxes) do
-		local color = getColorForAllyTeam(box.allyTeam)
+		local color = R.color(box, bi)
 		local verts = box.vertices
+		local isSelected = (bi == R.selectedIdx)
 		if #verts >= 3 then
 			local listId = ensureBoxFillList(box)
 			if listId then
-				glColor(color[1], color[2], color[3], 0.22)
+				glColor(color[1], color[2], color[3], isSelected and 0.36 or 0.22)
 				glCallList(listId)
 			end
 			glColor(color[1], color[2], color[3], 0.9)
-			glLineWidth(2.5)
+			glLineWidth(isSelected and 4.5 or 2.5)
 			glBeginEnd(GL_LINE_LOOP, function()
 				for i = 1, #verts do
 					local v = verts[i]
@@ -3430,7 +4577,7 @@ function widget:DrawWorld()
 
 	-- Draw current box being drawn
 	if drawingBox and #currentBoxVerts > 0 then
-		local color = getColorForAllyTeam(#startboxes + 1)
+		local color = R.nextColor()
 		glColor(color[1], color[2], color[3], 0.6)
 		glLineWidth(2.0)
 		if #currentBoxVerts >= 2 then
@@ -3459,9 +4606,31 @@ function widget:DrawWorld()
 		end
 	end
 
+	-- Spots gathered by shift-drags, waiting for the closing drag
+	if subMode == "startbox" and #R.radialPending > 0 then
+		local color = R.nextColor()
+		glColor(color[1], color[2], color[3], 0.9)
+		glLineWidth(2.5)
+		for _, spot in ipairs(R.radialPending) do
+			glDrawGroundCircle(spot.x, GetGroundHeight(spot.x, spot.z) or 0, spot.z, 46, 16)
+		end
+	end
+
+	-- Draw the mex circle being dragged, and the spots it will take
+	if subMode == "startbox" and R.radial and R.radial.r > 0 then
+		local color = R.nextColor()
+		local gy = GetGroundHeight(R.radial.cx, R.radial.cz) or 0
+		glColor(color[1], color[2], color[3], 0.8)
+		glLineWidth(2.0)
+		glDrawGroundCircle(R.radial.cx, gy, R.radial.cz, R.radial.r, 48)
+		for _, spot in ipairs(R.spotsInRadial()) do
+			glDrawGroundCircle(spot.x, GetGroundHeight(spot.x, spot.z) or 0, spot.z, 40, 16)
+		end
+	end
+
 	-- Draw drag-rect preview (startboxMode == "box")
 	if subMode == "startbox" and boxRectActive and boxRectStartX and boxRectEndX then
-		local color = getColorForAllyTeam(#startboxes + 1)
+		local color = R.nextColor()
 		local x1, x2 = math_min(boxRectStartX, boxRectEndX), math_max(boxRectStartX, boxRectEndX)
 		local z1, z2 = math_min(boxRectStartZ, boxRectEndZ), math_max(boxRectStartZ, boxRectEndZ)
 		glColor(color[1], color[2], color[3], 0.75)
@@ -3493,7 +4662,7 @@ function widget:DrawWorld()
 
 	-- Draw freedraw in-progress path
 	if subMode == "startbox" and freeDrawActive and #freeDrawPts >= 2 then
-		local color = getColorForAllyTeam(#startboxes + 1)
+		local color = R.nextColor()
 		glColor(color[1], color[2], color[3], 0.85)
 		glLineWidth(2.2)
 		glBeginEnd(GL_LINE_STRIP, function()
@@ -3679,8 +4848,32 @@ function widget:DrawScreenEffects()
 		end
 	end
 
-	-- Startbox labels: centroid card
-	for _, box in ipairs(startboxes) do
+	-- Mex region name cards at the centroid, the selected one brighter
+	if R.type == "mex_region" then
+		for bi, region in ipairs(R.mexList) do
+			local verts = region.vertices
+			if #verts >= 3 then
+				local cx, cz = 0, 0
+				for _, v in ipairs(verts) do
+					cx, cz = cx + v.x, cz + v.z
+				end
+				cx, cz = cx / #verts, cz / #verts
+				local sx, sy, sz = WorldToScreenCoords(cx, GetGroundHeight(cx, cz) or 0, cz)
+				if sz and sz > 0 and sz < 1 then
+					local label = region.name or "?"
+					if region.group then
+						label = label .. " (" .. region.group .. ")"
+					end
+					local alpha = (bi == R.selectedIdx) and 1.0 or 0.75
+					glColor(1, 1, 1, alpha)
+					glText(label, sx, sy, (bi == R.selectedIdx) and 16 or 14, "cdo")
+				end
+			end
+		end
+	end
+
+	-- Startbox labels: centroid card (start layer only; mex regions carry a name card instead)
+	for _, box in ipairs(R.type == "start" and R.startList or {}) do
 		if #box.vertices >= 3 then
 			-- Place the badge above the box's TOP screen edge so it doesn't sit on top of
 			-- the body-drag affordance at the centroid. Find the smallest screen-y across
@@ -3779,6 +4972,9 @@ function widget:Initialize()
 		activate = activate,
 		deactivate = deactivate,
 		getState = getState,
+		isActive = function()
+			return active
+		end,
 		hoveringDraggable = false,
 		setSubMode = setSubMode,
 		setShape = setShape,
@@ -3790,6 +4986,27 @@ function widget:Initialize()
 		setPlacementMode = setPlacementMode,
 		togglePlacementMode = togglePlacementMode,
 		setStartboxMode = setStartboxMode,
+		setRegionType = R.setType,
+		setCategory = R.setCategory,
+		drawArea = R.drawArea,
+		setGeometry = R.setGeometry,
+		setEditMode = R.setEditMode,
+		cancelArea = R.cancelArea,
+		removeArea = R.removeArea,
+		setStrategy = R.setStrategy,
+		setPlacing = R.setPlacing,
+		selectRegion = R.select,
+		selectStart = R.selectStart,
+		setPendingField = R.setPendingField,
+		setRegionField = R.setField,
+		addTag = R.addTag,
+		removeTag = R.removeTag,
+		removeRegion = R.remove,
+		exportLayout = R.exportLayout,
+		encodeLayout = R.encodeLayout,
+		copyLayout = R.copyLayout,
+		saveRegions = R.save,
+		loadRegions = R.load,
 		clearAllPositions = clearAllPositions,
 		addPosition = addPosition,
 		placeRandomPositions = placeRandomPositions,
@@ -3811,7 +5028,10 @@ end
 
 function widget:Shutdown()
 	WG.StartPosTool = nil
-	for i = 1, #startboxes do
-		freeBoxFillList(startboxes[i])
+	for i = 1, #R.startList do
+		freeBoxFillList(R.startList[i])
+	end
+	for i = 1, #R.mexList do
+		freeBoxFillList(R.mexList[i])
 	end
 end

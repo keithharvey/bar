@@ -3875,6 +3875,25 @@ local initialModel = {
 	sfMeasureStickyMode = false,
 	stpSubMode = "",
 	stpStartboxMode = "",
+	stpRegionType = "start",
+	stpCategory = "start",
+	stpDrawingArea = false,
+	stpGeometry = "point",
+	stpEditMode = "select",
+	stpGatheredSpots = "0",
+	stpAreaTarget = "",
+	stpSelectedHasBox = false,
+	stpStrategy = "express",
+	stpPlacing = "points",
+	stpPolygonMode = false,
+	stpShowShapeOptions = false,
+	stpHint = "points",
+	stpSelected = false,
+	stpSelectedAllyTeam = "",
+	stpSelectedVertices = "0",
+	stpRegionError = "",
+	stpRegionListTitle = "STARTS",
+	stpClearLabel = "CLEAR ALL",
 	-- Diffuse painter (Phase A MVP)
 	dfpRadiusStr = "128",
 	dfpStrengthStr = "1.00",
@@ -4910,6 +4929,108 @@ local initialModel = {
 			WG.StartPosTool.setStartboxMode(mode)
 		end
 	end,
+	-- Regions: the layer, the create strategy, and what a start places, as three axes.
+	onSpSetRegionType = function(_event, typeKey)
+		playSound("modeSwitch")
+		if WG.StartPosTool and WG.StartPosTool.setRegionType then
+			WG.StartPosTool.setRegionType(typeKey)
+		end
+	end,
+	onSpRegionPendingChange = function(_event)
+		local st = WG.StartPosTool
+		local doc = widgetState.document
+		if not (st and st.setPendingField and doc) then
+			return
+		end
+		local nameEl = doc:GetElementById("sp-region-name")
+		local groupEl = doc:GetElementById("sp-region-group")
+		st.setPendingField("name", nameEl and nameEl:GetAttribute("value") or "")
+		st.setPendingField("group", groupEl and groupEl:GetAttribute("value") or "")
+	end,
+	-- The selected region's fields, from the Details inputs.
+	onSpRegionFieldChange = function(_event, key)
+		local st = WG.StartPosTool
+		local doc = widgetState.document
+		if not (st and st.setRegionField and doc) then
+			return
+		end
+		-- A start's label input is sp-detail-label; every other field is sp-detail-<key>.
+		local el = doc:GetElementById("sp-detail-" .. key)
+		if key == "name" and not el then
+			el = doc:GetElementById("sp-detail-label")
+		end
+		if el then
+			st.setRegionField(key, el:GetAttribute("value") or "")
+		end
+	end,
+	onSpRegionAddTag = function(_event)
+		local st = WG.StartPosTool
+		local doc = widgetState.document
+		if not (st and st.addTag and doc) then
+			return
+		end
+		local el = doc:GetElementById("sp-tag-input")
+		if el and st.addTag(el:GetAttribute("value") or "") then
+			el:SetAttribute("value", "")
+			playSound("apply")
+		end
+	end,
+	onSpDrawArea = function(_event)
+		local st = WG.StartPosTool
+		if st and st.drawArea and st.getState then
+			local team = st.getState().selectedStart
+			if team and st.drawArea(team) then
+				playSound("modeSwitch")
+			end
+		end
+	end,
+	onSpSetEditMode = function(_event, mode)
+		playSound("modeSwitch")
+		if WG.StartPosTool and WG.StartPosTool.setEditMode then
+			WG.StartPosTool.setEditMode(mode)
+		end
+	end,
+	onSpSetGeometry = function(_event, g)
+		playSound("modeSwitch")
+		if WG.StartPosTool and WG.StartPosTool.setGeometry then
+			WG.StartPosTool.setGeometry(g)
+		end
+	end,
+	onSpCancelArea = function(_event)
+		if WG.StartPosTool and WG.StartPosTool.cancelArea then
+			WG.StartPosTool.cancelArea()
+		end
+	end,
+	onSpRemoveArea = function(_event)
+		local st = WG.StartPosTool
+		if st and st.removeArea and st.getState then
+			local team = st.getState().selectedStart
+			if team then
+				playSound("reset")
+				st.removeArea(team)
+			end
+		end
+	end,
+	onSpRegionRemove = function(_event)
+		local st = WG.StartPosTool
+		if st and st.removeRegion and st.getState then
+			local sel = st.getState().selectedIdx
+			if sel then
+				playSound("reset")
+				st.removeRegion(sel)
+			end
+		end
+	end,
+	onSpRegionDeselect = function(_event)
+		if WG.StartPosTool and WG.StartPosTool.selectRegion then
+			WG.StartPosTool.selectRegion(nil)
+		end
+	end,
+	onSpRegionCopy = function(_event)
+		if WG.StartPosTool and WG.StartPosTool.copyLayout and WG.StartPosTool.copyLayout() then
+			playSound("apply")
+		end
+	end,
 	onSpCountChange = function(_event)
 		if uiState.updatingFromCode then
 			return
@@ -4988,7 +5109,11 @@ local initialModel = {
 	onSpClear = function(_event)
 		playSound("apply")
 		if WG.StartPosTool then
-			WG.StartPosTool.clearAllPositions()
+			-- Clears the layer: a start's points and areas together, or every mex region.
+			local st = WG.StartPosTool.getState and WG.StartPosTool.getState()
+			if not st or st.regionType == "start" then
+				WG.StartPosTool.clearAllPositions()
+			end
 			WG.StartPosTool.clearAllStartboxes()
 		end
 	end,
