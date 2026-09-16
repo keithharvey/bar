@@ -13,15 +13,12 @@ local Geometry = VFS.Include("modules/regions/lib/geometry.lua") ---@type Region
 ---@field EncodeLayout fun(layout: table): string|nil
 ---@field DecodeLayout fun(raw: string): table|nil
 return {
-	---The types in dropdown order, and by key.
 	---@return RegionTypeKey[] order
 	---@return table<string, RegionType> byKey
 	Types = function()
 		return Types.order, Types.byKey
 	end,
 
-	---Every problem with a region of a type, or none. fieldsOnly checks a region that has no
-	---shape yet, the way an editor asks before the first vertex.
 	---@param typeKey RegionTypeKey
 	---@param region Region
 	---@param siblings Region[]|nil the other regions of the type
@@ -39,8 +36,6 @@ return {
 		return ctx.problems
 	end,
 
-	---The region's facts: area, centre, metal spots and nearest start, from the geometry and
-	---whatever the asker knows about the map. Providers may answer over the defaults.
 	---@param region Region
 	---@param env { spots: table[]|nil, starts: table[]|nil, modOptions: table|nil }
 	---@return table<string, any> facts by the contract's keys
@@ -51,7 +46,6 @@ return {
 		return ModuleHandler.Enrich(Contract.Facts, env.modOptions or {}, ctx)
 	end,
 
-	---The facts as labelled lines, for a form.
 	---@param facts table<string, any>
 	---@return { [1]: string, [2]: string }[]
 	FactLines = function(facts)
@@ -80,8 +74,6 @@ return {
 		return lines
 	end,
 
-	---Whether two polygons share ground, and whether a point lies in one: for an editor that
-	---resolves a disjoint type before the Check has to refuse it.
 	Overlaps = Geometry.Overlaps,
 	Contains = Geometry.Contains,
 

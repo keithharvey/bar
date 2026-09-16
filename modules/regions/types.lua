@@ -1,8 +1,3 @@
--- The types a map's regions come in, contributed by the modules that own their meaning: any
--- module may ship a region_types.lua returning { <key> = RegionType, ... }. A type says what
--- shapes it may be drawn as, which fields a region of it carries, and which are required or
--- unique among its siblings. The Check pipeline enforces this table; the terraformer renders
--- its form from it. Two modules claiming one key is a load error naming both.
 local ModuleHandler = VFS.Include("modules/module_handler.lua")
 
 ---@class RegionField

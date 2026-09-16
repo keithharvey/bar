@@ -1,4 +1,3 @@
--- Pure geometry over a region's shape: vertices are { x, z } in elmos, or a point is x, z.
 
 ---@class RegionGeometry
 local Geometry = {}
@@ -18,7 +17,6 @@ function Geometry.Area(vertices)
 	return math.abs(twice) * 0.5
 end
 
----The vertex centroid: what "the middle of the region" means everywhere in the stack.
 ---@param vertices { x: number, z: number }[]
 ---@return number x
 ---@return number z
@@ -34,7 +32,6 @@ function Geometry.Centroid(vertices)
 	return sx / n, sz / n
 end
 
----Ray casting; concave polygons included.
 ---@param x number
 ---@param z number
 ---@param vertices { x: number, z: number }[]
@@ -67,14 +64,12 @@ local function orient(p, q, r)
 	return (q.x - p.x) * (r.z - p.z) - (q.z - p.z) * (r.x - p.x)
 end
 
----Whether segments a1-a2 and b1-b2 cross (touching counts).
 local function segmentsCross(a1, a2, b1, b2)
 	local d1, d2 = orient(b1, b2, a1), orient(b1, b2, a2)
 	local d3, d4 = orient(a1, a2, b1), orient(a1, a2, b2)
 	return ((d1 > 0) ~= (d2 > 0) or d1 == 0 or d2 == 0) and ((d3 > 0) ~= (d4 > 0) or d3 == 0 or d4 == 0)
 end
 
----Whether two polygons share any area: a vertex of one inside the other, or crossing edges.
 ---@param a { x: number, z: number }[]
 ---@param b { x: number, z: number }[]
 ---@return boolean

@@ -17,8 +17,6 @@ local function shapeOf(region)
 	return nil
 end
 
--- The rules every region passes, from its type's descriptor. Problems collect rather than
--- refuse, so an editor can show a map maker everything at once.
 Policies.On(Contract.Check)
 	.Apply(Contract.Check.Shape, function(ctx)
 		if ctx.fieldsOnly then
@@ -79,8 +77,6 @@ Policies.On(Contract.Check)
 		end
 	end)
 
--- What a region is once measured. Defaults are the geometry's own answers; a module that knows
--- more about a kind of region provides over them.
 Policies.On(Contract.Facts)
 	.Default(Contract.Facts.Area, function(ctx)
 		return ctx.region.vertices and Geometry.Area(ctx.region.vertices) or 0

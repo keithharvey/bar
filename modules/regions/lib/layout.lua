@@ -1,19 +1,3 @@
--- The layout: one type's regions as the game and the lobby carry them, in the startbox
--- arrangement's coordinate space, 0..200 on each axis, so one layout serves every size the
--- map ships at. A type says which key it lists under (its layoutKey; mex regions use "regions").
---
---   { regions = {
---       { name = "anti1", group = "anti", poly = { { x = 0, y = 0 }, { x = 60, y = 200 } } },  -- two points: a rect
---       { name = "middle",               poly = { { x = 60, y = 40 }, { x = 140, y = 40 }, { x = 100, y = 160 } } },
---   } }
---
--- name is the region's identity on the wire, unique within its type; an editor may leave it
--- empty and Export names the region on the way out. group is a label the type may read. A
--- curved region arrives as its tessellated ring: the wire carries no anchors or strengths.
---
--- Parse turns the layout into polygons in elmos; Export goes the other way from vertices in
--- elmos; Encode and Decode are the wire form, base64url(zlib(json)), the modoption and a
--- maps-metadata row carry. All pure but for the codec's VFS calls.
 
 local Geometry = VFS.Include("modules/regions/lib/geometry.lua") ---@type RegionGeometry
 
@@ -98,7 +82,6 @@ function Layout.Parse(layout, mapSizeX, mapSizeZ)
 	return regions, nil
 end
 
----Regions drawn in elmos, back into the layout space: what the editor hands the game.
 ---@param regions { name: string, group: string|nil, vertices: { x: number, z: number }[] }[]
 ---@param mapSizeX number
 ---@param mapSizeZ number
@@ -111,7 +94,6 @@ function Layout.Export(regions, mapSizeX, mapSizeZ)
 		for j, v in ipairs(region.vertices) do
 			poly[j] = { x = math.floor(v.x * sx * 100 + 0.5) / 100, y = math.floor(v.z * sz * 100 + 0.5) / 100 }
 		end
-		-- The game keys the deal by name, so an unnamed region gets one on the way out.
 		local name = region.name
 		if name == nil or name == "" then
 			name = "region " .. i
@@ -121,8 +103,6 @@ function Layout.Export(regions, mapSizeX, mapSizeZ)
 	return layout
 end
 
----The layout on the wire: base64url(zlib(json)), no padding, the form the modoption and a
----maps-metadata row carry.
 ---@param layout table
 ---@return string|nil
 function Layout.Encode(layout)
@@ -138,7 +118,6 @@ function Layout.Encode(layout)
 	return (base64.Encode(compressed):gsub("=+$", ""))
 end
 
----The modoption's value back into a layout: the wire form, or plain json.
 ---@param raw string
 ---@return table|nil
 function Layout.Decode(raw)
