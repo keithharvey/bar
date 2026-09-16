@@ -1,16 +1,17 @@
 local ModuleHandler = VFS.Include("modules/module_handler.lua")
 local Contract = VFS.Include("modules/start/contract.lua") ---@type StartContract
 
+---@return StartBoxes
 local function resolveWithGame()
 	local StartboxLib = VFS.Include("luarules/gadgets/include/startbox_utilities.lua")
 	local config, source, explicit = StartboxLib.GetConfig()
-	return config, source, explicit
+	return { byAllyTeam = config, source = source, explicit = explicit == true }
 end
 
 ---@class StartApi
 return {
 	---@param springRepo Spring
-	---@param resolveBoxes (fun(): table|nil, string|nil, boolean|nil)|nil the resolver; the game's when absent
+	---@param resolveBoxes (fun(): StartBoxes)|nil the resolver; the game's when absent
 	---@return { areas: StartArea[], positions: StartPosition[] }
 	Current = function(springRepo, resolveBoxes)
 		---@type StartContext

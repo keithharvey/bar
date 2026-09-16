@@ -53,12 +53,14 @@ describe("the match's starts", function()
 	it("are the resolver's boxes by ally team, whole-map fallbacks left out, and the engine's positions", function()
 		local resolver = function()
 			return {
-				[0] = { boxes = { { { 0, 0 }, { 100, 0, 0.5 }, { 100, 100 } } } },
-				[1] = { boxes = { { { 0, 0 }, { 1, 1 }, { 2, 2 }, { 3, 3 } } }, wholeMap = true },
-				[2] = { boxes = { { { 500, 500 }, { 600, 500 }, { 600, 600 }, { 500, 600 } } } },
-			},
-				"modoption_set",
-				true
+				byAllyTeam = {
+					[0] = { boxes = { { { 0, 0 }, { 100, 0, 0.5 }, { 100, 100 } } } },
+					[1] = { boxes = { { { 0, 0 }, { 1, 1 }, { 2, 2 }, { 3, 3 } } }, wholeMap = true },
+					[2] = { boxes = { { { 500, 500 }, { 600, 500 }, { 600, 600 }, { 500, 600 } } } },
+				},
+				source = "modoption_set",
+				explicit = true,
+			}
 		end
 		local current = Start.Current(
 			stubSpring({
@@ -84,7 +86,11 @@ describe("the match's starts", function()
 			{ [0] = { 0, 0, 800, 800 }, [1] = { 3200, 3200, 4000, 4000 }, [2] = { 0, 0, 4000, 4000 } }
 		)
 		local current = Start.Current(spring, function()
-			return { [0] = { boxes = { { { 0, 0 }, { 1, 0 }, { 1, 1 } } } } }, "fallback", false
+			return {
+				byAllyTeam = { [0] = { boxes = { { { 0, 0 }, { 1, 0 }, { 1, 1 } } } } },
+				source = "fallback",
+				explicit = false,
+			}
 		end)
 		assert.are.equal(2, #current.areas)
 		assert.are.equal("engine", current.areas[1].source)
@@ -94,7 +100,7 @@ describe("the match's starts", function()
 
 	it("has no areas when the resolver and the engine have nothing", function()
 		local current = Start.Current(stubSpring({}), function()
-			return nil, nil, false
+			return { explicit = false }
 		end)
 		assert.are.same({}, current.areas)
 		assert.are.same({}, current.positions)

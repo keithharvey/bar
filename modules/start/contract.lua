@@ -13,9 +13,21 @@ local Modules = VFS.Include("modules/enums.lua").Modules
 ---@field x number
 ---@field z number
 
+---@class StartBoxEntry one ally team's boxes as luarules/gadgets/include/startbox_utilities.lua resolves them
+---@field boxes number[][][] rings of { x, z, strength? } in elmos
+---@field startpoints number[][]|nil
+---@field nameLong string|nil
+---@field nameShort string|nil
+---@field wholeMap boolean|nil
+
+---@class StartBoxes what the startbox resolver found for this match
+---@field byAllyTeam table<integer, StartBoxEntry>|nil by ally team id, 0-based
+---@field source string|nil
+---@field explicit boolean a modoption set them; otherwise the engine's rects are the boxes
+
 ---@class StartContext what the match knows: the engine, and the game's startbox resolver
 ---@field springRepo Spring
----@field resolveBoxes fun(): table|nil, string|nil, boolean|nil the startbox resolver's config by allyTeam id, its source, and whether a modoption set it; when it did not, the engine's rects are the boxes; injectable for specs
+---@field resolveBoxes fun(): StartBoxes injectable for specs
 
 ---@class StartFacts: PolicyFacts<StartContext>
 ---@field Areas string StartArea[] by ally team, in box order; unboxed ally teams absent

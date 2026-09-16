@@ -13,16 +13,16 @@ end
 
 Policies.On(Contract.Facts)
 	.Default(Contract.Facts.Areas, function(ctx)
-		local config, source, explicit = ctx.resolveBoxes()
+		local boxes = ctx.resolveBoxes()
 		local areas = {} ---@type StartArea[]
-		if explicit and type(config) == "table" then
+		if boxes.explicit and boxes.byAllyTeam then
 			local ids = {}
-			for allyTeamID in pairs(config) do
+			for allyTeamID in pairs(boxes.byAllyTeam) do
 				ids[#ids + 1] = allyTeamID
 			end
 			table.sort(ids)
 			for _, allyTeamID in ipairs(ids) do
-				local entry = config[allyTeamID]
+				local entry = boxes.byAllyTeam[allyTeamID]
 				local ring = entry and not entry.wholeMap and entry.boxes and entry.boxes[1]
 				if ring and #ring >= 3 then
 					local anchors = {}
@@ -33,7 +33,7 @@ Policies.On(Contract.Facts)
 						allyTeam = allyTeamID + 1 --[[@as integer]],
 						name = entry.nameShort,
 						anchors = anchors,
-						source = source or "modoption",
+						source = boxes.source or "modoption",
 					}
 				end
 			end
