@@ -20,8 +20,6 @@ function M.attach(doc, ctx)
 end
 
 function M.sync(doc, ctx, stpState, setSummary)
-	-- This file is included outside the widget environment, so the global WG is nil here;
-	-- the widget hands its own through ctx.
 	local WG = ctx.WG
 	if ctx.syncTBMirrorControls then
 		ctx.syncTBMirrorControls(doc, "st")
@@ -60,9 +58,6 @@ function M.sync(doc, ctx, stpState, setSummary)
 	-- is driven by data-if="stpSubMode == ..." against widgetState.dmHandle.stpSubMode
 	-- (synced above). No imperative SetClass needed here.
 
-	-- The region text inputs live inside data-if blocks, so RmlUi creates and drops them as the
-	-- form changes; each new element gets the SDL text-input capture once, or the game eats
-	-- every keystroke and the field never types.
 	if doc and widgetState.wireTextInput then
 		widgetState.stpWiredInputs = widgetState.stpWiredInputs or setmetatable({}, { __mode = "k" })
 		for _, id in ipairs({
@@ -81,8 +76,6 @@ function M.sync(doc, ctx, stpState, setSummary)
 		end
 	end
 
-	-- Regions: the tool's layer, strategy and selection into dm fields; the lists rebuilt only
-	-- when the tool says something changed (dynamic per-item closures: legitimate imperative).
 	if widgetState.dmHandle then
 		local dm = widgetState.dmHandle
 		local function setRg(f, v)
@@ -119,7 +112,6 @@ function M.sync(doc, ctx, stpState, setSummary)
 		end
 		setRg("stpHint", hint)
 
-		-- The draw chips: the shapes this type allows, the current one lit.
 		local geoChips = doc and doc:GetElementById("sp-geometry-chips")
 		if geoChips then
 			local geoKey = table.concat(stpState.geometries or {}, ",") .. "|" .. tostring(stpState.geometry)
@@ -156,8 +148,6 @@ function M.sync(doc, ctx, stpState, setSummary)
 		setRg("stpSelectedVertices", tostring(stpState.selected and stpState.selected.vertexCount or 0))
 		setRg("stpRegionError", stpState.regionError or "")
 		setRg("stpRegionListTitle", (stpState.regionType == "start") and "STARTS" or (typeLabel:upper() .. "S"))
-		-- One frame for what you picked or what you are making: Details with a selection, the
-		-- new region's fields while creating on a type that has any, a prompt otherwise.
 		local detailsMode = "prompt"
 		if stpState.selected then
 			detailsMode = "details"
@@ -171,8 +161,6 @@ function M.sync(doc, ctx, stpState, setSummary)
 			(stpState.regionType == "start") and "CLEAR ALL" or ("CLEAR " .. typeLabel:upper() .. "S")
 		)
 
-		-- The category chips: one per type in the registry, the current one lit. Rebuilt when the
-		-- registry or the category changes; a chip's click picks its type.
 		local chips = doc and doc:GetElementById("sp-category-chips")
 		if chips then
 			local catKey = table.concat(stpState.categories or {}, ",") .. "|" .. tostring(stpState.category)
@@ -217,8 +205,6 @@ function M.sync(doc, ctx, stpState, setSummary)
 			widgetState.stpSelKey = selKey
 			local st = WG.StartPosTool
 
-			-- The Details inputs show the selected region's fields; only rewritten when the
-			-- selection moves, so typing is never clobbered by the per-frame sync.
 			if selectionChanged and stpState.selected then
 				local labelEl = doc:GetElementById("sp-detail-label")
 				if labelEl then
@@ -234,7 +220,6 @@ function M.sync(doc, ctx, stpState, setSummary)
 				end
 			end
 
-			-- Facts about the selected region: what it is once measured.
 			local factsEl = doc:GetElementById("sp-detail-facts")
 			if factsEl then
 				local facts = stpState.selected and stpState.selected.facts or {}
@@ -249,7 +234,6 @@ function M.sync(doc, ctx, stpState, setSummary)
 				factsEl.inner_rml = table.concat(html)
 			end
 
-			-- Tags on the selected region, each chip removing itself.
 			local tagList = doc:GetElementById("sp-tag-list")
 			if tagList then
 				local tags = stpState.selected and stpState.selected.tags or {}
@@ -275,7 +259,6 @@ function M.sync(doc, ctx, stpState, setSummary)
 				end
 			end
 
-			-- Group picker for a new mex region: the groups other regions already use.
 			local picker = doc:GetElementById("sp-group-picker")
 			if picker then
 				local groups = stpState.mexGroups or {}
@@ -305,8 +288,6 @@ function M.sync(doc, ctx, stpState, setSummary)
 				end
 			end
 
-			-- The layer's rows; clicking one selects it. On the start layer a row is an ally team,
-			-- box or not; on other layers a row is a polygon.
 			local listEl = doc:GetElementById("sp-region-list")
 			if listEl then
 				local html, count, onClick = {}, 0, nil

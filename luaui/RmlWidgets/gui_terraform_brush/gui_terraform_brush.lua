@@ -4931,7 +4931,6 @@ local initialModel = {
 			WG.StartPosTool.setStartboxMode(mode)
 		end
 	end,
-	-- Regions: the layer, the create strategy, and what a start places, as three axes.
 	onSpSetRegionType = function(_event, typeKey)
 		playSound("modeSwitch")
 		if WG.StartPosTool and WG.StartPosTool.setRegionType then
@@ -4949,16 +4948,12 @@ local initialModel = {
 		st.setPendingField("name", nameEl and nameEl:GetAttribute("value") or "")
 		st.setPendingField("group", groupEl and groupEl:GetAttribute("value") or "")
 	end,
-	-- The selected region's fields, from the Details inputs.
 	onSpRegionFieldChange = function(_event, key)
 		local st = WG.StartPosTool
 		local doc = widgetState.document
 		if not (st and st.setRegionField and doc) then
 			return
 		end
-		-- A start's label is the name field behind its own input, sp-detail-label; every other
-		-- field's input is sp-detail-<key>. Both inputs exist in the document whatever the layer,
-		-- so the key says which one, never a fallback.
 		local field = key
 		if key == "label" then
 			field = "name"
@@ -5114,7 +5109,6 @@ local initialModel = {
 	onSpClear = function(_event)
 		playSound("apply")
 		if WG.StartPosTool then
-			-- Clears the layer: a start's points and areas together, or every mex region.
 			local st = WG.StartPosTool.getState and WG.StartPosTool.getState()
 			if not st or st.regionType == "start" then
 				WG.StartPosTool.clearAllPositions()
@@ -5122,9 +5116,6 @@ local initialModel = {
 			WG.StartPosTool.clearAllStartboxes()
 		end
 	end,
-	-- SAVE, LOAD and COPY act on the layer showing: a start's positions and areas, or the
-	-- regions of any other type. COPY puts the layer's lobby value on the clipboard: the
-	-- startbox override as a !bSet, or the region layout for the modoption.
 	onSpSave = function(_event)
 		playSound("apply")
 		local st = WG.StartPosTool

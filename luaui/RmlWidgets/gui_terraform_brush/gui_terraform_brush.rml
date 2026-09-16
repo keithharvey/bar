@@ -183,7 +183,6 @@
 		</div>
 		</div><!-- /frame-tools -->
 
-
 		<!-- Start Positions sub-mode row (visible only when StartPos tool active) -->
 		<div id="tf-startpos-submodes" data-if="activeTool == 'stp'">
 			<div class="tf-section-frame" id="frame-sp-mode">
@@ -193,7 +192,6 @@
 					<div id="startpos-mode-notify-dot" class="tf-notify-dot hidden"></div>
 				</div>
 			<div id="section-sp-mode">
-			<!-- The type is the layer: only its regions draw, and it shapes the rest of the form. -->
 			<div class="text-lg text-light font-bold mb-1">CATEGORY</div>
 			<div id="sp-category-chips" class="flex flex-row gap-1 mb-1 tf-chip-row"></div>
 			<div class="text-lg text-light font-bold mb-1">MODE</div>
@@ -207,7 +205,6 @@
 			</div>
 			<div class="text-lg text-light font-bold mb-1" data-if="stpEditMode == 'create'">DRAW</div>
 			<div id="sp-geometry-chips" class="flex flex-row gap-1 mb-1 tf-chip-row" data-if="stpEditMode == 'create'"></div>
-			<!-- Hints -->
 			<div class="text-sm text-keybind mb-1" data-if="stpHint == 'select'">LMB: select a region or a position · Drag positions, vertices and edges · Nothing is created</div>
 			<div class="text-sm text-keybind mb-1" data-if="stpHint == 'points'">LMB: place a start position · Drag to move · RMB: remove</div>
 			<div class="text-sm text-keybind mb-1" data-if="stpHint == 'mexes'">LMB drag: select the mexes inside · Alt+drag: deselect · Click a mex: toggle · Ctrl+Z: one step back · RMB: close the region · Esc: clear</div>
@@ -223,7 +220,6 @@
 		<!-- Start Positions controls (visible only when StartPos tool active) -->
 		<div id="tf-startpos-controls" data-if="activeTool == 'stp'">
 
-		<!-- ST: REGION — the layer's regions, and the fields a new one takes -->
 		<div class="tf-section-frame" id="frame-st-region">
 			<div id="btn-toggle-st-region" class="tf-section-title-row" style="cursor: pointer;">
 				<img id="img-toggle-st-region" class="tf-icon-sm" src="/luaui/images/terraform_brush/minus.png" />
@@ -232,13 +228,11 @@
 		<div id="section-st-region">
 			<div class="text-sm mb-1" style="color: #ff8080;" data-if="stpRegionError != ''">{{stpRegionError}}</div>
 
-			<!-- The layer's regions -->
 			<div id="sp-region-list" class="mb-1"></div>
 
 		</div><!-- /section-st-region -->
 		</div><!-- /frame-st-region -->
 
-		<!-- ST: DETAILS — the selected region: its fields, tags and facts -->
 		<div class="tf-section-frame" id="frame-st-details">
 			<div id="btn-toggle-st-details" class="tf-section-title-row" style="cursor: pointer;">
 				<img id="img-toggle-st-details" class="tf-icon-sm" src="/luaui/images/terraform_brush/minus.png" />
@@ -247,7 +241,6 @@
 		<div id="section-st-details">
 			<div class="text-xs text-keybind mb-1" data-if="stpDetailsMode == 'prompt'">Click a region on the map, or a row above, to see it here.</div>
 			<div data-if="stpDetailsMode == 'new'">
-			<!-- New mex region: its fields before its first vertex -->
 			<div id="sp-new-region">
 				<div class="text-sm text-light">Name (optional)</div>
 				<input type="text" id="sp-region-name" class="ll-search-input mb-1" style="width:100%;" data-event-change="onSpRegionPendingChange()" />
@@ -256,7 +249,6 @@
 				<div id="sp-group-picker" class="flex flex-row gap-1 mb-1 tf-chip-row"></div>
 			</div>
 			</div>
-			<!-- Details: the selected region's fields and tags. Each type's block is its own data-if. -->
 			<div id="sp-details" data-if="stpSelected">
 				<div data-if="stpRegionType == 'start'">
 					<div class="text-sm text-light mb-1">Start for ally team {{stpSelectedAllyTeam}}</div>
@@ -289,7 +281,6 @@
 					<div id="btn-sp-tag-add" class="tf-sm-btn" data-event-mousedown="onSpRegionAddTag()"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/plus.png" /></div>
 				</div>
 				<div id="sp-tag-list" class="flex flex-row gap-1 mb-1 tf-chip-row"></div>
-				<!-- What the region is, derived: the facts the game and the deal would see -->
 				<div class="text-lg text-light font-bold mb-1">FACTS</div>
 				<div id="sp-detail-facts" class="mb-1"></div>
 				<div class="flex flex-row gap-1 mb-1">
@@ -304,7 +295,6 @@
 
 		</div><!-- /section-st-details -->
 		</div><!-- /frame-st-details -->
-
 
 		<!-- ST: DISPLAY -->
 		<div class="tf-section-frame tf-collapsed" id="frame-st-overlays">
@@ -333,7 +323,6 @@
 		</div>
 		</div><!-- /section-st-overlays -->
 		</div><!-- /frame-st-overlays -->
-
 
 		<!-- ST: INSTRUMENTS -->
 		<div class="tf-section-frame tf-collapsed" id="frame-st-instruments">
@@ -457,7 +446,6 @@
 		</div><!-- /section-st-instruments -->
 		</div><!-- /frame-st-instruments -->
 
-
 		<!-- ST: CONTROLS -->
 		<div class="tf-section-frame" id="frame-st-controls">
 			<div id="btn-toggle-st-controls" class="tf-section-title-row" style="cursor: pointer;">
@@ -565,7 +553,6 @@
 		</div>
 		</div><!-- /section-cl-overlays -->
 		</div><!-- /frame-cl-overlays -->
-
 
 		<!-- CL: INSTRUMENTS -->
 		<div class="tf-section-frame tf-collapsed" id="frame-cl-instruments">
@@ -689,7 +676,6 @@
 		</div><!-- /section-cl-instruments -->
 		</div><!-- /frame-cl-instruments -->
 
-
 		<!-- CL: CONTROLS -->
 		<div class="tf-section-frame" id="frame-cl-controls">
 			<div id="btn-toggle-cl-controls" class="tf-section-title-row" style="cursor: pointer;">
@@ -716,7 +702,6 @@
 			<div class="tf-status-summary mb-1">
 				<span class="tf-ss-val" id="cl-status-label">{{clStatusStr}}</span>
 			</div>
-
 
 			<!-- Layer toggles -->
 			<div class="flex flex-row items-center gap-1 mb-1">
@@ -750,7 +735,6 @@
 				</div>
 			</div>
 
-
 			<!-- Undo & Redo -->
 			<div class="tf-section-frame tf-collapsed" id="frame-cl-undo">
 			<div id="btn-toggle-cl-undo" class="tf-section-title-row" style="cursor: pointer;">
@@ -770,7 +754,6 @@
 			</div>
 			</div><!-- /section-cl-undo -->
 			</div><!-- /frame-cl-undo -->
-
 
 			<!-- Paste transform controls -->
 			<div id="cl-paste-transforms" data-if="clonePasteTransformsVisible">
@@ -1041,7 +1024,6 @@
 			</div><!-- /section-mb-overlays -->
 			</div><!-- /frame-mb-overlays -->
 
-
 			<!-- Metal Brush: INSTRUMENTS -->
 			<div class="tf-section-frame tf-collapsed" id="frame-mb-instruments">
 				<div id="btn-toggle-mb-instruments" class="tf-section-title-row" style="cursor: pointer;">
@@ -1179,7 +1161,6 @@
 			</div><!-- /section-mb-instruments -->
 			</div><!-- /frame-mb-instruments -->
 
-
 			<div class="tf-section-frame" id="frame-mb-controls">
 				<div id="btn-toggle-mb-controls" class="tf-section-title-row" style="cursor: pointer;">
 					<img id="img-toggle-mb-controls" class="tf-icon-sm" src="/luaui/images/terraform_brush/minus.png" />
@@ -1196,7 +1177,6 @@
 				<div id="btn-metal-value-up" class="tf-sm-btn" data-event-mousedown="onMbValueUp()"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/plus.png" /></div>
 				<input type="text" id="slider-metal-value-numbox" class="tf-slider-numbox" value="0" />
 			</div>
-
 
 			<!-- Metal Size -->
 			<div class="flex flex-row items-center mb-1">
@@ -1287,7 +1267,6 @@
 			</div>
 			</div><!-- /section-mb-controls -->
 			</div><!-- /frame-mb-controls -->
-
 
 			<!-- Metal Undo & Redo -->
 			<div class="tf-section-frame tf-collapsed" id="frame-mb-undo">
@@ -1393,7 +1372,6 @@
 			</div>
 			</div><!-- /section-gb-overlays -->
 			</div><!-- /frame-gb-overlays -->
-
 
 			<!-- Grass Brush: INSTRUMENTS -->
 			<div class="tf-section-frame tf-collapsed" id="frame-gb-instruments">
@@ -1705,7 +1683,6 @@
 			</div><!-- /section-gb-smart -->
 			</div><!-- /frame-gb-smart -->
 
-
 			<!-- Grass Brush: CONTROLS -->
 			<div class="tf-section-frame" id="frame-gb-controls">
 				<div id="btn-toggle-gb-controls" class="tf-section-title-row" style="cursor: pointer;">
@@ -1725,7 +1702,6 @@
 				<div id="btn-grass-density-up" data-event-mousedown="onGbDensityUp()" class="tf-sm-btn"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/plus.png" /></div>
 				<input type="text" id="slider-grass-density-numbox" class="tf-slider-numbox" value="80" />
 			</div>
-
 
 			<!-- Size -->
 			<div class="flex flex-row items-center mb-1">
@@ -1815,10 +1791,8 @@
 				<input type="text" id="slider-gb-curve-numbox" class="tf-slider-numbox" value="0" />
 			</div>
 
-
 			</div><!-- /section-gb-controls -->
 			</div><!-- /frame-gb-controls -->
-
 
 			<!-- Undo & Redo -->
 			<div class="tf-section-frame tf-collapsed" id="frame-gb-undo">
@@ -2187,7 +2161,6 @@
 		</div><!-- /section-overlays -->
 		</div><!-- /frame-overlays -->
 
-
 		<!-- Instruments toggle header + section -->
 		<div class="tf-section-frame tf-collapsed" id="frame-instruments">
 			<div id="btn-toggle-instruments" class="tf-section-title-row" style="cursor: pointer;">
@@ -2361,7 +2334,6 @@
 		</div>
 		</div><!-- /section-instruments -->
 		</div><!-- /frame-instruments -->
-
 
 		<!-- Controls toggle header + section -->
 		<div class="tf-section-frame" id="frame-sliders">
@@ -2557,7 +2529,6 @@
 		</div><!-- /section-sliders -->
 		</div><!-- /frame-sliders -->
 
-
 		<div class="tf-section-frame" id="frame-heightcap">
 			<div id="btn-toggle-heightcap" class="tf-section-title-row" style="cursor: pointer;">
 				<img id="img-toggle-heightcap" class="tf-icon-sm" src="/luaui/images/terraform_brush/minus.png" />
@@ -2615,7 +2586,6 @@
 		</div><!-- /section-heightcap -->
 		</div><!-- /frame-heightcap -->
 
-
 		<div class="tf-section-frame tf-collapsed" id="frame-tf-undo">
 			<div id="btn-toggle-tf-undo" class="tf-section-title-row" style="cursor: pointer;">
 				<img id="img-toggle-tf-undo" class="tf-icon-sm" src="/luaui/images/terraform_brush/plus.png" />
@@ -2634,7 +2604,6 @@
 		</div>
 		</div><!-- /section-tf-undo -->
 		</div><!-- /frame-tf-undo -->
-
 
 		<div class="tf-section-frame" id="frame-presets">
 			<div id="btn-toggle-presets" class="tf-section-title-row" style="cursor: pointer;">
@@ -2688,7 +2657,6 @@
 		</div><!-- /section-heightmap -->
 		</div><!-- /frame-heightmap -->
 
-
 		</div><!-- /tf-terraform-controls -->
 
 		<!-- ============ FEATURE-ONLY CONTROLS ============ -->
@@ -2717,7 +2685,6 @@
 		</div><!-- /section-fp-dist -->
 		</div><!-- /frame-fp-dist -->
 
-
 		<!-- Feature Placer: DISPLAY -->
 		<div class="tf-section-frame tf-collapsed" id="frame-fp-overlays">
 			<div id="btn-toggle-fp-overlays" class="tf-section-title-row" style="cursor: pointer;">
@@ -2745,7 +2712,6 @@
 		</div>
 		</div><!-- /section-fp-overlays -->
 		</div><!-- /frame-fp-overlays -->
-
 
 		<!-- Feature Placer: INSTRUMENTS -->
 		<div class="tf-section-frame tf-collapsed" id="frame-fp-instruments">
@@ -2856,7 +2822,6 @@
 		</div>
 		</div><!-- /section-fp-instruments -->
 		</div><!-- /frame-fp-instruments -->
-
 
 		<!-- Feature Placer: FILTERS -->
 		<div class="tf-section-frame tf-collapsed" id="frame-fp-smart">
@@ -2982,7 +2947,6 @@
 
 		</div><!-- /section-fp-smart -->
 		</div><!-- /frame-fp-smart -->
-
 
 		<!-- Feature Placer: CONTROLS -->
 		<div class="tf-section-frame" id="frame-fp-controls">
@@ -3154,7 +3118,6 @@
 		</div><!-- /section-fp-controls -->
 		</div><!-- /frame-fp-controls -->
 
-
 		<div class="tf-section-frame tf-collapsed" id="frame-fp-undo">
 			<div id="btn-toggle-fp-undo" class="tf-section-title-row" style="cursor: pointer;">
 				<img id="img-toggle-fp-undo" class="tf-icon-sm" src="/luaui/images/terraform_brush/plus.png" />
@@ -3173,7 +3136,6 @@
 		</div>
 		</div><!-- /section-fp-undo -->
 		</div><!-- /frame-fp-undo -->
-
 
 		<div class="tf-section-frame tf-collapsed" id="frame-fp-save">
 			<div id="btn-toggle-fp-save" class="tf-section-title-row" style="cursor: pointer;">
@@ -3197,7 +3159,6 @@
 		</div>
 		</div><!-- /section-fp-save -->
 		</div><!-- /frame-fp-save -->
-
 
 		</div><!-- /tf-feature-controls -->
 
@@ -3231,7 +3192,6 @@
 		</div>
 		</div><!-- /section-wb-overlays -->
 		</div><!-- /frame-wb-overlays -->
-
 
 		<!-- WB: INSTRUMENTS -->
 		<div class="tf-section-frame tf-collapsed" id="frame-wb-instruments">
@@ -3355,7 +3315,6 @@
 		</div><!-- /section-wb-instruments -->
 		</div><!-- /frame-wb-instruments -->
 
-
 		<!-- WB: CONTROLS -->
 		<div class="tf-section-frame" id="frame-wb-controls">
 			<div id="btn-toggle-wb-controls" class="tf-section-title-row" style="cursor: pointer;">
@@ -3406,7 +3365,6 @@
 			<input type="text" id="wb-slider-length-numbox" class="tf-slider-numbox" value="0" />
 		</div>
 
-
 		<div class="flex flex-row items-center mb-1">
 			<div class="text-lg text-light">ROTATION: <span class="text-xl font-bold tf-slider-val" id="wb-rotation-label">0</span>&#176;</div>
 			<div id="wb-slider-rotation-transport-toggle" class="tf-transport-toggle" style="margin-left: 6dp;">DYNAMIC</div>
@@ -3427,7 +3385,6 @@
 			</div>
 			<input type="text" id="wb-slider-rotation-numbox" class="tf-slider-numbox" value="0" />
 		</div>
-
 
 		<div class="flex flex-row items-center mb-1">
 			<div class="text-lg text-light">COUNT: <span class="text-xl font-bold tf-slider-val" id="wb-count-label">3</span></div>
@@ -3491,7 +3448,6 @@
 			<input type="text" id="wb-slider-frequency-numbox" class="tf-slider-numbox" value="0" />
 		</div>
 
-
 		<div class="flex flex-row items-center mb-1">
 			<div class="text-lg text-light font-bold">PERSISTENCE</div>
 			<div id="wb-slider-persist-transport-toggle" class="tf-transport-toggle" style="margin-left: 6dp;">DYNAMIC</div>
@@ -3517,7 +3473,6 @@
 			<div class="text-lg text-light">Permanent</div>
 		</div>
 
-
 		<div class="flex flex-row justify-between items-center mb-1">
 			<div class="text-lg text-light">ACTIVE EFFECTS: <span class="text-xl font-bold" id="wb-persistent-count">0</span></div>
 		</div>
@@ -3526,7 +3481,6 @@
 				<div class="tf-action-btn-text">CLEAR ALL EFFECTS</div>
 			</div>
 		</div>
-
 
 				</div><!-- /section-wb-controls -->
 		</div><!-- /frame-wb-controls -->
@@ -3575,7 +3529,6 @@
 		</div><!-- /section-spl-channel -->
 		</div><!-- /frame-spl-channel -->
 
-
 		<!-- Splat Painter: DISPLAY -->
 		<div class="tf-section-frame tf-collapsed" id="frame-sp-overlays">
 			<div id="btn-toggle-sp-overlays" class="tf-section-title-row" style="cursor: pointer;">
@@ -3607,7 +3560,6 @@
 		</div>
 		</div><!-- /section-sp-overlays -->
 		</div><!-- /frame-sp-overlays -->
-
 
 		<!-- Splat Painter: INSTRUMENTS -->
 		<div class="tf-section-frame tf-collapsed" id="frame-sp-instruments">
@@ -3746,7 +3698,6 @@
 		</div><!-- /section-sp-instruments -->
 		</div><!-- /frame-sp-instruments -->
 
-
 		<!-- Splat Painter: FILTERS -->
 		<div class="tf-section-frame tf-collapsed" id="frame-sp-smart">
 			<div id="btn-toggle-sp-smart" class="tf-section-title-row" style="cursor: pointer;">
@@ -3872,7 +3823,6 @@
 		</div><!-- /section-sp-smart -->
 		</div><!-- /frame-sp-smart -->
 
-
 		<!-- Splat Painter: CONTROLS -->
 		<div class="tf-section-frame" id="frame-sp-controls">
 			<div id="btn-toggle-sp-controls" class="tf-section-title-row" style="cursor: pointer;">
@@ -3902,7 +3852,6 @@
 			<input type="text" id="sp-slider-strength-numbox" class="tf-slider-numbox" value="0" />
 		</div>
 
-
 		<div class="flex flex-row items-center mb-1">
 			<div class="text-lg text-light">INTENSITY: <span class="text-xl font-bold tf-slider-val" id="sp-intensity-label">1.0</span></div>
 			<div id="sp-slider-intensity-transport-toggle" class="tf-transport-toggle" style="margin-left: 6dp;">DYNAMIC</div>
@@ -3924,7 +3873,6 @@
 			<input type="text" id="sp-slider-intensity-numbox" class="tf-slider-numbox" value="0" />
 		</div>
 
-
 		<div class="flex flex-row justify-between items-center mb-1">
 			<div class="text-lg text-light">SIZE: <span class="text-xl font-bold" id="sp-radius-label">100</span></div>
 			<div id="kbhint-sp-size" class="text-sm text-keybind">Ctrl+Scroll</div>
@@ -3940,7 +3888,6 @@
 			<input type="text" id="sp-slider-size-numbox" class="tf-slider-numbox" value="0" />
 		</div>
 
-
 		<div class="flex flex-row justify-between items-center mb-1">
 			<div class="text-lg text-light">ROTATION: <span class="text-xl font-bold" id="sp-rotation-label">0</span>&#176;</div>
 			<div id="kbhint-sp-rotation" class="text-sm text-keybind">Alt+Scroll</div>
@@ -3955,7 +3902,6 @@
 			</div>
 			<input type="text" id="sp-slider-rotation-numbox" class="tf-slider-numbox" value="0" />
 		</div>
-
 
 		<div class="flex flex-row items-center mb-1">
 			<div class="text-lg text-light">FALL-OFF: <span class="text-xl font-bold tf-slider-val" id="sp-curve-label">1.0</span></div>
@@ -4008,7 +3954,6 @@
 
 		</div><!-- /section-sp-controls -->
 		</div><!-- /frame-sp-controls -->
-
 
 		<!-- Undo & Redo -->
 		<div class="tf-section-frame tf-collapsed" id="frame-sp-undo">
@@ -4079,7 +4024,6 @@
 		</div>
 		</div><!-- /section-dc-overlays -->
 		</div><!-- /frame-dc-overlays -->
-
 
 		<!-- DC: INSTRUMENTS -->
 		<div class="tf-section-frame tf-collapsed" id="frame-dc-instruments">
@@ -4203,7 +4147,6 @@
 		</div><!-- /section-dc-instruments -->
 		</div><!-- /frame-dc-instruments -->
 
-
 		<!-- DC: CONTROLS -->
 		<div class="tf-section-frame" id="frame-dc-controls">
 			<div id="btn-toggle-dc-controls" class="tf-section-title-row" style="cursor: pointer;">
@@ -4211,7 +4154,6 @@
 				<div class="tf-collapsible-title">CONTROLS</div>
 			</div>
 		<div id="section-dc-controls">
-
 
 		<!-- Brush radius -->
 		<div class="flex flex-row items-center mb-1">
@@ -4248,7 +4190,6 @@
 			<input type="text" id="dc-slider-rotrand-numbox" class="tf-slider-numbox" value="100" />
 		</div>
 
-
 		<!-- Count -->
 		<div class="flex flex-row items-center mb-1">
 			<div class="text-lg text-light">COUNT: <span class="text-xl font-bold tf-slider-val" id="dc-count-label">8</span></div>
@@ -4272,7 +4213,6 @@
 			<div id="btn-dc-cadence-up" class="tf-sm-btn" data-event-mousedown="onDcCadenceUp()"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/plus.png" /></div>
 			<input type="text" id="dc-slider-cadence-numbox" class="tf-slider-numbox" value="50" />
 		</div>
-
 
 		<!-- Decal size range -->
 		<div class="flex flex-row items-center mb-1">
@@ -4314,7 +4254,6 @@
 		</div><!-- /section-dc-controls -->
 		</div><!-- /frame-dc-controls -->
 
-
 		<!-- Undo & Redo -->
 		<div class="tf-section-frame tf-collapsed" id="frame-dc-undo">
 			<div id="btn-toggle-dc-undo" class="tf-section-title-row" style="cursor: pointer;">
@@ -4334,7 +4273,6 @@
 		</div>
 		</div><!-- /section-dc-undo -->
 		</div><!-- /frame-dc-undo -->
-
 
 		<!-- Save / Load + Combat Heatmap -->
 		<div class="tf-section-frame tf-collapsed" id="frame-dc-saveload">
@@ -4369,7 +4307,6 @@
 		</div>
 		</div><!-- /section-dc-saveload -->
 		</div><!-- /frame-dc-saveload -->
-
 
 		</div><!-- /tf-decal-controls -->
 
@@ -4465,7 +4402,6 @@
 
 		</div><!-- /section-dfp-brush -->
 		</div><!-- /frame-dfp-brush -->
-
 
 		<!-- Diffuse Painter: BLEND & EFFECTS -->
 		<div class="tf-section-frame tf-collapsed" id="frame-dfp-effects">
@@ -4606,7 +4542,6 @@
 
 		</div><!-- /section-dfp-effects -->
 		</div><!-- /frame-dfp-effects -->
-
 
 		<!-- Diffuse Painter: LAYERS -->
 		<div class="tf-section-frame" id="frame-dfp-layers">
@@ -4899,7 +4834,6 @@
 		</div><!-- /section-lp-overlays -->
 		</div><!-- /frame-lp-overlays -->
 
-
 		<!-- LP: INSTRUMENTS -->
 		<div class="tf-section-frame tf-collapsed" id="frame-lp-instruments">
 			<div id="btn-toggle-lp-instruments" class="tf-section-title-row" style="cursor: pointer;">
@@ -5022,7 +4956,6 @@
 		</div><!-- /section-lp-instruments -->
 		</div><!-- /frame-lp-instruments -->
 
-
 		<!-- LP: CONTROLS (sliders only) -->
 		<div class="tf-section-frame" id="frame-lp-controls">
 			<div id="btn-toggle-lp-controls" class="tf-section-title-row" style="cursor: pointer;">
@@ -5076,7 +5009,6 @@
 				</div>
 				<input type="text" id="slider-lp-elevation-numbox" class="tf-slider-numbox" value="0" />
 			</div>
-
 
 			<!-- Cone/Beam Direction (hidden for point lights) -->
 			<div id="lp-direction-section" data-if="lpLightType != 'point'">
@@ -5173,7 +5105,6 @@
 
 		</div><!-- /section-lp-controls -->
 		</div><!-- /frame-lp-controls -->
-
 
 		<!-- LP: COLOR -->
 		<div class="tf-section-frame" id="frame-lp-color">
@@ -5276,7 +5207,6 @@
 		</div><!-- /section-lp-color -->
 		</div><!-- /frame-lp-color -->
 
-
 		<!-- LP: UNDO -->
 		<div class="tf-section-frame tf-collapsed" id="frame-lp-undo">
 			<div id="btn-toggle-lp-undo" class="tf-section-title-row" style="cursor: pointer;">
@@ -5296,7 +5226,6 @@
 		</div>
 		</div><!-- /section-lp-undo -->
 		</div><!-- /frame-lp-undo -->
-
 
 		<!-- LP: SAVE & LOAD -->
 		<div class="tf-section-frame tf-collapsed" id="frame-lp-saveload">
@@ -5329,9 +5258,7 @@
 		</div><!-- /section-lp-saveload -->
 		</div><!-- /frame-lp-saveload -->
 
-
 		</div><!-- /tf-light-controls -->
-
 
 			<!-- SURFACE (tileset variant paint) tool: paints the soft-top variant
 			     mask of the Tileset Terrain shader. Hard surfaces (cliff +
@@ -7437,7 +7364,6 @@
 			<!-- Populated dynamically from skyboxes/ folder -->
 		</div>
 
-
 		<div class="flex flex-row gap-1 items-center mb-1">
 			<img id="btn-env-fade-toggle" class="tf-icon-sm" src="/luaui/images/terraform_brush/check_on.png" style="cursor: pointer;" data-event-mousedown="onEnvToggleFade()" />
 			<div class="text-sm text-light">Fade transition</div>
@@ -9061,7 +8987,6 @@
 			<!-- Populated dynamically -->
 		</div>
 
-
 		<!-- Save current as preset -->
 		<div class="text-xs text-keybind mb-1 mt-1">Save placed lights as user preset:</div>
 		<div class="flex flex-row gap-1 items-center">
@@ -9117,7 +9042,6 @@
 		</div>
 		</div><!-- /section-noise-type -->
 		</div><!-- /frame-noise-type -->
-
 
 		<div class="flex flex-row justify-between items-center mb-1">
 			<div class="text-lg text-light">SCALE: <span class="text-xl font-bold">{{nsScaleStr}}</span></div>
