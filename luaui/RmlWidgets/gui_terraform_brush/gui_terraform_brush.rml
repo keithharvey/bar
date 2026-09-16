@@ -242,6 +242,8 @@
 			<div class="text-xs text-keybind mb-1" data-if="stpDetailsMode == 'prompt'">Click a region on the map, or a row above, to see it here.</div>
 			<div data-if="stpDetailsMode == 'new'">
 			<div id="sp-new-region">
+				<div class="text-sm text-light">Team</div>
+				<div id="sp-team-picker" class="flex flex-row gap-1 mb-1 tf-chip-row"></div>
 				<div class="text-sm text-light">Name (optional)</div>
 				<input type="text" id="sp-region-name" class="ll-search-input mb-1" style="width:100%;" data-event-change="onSpRegionPendingChange()" />
 				<div class="text-sm text-light">Group</div>
@@ -269,6 +271,8 @@
 					</div>
 				</div>
 				<div data-if="stpRegionType == 'mex_region'">
+					<div class="text-sm text-light">Team</div>
+					<div id="sp-detail-team-picker" class="flex flex-row gap-1 mb-1 tf-chip-row"></div>
 					<div class="text-sm text-light">Name</div>
 					<input type="text" id="sp-detail-name" class="ll-search-input mb-1" style="width:100%;" data-event-change="onSpRegionFieldChange('name')" />
 					<div class="text-sm text-light">Group</div>

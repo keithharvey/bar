@@ -140,21 +140,21 @@ local shapeCount = 4 -- number of positions to place with shape
 -- Startbox state
 local R = {
 	startList = {},
-	mexList = {}, -- { {vertices=..., kind=, type="mex_region", name=, group=, tags={}}, ... }
-	type = "start", -- "start" | "mex_region": the layer
-	strategy = "express", -- "express" | "shape": how a new region is made
-	placing = "points", -- start type only: "points" | "area"
+	mexList = {},
+	type = "start",
+	strategy = "express",
+	placing = "points",
 	selectedIdx = nil,
 	selectedStart = nil,
 	pendingVertex = nil,
 	category = "start",
 	drawForTeam = nil,
-	geometry = "point", -- what a click makes: "point" | "square" | "polygon", from the type's shapes
-	editMode = "select", -- "select": a click picks or drags what exists; "create": a click makes a region
-	radial = nil, -- "mexes" draw: the circle being dragged, { cx, cz, r }
-	radialPending = {}, -- "mexes" draw: the live selection of spots the region will close around
-	radialHistory = {}, -- "mexes" draw: the selection before each gesture, so Ctrl+Z steps back one
-	pending = { name = "", group = "" },
+	geometry = "point",
+	editMode = "select",
+	radial = nil,
+	radialPending = {},
+	radialHistory = {},
+	pending = { name = "", group = "", team = nil },
 	error = "",
 	revision = 0,
 	COLOR = { 0.35, 0.85, 1.0, 1.0 },
@@ -276,14 +276,14 @@ end
 -- when multiple teams per allyteam are used. playerIdx = (allyTeam-1)*numTeamsPerAlly + teamSlot.
 function R.color(box, bi)
 	if R.type == "mex_region" then
-		return R.COLOR
+		return box.team and getColorForAllyTeam(box.team) or R.COLOR
 	end
 	return getColorForAllyTeam(box.allyTeam or bi)
 end
 
 function R.nextColor()
 	if R.type == "mex_region" then
-		return R.COLOR
+		return R.pending.team and getColorForAllyTeam(R.pending.team) or R.COLOR
 	end
 	return getColorForAllyTeam(#startboxes + 1)
 end
@@ -661,6 +661,7 @@ end
 local function renumberBoxAllyTeams()
 	for i = 1, #R.startList do
 		R.startList[i].allyTeam = i
+		R.startList[i].team = i
 	end
 end
 
@@ -673,7 +674,12 @@ function R.validatePending()
 	if R.type ~= "mex_region" then
 		return nil
 	end
-	local candidate = { type = R.type, name = R.pending.name, group = R.pending.group ~= "" and R.pending.group or nil }
+	local candidate = {
+		type = R.type,
+		name = R.pending.name,
+		team = R.pending.team,
+		group = R.pending.group ~= "" and R.pending.group or nil,
+	}
 	local problems = R.api.Check(R.type, candidate, R.mexList, true)
 	return problems[1]
 end
@@ -694,6 +700,7 @@ function R.stampNew(box)
 			until not taken
 		end
 		box.name = name
+		box.team = R.pending.team
 		box.group = R.pending.group ~= "" and R.pending.group or nil
 		box.tags = {}
 		R.pending.name = ""
@@ -742,6 +749,7 @@ local function finishStartbox(strength)
 			local candidate = {
 				type = R.type,
 				name = R.pending.name ~= "" and R.pending.name or nil,
+				team = R.pending.team,
 				group = R.pending.group ~= "" and R.pending.group or nil,
 				vertices = box.vertices,
 			}
@@ -2272,6 +2280,9 @@ function R.setCategory(key)
 		R.geometry = R.geometriesFor(cat.type)[1] or "polygon"
 	end
 	R.type = cat.type
+	if R.type == "mex_region" and R.pending.team == nil and R.selectedStart then
+		R.pending.team = R.selectedStart
+	end
 	R.applyMode()
 end
 
@@ -2360,6 +2371,7 @@ function R.seedMexRegions()
 			R.mexList[#R.mexList + 1] = {
 				type = "mex_region",
 				name = region.name,
+				team = region.team,
 				group = region.group,
 				kind = "polygon",
 				vertices = vertices,
@@ -2391,7 +2403,7 @@ function R.seedFromMatch()
 		for _, a in ipairs(area.anchors) do
 			curved = curved or (a.strength ~= nil and a.strength > 0)
 		end
-		local box = { allyTeam = area.allyTeam, name = area.name, tags = {} }
+		local box = { allyTeam = area.allyTeam, team = area.allyTeam, name = area.name, tags = {} }
 		if curved then
 			box.kind = "spline"
 			box.controls = area.anchors
@@ -2608,11 +2620,28 @@ function R.startFacts(allyTeam)
 end
 
 function R.setPendingField(key, value)
-	if key == "name" or key == "group" then
+	if key == "team" then
+		R.pending.team = tonumber(value)
+		R.error = ""
+		R.bump()
+	elseif key == "name" or key == "group" then
 		R.pending[key] = value or ""
 		R.error = ""
 		R.bump()
 	end
+end
+
+function R.teamLabel(team)
+	local start = team and R.startList[team]
+	return (start and start.name) or (team and ("Team " .. team)) or nil
+end
+
+function R.teamOptions()
+	local out = {}
+	for _, start in ipairs(R.starts()) do
+		out[#out + 1] = { team = start.allyTeam, label = R.teamLabel(start.allyTeam) }
+	end
+	return out
 end
 
 function R.setField(key, value)
@@ -2621,14 +2650,19 @@ function R.setField(key, value)
 	if not box or not kind then
 		return false
 	end
-	local declared = false
+	local declared = nil
 	for _, field in ipairs(kind.fields) do
-		declared = declared or field.key == key
+		if field.key == key then
+			declared = field
+		end
 	end
 	if not declared then
 		return false
 	end
 	value = value or ""
+	if declared.kind == "integer" and value ~= "" then
+		value = tonumber(value) or value
+	end
 	local candidate = { type = R.type, vertices = box.vertices }
 	for _, field in ipairs(kind.fields) do
 		candidate[field.key] = box[field.key]
@@ -2718,7 +2752,13 @@ function R.facts(box)
 	for _, pos in ipairs(positions) do
 		starts[#starts + 1] = { allyTeam = pos.allyTeam, x = pos.x, z = pos.z }
 	end
-	local facts = R.api.Facts({ type = box.type or R.type, vertices = verts, name = box.name, group = box.group }, {
+	local facts = R.api.Facts({
+		type = box.type or R.type,
+		vertices = verts,
+		name = box.name,
+		team = box.team,
+		group = box.group,
+	}, {
 		spots = spots,
 		starts = starts,
 	})
@@ -2785,6 +2825,9 @@ function R.save(explicitPath)
 		lines[#lines + 1] = "  {"
 		lines[#lines + 1] = string.format("    type = %q,", region.type or "mex_region")
 		lines[#lines + 1] = string.format("    name = %q,", region.name or "")
+		if region.team then
+			lines[#lines + 1] = string.format("    team = %d,", region.team)
+		end
 		if region.group then
 			lines[#lines + 1] = string.format("    group = %q,", region.group)
 		end
@@ -2848,6 +2891,7 @@ function R.load(explicitPath)
 			local region = {
 				type = "mex_region",
 				name = entry.name,
+				team = tonumber(entry.team),
 				group = type(entry.group) == "string" and entry.group or nil,
 				tags = type(entry.tags) == "table" and entry.tags or {},
 			}
@@ -2929,6 +2973,7 @@ local function getState()
 			idx = R.selectedIdx,
 			type = R.type,
 			name = startboxes[R.selectedIdx].name,
+			team = startboxes[R.selectedIdx].team,
 			group = startboxes[R.selectedIdx].group,
 			tags = startboxes[R.selectedIdx].tags or {},
 			vertexCount = #startboxes[R.selectedIdx].vertices,
@@ -2937,6 +2982,7 @@ local function getState()
 			end),
 		}) or nil,
 		pendingRegion = R.pending,
+		teamOptions = R.teamOptions(),
 		regionError = R.error,
 		regionRevision = R.revision,
 		mexGroups = R.groups(),
@@ -4886,6 +4932,9 @@ function widget:DrawScreenEffects()
 					local label = region.name or "?"
 					if region.group then
 						label = label .. " (" .. region.group .. ")"
+					end
+					if region.team then
+						label = R.teamLabel(region.team) .. " · " .. label
 					end
 					local alpha = (bi == R.selectedIdx) and 1.0 or 0.75
 					glColor(1, 1, 1, alpha)

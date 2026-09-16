@@ -288,6 +288,54 @@ function M.sync(doc, ctx, stpState, setSummary)
 				end
 			end
 
+			local teamOptions = stpState.teamOptions or {}
+			local teamLabels = {}
+			for _, option in ipairs(teamOptions) do
+				teamLabels[option.team] = option.label
+			end
+			local function fillTeamPicker(id, current, onPick)
+				local el = doc:GetElementById(id)
+				if not el then
+					return
+				end
+				local html = {}
+				local function chip(i, label, active)
+					html[#html + 1] = '<div id="'
+						.. id
+						.. "-"
+						.. i
+						.. '" class="tf-overlay-chip'
+						.. (active and " active" or "")
+						.. '"><div class="tf-overlay-chip-label">'
+						.. label
+						.. "</div></div>"
+				end
+				chip(0, "None", current == nil)
+				for i, option in ipairs(teamOptions) do
+					chip(i, option.label, current == option.team)
+				end
+				el.inner_rml = table.concat(html)
+				for i = 0, #teamOptions do
+					local c = doc:GetElementById(id .. "-" .. i)
+					if c then
+						c:AddEventListener("click", function(event)
+							onPick(i > 0 and teamOptions[i].team or nil)
+							event:StopPropagation()
+						end, false)
+					end
+				end
+			end
+			fillTeamPicker("sp-team-picker", stpState.pendingRegion and stpState.pendingRegion.team, function(team)
+				if st and st.setPendingField then
+					st.setPendingField("team", team and tostring(team) or "")
+				end
+			end)
+			fillTeamPicker("sp-detail-team-picker", stpState.selected and stpState.selected.team, function(team)
+				if st and st.setRegionField then
+					st.setRegionField("team", team and tostring(team) or "")
+				end
+			end)
+
 			local listEl = doc:GetElementById("sp-region-list")
 			if listEl then
 				local html, count, onClick = {}, 0, nil
@@ -322,6 +370,9 @@ function M.sync(doc, ctx, stpState, setSummary)
 					count = #regions
 					for i, region in ipairs(regions) do
 						local label = (region.name or "?") .. (region.group and (" (" .. region.group .. ")") or "")
+						if region.team then
+							label = (teamLabels[region.team] or ("Team " .. region.team)) .. " · " .. label
+						end
 						local selected = (i == stpState.selectedIdx) and " selected" or ""
 						html[#html + 1] = '<div id="sp-region-item-'
 							.. i
