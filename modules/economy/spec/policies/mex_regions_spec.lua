@@ -118,78 +118,83 @@ end)
 
 describe("the spot holder fact", function()
 	local Deal = VFS.Include("modules/economy/lib/mex_regions/deal.lua") ---@type MexRegionsDealLib
+	local Shared = VFS.Include("modules/economy/lib/mex_regions/shared.lua") ---@type MexRegionsShared
+	local MexRegions = VFS.Include("modules/economy/api.lua").MexRegions ---@type EconomyMexRegionsApi
+	local state = VFS.Include("modules/economy/state.lua") ---@type EconomyState
 	local EconomyEnums = VFS.Include("modules/economy/enums.lua")
 	local resolved = ModuleHandler.LoadEnrichers(ConstructionContract.PlacementFacts)
-	local published ---@type string|nil
 	local mexIncome ---@type string
-	local springRepo = {
-		GetGameRulesParam = function()
-			return published
+	local rules ---@type table<string, string>
+	local params ---@type table<integer, string>
+	local repo = {
+		GetGameRulesParam = function(key)
+			return rules[key]
+		end,
+		SetGameRulesParam = function(key, value)
+			rules[key] = value
+		end,
+		GetTeamList = function()
+			return { 0, 1, 2, 3 }
+		end,
+		GetTeamRulesParam = function(teamID)
+			return params[teamID]
+		end,
+		SetTeamRulesParam = function(teamID, _, value)
+			params[teamID] = value
 		end,
 	}
-	local function modOptions()
-		return { [EconomyEnums.ModOptions.MexSplitting] = mexIncome }
-	end
-	local function holderAt(x, z, builderTeam)
-		local facts = ModuleHandler.EnrichWith(
-			resolved,
-			nil,
-			{ modOptions = modOptions(), x = x, z = z, unitDefID = 7, builderTeam = builderTeam or 0 },
-			springRepo
-		)
-		return facts[ConstructionContract.PlacementFacts.SpotHolder]
+	local spots = { { x = 5, z = 5 }, { x = 195, z = 195 }, { x = 100, z = 100 }, { x = 60, z = 60 } }
+
+	local function holderAt(spotX, spotZ, builderTeam)
+		local ctx = {
+			modOptions = { [EconomyEnums.ModOptions.MexSplitting] = mexIncome },
+			x = spotX + 30,
+			z = spotZ + 30,
+			spotX = spotX,
+			spotZ = spotZ,
+			unitDefID = 7,
+			builderTeam = builderTeam or 0,
+		}
+		return ModuleHandler.EnrichWith(resolved, nil, ctx, repo)[ConstructionContract.PlacementFacts.SpotHolder]
 	end
 
 	before_each(function()
 		mexIncome = EconomyEnums.MexSplitting.MapAssigned
-		published = Deal.Encode(sevenRegions, deal(fourTeams, sevenRegions))
+		rules, params = {}, {}
+		state.mexRegions = sevenRegions
+		MexRegions.Deal(fourTeams, repo, spots)
 	end)
 
-	it("is the holding team inside a dealt region, read back from the published deal", function()
+	it("is the team the deal handed the spot to, wherever the build lands", function()
 		assert.are.equal(0, holderAt(5, 5, 3))
 		assert.are.equal(2, holderAt(195, 195, 3))
+		assert.are.equal(1, holderAt(100, 100, 3), "the centre went round to team 1")
 	end)
 
-	it("judges a mex by the spot it targets, through the published holdings", function()
-		local Shared = VFS.Include("modules/economy/lib/mex_regions/shared.lua") ---@type MexRegionsShared
-		local params = {} ---@type table<integer, string>
-		local repo = {
-			GetGameRulesParam = function()
-				return published
-			end,
-			GetTeamList = function()
-				return { 0, 1, 2, 3 }
-			end,
-			GetTeamRulesParam = function(teamID)
-				return params[teamID]
-			end,
-			SetTeamRulesParam = function(teamID, _, value)
-				params[teamID] = value
-			end,
-		}
-		Shared.Holdings.Write(repo, 0, { regions = { "nw" }, spots = { Shared.SpotKey(5, 5) } })
-		Shared.Holdings.Write(repo, 2, { regions = { "se" }, spots = { Shared.SpotKey(195, 195) } })
-		local facts = ModuleHandler.EnrichWith(
-			resolved,
-			nil,
-			{ modOptions = modOptions(), x = 60, z = 60, spotX = 5, spotZ = 5, unitDefID = 7, builderTeam = 3 },
-			repo
-		)
-		assert.are.equal(
-			0,
-			facts[ConstructionContract.PlacementFacts.SpotHolder],
-			"the build lands outside, the spot is inside"
-		)
+	it("reduces each region to the spots inside it, published per team", function()
+		local record = Shared.Holdings.Read(repo, 0) ---@type MexHoldingsRecord
+		assert.are.same({ "nw", "n" }, record.regions)
+		assert.are.same({ Shared.SpotKey(5, 5) }, record.spots)
 		local byKey = Shared.HolderBySpot(repo, { 0, 1, 2, 3 })
 		assert.are.equal(2, byKey[Shared.SpotKey(195.4, 194.6)], "keys round to whole elmos")
-		assert.is_nil(byKey[Shared.SpotKey(100, 100)], "a spot nobody holds")
 	end)
 
-	it("falls back to the builder before the deal and outside every region", function()
-		published = nil
-		assert.are.equal(3, holderAt(5, 5, 3))
-		published = Deal.Encode(sevenRegions, deal(fourTeams, sevenRegions))
+	it("is the builder's own for a spot no region reduced to", function()
 		assert.are.equal(3, holderAt(60, 60, 3))
+	end)
+
+	it("has no say without a spot, even on ground a region covers", function()
+		local ctx = {
+			modOptions = { [EconomyEnums.ModOptions.MexSplitting] = mexIncome },
+			x = 5,
+			z = 5,
+			unitDefID = 7,
+			builderTeam = 3,
+		}
+		assert.are.equal(
+			3,
+			ModuleHandler.EnrichWith(resolved, nil, ctx, repo)[ConstructionContract.PlacementFacts.SpotHolder]
+		)
 	end)
 
 	it("has no say unless mex income is Map Assigned", function()

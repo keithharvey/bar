@@ -19,10 +19,11 @@ function test()
 	local spots = SyncedRun(function(locals)
 		local state = gadgetHandler.GG.__moduleState.economy ---@type EconomyState
 		assert(state and state.mexRegions and state.mexClaims, "economy has not dealt the regions")
-		local Claims = VFS.Include("modules/economy/lib/mex_regions/claims.lua") ---@type MexRegionsClaimsLib
+		local Shared = VFS.Include("modules/economy/lib/mex_regions/shared.lua") ---@type MexRegionsShared
+		local byKey = Shared.HolderBySpot(Spring, Spring.GetTeamList())
 		local mine, theirs
 		for _, spot in ipairs(gadgetHandler.GG.resource_spot_finder.metalSpotsList) do
-			local owner = Claims.OwnerAt(state.mexRegions, state.mexClaims, spot.x, spot.z)
+			local owner = byKey[Shared.SpotKey(spot.x, spot.z)]
 			if owner == locals.myTeamID and mine == nil then
 				mine = { x = spot.x, z = spot.z }
 			elseif owner ~= nil and owner ~= locals.myTeamID and theirs == nil then

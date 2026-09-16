@@ -1,8 +1,6 @@
 local Contract = VFS.Include("modules/economy/contract.lua") ---@type EconomyContract
 local ConstructionContract = VFS.Include("modules/construction/contract.lua") ---@type ConstructionContract
 local EconomyEnums = VFS.Include("modules/economy/enums.lua")
-local Claims = VFS.Include("modules/economy/lib/mex_regions/claims.lua") ---@type MexRegionsClaimsLib
-local Deal = VFS.Include("modules/economy/lib/mex_regions/deal.lua") ---@type MexRegionsDealLib
 local Shared = VFS.Include("modules/economy/lib/mex_regions/shared.lua") ---@type MexRegionsShared
 
 Policies.On(Contract.MexRegions)
@@ -67,21 +65,15 @@ Policies.On(Contract.MexRegions)
 		return held
 	end)
 
-local readDeal = Deal.Reader()
-
 Policies.On(ConstructionContract.PlacementFacts)
 	.Provide(ConstructionContract.PlacementFacts.SpotHolder, function(ctx, springRepo)
 		if ctx.modOptions[EconomyEnums.ModOptions.MexSplitting] ~= EconomyEnums.MexSplitting.MapAssigned then
 			return nil
 		end
-		local engine = springRepo or Spring
-		if ctx.spotX and ctx.spotZ then
-			local byKey = Shared.HolderBySpot(engine, engine.GetTeamList())
-			return byKey[Shared.SpotKey(ctx.spotX, ctx.spotZ)]
-		end
-		local deal = readDeal(engine)
-		if deal == nil then
+		if ctx.spotX == nil or ctx.spotZ == nil then
 			return nil
 		end
-		return Claims.OwnerAt(deal.regions, deal.claims, ctx.x, ctx.z)
+		local engine = springRepo or Spring
+		local byKey = Shared.HolderBySpot(engine, engine.GetTeamList())
+		return byKey[Shared.SpotKey(ctx.spotX, ctx.spotZ)]
 	end)

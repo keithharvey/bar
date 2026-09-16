@@ -1,6 +1,4 @@
 
-local PolygonLib = VFS.Include("common/lib_polygon.lua")
-
 ---@class MexRegionsClaimsLib
 local Claims = {}
 
@@ -41,29 +39,6 @@ function Claims.Context(teams, regions)
 			{ teamID = team.teamID, allyTeam = team.allyTeam, startX = team.x, startZ = team.z, regions = ranked }
 	end
 	return { teams = views, regions = regions }
-end
-
----@param regions MexRegion[]
----@param x number
----@param z number
----@return MexRegion|nil
-function Claims.RegionAt(regions, x, z)
-	for _, region in ipairs(regions) do
-		if PolygonLib.PointInPolygon(x, z, region.polygon) then
-			return region
-		end
-	end
-	return nil
-end
-
----@param regions MexRegion[]
----@param claims MexRegionsClaims
----@param x number
----@param z number
----@return integer|nil
-function Claims.OwnerAt(regions, claims, x, z)
-	local region = Claims.RegionAt(regions, x, z)
-	return region and claims[region.id] or nil
 end
 
 ---@param regions MexRegion[]

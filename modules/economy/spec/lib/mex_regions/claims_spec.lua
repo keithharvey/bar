@@ -24,16 +24,6 @@ describe("the deal's context", function()
 		assert.is_true(ctx.teams[1].regions[1].distance < ctx.teams[1].regions[2].distance)
 	end)
 
-	it("finds the region under a point and who holds it", function()
-		local claims = { near = 0, far = 1 }
-		assert.are.equal("mid", Claims.RegionAt(regions, 100, 100).name)
-		assert.is_nil(Claims.RegionAt(regions, 50, 50))
-		assert.are.equal(0, Claims.OwnerAt(regions, claims, 5, 5))
-		assert.are.equal(1, Claims.OwnerAt(regions, claims, 190, 190))
-		assert.is_nil(Claims.OwnerAt(regions, claims, 100, 100), "held by nobody")
-		assert.is_nil(Claims.OwnerAt(regions, claims, 50, 50), "outside every region")
-	end)
-
 	it("lists each team's holdings in layout order", function()
 		assert.are.same(
 			{ [0] = { "near", "mid" }, [1] = { "far" } },
