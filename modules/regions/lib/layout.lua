@@ -7,7 +7,9 @@ local Layout = {}
 Layout.SPACE = 200
 
 ---@class LayoutRegion a region as the layout lists it, in elmos once parsed
----@field name string unique among its type
+---@field id string name, or name@team when the region has a team; unique among its type
+---@field name string
+---@field team integer|nil the start ordinal the region belongs to
 ---@field group string|nil
 ---@field polygon number[][] {x, z} vertices
 ---@field centerX number the polygon's vertex centroid
@@ -36,6 +38,13 @@ local function expandPoly(poly)
 	return out
 end
 
+---@param name string
+---@param team integer|nil
+---@return string
+function Layout.Id(name, team)
+	return team and (name .. "@" .. team) or name
+end
+
 ---@param layout table the decoded layout
 ---@param mapSizeX number
 ---@param mapSizeZ number
@@ -52,10 +61,15 @@ function Layout.Parse(layout, mapSizeX, mapSizeZ)
 		if type(entry) ~= "table" or type(entry.name) ~= "string" or entry.name == "" then
 			return nil, "region " .. i .. " has no name"
 		end
-		if seen[entry.name] then
-			return nil, "two regions are named " .. entry.name
+		local team = entry.team
+		if team ~= nil and (type(team) ~= "number" or team < 1 or team % 1 ~= 0) then
+			return nil, "region " .. entry.name .. " has a team that is not a start ordinal"
 		end
-		seen[entry.name] = true
+		local id = Layout.Id(entry.name, team)
+		if seen[id] then
+			return nil, "two regions are named " .. entry.name .. (team and (" for team " .. team) or "")
+		end
+		seen[id] = true
 		local poly = expandPoly(entry.poly)
 		if poly == nil then
 			return nil, "region " .. entry.name .. " needs a poly of two {x, y} corners or three or more vertices"
@@ -69,7 +83,9 @@ function Layout.Parse(layout, mapSizeX, mapSizeZ)
 		end
 		local cx, cz = Geometry.Centroid(verts)
 		regions[#regions + 1] = {
+			id = id,
 			name = entry.name,
+			team = team,
 			group = type(entry.group) == "string" and entry.group or nil,
 			polygon = polygon,
 			centerX = cx,
@@ -82,7 +98,7 @@ function Layout.Parse(layout, mapSizeX, mapSizeZ)
 	return regions, nil
 end
 
----@param regions { name: string, group: string|nil, vertices: { x: number, z: number }[] }[]
+---@param regions { name: string, team: integer|nil, group: string|nil, vertices: { x: number, z: number }[] }[]
 ---@param mapSizeX number
 ---@param mapSizeZ number
 ---@return table layout
@@ -98,7 +114,7 @@ function Layout.Export(regions, mapSizeX, mapSizeZ)
 		if name == nil or name == "" then
 			name = "region " .. i
 		end
-		layout.regions[#layout.regions + 1] = { name = name, group = region.group, poly = poly }
+		layout.regions[#layout.regions + 1] = { name = name, team = region.team, group = region.group, poly = poly }
 	end
 	return layout
 end

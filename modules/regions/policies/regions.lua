@@ -47,8 +47,13 @@ Policies.On(Contract.Check)
 				ctx.problems[#ctx.problems + 1] = field.label .. " must be a number"
 			end
 			if field.unique and not missing then
+				local scope = type(field.unique) == "string" and field.unique or nil
 				for _, other in ipairs(ctx.siblings) do
-					if other ~= ctx.region and other[field.key] == value then
+					if
+						other ~= ctx.region
+						and other[field.key] == value
+						and (scope == nil or other[scope] == ctx.region[scope])
+					then
 						ctx.problems[#ctx.problems + 1] = "a "
 							.. ctx.type.label:lower()
 							.. " with "
@@ -71,7 +76,7 @@ Policies.On(Contract.Check)
 				ctx.problems[#ctx.problems + 1] = "overlaps "
 					.. ctx.type.label:lower()
 					.. " "
-					.. tostring(other.name or other.allyTeam or "?")
+					.. tostring(other.name or other.team or "?")
 				return
 			end
 		end

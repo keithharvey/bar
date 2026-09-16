@@ -36,6 +36,38 @@ describe("a mex regions layout", function()
 		assert.matches("two regions are named a", reason)
 		_, reason = Layout.Parse({ regions = {} }, 200, 200)
 		assert.matches("no regions", reason)
+		_, reason = Layout.Parse(
+			{ regions = { { name = "a", team = 0, poly = { { x = 0, y = 0 }, { x = 1, y = 1 } } } } },
+			200,
+			200
+		)
+		assert.matches("not a start ordinal", reason)
+	end)
+
+	it("keeps a region's team, and lets two teams each have a region of the same name", function()
+		local regions = assert(Layout.Parse({
+			regions = {
+				{ name = "anti1", team = 1, poly = { { x = 0, y = 0 }, { x = 10, y = 10 } } },
+				{ name = "anti1", team = 2, poly = { { x = 190, y = 190 }, { x = 200, y = 200 } } },
+				{ name = "mid", poly = { { x = 90, y = 90 }, { x = 110, y = 110 } } },
+			},
+		}, 200, 200))
+		assert.are.same({ "anti1@1", "anti1@2", "mid" }, { regions[1].id, regions[2].id, regions[3].id })
+		assert.are.equal(2, regions[2].team)
+		assert.is_nil(regions[3].team)
+		local _, reason = Layout.Parse({
+			regions = {
+				{ name = "anti1", team = 1, poly = { { x = 0, y = 0 }, { x = 10, y = 10 } } },
+				{ name = "anti1", team = 1, poly = { { x = 190, y = 190 }, { x = 200, y = 200 } } },
+			},
+		}, 200, 200)
+		assert.matches("two regions are named anti1 for team 1", reason)
+		local back = Layout.Export(
+			{ { name = "anti1", team = 2, vertices = { { x = 0, z = 0 }, { x = 200, z = 0 }, { x = 0, z = 200 } } } },
+			200,
+			200
+		)
+		assert.are.equal(2, back.regions[1].team)
 		_, reason = Layout.Parse("nonsense", 200, 200)
 		assert.matches("a layout is", reason)
 	end)

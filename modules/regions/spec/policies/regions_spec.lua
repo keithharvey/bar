@@ -23,7 +23,7 @@ describe("checking a region", function()
 
 	it("collects every problem rather than stopping at the first", function()
 		local problems = Regions.Check(Enums.Types.Start, { vertices = { { x = 0, z = 0 } } }, {})
-		assert.are.same({ "a polygon needs at least three vertices", "a start needs a ally team" }, problems)
+		assert.are.same({ "a polygon needs at least three vertices", "a start needs a team" }, problems)
 	end)
 
 	it("refuses a shape the type cannot take, and a name a sibling already has", function()
@@ -51,9 +51,22 @@ describe("checking a region", function()
 	end)
 
 	it("a start may be a point or a polygon, and names its team", function()
-		assert.are.same({}, Regions.Check(Enums.Types.Start, { allyTeam = 1, x = 5, z = 5 }, {}))
-		assert.are.same({}, Regions.Check(Enums.Types.Start, { allyTeam = 2, vertices = square }, {}))
-		assert.are.same({ "a start needs a ally team" }, Regions.Check(Enums.Types.Start, { x = 5, z = 5 }, {}))
+		assert.are.same({}, Regions.Check(Enums.Types.Start, { team = 1, x = 5, z = 5 }, {}))
+		assert.are.same({}, Regions.Check(Enums.Types.Start, { team = 2, vertices = square }, {}))
+		assert.are.same({ "a start needs a team" }, Regions.Check(Enums.Types.Start, { x = 5, z = 5 }, {}))
+	end)
+
+	it("a mex region's name is unique within its team, so two teams may each have an anti1", function()
+		local souths = { { name = "anti1", team = 2 } }
+		assert.are.same({}, Regions.Check(Enums.Types.MexRegion, { name = "anti1", team = 1 }, souths, true))
+		assert.are.same(
+			{ "a mex region with name anti1 already exists" },
+			Regions.Check(Enums.Types.MexRegion, { name = "anti1", team = 2 }, souths, true)
+		)
+		assert.are.same(
+			{ "Team must be a number" },
+			Regions.Check(Enums.Types.MexRegion, { name = "x", team = "south" }, {}, true)
+		)
 	end)
 end)
 
@@ -82,8 +95,8 @@ describe("a disjoint type", function()
 			{},
 			Regions.Check(
 				Enums.Types.Start,
-				{ allyTeam = 2, vertices = b.vertices },
-				{ { allyTeam = 1, vertices = a.vertices } }
+				{ team = 2, vertices = b.vertices },
+				{ { team = 1, vertices = a.vertices } }
 			)
 		)
 	end)
@@ -110,7 +123,7 @@ describe("a region's facts", function()
 	end)
 
 	it("a point has no area and is its own centre", function()
-		local facts = Regions.Facts({ type = "start", allyTeam = 1, x = 7, z = 9 }, {})
+		local facts = Regions.Facts({ type = "start", team = 1, x = 7, z = 9 }, {})
 		assert.are.equal(0, facts[Contract.Facts.Area])
 		assert.are.same({ x = 7, z = 9 }, facts[Contract.Facts.Centre])
 	end)

@@ -10,7 +10,7 @@ local Modules = VFS.Include("modules/enums.lua").Modules
 ---@field tags string[]|nil what no type has claimed yet
 ---@field name string|nil a field some types carry
 ---@field group string|nil
----@field allyTeam integer|nil
+---@field team integer|nil the start ordinal: start 1 is team 1
 
 ---@class RegionCheckContext one region on its way through the rules; problems collect, so a form can show them all
 ---@field type RegionType the descriptor the region claims
