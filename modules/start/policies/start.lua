@@ -1,6 +1,5 @@
 local Contract = VFS.Include("modules/start/contract.lua") ---@type StartContract
 
----The compass name a box gets from where its middle sits, the resolver's own rule.
 ---@param cx number
 ---@param cz number
 ---@return string
@@ -12,14 +11,11 @@ local function compassName(cx, cz)
 	return short ~= "" and short or "Center"
 end
 
--- The match's own answers: what the startbox resolver settled on, and where the engine has
--- every team starting. A map project, or the terraformer, may provide over these.
 Policies.On(Contract.Facts)
 	.Default(Contract.Facts.Areas, function(ctx)
 		local config, source, explicit = ctx.resolveBoxes()
 		local areas = {} ---@type StartArea[]
 		if explicit and type(config) == "table" then
-			-- A modoption set the boxes: polygons, the resolver's config is the truth.
 			local ids = {}
 			for allyTeamID in pairs(config) do
 				ids[#ids + 1] = allyTeamID
@@ -43,8 +39,6 @@ Policies.On(Contract.Facts)
 			end
 			return areas
 		end
-		-- No modoption: the engine's rects are the boxes the match places with, the same
-		-- ones the resolver's accessors fall back to. A rect covering the map is no box.
 		local spring = ctx.springRepo
 		local gaia = spring.GetGaiaTeamID and spring.GetGaiaTeamID() or nil
 		local gaiaAlly = gaia and spring.GetTeamAllyTeamID and spring.GetTeamAllyTeamID(gaia) or nil

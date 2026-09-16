@@ -1,6 +1,5 @@
 local Enums = VFS.Include("modules/regions/enums.lua")
 
--- A team's start: drawn as the points where its teams spawn, and as the area those sit in.
 return {
 	[Enums.Types.Start] = {
 		key = Enums.Types.Start,

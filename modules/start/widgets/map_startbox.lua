@@ -45,8 +45,6 @@ local noRushTime = 0 -- was a bare read that always resolved nil; 0 matches runt
 local StartboxLib = VFS.Include("luarules/gadgets/include/startbox_utilities.lua")
 local Start = VFS.Include("modules/start/api.lua") ---@type StartApi
 
----The regions editor shows one layer at a time and draws the starts itself while it is up;
----this widget yields to it rather than paint a second copy underneath.
 local function editorHasTheMap()
 	local tool = WG.StartPosTool
 	return tool ~= nil and tool.isActive ~= nil and tool.isActive() == true
@@ -927,18 +925,12 @@ local function InitStartPolygons()
 		gaiaAllyTeamID = select(6, spGetTeamInfo(Spring.GetGaiaTeamID(), false))
 	end
 
-	-- The match's areas are the start module's facts: the modoption's polygons when one set
-	-- them, else the engine's rects, the same rule this widget used to carry itself. What the
-	-- module hands back is by 1-based ally team; this widget's polygons are keyed by the
-	-- engine's 0-based id.
 	local activeAllyTeams = {}
 	for _, atID in ipairs(Spring.GetAllyTeamList()) do
 		activeAllyTeams[atID] = true
 	end
 	local ok, current = pcall(Start.Current, Spring)
 	if not ok then
-		-- The module could not answer; say so where a player sees it, and show the engine's
-		-- rects rather than nothing, so placement is never blind.
 		Spring.Echo("[Start Boxes] start module failed, showing the engine's boxes: " .. tostring(current))
 		current = { areas = {} }
 		for _, allyTeamID in ipairs(Spring.GetAllyTeamList()) do
