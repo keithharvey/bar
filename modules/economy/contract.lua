@@ -27,13 +27,16 @@ local Redistribution = {
 ---@class MexRegion: LayoutRegion one region of the map as the regions module parsed it, in elmos
 
 ---@class MexRegionsRanked one region as a team sees it
+---@field id string
 ---@field name string
+---@field team integer|nil the start ordinal the region belongs to, when the map assigned one
 ---@field group string|nil
 ---@field distance number elmos from the team's start position to the region's centre
 ---@field ordinal integer 1 for the team's nearest region, 2 for the next, and so on
 
 ---@class MexRegionsTeamView a team and the regions ranked from where it starts
 ---@field teamID integer
+---@field allyTeam integer the start ordinal the team plays from
 ---@field startX number
 ---@field startZ number
 ---@field regions MexRegionsRanked[] nearest first
@@ -42,10 +45,10 @@ local Redistribution = {
 ---@field teams MexRegionsTeamView[] the order the deal goes round
 ---@field regions MexRegion[]
 
----@alias MexRegionsClaims table<string, integer> region name -> the team that holds it
+---@alias MexRegionsClaims table<string, integer> region id -> the team that holds it
 
 ---@class EconomyMexRegionsStages: PolicyStages<MexRegionsClaimsContext, MexRegionsClaims>
----@field NearestRoundRobin string each team in turn takes its nearest unclaimed region until none are left
+---@field NearestRoundRobin string a region with a team goes round that team's start; the rest go round every team, nearest first, until none are left
 
 ---@type EconomyMexRegionsStages
 local MexRegions = {

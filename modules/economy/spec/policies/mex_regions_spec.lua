@@ -6,8 +6,8 @@ local ConstructionContract = VFS.Include("modules/construction/contract.lua") --
 
 local pipelines = ModuleHandler.LoadPolicies(Modules.Economy) ---@type EconomyPipelines
 
-local function rect(name, x1, y1, x2, y2)
-	return { name = name, poly = { { x = x1, y = y1 }, { x = x2, y = y2 } } }
+local function rect(name, x1, y1, x2, y2, team)
+	return { name = name, team = team, poly = { { x = x1, y = y1 }, { x = x2, y = y2 } } }
 end
 
 local sevenRegions = assert(Layout.Parse({
@@ -23,10 +23,10 @@ local sevenRegions = assert(Layout.Parse({
 }, 200, 200))
 
 local fourTeams = {
-	{ teamID = 0, x = 10, z = 10 },
-	{ teamID = 1, x = 190, z = 10 },
-	{ teamID = 2, x = 190, z = 190 },
-	{ teamID = 3, x = 10, z = 190 },
+	{ teamID = 0, allyTeam = 1, x = 10, z = 10 },
+	{ teamID = 1, allyTeam = 2, x = 190, z = 10 },
+	{ teamID = 2, allyTeam = 3, x = 190, z = 190 },
+	{ teamID = 3, allyTeam = 4, x = 10, z = 190 },
 }
 
 local function deal(teams, regions)
@@ -68,6 +68,52 @@ describe("the deal", function()
 		assert.are.equal(1, claims.b)
 		assert.are.same({}, deal({}, two))
 	end)
+
+	it("binds a region with a team to that start, however far, and deals the rest by distance", function()
+		local regions = assert(Layout.Parse({
+			regions = {
+				rect("far", 0, 0, 40, 40, 3),
+				rect("mine", 160, 160, 200, 200, 3),
+				rect("anyone", 80, 80, 120, 120),
+				rect("nw", 0, 40, 40, 80),
+			},
+		}, 200, 200))
+		local claims = deal(fourTeams, regions)
+		assert.are.equal(2, claims["far@3"], "team 3 sits at the far corner, and the map says it is theirs")
+		assert.are.equal(2, claims["mine@3"])
+		assert.are.equal(0, claims.nw, "team 1 is nearest the free region beside far")
+		assert.are.equal(1, claims.anyone, "the centre goes to whoever's turn is left")
+	end)
+
+	it("shares a team's regions between the teams that play from that start", function()
+		local regions = assert(Layout.Parse({
+			regions = { rect("a", 0, 0, 40, 40, 1), rect("b", 40, 0, 80, 40, 1), rect("c", 80, 0, 120, 40, 1) },
+		}, 200, 200))
+		local allies = {
+			{ teamID = 0, allyTeam = 1, x = 10, z = 10 },
+			{ teamID = 5, allyTeam = 1, x = 100, z = 10 },
+			{ teamID = 1, allyTeam = 2, x = 190, z = 190 },
+		}
+		local claims = deal(allies, regions)
+		assert.are.equal(0, claims["a@1"])
+		assert.are.equal(5, claims["c@1"])
+		assert.are.equal(0, claims["b@1"], "round two: team 0 is nearer b")
+		local mine = 0
+		for _, holder in pairs(claims) do
+			assert.are_not.equal(1, holder)
+			mine = mine + 1
+		end
+		assert.are.equal(3, mine)
+	end)
+
+	it("deals a region whose team has no start in this match as if it had none", function()
+		local regions = assert(
+			Layout.Parse({ regions = { rect("orphan", 0, 0, 40, 40, 9), rect("free", 160, 0, 200, 40) } }, 200, 200)
+		)
+		local claims = deal(fourTeams, regions)
+		assert.are.equal(0, claims["orphan@9"])
+		assert.are.equal(1, claims.free)
+	end)
 end)
 
 describe("the spot holder fact", function()
@@ -80,15 +126,15 @@ describe("the spot holder fact", function()
 		GetGameRulesParam = function()
 			return published
 		end,
-		GetModOptions = function()
-			return { [EconomyEnums.ModOptions.MexSplitting] = mexIncome }
-		end,
 	}
+	local function modOptions()
+		return { [EconomyEnums.ModOptions.MexSplitting] = mexIncome }
+	end
 	local function holderAt(x, z, builderTeam)
 		local facts = ModuleHandler.EnrichWith(
 			resolved,
 			nil,
-			{ x = x, z = z, unitDefID = 7, builderTeam = builderTeam or 0 },
+			{ modOptions = modOptions(), x = x, z = z, unitDefID = 7, builderTeam = builderTeam or 0 },
 			springRepo
 		)
 		return facts[ConstructionContract.PlacementFacts.SpotHolder]
@@ -111,9 +157,6 @@ describe("the spot holder fact", function()
 			GetGameRulesParam = function()
 				return published
 			end,
-			GetModOptions = function()
-				return { [EconomyEnums.ModOptions.MexSplitting] = mexIncome }
-			end,
 			GetTeamList = function()
 				return { 0, 1, 2, 3 }
 			end,
@@ -129,7 +172,7 @@ describe("the spot holder fact", function()
 		local facts = ModuleHandler.EnrichWith(
 			resolved,
 			nil,
-			{ x = 60, z = 60, spotX = 5, spotZ = 5, unitDefID = 7, builderTeam = 3 },
+			{ modOptions = modOptions(), x = 60, z = 60, spotX = 5, spotZ = 5, unitDefID = 7, builderTeam = 3 },
 			repo
 		)
 		assert.are.equal(

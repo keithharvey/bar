@@ -6,6 +6,7 @@ local Claims = {}
 
 ---@class MexRegionsTeamStart
 ---@field teamID integer
+---@field allyTeam integer the start ordinal the team plays from: ally team 0 is 1
 ---@field x number
 ---@field z number
 
@@ -18,19 +19,26 @@ function Claims.Context(teams, regions)
 		local ranked = {} ---@type MexRegionsRanked[]
 		for j, region in ipairs(regions) do
 			local dx, dz = region.centerX - team.x, region.centerZ - team.z
-			ranked[j] =
-				{ name = region.name, group = region.group, distance = math.sqrt(dx * dx + dz * dz), ordinal = 0 }
+			ranked[j] = {
+				id = region.id,
+				name = region.name,
+				team = region.team,
+				group = region.group,
+				distance = math.sqrt(dx * dx + dz * dz),
+				ordinal = 0,
+			}
 		end
 		table.sort(ranked, function(a, b)
 			if a.distance ~= b.distance then
 				return a.distance < b.distance
 			end
-			return a.name < b.name
+			return a.id < b.id
 		end)
 		for ordinal, entry in ipairs(ranked) do
 			entry.ordinal = ordinal
 		end
-		views[i] = { teamID = team.teamID, startX = team.x, startZ = team.z, regions = ranked }
+		views[i] =
+			{ teamID = team.teamID, allyTeam = team.allyTeam, startX = team.x, startZ = team.z, regions = ranked }
 	end
 	return { teams = views, regions = regions }
 end
@@ -55,7 +63,7 @@ end
 ---@return integer|nil
 function Claims.OwnerAt(regions, claims, x, z)
 	local region = Claims.RegionAt(regions, x, z)
-	return region and claims[region.name] or nil
+	return region and claims[region.id] or nil
 end
 
 ---@param regions MexRegion[]
@@ -64,10 +72,10 @@ end
 function Claims.Holdings(regions, claims)
 	local holdings = {} ---@type table<integer, string[]|nil>
 	for _, region in ipairs(regions) do
-		local teamID = claims[region.name]
+		local teamID = claims[region.id]
 		if teamID ~= nil then
 			holdings[teamID] = holdings[teamID] or {}
-			table.insert(holdings[teamID], region.name)
+			table.insert(holdings[teamID], region.id)
 		end
 	end
 	return holdings

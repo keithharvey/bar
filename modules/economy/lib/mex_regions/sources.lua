@@ -34,7 +34,7 @@ local function layoutFromEditor(entries, mapSizeX, mapSizeZ)
 					vertices[i] = { x = p[1], z = p[2] }
 				end
 			end
-			regions[#regions + 1] = { name = entry.name, group = entry.group, vertices = vertices }
+			regions[#regions + 1] = { name = entry.name, team = entry.team, group = entry.group, vertices = vertices }
 		end
 	end
 	return Regions.ExportLayout(regions, mapSizeX, mapSizeZ)

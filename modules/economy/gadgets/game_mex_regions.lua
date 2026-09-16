@@ -64,7 +64,7 @@ local function teamStarts()
 		if not ignoredTeams[teamID] then
 			local allyTeamID = Spring.GetTeamAllyTeamID(teamID) or 0
 			local centre = centres[allyTeamID] or { x = Game.mapSizeX * 0.5, z = Game.mapSizeZ * 0.5 }
-			teams[#teams + 1] = { teamID = teamID, x = centre.x, z = centre.z }
+			teams[#teams + 1] = { teamID = teamID, allyTeam = allyTeamID + 1, x = centre.x, z = centre.z }
 		end
 	end
 	return teams

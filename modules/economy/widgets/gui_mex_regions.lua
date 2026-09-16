@@ -27,8 +27,8 @@ local function holderByRegion()
 	for _, teamID in ipairs(Spring.GetTeamList()) do
 		local record = Shared.Holdings.Read(Spring, teamID) ---@type MexHoldingsRecord|nil
 		if record and record.regions then
-			for _, name in ipairs(record.regions) do
-				byRegion[name] = teamID
+			for _, id in ipairs(record.regions) do
+				byRegion[id] = teamID
 			end
 		end
 	end
@@ -82,7 +82,7 @@ local function stylesFor(deal)
 	styles = {}
 	local holders = holderByRegion()
 	for i, region in ipairs(deal.regions) do
-		local holder = holders[region.name]
+		local holder = holders[region.id]
 		local label = region.name
 		if holder ~= nil then
 			local players = Spring.GetPlayerList(holder)

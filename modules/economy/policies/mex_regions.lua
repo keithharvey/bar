@@ -10,38 +10,60 @@ Policies.On(Contract.MexRegions)
 		return {}
 	end)
 	.Answer(Contract.MexRegions.NearestRoundRobin, function(ctx)
-		---@param team MexRegionsTeamView
-		---@param held MexRegionsClaims
-		---@return MexRegionsRanked|nil
-		local function nearestFree(team, held)
-			for _, ranked in ipairs(team.regions) do
-				if held[ranked.name] == nil then
-					return ranked
-				end
-			end
-			return nil
-		end
-
-		---@param held MexRegionsClaims
-		---@return boolean
-		local function round(held)
-			local took = false
-			for _, team in ipairs(ctx.teams) do
-				local pick = nearestFree(team, held)
-				if pick then
-					held[pick.name] = team.teamID
-					took = true
-				end
-			end
-			return took
-		end
-
 		local held = {} ---@type MexRegionsClaims
-		for _ = 1, #ctx.regions do
-			if not round(held) then
-				return held
+
+		---@param teams MexRegionsTeamView[]
+		---@param takes fun(ranked: MexRegionsRanked): boolean
+		local function goRound(teams, takes)
+			---@param team MexRegionsTeamView
+			---@return MexRegionsRanked|nil
+			local function nearestFree(team)
+				for _, ranked in ipairs(team.regions) do
+					if held[ranked.id] == nil and takes(ranked) then
+						return ranked
+					end
+				end
+				return nil
+			end
+
+			---@return boolean
+			local function round()
+				local took = false
+				for _, team in ipairs(teams) do
+					local pick = nearestFree(team)
+					if pick then
+						held[pick.id] = team.teamID
+						took = true
+					end
+				end
+				return took
+			end
+
+			for _ = 1, #ctx.regions do
+				if not round() then
+					return
+				end
 			end
 		end
+
+		local seated = {} ---@type table<integer, MexRegionsTeamView[]>
+		local ordinals = {} ---@type integer[]
+		for _, team in ipairs(ctx.teams) do
+			if seated[team.allyTeam] == nil then
+				seated[team.allyTeam] = {}
+				ordinals[#ordinals + 1] = team.allyTeam
+			end
+			table.insert(seated[team.allyTeam], team)
+		end
+		table.sort(ordinals)
+		for _, ordinal in ipairs(ordinals) do
+			goRound(seated[ordinal], function(ranked)
+				return ranked.team == ordinal
+			end)
+		end
+		goRound(ctx.teams, function(ranked)
+			return ranked.team == nil or seated[ranked.team] == nil
+		end)
 		return held
 	end)
 
@@ -49,10 +71,10 @@ local readDeal = Deal.Reader()
 
 Policies.On(ConstructionContract.PlacementFacts)
 	.Provide(ConstructionContract.PlacementFacts.SpotHolder, function(ctx, springRepo)
-		local engine = springRepo or Spring
-		if engine.GetModOptions()[EconomyEnums.ModOptions.MexSplitting] ~= EconomyEnums.MexSplitting.MapAssigned then
+		if ctx.modOptions[EconomyEnums.ModOptions.MexSplitting] ~= EconomyEnums.MexSplitting.MapAssigned then
 			return nil
 		end
+		local engine = springRepo or Spring
 		if ctx.spotX and ctx.spotZ then
 			local byKey = Shared.HolderBySpot(engine, engine.GetTeamList())
 			return byKey[Shared.SpotKey(ctx.spotX, ctx.spotZ)]

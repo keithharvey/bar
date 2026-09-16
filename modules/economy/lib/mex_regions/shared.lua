@@ -5,7 +5,7 @@ local Published = VFS.Include("modules/published.lua")
 local Shared = {}
 
 ---@class MexHoldingsRecord one team's share of the deal
----@field regions string[] the region names the team holds
+---@field regions string[] the ids of the regions the team holds
 ---@field spots string[] the metal spots inside those regions, as "<x>x<z>" keys; a mex is judged by the spot it mines
 
 ---@param x number

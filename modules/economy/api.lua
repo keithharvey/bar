@@ -32,7 +32,7 @@ local MexRegions = {
 		state.mexClaims = claims
 		springRepo.SetGameRulesParam(Deal.PARAM, Deal.Encode(regions, claims))
 
-		local spotsOf = {} ---@type table<string, string[]> region name -> spot keys
+		local spotsOf = {} ---@type table<string, string[]> region id -> spot keys
 		local unclaimed, twice = 0, 0
 		for _, spot in ipairs(spots or {}) do
 			local owners = 0
@@ -43,8 +43,8 @@ local MexRegions = {
 				end
 				if Geometry.Contains(spot.x, spot.z, ring) then
 					owners = owners + 1
-					spotsOf[region.name] = spotsOf[region.name] or {}
-					table.insert(spotsOf[region.name], Shared.SpotKey(spot.x, spot.z))
+					spotsOf[region.id] = spotsOf[region.id] or {}
+					table.insert(spotsOf[region.id], Shared.SpotKey(spot.x, spot.z))
 				end
 			end
 			if owners == 0 then
@@ -64,9 +64,9 @@ local MexRegions = {
 		for _, team in ipairs(teams) do
 			local held, keys = {}, {}
 			for _, region in ipairs(regions) do
-				if claims[region.name] == team.teamID then
-					held[#held + 1] = region.name
-					for _, key in ipairs(spotsOf[region.name] or {}) do
+				if claims[region.id] == team.teamID then
+					held[#held + 1] = region.id
+					for _, key in ipairs(spotsOf[region.id] or {}) do
 						keys[#keys + 1] = key
 					end
 				end
