@@ -64,6 +64,7 @@ function Placement.Decide(unitDefID, builderTeam, x, y, z, springRepo)
 	end
 	---@type ConstructionPlacementContext
 	local ctx = {
+		modOptions = opts,
 		unitDefID = unitDefID,
 		builderTeam = builderTeam,
 		x = x,

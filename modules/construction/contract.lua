@@ -66,6 +66,7 @@ local Build = {
 }
 
 ---@class ConstructionPlacementContext where a builder wants to put a new unit
+---@field modOptions table<string, any>
 ---@field unitDefID integer
 ---@field builderTeam integer
 ---@field x number
