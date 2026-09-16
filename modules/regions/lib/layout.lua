@@ -1,13 +1,19 @@
--- The layout: regions as the game and the lobby carry them, in the startbox arrangement's
--- coordinate space, 0..200 on each axis, so one layout serves every size the map ships at.
+-- The layout: one type's regions as the game and the lobby carry them, in the startbox
+-- arrangement's coordinate space, 0..200 on each axis, so one layout serves every size the
+-- map ships at. A type says which key it lists under (its layoutKey; mex regions use "regions").
 --
 --   { regions = {
---       { name = "west hills", group = "hills", poly = { { x = 0, y = 0 }, { x = 60, y = 200 } } },  -- two points: a rect
---       { name = "middle",     poly = { { x = 60, y = 40 }, { x = 140, y = 40 }, { x = 100, y = 160 } } },
+--       { name = "anti1", group = "anti", poly = { { x = 0, y = 0 }, { x = 60, y = 200 } } },  -- two points: a rect
+--       { name = "middle",               poly = { { x = 60, y = 40 }, { x = 140, y = 40 }, { x = 100, y = 160 } } },
 --   } }
 --
--- Parse turns that into polygons in elmos; Export goes the other way; Encode and Decode are
--- the modoption's wire form, base64url(zlib(json)). All pure but for the codec's VFS calls.
+-- name is the region's identity on the wire, unique within its type; an editor may leave it
+-- empty and Export names the region on the way out. group is a label the type may read. A
+-- curved region arrives as its tessellated ring: the wire carries no anchors or strengths.
+--
+-- Parse turns the layout into polygons in elmos; Export goes the other way from vertices in
+-- elmos; Encode and Decode are the wire form, base64url(zlib(json)), the modoption and a
+-- maps-metadata row carry. All pure but for the codec's VFS calls.
 
 local Geometry = VFS.Include("modules/regions/lib/geometry.lua") ---@type RegionGeometry
 
