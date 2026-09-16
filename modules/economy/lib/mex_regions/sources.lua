@@ -1,9 +1,3 @@
--- Where a map's layout comes from, first found wins:
---   1. the mex_regions_layout modoption: json, plain or as the startbox payload base64url(zlib(json)),
---      the way the lobby carries startboxes from maps-metadata
---   2. a file the map ships, luarules/configs/mex_regions.lua
---   3. the terraformer's own save for this map in the write directory, so a local game plays
---      what was just drawn without a lobby round trip; anchors in elmos, converted here
 
 local Regions = VFS.Include("modules/regions/api.lua") ---@type RegionsApi
 local EconomyEnums = VFS.Include("modules/economy/enums.lua")
@@ -14,8 +8,6 @@ local Sources = {}
 local MAP_FILE = "luarules/configs/mex_regions.lua"
 local EDITOR_DIR = "Terraform Brush/Regions/"
 
----The editor's file holds regions as anchors in elmos, curved or not; the layout wants rings
----in the 0..200 space, so it is tessellated and exported the way the editor's COPY does.
 ---@param entries table
 ---@param mapSizeX number
 ---@param mapSizeZ number

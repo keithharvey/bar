@@ -21,7 +21,6 @@ local Deal = VFS.Include("modules/economy/lib/mex_regions/deal.lua") ---@type Me
 local Shared = VFS.Include("modules/economy/lib/mex_regions/shared.lua") ---@type MexRegionsShared
 local readDeal = Deal.Reader()
 
----Region name -> holding team, from the typed per-team records every widget can read.
 ---@return table<string, integer>
 local function holderByRegion()
 	local byRegion = {}
@@ -73,9 +72,6 @@ local function colourOf(teamID)
 	return { r or 1, g or 1, b or 1 }
 end
 
--- What each region draws with is fixed for the life of a deal: worked out once when the deal
--- changes, never per frame (player lookups allocate, and there is one per region per frame
--- otherwise).
 local styledFor = nil ---@type table|nil the deal these styles were built for
 local styles = {} ---@type { colour: number[], label: string }[]
 local function stylesFor(deal)

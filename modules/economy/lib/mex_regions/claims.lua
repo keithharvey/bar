@@ -1,4 +1,3 @@
--- The deal's context and the lookups the placement fact needs. Pure: specs hand in tables.
 
 local PolygonLib = VFS.Include("common/lib_polygon.lua")
 
@@ -10,8 +9,6 @@ local Claims = {}
 ---@field x number
 ---@field z number
 
----Every team's view of every region, nearest first: what the claims pipeline decides over.
----Teams come in the order the deal goes round.
 ---@param teams MexRegionsTeamStart[]
 ---@param regions MexRegion[]
 ---@return MexRegionsClaimsContext
@@ -38,7 +35,6 @@ function Claims.Context(teams, regions)
 	return { teams = views, regions = regions }
 end
 
----The region a point lies in, if any.
 ---@param regions MexRegion[]
 ---@param x number
 ---@param z number
@@ -52,7 +48,6 @@ function Claims.RegionAt(regions, x, z)
 	return nil
 end
 
----The team holding the region a point lies in; nil outside every region or in an unclaimed one.
 ---@param regions MexRegion[]
 ---@param claims MexRegionsClaims
 ---@param x number
@@ -63,7 +58,6 @@ function Claims.OwnerAt(regions, claims, x, z)
 	return region and claims[region.name] or nil
 end
 
----Region names per team, in layout order, for the log and the chat.
 ---@param regions MexRegion[]
 ---@param claims MexRegionsClaims
 ---@return table<integer, string[]|nil>

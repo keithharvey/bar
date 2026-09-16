@@ -9,7 +9,6 @@ local state = VFS.Include("modules/economy/state.lua") ---@type EconomyState
 
 ---@class EconomyMexRegionsApi
 local MexRegions = {
-	---Finds the map's layout and keeps its regions. Returns why there are none when there are none.
 	---@param springRepo Spring
 	---@return MexRegion[]|nil regions
 	---@return string source
@@ -22,11 +21,6 @@ local MexRegions = {
 		return regions, source, reason
 	end,
 
-	---Runs the deal over the loaded regions and publishes it twice: the geometry on a game rules
-	---param, for outlines, and each team's holdings as a typed per-team record, regions and the
-	---spots inside them, which is what the placement fact and the widgets read. A region is a
-	---way of drawing a set of spots, so the set is resolved here, once, and the gaps are logged:
-	---a spot in no region, or in two.
 	---@param teams MexRegionsTeamStart[]
 	---@param springRepo Spring
 	---@param spots { x: number, z: number }[] the map's metal spots
@@ -82,7 +76,6 @@ local MexRegions = {
 		return claims
 	end,
 
-	---Region names per team after the deal.
 	---@return table<integer, string[]|nil>
 	Holdings = function()
 		return Claims.Holdings(state.mexRegions or {}, state.mexClaims or {})

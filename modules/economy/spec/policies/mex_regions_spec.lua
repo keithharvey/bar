@@ -10,7 +10,6 @@ local function rect(name, x1, y1, x2, y2)
 	return { name = name, poly = { { x = x1, y = y1 }, { x = x2, y = y2 } } }
 end
 
--- Seven regions on a 200x200 map: a corner for each of four teams, then three in between.
 local sevenRegions = assert(Layout.Parse({
 	regions = {
 		rect("nw", 0, 0, 40, 40),
@@ -41,7 +40,6 @@ describe("the deal", function()
 		assert.are.equal(1, claims.ne)
 		assert.are.equal(2, claims.se)
 		assert.are.equal(3, claims.sw)
-		-- second round: team 0 is nearest n (and c is equidistant to all, so name order breaks the tie)
 		assert.are.equal(0, claims.n)
 		assert.are.equal(2, claims.s)
 		assert.are.equal(1, claims.c)

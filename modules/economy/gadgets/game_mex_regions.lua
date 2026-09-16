@@ -47,9 +47,6 @@ local function tellEveryone(message)
 	end
 end
 
----Each team starts where its ally team's area is: the deal is nearest-to-that, so it can run
----at load, show pregame, and never move under anyone. A team with no area starts, for the
----deal's purposes, at the middle of the map.
 ---@return MexRegionsTeamStart[]
 local function teamStarts()
 	local centres = {} ---@type { [integer]: { x: number, z: number } }
@@ -85,9 +82,6 @@ function gadget:Initialize()
 	MexRegions.Deal(teamStarts(), Spring, finder and not finder.isMetalMap and finder.metalSpotsList or {})
 end
 
--- Chat once the players are in to read it. Which regions are whose is on the map, colour-coded
--- pregame and where a mex would go; chat says only that the rule is on, and warns when the deal
--- left a team without a region.
 function gadget:GameStart()
 	if reasonNone then
 		tellEveryone(

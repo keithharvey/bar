@@ -1,5 +1,3 @@
--- Needs a game with mex_splitting=map_assigned and a layout: tools/headless_testing/startscript_mex_regions.txt.
--- The deal runs on frame 1, so the test waits for it.
 
 function skip()
 	return Spring.GetGameFrame() <= 1 or Spring.GetModOptions().mex_splitting ~= "map_assigned"
@@ -37,7 +35,6 @@ function test()
 	assert(spots.theirs, "no metal spot inside a region another team holds")
 
 	local function orderMexAt(spot)
-		-- SyncedRun ships the caller's locals only, so the upvalues are copied down
 		local x, z, builder, defID, teamID = spot.x, spot.z, builderName, mexDefID, myTeamID
 		local queued = SyncedRun(function(locals)
 			local y = Spring.GetGroundHeight(locals.x, locals.z)

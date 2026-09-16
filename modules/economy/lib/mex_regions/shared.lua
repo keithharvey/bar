@@ -1,6 +1,3 @@
--- What Map Assigned publishes for every Lua state to read back, typed, the way transfer's
--- factors are: one record per team on a team rules param. Written once, at the deal, so it
--- is as static as the map; widgets colour from it and the placement fact reads it.
 
 local Published = VFS.Include("modules/published.lua")
 
@@ -11,8 +8,6 @@ local Shared = {}
 ---@field regions string[] the region names the team holds
 ---@field spots string[] the metal spots inside those regions, as "<x>x<z>" keys; a mex is judged by the spot it mines
 
----A spot's key on the wire and in lookups: its centre, whole elmos, joined by a character the
----published list codec does not use (it splits fields on ":" and items on ",").
 ---@param x number
 ---@param z number
 ---@return string
@@ -25,8 +20,6 @@ Shared.Holdings = Published.PerTeam("mex_holdings", {
 	spots = Published.List,
 })
 
----Spot key -> holding team, from every team's published record. Rebuilt only when a record
----changes, so an ask costs a lookup.
 local cache = { signature = nil, byKey = {} }
 ---@param springRepo Spring
 ---@param teamIDs integer[]

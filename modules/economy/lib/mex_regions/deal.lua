@@ -1,5 +1,3 @@
--- The deal on the wire: one game rules param the synced side writes once the regions are dealt and
--- any Lua state reads back, so the placement fact needs nothing but the engine. Pure: specs round-trip it.
 
 ---@class MexRegionsDealLib
 local Deal = {}
@@ -30,7 +28,6 @@ function Deal.Decode(raw)
 	return deal
 end
 
----Reads the deal the synced side published, decoding only when the param changed.
 ---@return fun(springRepo: Spring): MexRegionsDeal|nil
 function Deal.Reader()
 	local cachedRaw, cachedDeal ---@type string|nil, MexRegionsDeal|nil
