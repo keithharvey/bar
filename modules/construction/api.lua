@@ -21,8 +21,6 @@ return {
 		Creation.Refresh(teamID, Spring)
 	end,
 
-	---Whether a builder of this team may put this def down here: the placement decision, asked at
-	---command time so an order the build would refuse never reaches the queue.
 	---@param unitDefID integer
 	---@param builderTeam integer
 	---@param x number

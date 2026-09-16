@@ -49,7 +49,6 @@ Policies.On(placement)
 		return true
 	end)
 
--- Whoever asks holds the spot unless a module says otherwise; economy does under Map Assigned.
 Policies.On(Contract.PlacementFacts).Default(Contract.PlacementFacts.SpotHolder, function(ctx)
 	return ctx.builderTeam
 end)

@@ -40,7 +40,6 @@ local utilitySharing ---@type boolean|nil the sharing mode lets utility building
 
 local Placement = {}
 
----The one placement ask: the gadget's AllowUnitCreation and any command-time check share it.
 ---@param unitDefID integer
 ---@param builderTeam integer
 ---@param x number
@@ -55,8 +54,6 @@ function Placement.Decide(unitDefID, builderTeam, x, y, z, springRepo)
 			table.contains(UnitCategories.TypesFor(opts.unit_sharing_mode), ConstructionEnums.UnitType.Utility)
 	end
 	local kind = extractorKinds()[unitDefID]
-	-- A mex is judged by the spot it mines, not by where its footprint centre lands: the same
-	-- placement is valid over a range of positions around the spot, and a region holds spots.
 	local spotX, spotZ
 	if kind == "mex" then
 		local finder = GG and GG.resource_spot_finder
@@ -77,7 +74,7 @@ function Placement.Decide(unitDefID, builderTeam, x, y, z, springRepo)
 		utilitySharing = utilitySharing,
 		spotX = spotX,
 		spotZ = spotZ,
-		spotHolder = builderTeam, -- the identity until the facts answer
+		spotHolder = builderTeam,
 	}
 	local facts = ModuleHandler.Enrich(Contract.PlacementFacts, opts, ctx, springRepo)
 	ctx.spotHolder = facts[Contract.PlacementFacts.SpotHolder]
