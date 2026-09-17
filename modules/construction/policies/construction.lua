@@ -42,16 +42,21 @@ Policies.On(placement)
 	.Unless(placement.AlliedExtractorOccupied, function(ctx)
 		return ctx.extractor ~= nil and ctx.alliedExtractorNearby and not ctx.utilitySharing
 	end)
-	.Unless(placement.SpotHeldByAnotherTeam, function(ctx)
-		return ctx.extractor == "mex" and ctx.spotHolder ~= ctx.builderTeam
+	.Unless(placement.SpotHeldByAnAlly, function(ctx)
+		local upgradesTheirs = ctx.alliedExtractorNearby and ctx.utilitySharing
+		return ctx.extractor == "mex" and ctx.spotHolderAllied and not upgradesTheirs
 	end)
 	.Answer(placement.Allowed, function()
 		return true
 	end)
 
-Policies.On(Contract.PlacementFacts).Default(Contract.PlacementFacts.SpotHolder, function(ctx)
-	return ctx.builderTeam
-end)
+Policies.On(Contract.PlacementFacts)
+	.Default(Contract.PlacementFacts.SpotHolder, function(ctx)
+		return ctx.builderTeam
+	end)
+	.Default(Contract.PlacementFacts.UtilitySharing, function()
+		return false
+	end)
 
 Policies.On(creation).Answer(creation.Allowed, function()
 	return true

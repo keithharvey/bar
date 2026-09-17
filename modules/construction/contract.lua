@@ -74,29 +74,32 @@ local Build = {
 ---@field z number
 ---@field extractor "mex"|"geo"|nil what the def extracts, if anything
 ---@field alliedExtractorNearby boolean another team's extractor already sits in the radius
----@field utilitySharing boolean the sharing mode lets utility buildings change hands
+---@field utilitySharing boolean utility buildings may change hands between allies, a fact the module that owns sharing provides; false when nobody does
 ---@field spotX number|nil for a mex, the metal spot it targets: the nearest spot to the build position, which is what the footprint yields from wherever it lands
 ---@field spotZ number|nil
----@field spotHolder integer the team that holds this spot, a fact another module may provide; the builder itself when nobody else does
+---@field spotHolder integer the team that holds this spot, a fact another module may provide; the builder itself when nobody else does, or when the builder is one of several who hold it
+---@field spotHolderAllied boolean the holder is another team on the builder's side; an enemy's hold restricts nobody
 
 ---@class ConstructionPlacementStages: PolicyStages<ConstructionPlacementContext, boolean>
 ---@field AlliedExtractorOccupied string
----@field SpotHeldByAnotherTeam string a mex on a spot another team holds
+---@field SpotHeldByAnAlly string a mex on a spot an ally holds, unless it goes onto that ally's extractor and utility buildings may change hands
 ---@field Allowed string
 
 ---@type ConstructionPlacementStages
 local Placement = {
 	AlliedExtractorOccupied = "AlliedExtractorOccupied",
-	SpotHeldByAnotherTeam = "SpotHeldByAnotherTeam",
+	SpotHeldByAnAlly = "SpotHeldByAnAlly",
 	Allowed = "Allowed",
 }
 
 ---@class ConstructionPlacementFacts: PolicyFacts<ConstructionPlacementContext>
 ---@field SpotHolder string the team that holds this spot; the builder itself when nobody else does
+---@field UtilitySharing string whether utility buildings may change hands between allies; false when nobody says
 
 ---@type ConstructionPlacementFacts
 local PlacementFacts = {
 	SpotHolder = "spotHolder",
+	UtilitySharing = "utilitySharing",
 }
 
 ---@class ConstructionCreationContext may this team create this def at all: the build option, not one step of it

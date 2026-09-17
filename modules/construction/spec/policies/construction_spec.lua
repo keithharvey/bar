@@ -144,18 +144,50 @@ describe("construction policies", function()
 			)
 		end)
 
-		it("refuses a mex on a spot another team holds and nothing else", function()
-			assert.is_false(decide(pipelines.placement, at({ extractor = "mex", spotHolder = 1 })))
-			assert.is_true(decide(pipelines.placement, at({ extractor = "mex", spotHolder = 0 })))
-			assert.is_true(decide(pipelines.placement, at({ extractor = "geo", spotHolder = 1 })))
-			assert.is_true(decide(pipelines.placement, at({ extractor = nil, spotHolder = 1 })))
+		it("refuses a mex on a spot an ally holds, and nothing an enemy holds", function()
+			assert.is_false(
+				decide(pipelines.placement, at({ extractor = "mex", spotHolder = 1, spotHolderAllied = true }))
+			)
+			assert.is_true(
+				decide(pipelines.placement, at({ extractor = "mex", spotHolder = 1, spotHolderAllied = false }))
+			)
+			assert.is_true(
+				decide(pipelines.placement, at({ extractor = "mex", spotHolder = 0, spotHolderAllied = false }))
+			)
+			assert.is_true(
+				decide(pipelines.placement, at({ extractor = "geo", spotHolder = 1, spotHolderAllied = true }))
+			)
+			assert.is_true(
+				decide(pipelines.placement, at({ extractor = nil, spotHolder = 1, spotHolderAllied = true }))
+			)
 		end)
 
-		it("holds every spot for its builder unless a module says otherwise", function()
+		it("lets a mex onto an ally's extractor on that ally's spot when utility buildings may change hands", function()
+			local theirs = { extractor = "mex", spotHolder = 1, spotHolderAllied = true, alliedExtractorNearby = true }
+			theirs.utilitySharing = true
+			assert.is_true(decide(pipelines.placement, at(theirs)))
+			theirs.utilitySharing = false
+			assert.is_false(decide(pipelines.placement, at(theirs)))
+		end)
+
+		it("holds every spot for its builder, and shares no utilities, unless a module says otherwise", function()
 			local Contract = VFS.Include("modules/construction/contract.lua")
 			local resolved = ModuleHandler.LoadEnrichers(Contract.PlacementFacts)
 			local facts = ModuleHandler.EnrichWith(resolved, {}, at({ extractor = "mex", builderTeam = 3 }))
 			assert.are.equal(3, facts[Contract.PlacementFacts.SpotHolder])
+			assert.is_false(facts[Contract.PlacementFacts.UtilitySharing])
+		end)
+
+		it("takes utility sharing from transfer's unit sharing mode", function()
+			local Contract = VFS.Include("modules/construction/contract.lua")
+			local resolved = ModuleHandler.LoadEnrichers(Contract.PlacementFacts)
+			local function sharing(mode)
+				local ctx = at({ extractor = "mex", modOptions = { unit_sharing_mode = mode } })
+				return ModuleHandler.EnrichWith(resolved, nil, ctx)[Contract.PlacementFacts.UtilitySharing]
+			end
+			assert.is_true(sharing("all"))
+			assert.is_false(sharing("none"))
+			assert.is_false(sharing(nil))
 		end)
 	end)
 end)

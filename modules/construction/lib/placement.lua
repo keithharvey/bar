@@ -1,8 +1,6 @@
 local ModuleHandler = VFS.Include("modules/module_handler.lua")
 local Modules = VFS.Include("modules/enums.lua").Modules
 local Contract = VFS.Include("modules/construction/contract.lua") ---@type ConstructionContract
-local ConstructionEnums = VFS.Include("modules/construction/enums.lua")
-local UnitCategories = VFS.Include("modules/construction/lib/unit_categories.lua")
 
 local extractorKind ---@type table<integer, "mex"|"geo">|nil built on first use: api.lua is included where UnitDefs is not
 
@@ -36,8 +34,6 @@ local function otherTeamsExtractorNearby(kind, myTeam, x, z, springRepo)
 	return false
 end
 
-local utilitySharing ---@type boolean|nil the sharing mode lets utility buildings change hands; read once, modoptions are constant
-
 local Placement = {}
 
 ---@param unitDefID integer
@@ -49,10 +45,6 @@ local Placement = {}
 ---@return boolean
 function Placement.Decide(unitDefID, builderTeam, x, y, z, springRepo)
 	local opts = springRepo.GetModOptions()
-	if utilitySharing == nil then
-		utilitySharing =
-			table.contains(UnitCategories.TypesFor(opts.unit_sharing_mode), ConstructionEnums.UnitType.Utility)
-	end
 	local kind = extractorKinds()[unitDefID]
 	local spotX, spotZ
 	if kind == "mex" then
@@ -72,13 +64,17 @@ function Placement.Decide(unitDefID, builderTeam, x, y, z, springRepo)
 		z = z,
 		extractor = kind,
 		alliedExtractorNearby = kind ~= nil and otherTeamsExtractorNearby(kind, builderTeam, x, z, springRepo),
-		utilitySharing = utilitySharing,
+		utilitySharing = false,
 		spotX = spotX,
 		spotZ = spotZ,
 		spotHolder = builderTeam,
+		spotHolderAllied = false,
 	}
 	local facts = ModuleHandler.Enrich(Contract.PlacementFacts, opts, ctx, springRepo)
 	ctx.spotHolder = facts[Contract.PlacementFacts.SpotHolder]
+	ctx.utilitySharing = facts[Contract.PlacementFacts.UtilitySharing] == true
+	ctx.spotHolderAllied = ctx.spotHolder ~= builderTeam
+		and springRepo.AreTeamsAllied(builderTeam, ctx.spotHolder) == true
 	local pipelines = ModuleHandler.LoadPolicies(Modules.Construction) ---@type ConstructionPipelines
 	return ModuleHandler.Evaluate(pipelines.placement, ctx) == true
 end
