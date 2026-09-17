@@ -2,6 +2,7 @@ local ModuleHandler = VFS.Include("modules/module_handler.lua")
 local Modules = VFS.Include("modules/enums.lua").Modules
 local Contract = VFS.Include("modules/regions/contract.lua") ---@type RegionsContract
 local Geometry = VFS.Include("modules/regions/lib/geometry.lua") ---@type RegionGeometry
+local Problems = VFS.Include("modules/regions/lib/problems.lua") ---@type RegionProblems
 
 ---@param ctx RegionCheckContext
 ---@param region Region
@@ -65,6 +66,13 @@ Policies.On(Contract.Check)
 		end
 	end)
 
+Policies.On(Contract.Names).Apply(Contract.Names.Label, function(ctx)
+	local label = ctx.type.label:lower():gsub(" ", "_")
+	for i in ipairs(ctx.regions) do
+		ctx.bases[i] = label
+	end
+end)
+
 Policies.On(Contract.CheckSet).Apply(Contract.CheckSet.Each, function(ctx)
 	local pipelines = ModuleHandler.LoadPolicies(Modules.Regions) ---@type RegionsPipelines
 	local names = {} ---@type table<Region, string>
@@ -76,7 +84,7 @@ Policies.On(Contract.CheckSet).Apply(Contract.CheckSet.Each, function(ctx)
 		local one = { type = ctx.type, region = region, siblings = ctx.regions, names = names, problems = {} }
 		ModuleHandler.Evaluate(pipelines.check, one)
 		for _, problem in ipairs(one.problems) do
-			ctx.problems[#ctx.problems + 1] = ctx.names[i] .. ": " .. problem
+			Problems.OfRegion(ctx, i, problem)
 		end
 	end
 end)

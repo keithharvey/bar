@@ -5,14 +5,27 @@ local Types = VFS.Include("modules/regions/types.lua")
 local Geometry = VFS.Include("modules/regions/lib/geometry.lua") ---@type RegionGeometry
 local Names = VFS.Include("modules/regions/lib/names.lua") ---@type RegionNames
 local Layout = VFS.Include("modules/regions/lib/layout.lua") ---@type RegionLayout
+local Problems = VFS.Include("modules/regions/lib/problems.lua") ---@type RegionProblems
 
 ---@class RegionsApi what the game's files and the other modules call: the registry, the rules, the names and the layout codec
 ---@field Overlaps fun(a: { x: number, z: number }[], b: { x: number, z: number }[]): boolean
 ---@field Contains fun(x: number, z: number, vertices: { x: number, z: number }[]): boolean
+---@field ProblemLine fun(problem: RegionProblem): string the message, led by the region's name when it is about one
 ---@field GeometryOf fun(vertices: { x: number, z: number }[]): RegionGeometryKey|nil what a region is drawn as, from its vertices alone
 ---@field EncodeLayout fun(layout: table): string|nil the layout as the modoption carries it
 ---@field DecodeLayout fun(raw: string): table|nil
 local Api = {}
+
+---@param kind RegionType
+---@param regions Region[]
+---@return { name: string, derived: boolean }[] by index
+local function namesOf(kind, regions)
+	local pipelines = ModuleHandler.LoadPolicies(Modules.Regions) ---@type RegionsPipelines
+	---@type RegionNamesContext
+	local ctx = { type = kind, regions = regions, bases = {} }
+	ModuleHandler.Evaluate(pipelines.names, ctx)
+	return Names.Of(kind, regions, ctx.bases)
+end
 
 ---@return RegionTypeKey[] order
 ---@return table<string, RegionType> byKey
@@ -38,7 +51,7 @@ function Api.Check(typeKey, region, siblings, fieldsOnly)
 		end
 	end
 	local names = {} ---@type table<Region, string>
-	for i, named in ipairs(Names.Of(kind, all)) do
+	for i, named in ipairs(namesOf(kind, all)) do
 		names[all[i]] = named.name
 	end
 	---@type RegionCheckContext
@@ -57,15 +70,15 @@ end
 ---@param typeKey RegionTypeKey
 ---@param regions Region[] every region of the type
 ---@param env RegionEnv|nil what the map knows, for the rules that judge the set against it
----@return string[] problems each naming its region, or the set
+---@return RegionProblem[] problems each about one region, by index, or about the set as a whole
 function Api.CheckSet(typeKey, regions, env)
 	local kind = Types.byKey[typeKey]
 	if not kind then
-		return { "unknown region type " .. tostring(typeKey) }
+		return { { message = "unknown region type " .. tostring(typeKey) } }
 	end
 	local pipelines = ModuleHandler.LoadPolicies(Modules.Regions) ---@type RegionsPipelines
 	local names = {} ---@type string[]
-	for i, named in ipairs(Names.Of(kind, regions)) do
+	for i, named in ipairs(namesOf(kind, regions)) do
 		names[i] = named.name
 	end
 	---@type RegionSetContext
@@ -82,7 +95,7 @@ function Api.Names(typeKey, regions)
 	if not kind then
 		return {}
 	end
-	return Names.Of(kind, regions)
+	return namesOf(kind, regions)
 end
 
 ---@param regions Region[] of any types
@@ -147,6 +160,7 @@ end
 Api.Overlaps = Geometry.Overlaps
 Api.Contains = Geometry.Contains
 Api.GeometryOf = Geometry.Of
+Api.ProblemLine = Problems.Line
 
 Api.EncodeLayout = Layout.Encode
 Api.DecodeLayout = Layout.Decode

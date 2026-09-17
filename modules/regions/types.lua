@@ -14,8 +14,6 @@ local ModuleHandler = VFS.Include("modules/module_handler.lua")
 ---@field label string
 ---@field geometries RegionGeometryKey[] the shapes a region of this type may be drawn as
 ---@field fields RegionField[]
----@field nameFrom string|nil the field a region's derived name is taken from when it carries none; the type's label otherwise
----@field order integer|nil where the type sits in a list of types; lower first
 ---@field module string|nil the module that contributed it, filled in here
 
 local FRAGMENT = "region_types.lua"
@@ -48,22 +46,6 @@ for _, name in ipairs(names) do
 				error(path .. ": region type " .. tostring(key) .. " needs key, label and geometries")
 			end
 			kind.fields = kind.fields or {}
-			if kind.nameFrom ~= nil then
-				local declared = false
-				for _, field in ipairs(kind.fields) do
-					declared = declared or field.key == kind.nameFrom
-				end
-				if not declared then
-					error(
-						path
-							.. ": region type "
-							.. key
-							.. " derives names from "
-							.. kind.nameFrom
-							.. ", a field it does not declare"
-					)
-				end
-			end
 			kind.module = name
 			claimedBy[key] = name
 			byKey[key] = kind
@@ -75,13 +57,7 @@ local order = {} ---@type string[]
 for key in pairs(byKey) do
 	order[#order + 1] = key
 end
-table.sort(order, function(a, b)
-	local oa, ob = byKey[a].order or 100, byKey[b].order or 100
-	if oa ~= ob then
-		return oa < ob
-	end
-	return a < b
-end)
+table.sort(order)
 
 return {
 	order = order,

@@ -19,19 +19,18 @@ local function start(fields)
 end
 
 describe("the region types", function()
-	it("come in dropdown order, each saying what it may be drawn as", function()
+	it("come by key, each saying what it may be drawn as", function()
 		local order, byKey = Regions.Types()
-		assert.are.same({ "start", "mex_region" }, order)
+		assert.are.same({ "mex_region", "start" }, order)
 		assert.are.same({ "point", "polygon" }, byKey.start.geometries)
 		assert.are.same({ "polygon" }, byKey.mex_region.geometries)
 		assert.are.equal("start", byKey.start.module)
 		assert.are.equal("economy", byKey.mex_region.module)
-		assert.are.equal("group", byKey.mex_region.nameFrom)
 	end)
 end)
 
 describe("a region's name", function()
-	it("is what the map gave it, or its type's nameFrom field, numbered once siblings share it", function()
+	it("is what the map gave it, or what its type's owner calls it, numbered once siblings share it", function()
 		local names = Regions.Names(Enums.Types.MexRegion, {
 			mex({ team = 1, group = "anti" }),
 			mex({ team = 1, group = "tech" }),
@@ -46,11 +45,11 @@ describe("a region's name", function()
 		assert.are.same({ name = "given", derived = false }, names[5])
 	end)
 
-	it("falls back to the type's label when the field is empty, and to numbering for a type without one", function()
+	it("falls back to the type's label when its owner has nothing better; a start is named after its team", function()
 		local names = Regions.Names(Enums.Types.MexRegion, { mex({ team = 1 }), mex({ team = 1 }) })
 		assert.are.same({ "mex_region_1", "mex_region_2" }, { names[1].name, names[2].name })
 		local starts = Regions.Names(Enums.Types.Start, { start({ team = 1 }), start({ team = 2, name = "N" }) })
-		assert.are.same({ "start", "N" }, { starts[1].name, starts[2].name })
+		assert.are.same({ "1", "N" }, { starts[1].name, starts[2].name })
 	end)
 end)
 
@@ -138,10 +137,13 @@ describe("a set of regions", function()
 	local c = mex({ team = 2, group = "g", vertices = square })
 
 	it("is checked region by region, every problem naming its region", function()
-		assert.are.same(
-			{ "a: a mex region with name a already exists", "a: a mex region with name a already exists" },
-			Regions.CheckSet(Enums.Types.MexRegion, { a, b, c })
-		)
+		local problems = Regions.CheckSet(Enums.Types.MexRegion, { a, b, c })
+		assert.are.same({
+			{ index = 1, name = "a", message = "a mex region with name a already exists" },
+			{ index = 2, name = "a", message = "a mex region with name a already exists" },
+		}, problems)
+		assert.are.equal("a: a mex region with name a already exists", Regions.ProblemLine(problems[1]))
+		assert.are.equal("about the set", Regions.ProblemLine({ message = "about the set" }))
 		assert.are.same({}, Regions.CheckSet(Enums.Types.MexRegion, { a, c }))
 	end)
 end)
