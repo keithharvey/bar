@@ -195,7 +195,7 @@ return {
 	{
 		key = EconomyEnums.ModOptions.MexSplitting,
 		name = "Mex Splitting",
-		desc = "None: whoever builds the mex takes the spot. Map Assigned: the map's metal regions are dealt to teams at start, nearest first and round robin, and a mex may only go down in a region its team holds; needs a region layout for the map, without one the game says so in chat and mexes stay unrestricted. Shared: every team's extraction pools and is split back evenly.",
+		desc = "None: whoever builds the mex takes the spot. Map Assigned: the map's mex regions are dealt to the teams at each start, nearest first and round by round; a mex may not go on a spot an ally holds, while your own and the enemy's are open. It needs a region layout for the map; without a usable one the game says so before the start and mexes stay unrestricted. Shared: every team's extraction pools and is split back evenly.",
 		type = "list",
 		section = TransferEnums.ModeCategories.Transfer,
 		def = EconomyEnums.MexSplitting.None,
@@ -209,7 +209,7 @@ return {
 			{
 				key = EconomyEnums.MexSplitting.MapAssigned,
 				name = "Map Assigned",
-				desc = "The map's regions are dealt to teams at start; mexes only go down in regions you hold",
+				desc = "The map's mex regions are dealt to teams at start; no mexes on a spot an ally holds",
 			},
 			{
 				key = EconomyEnums.MexSplitting.Shared,

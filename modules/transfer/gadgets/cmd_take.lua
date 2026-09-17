@@ -19,6 +19,7 @@ local TransferEnums = VFS.Include("modules/transfer/enums.lua")
 local Shared = VFS.Include("modules/transfer/unit/shared.lua")
 local TakeComms = VFS.Include("modules/transfer/take/comms.lua")
 local TransferApi = VFS.Include("modules/transfer/api.lua")
+local EconomyResources = VFS.Include("modules/economy/api.lua").Resources ---@type EconomyResourcesApi
 
 local TAKE_MSG = "take_cmd"
 
@@ -41,7 +42,7 @@ end
 
 local function transferResources(fromTeamID, toTeamID)
 	for _, resource in ipairs({ "metal", "energy" }) do
-		local amount = GG.GetTeamResources and GG.GetTeamResources(fromTeamID, resource)
+		local amount = EconomyResources.Get(Spring, fromTeamID, resource)
 		if amount and amount > 0 then
 			TransferApi.GiveResources(resource, amount, toTeamID, fromTeamID)
 		end
