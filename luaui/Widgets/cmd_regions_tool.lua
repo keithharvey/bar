@@ -155,10 +155,10 @@ local R = {
 	revision = 0,
 	COLOR = { 0.35, 0.85, 1.0, 1.0 },
 }
-R.api = require("modules/regions/api") ---@type RegionsApi
+R.api = require("modules/regions/api")
+local MexHull = require("modules/transfer/mex_splitting/hull")
 local StartExport = require("modules/start/lib/export")
 local StartPlacement = require("modules/start/lib/placement")
-local MexHull = VFS.Include("modules/transfer/mex_splitting/hull.lua") ---@type MexRegionsHull
 R.ORDER, R.TYPES = R.api.Types()
 R.CATEGORY_ORDER = R.ORDER
 R.CATEGORIES = {}
