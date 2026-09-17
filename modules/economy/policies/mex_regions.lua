@@ -3,6 +3,7 @@ local ConstructionContract = VFS.Include("modules/construction/contract.lua") --
 local RegionsContract = VFS.Include("modules/regions/contract.lua") ---@type RegionsContract
 local RegionEnums = VFS.Include("modules/regions/enums.lua")
 local Geometry = VFS.Include("modules/regions/lib/geometry.lua") ---@type RegionGeometry
+local RegionProblems = VFS.Include("modules/regions/lib/problems.lua") ---@type RegionProblems
 local EconomyEnums = VFS.Include("modules/economy/enums.lua")
 local Claims = VFS.Include("modules/economy/lib/mex_regions/claims.lua") ---@type MexRegionsClaimsLib
 local Shared = VFS.Include("modules/economy/lib/mex_regions/shared.lua") ---@type MexRegionsShared
@@ -12,6 +13,19 @@ local Shared = VFS.Include("modules/economy/lib/mex_regions/shared.lua") ---@typ
 local function noDeal(problems)
 	return { regions = {}, spots = {}, problems = problems }
 end
+
+Policies.On(RegionsContract.Names).Apply(Contract.MexRegionsNames.FromGroup, function(ctx)
+	if ctx.type.key ~= RegionEnums.Types.MexRegion then
+		return
+	end
+	for i, region in ipairs(ctx.regions) do
+		---@cast region MexRegion
+		local group = region.group
+		if group ~= nil and group ~= "" then
+			ctx.bases[i] = tostring(group)
+		end
+	end
+end)
 
 Policies.On(RegionsContract.CheckSet).Apply(Contract.MexRegionsSet.MexesCovered, function(ctx)
 	if ctx.type.key ~= RegionEnums.Types.MexRegion or ctx.env.spots == nil then
@@ -32,12 +46,15 @@ Policies.On(RegionsContract.CheckSet).Apply(Contract.MexRegionsSet.MexesCovered,
 		for i = 1, math.min(#uncovered, 4) do
 			shown[i] = uncovered[i]
 		end
-		ctx.problems[#ctx.problems + 1] = #uncovered
-			.. " metal spot"
-			.. (#uncovered == 1 and "" or "s")
-			.. " in no mex region: "
-			.. table.concat(shown, "; ")
-			.. (#uncovered > #shown and "; ..." or "")
+		RegionProblems.OfSet(
+			ctx,
+			#uncovered
+				.. " metal spot"
+				.. (#uncovered == 1 and "" or "s")
+				.. " in no mex region: "
+				.. table.concat(shown, "; ")
+				.. (#uncovered > #shown and "; ..." or "")
+		)
 	end
 end)
 

@@ -69,6 +69,14 @@ local MexRegionsSet = {
 	MexesCovered = "MexesCovered",
 }
 
+---@class EconomyMexRegionsNamesStages what economy adds to the regions module's naming, for its own type
+---@field FromGroup string a mex region that carries no name is called after its group
+
+---@type EconomyMexRegionsNamesStages
+local MexRegionsNames = {
+	FromGroup = "FromGroup",
+}
+
 ---@class EconomyPipelines what LoadPolicies("economy") hands back
 ---@field mex_regions AssembledPipeline<MexRegionsDealContext, MexRegionsDeal>
 
@@ -77,10 +85,12 @@ local MexRegionsSet = {
 ---@field Redistribution EconomyRedistributionFacts
 ---@field MexRegions EconomyMexRegionsStages
 ---@field MexRegionsSet EconomyMexRegionsSetStages
+---@field MexRegionsNames EconomyMexRegionsNamesStages
 
 return PolicyBuilder.Contract(Modules.Economy, {
 	Distribution = PolicyBuilder.Facts(Distribution),
 	Redistribution = PolicyBuilder.Facts(Redistribution),
 	MexRegions = PolicyBuilder.Single(MexRegions),
 	MexRegionsSet = PolicyBuilder.Contributes(RegionsContract.CheckSet, MexRegionsSet),
+	MexRegionsNames = PolicyBuilder.Contributes(RegionsContract.Names, MexRegionsNames),
 })

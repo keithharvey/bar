@@ -6,8 +6,6 @@ return {
 		key = Enums.Types.MexRegion,
 		label = "Mex region",
 		geometries = { Enums.Geometry.Polygon },
-		order = 20,
-		nameFrom = "group",
 		fields = {
 			Fields.Team({ required = true }),
 			{ key = "group", label = "Group", kind = "string", required = true, suggest = true },
