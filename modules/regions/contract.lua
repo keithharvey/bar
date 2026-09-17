@@ -1,16 +1,13 @@
 local PolicyBuilder = VFS.Include("modules/policy_builder.lua")
 local Modules = VFS.Include("modules/enums.lua").Modules
 
----@class Region contained space on the map, with facts attached
+---@class Region contained space on the map: the shape, and nothing a type adds. A type's own record extends it, in the module that owns the type
 ---@field type RegionTypeKey
 ---@field geometry RegionGeometryKey|nil inferred from the shape when absent: vertices make a polygon, x and z a point
 ---@field x number|nil a point's position, elmos
 ---@field z number|nil
 ---@field vertices { x: number, z: number }[]|nil a polygon's ring, elmos
 ---@field tags string[]|nil what no type has claimed yet
----@field name string|nil a field some types carry
----@field group string|nil
----@field team integer|nil the start ordinal: start 1 is team 1
 
 ---@class RegionCheckContext one region on its way through the rules; problems collect, so a form can show them all
 ---@field type RegionType the descriptor the region claims

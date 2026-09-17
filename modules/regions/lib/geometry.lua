@@ -56,34 +56,71 @@ function Geometry.Contains(x, z, vertices)
 	return inside
 end
 
+local EPS = 1e-3 -- elmos: a point closer than this to an edge lies on it
+
 ---@param p { x: number, z: number }
 ---@param q { x: number, z: number }
 ---@param r { x: number, z: number }
----@return number
-local function orient(p, q, r)
-	return (q.x - p.x) * (r.z - p.z) - (q.z - p.z) * (r.x - p.x)
+---@return integer 1 or -1 for the side of the line pq the point r lies on; 0 when it lies on the line
+local function side(p, q, r)
+	local dx, dz = q.x - p.x, q.z - p.z
+	local len = math.sqrt(dx * dx + dz * dz)
+	local cross = dx * (r.z - p.z) - dz * (r.x - p.x)
+	if len == 0 or math.abs(cross) / len <= EPS then
+		return 0
+	end
+	return cross > 0 and 1 or -1
 end
 
+---@return boolean the segments cross properly; ones that touch or run along each other do not
 local function segmentsCross(a1, a2, b1, b2)
-	local d1, d2 = orient(b1, b2, a1), orient(b1, b2, a2)
-	local d3, d4 = orient(a1, a2, b1), orient(a1, a2, b2)
-	return ((d1 > 0) ~= (d2 > 0) or d1 == 0 or d2 == 0) and ((d3 > 0) ~= (d4 > 0) or d3 == 0 or d4 == 0)
+	return side(b1, b2, a1) * side(b1, b2, a2) < 0 and side(a1, a2, b1) * side(a1, a2, b2) < 0
+end
+
+---@param x number
+---@param z number
+---@param vertices { x: number, z: number }[]
+---@return boolean the point lies on the ring
+function Geometry.OnBoundary(x, z, vertices)
+	local n = #vertices
+	local p = { x = x, z = z }
+	for i, a in ipairs(vertices) do
+		local b = vertices[(i % n) + 1] or a
+		if
+			side(a, b, p) == 0
+			and x >= math.min(a.x, b.x) - EPS
+			and x <= math.max(a.x, b.x) + EPS
+			and z >= math.min(a.z, b.z) - EPS
+			and z <= math.max(a.z, b.z) + EPS
+		then
+			return true
+		end
+	end
+	return false
+end
+
+---@param x number
+---@param z number
+---@param vertices { x: number, z: number }[]
+---@return boolean the point lies inside the ring and not on it
+local function strictlyInside(x, z, vertices)
+	return Geometry.Contains(x, z, vertices) and not Geometry.OnBoundary(x, z, vertices)
 end
 
 ---@param a { x: number, z: number }[]
 ---@param b { x: number, z: number }[]
----@return boolean
+---@return boolean the two rings share ground; neighbours that only touch along an edge or at a corner do not
 function Geometry.Overlaps(a, b)
 	if #a < 3 or #b < 3 then
 		return false
 	end
 	for _, v in ipairs(a) do
-		if Geometry.Contains(v.x, v.z, b) then
+		if strictlyInside(v.x, v.z, b) then
 			return true
 		end
 	end
 	for _, v in ipairs(b) do
-		if Geometry.Contains(v.x, v.z, a) then
+		if strictlyInside(v.x, v.z, a) then
 			return true
 		end
 	end
@@ -96,7 +133,10 @@ function Geometry.Overlaps(a, b)
 			end
 		end
 	end
-	return false
+	-- one ring lying along the other, or the same ring twice: no corner is strictly inside, no edge crosses
+	local ax, az = Geometry.Centroid(a)
+	local bx, bz = Geometry.Centroid(b)
+	return strictlyInside(ax, az, b) or strictlyInside(bx, bz, a)
 end
 
 ---@param ax number

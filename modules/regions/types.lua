@@ -14,7 +14,6 @@ local ModuleHandler = VFS.Include("modules/module_handler.lua")
 ---@field label string
 ---@field geometries RegionGeometryKey[] the shapes a region of this type may be drawn as
 ---@field fields RegionField[]
----@field layoutKey string|nil where the game's layout lists regions of this type
 ---@field disjoint boolean|nil regions of this type never share ground; the Check refuses an overlap, and an editor may resolve one before it happens
 ---@field order integer|nil where the type sits in a list of types; lower first
 ---@field module string|nil the module that contributed it, filled in here

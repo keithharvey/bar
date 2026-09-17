@@ -10,7 +10,6 @@ describe("the region types", function()
 		assert.are.same({ "start", "mex_region" }, order)
 		assert.are.same({ "point", "polygon" }, byKey.start.geometries)
 		assert.are.same({ "polygon" }, byKey.mex_region.geometries)
-		assert.are.equal("regions", byKey.mex_region.layoutKey)
 		assert.are.equal("start", byKey.start.module)
 		assert.are.equal("economy", byKey.mex_region.module)
 	end)
@@ -18,7 +17,7 @@ end)
 
 describe("checking a region", function()
 	it("passes a whole polygon with its required fields", function()
-		assert.are.same({}, Regions.Check(Enums.Types.MexRegion, { name = "west", vertices = square }, {}))
+		assert.are.same({}, Regions.Check(Enums.Types.MexRegion, { name = "west", team = 1, vertices = square }, {}))
 	end)
 
 	it("collects every problem rather than stopping at the first", function()
@@ -29,24 +28,27 @@ describe("checking a region", function()
 	it("refuses a shape the type cannot take, and a name a sibling already has", function()
 		assert.are.same(
 			{ "a mex region cannot be a point" },
-			Regions.Check(Enums.Types.MexRegion, { name = "a", x = 1, z = 1 }, {})
+			Regions.Check(Enums.Types.MexRegion, { name = "a", team = 1, x = 1, z = 1 }, {})
 		)
 		assert.are.same(
 			{ "a mex region with name west already exists" },
 			Regions.Check(
 				Enums.Types.MexRegion,
-				{ name = "west", vertices = square },
-				{ { name = "west", x = 0, z = 0 } }
+				{ name = "west", team = 1, vertices = square },
+				{ { name = "west", team = 1, x = 0, z = 0 } }
 			)
 		)
 	end)
 
-	it("checks only the fields when the region has no shape yet; a name is optional but unique", function()
-		assert.are.same({}, Regions.Check(Enums.Types.MexRegion, { name = "soon" }, {}, true))
-		assert.are.same({}, Regions.Check(Enums.Types.MexRegion, {}, {}, true))
+	it("checks only the fields when the region has no shape yet; a mex region needs its name and team first", function()
+		assert.are.same({}, Regions.Check(Enums.Types.MexRegion, { name = "soon", team = 1 }, {}, true))
+		assert.are.same(
+			{ "a mex region needs a name", "a mex region needs a team" },
+			Regions.Check(Enums.Types.MexRegion, {}, {}, true)
+		)
 		assert.are.same(
 			{ "a mex region with name soon already exists" },
-			Regions.Check(Enums.Types.MexRegion, { name = "soon" }, { { name = "soon" } }, true)
+			Regions.Check(Enums.Types.MexRegion, { name = "soon", team = 1 }, { { name = "soon", team = 1 } }, true)
 		)
 	end)
 
@@ -71,14 +73,19 @@ describe("checking a region", function()
 end)
 
 describe("a disjoint type", function()
-	local a =
-		{ name = "a", vertices = { { x = 0, z = 0 }, { x = 100, z = 0 }, { x = 100, z = 100 }, { x = 0, z = 100 } } }
+	local a = {
+		name = "a",
+		team = 1,
+		vertices = { { x = 0, z = 0 }, { x = 100, z = 0 }, { x = 100, z = 100 }, { x = 0, z = 100 } },
+	}
 	local b = {
 		name = "b",
+		team = 1,
 		vertices = { { x = 50, z = 50 }, { x = 150, z = 50 }, { x = 150, z = 150 }, { x = 50, z = 150 } },
 	}
 	local c = {
 		name = "c",
+		team = 2,
 		vertices = { { x = 500, z = 500 }, { x = 600, z = 500 }, { x = 600, z = 600 }, { x = 500, z = 600 } },
 	}
 
@@ -90,7 +97,7 @@ describe("a disjoint type", function()
 	end)
 
 	it("is a rule only for types that declare it, and only once there is a shape", function()
-		assert.are.same({}, Regions.Check(Enums.Types.MexRegion, { name = "b" }, { a }, true))
+		assert.are.same({}, Regions.Check(Enums.Types.MexRegion, { name = "b", team = 1 }, { a }, true))
 		assert.are.same(
 			{},
 			Regions.Check(

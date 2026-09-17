@@ -2,16 +2,11 @@ local ModuleHandler = VFS.Include("modules/module_handler.lua")
 local Modules = VFS.Include("modules/enums.lua").Modules
 local Contract = VFS.Include("modules/regions/contract.lua") ---@type RegionsContract
 local Types = VFS.Include("modules/regions/types.lua")
-local Layout = VFS.Include("modules/regions/lib/layout.lua") ---@type RegionLayout
 local Geometry = VFS.Include("modules/regions/lib/geometry.lua") ---@type RegionGeometry
 
 ---@class RegionsApi
 ---@field Overlaps fun(a: { x: number, z: number }[], b: { x: number, z: number }[]): boolean
 ---@field Contains fun(x: number, z: number, vertices: { x: number, z: number }[]): boolean
----@field ParseLayout fun(layout: table, mapSizeX: number, mapSizeZ: number): LayoutRegion[]|nil, string|nil
----@field ExportLayout fun(regions: { name: string, group: string|nil, vertices: { x: number, z: number }[] }[], mapSizeX: number, mapSizeZ: number): table
----@field EncodeLayout fun(layout: table): string|nil
----@field DecodeLayout fun(raw: string): table|nil
 return {
 	---@return RegionTypeKey[] order
 	---@return table<string, RegionType> byKey
@@ -76,9 +71,4 @@ return {
 
 	Overlaps = Geometry.Overlaps,
 	Contains = Geometry.Contains,
-
-	ParseLayout = Layout.Parse,
-	ExportLayout = Layout.Export,
-	EncodeLayout = Layout.Encode,
-	DecodeLayout = Layout.Decode,
 }

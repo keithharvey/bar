@@ -17,6 +17,20 @@ local function shapeOf(region)
 	return nil
 end
 
+---@param kind RegionType
+---@param region Region
+---@param index integer the region's place among its siblings, when no field names it
+---@return string
+local function describe(kind, region, index)
+	for _, field in ipairs(kind.fields) do
+		local value = region[field.key]
+		if value ~= nil and value ~= "" then
+			return tostring(value)
+		end
+	end
+	return "#" .. index
+end
+
 Policies.On(Contract.Check)
 	.Apply(Contract.Check.Shape, function(ctx)
 		if ctx.fieldsOnly then
@@ -71,12 +85,12 @@ Policies.On(Contract.Check)
 		if not ctx.type.disjoint or ctx.fieldsOnly or not ctx.region.vertices then
 			return
 		end
-		for _, other in ipairs(ctx.siblings) do
+		for i, other in ipairs(ctx.siblings) do
 			if other ~= ctx.region and other.vertices and Geometry.Overlaps(ctx.region.vertices, other.vertices) then
 				ctx.problems[#ctx.problems + 1] = "overlaps "
 					.. ctx.type.label:lower()
 					.. " "
-					.. tostring(other.name or other.team or "?")
+					.. describe(ctx.type, other, i)
 				return
 			end
 		end

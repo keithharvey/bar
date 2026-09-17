@@ -20,6 +20,21 @@ describe("region geometry", function()
 		assert.is_true(Geometry.Overlaps(square, crossing), "no vertex inside, but the edges cross")
 	end)
 
+	it("lets neighbours touch: a shared edge or corner is not shared ground", function()
+		local east = { { x = 100, z = 0 }, { x = 200, z = 0 }, { x = 200, z = 100 }, { x = 100, z = 100 } }
+		local corner = { { x = 100, z = 100 }, { x = 200, z = 100 }, { x = 200, z = 200 }, { x = 100, z = 200 } }
+		local alongside = { { x = 100, z = 25 }, { x = 200, z = 25 }, { x = 200, z = 75 }, { x = 100, z = 75 } }
+		assert.is_false(Geometry.Overlaps(square, east))
+		assert.is_false(Geometry.Overlaps(east, square))
+		assert.is_false(Geometry.Overlaps(square, corner))
+		assert.is_false(Geometry.Overlaps(square, alongside), "a shorter edge along a longer one")
+		assert.is_true(Geometry.Overlaps(square, square), "the same ring twice")
+		local within = { { x = 0, z = 0 }, { x = 50, z = 0 }, { x = 50, z = 50 }, { x = 0, z = 50 } }
+		assert.is_true(Geometry.Overlaps(square, within), "sharing a corner and two edges, but inside")
+		assert.is_true(Geometry.OnBoundary(100, 50, square))
+		assert.is_false(Geometry.OnBoundary(99, 50, square))
+	end)
+
 	it("knows what is inside, concave corners included", function()
 		assert.is_true(Geometry.Contains(50, 50, square))
 		assert.is_false(Geometry.Contains(150, 50, square))
