@@ -6,7 +6,6 @@ return {
 		key = Enums.Types.MexRegion,
 		label = "Mex region",
 		geometries = { Enums.Geometry.Polygon },
-		disjoint = true,
 		order = 20,
 		nameFrom = "group",
 		fields = {

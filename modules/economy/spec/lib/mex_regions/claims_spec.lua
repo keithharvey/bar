@@ -82,7 +82,8 @@ describe("the deal's steps", function()
 			{ "1 metal spot in no mex region: 150, 150" },
 			Claims.Problems(regions, { { x = 150, z = 150 } })
 		)
-		local overlapping = parse({ rect(1, "a", 0, 0, 40, 40), rect(1, "b", 20, 20, 60, 60) })
-		assert.are.same({ "a: overlaps mex region b", "b: overlaps mex region a" }, Claims.Problems(overlapping, {}))
+		local unteamed =
+			parse({ rect(1, "a", 0, 0, 40, 40), { group = "b", poly = { { x = 60, y = 60 }, { x = 80, y = 80 } } } })
+		assert.are.same({ "b: a mex region needs a team" }, Claims.Problems(unteamed, {}))
 	end)
 end)

@@ -121,11 +121,22 @@ describe("the deal", function()
 	end)
 
 	it("is refused when the layout fails its type, naming the region and the problem", function()
-		local overlapping = parse({ rect("a", 1, 0, 0, 40, 40), rect("b", 2, 20, 20, 60, 60) })
-		local d = deal(fourTeams, overlapping, { { x = 5, z = 5 } })
+		local ungrouped = parse({
+			rect("a", 1, 0, 0, 40, 40),
+			{ name = "b", team = 2, poly = { { x = 160, y = 160 }, { x = 200, y = 200 } } },
+		})
+		local d = deal(fourTeams, ungrouped, { { x = 5, z = 5 }, { x = 195, z = 195 } })
 		assert.are.same({}, d.regions)
 		assert.are.same({}, d.spots)
-		assert.are.same({ "a: overlaps mex region b", "b: overlaps mex region a" }, d.problems)
+		assert.are.same({ "b: a mex region needs a group" }, d.problems)
+	end)
+
+	it("hands a spot two regions cover to the first of them in the layout", function()
+		local nested = parse({ rect("outer", 1, 0, 0, 100, 100), rect("inner", 2, 40, 40, 60, 60) })
+		local d = deal(fourTeams, nested, { { x = 50, z = 50 }, { x = 5, z = 5 } })
+		assert.are.same({}, d.problems)
+		assert.are.equal(0, d.spots[Shared.SpotKey(50, 50)])
+		assert.are.equal(0, d.spots[Shared.SpotKey(5, 5)])
 	end)
 
 	it("is refused when a metal spot lies in no region", function()

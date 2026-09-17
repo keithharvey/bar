@@ -115,9 +115,12 @@ Policies.On(Contract.MexRegions)
 
 		local byRegion = Claims.SpotsIn(ctx.regions, ctx.spots)
 		local spots = {} ---@type table<string, integer>
-		for id, teamID in pairs(held) do
-			for _, key in ipairs(byRegion[id] or {}) do
-				spots[key] = teamID
+		for _, region in ipairs(ctx.regions) do
+			local teamID = held[region.id]
+			for _, key in ipairs(teamID and byRegion[region.id] or {}) do
+				if spots[key] == nil then
+					spots[key] = teamID
+				end
 			end
 		end
 		return { regions = held, spots = spots, problems = {} }
