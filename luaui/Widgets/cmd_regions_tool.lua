@@ -160,6 +160,7 @@ local R = {
 }
 R.api = VFS.Include("modules/regions/api.lua") ---@type RegionsApi
 R.ORDER, R.TYPES = R.api.Types()
+R.mexLayout = VFS.Include("modules/economy/lib/mex_regions/layout.lua") ---@type MexRegionsLayout
 R.CATEGORY_ORDER = R.ORDER
 R.CATEGORIES = {}
 for _, key in ipairs(R.ORDER) do
@@ -2477,8 +2478,8 @@ function R.seedMexRegions()
 	if deal and deal.regions and #deal.regions > 0 then
 		for _, region in ipairs(deal.regions) do
 			local vertices = {}
-			for i, p in ipairs(region.polygon) do
-				vertices[i] = { x = p[1], z = p[2] }
+			for i, v in ipairs(region.vertices) do
+				vertices[i] = { x = v.x, z = v.z }
 			end
 			R.add({
 				type = "mex_region",
@@ -2905,14 +2906,14 @@ function R.suggestions()
 end
 
 function R.exportLayout()
-	return R.api.ExportLayout(R.list("mex_region"), Game.mapSizeX, Game.mapSizeZ)
+	return R.mexLayout.Export(R.list("mex_region"), Game.mapSizeX, Game.mapSizeZ)
 end
 
 function R.encodeLayout()
 	if #R.list("mex_region") == 0 then
 		return nil
 	end
-	return R.api.EncodeLayout(R.exportLayout())
+	return R.mexLayout.Encode(R.exportLayout())
 end
 
 function R.copyLayout()

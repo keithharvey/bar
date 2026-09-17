@@ -56,7 +56,7 @@ local function fieldPickers(doc, prefix, defs, values, rgState, onSet)
 	for _, field in ipairs(defs) do
 		local id = prefix .. "-pick-" .. field.key
 		if field.picks == "start" then
-			local options = { { label = "None", value = nil } }
+			local options = field.required and {} or { { label = "None", value = nil } }
 			for _, team in ipairs(teams) do
 				options[#options + 1] = { label = team.label, value = team.team }
 			end
