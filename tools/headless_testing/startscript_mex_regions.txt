@@ -19,9 +19,6 @@
 	[ALLYTEAM0]
 	{
 	}
-	[ALLYTEAM1]
-	{
-	}
 	[TEAM0]
 	{
 		allyteam=0;
@@ -29,7 +26,7 @@
 	}
 	[TEAM1]
 	{
-		allyteam=1;
+		allyteam=0;
 		teamleader=0;
 	}
 	[PLAYER0]

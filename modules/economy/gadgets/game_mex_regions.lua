@@ -87,36 +87,30 @@ function gadget:Initialize()
 	end
 end
 
-function gadget:GameStart()
-	if reasonNone then
+-- Said once the match has loaded, before anyone picks a start: what the option did to this match.
+function gadget:GamePreload()
+	local why = refused or (reasonNone and { reasonNone }) or nil
+	if why then
 		tellEveryone(
-			"Mex income is Map Assigned, but " .. Game.mapName .. " has no region layout, so mexes are unrestricted."
+			"Mex Splitting: Map Assigned is set but mex regions are not configured by the map maker. Please set the 'mex_regions_layout' mod option."
 		)
-		tellEveryone(TAG .. ": " .. reasonNone)
-		return
-	end
-	if refused then
-		tellEveryone(
-			"Mex income is Map Assigned, but "
-				.. Game.mapName
-				.. "'s region layout was refused, so mexes are unrestricted."
-		)
-		for _, problem in ipairs(refused) do
+		for _, problem in ipairs(why) do
 			tellEveryone(TAG .. ": " .. problem)
 		end
+		tellEveryone(TAG .. ": mexes are unrestricted, as under Mex Splitting: None.")
 		return
 	end
-	tellEveryone("Mex placement is restricted to map-assigned regions, dealt by the lobby's Mex Splitting setting.")
-	local holdings = MexRegions.Holdings()
-	local unheld = 0
-	for _, teamID in ipairs(Spring.GetTeamList()) do
-		if not ignoredTeams[teamID] and holdings[teamID] == nil then
-			unheld = unheld + 1
-		end
+	tellEveryone(
+		"Mex Splitting: Map Assigned. You may build mexes on your own metal spots and on the enemy's, not on an ally's."
+	)
+end
+
+function gadget:TeamDied(teamID)
+	if refused or reasonNone or ignoredTeams[teamID] then
+		return
 	end
-	if unheld > 0 then
-		tellEveryone(
-			TAG .. ": " .. Game.mapName .. " has fewer regions than teams, so " .. unheld .. " team(s) hold none."
-		)
+	local heir = MexRegions.Inherit(teamID, Spring)
+	if heir then
+		Spring.Log(TAG, LOG.INFO, "team " .. teamID .. "'s regions pass to team " .. heir)
 	end
 end

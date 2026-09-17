@@ -20,20 +20,24 @@ function test()
 		local state = gadgetHandler.GG.__moduleState.economy ---@type EconomyState
 		assert(state and state.mexRegions and state.mexDeal, "economy has not dealt the regions")
 		local Shared = VFS.Include("modules/economy/lib/mex_regions/shared.lua") ---@type MexRegionsShared
-		local byKey = Shared.HolderBySpot(Spring, Spring.GetTeamList())
+		local byKey = Shared.HoldersBySpot(Spring, Spring.GetTeamList())
 		local mine, theirs
 		for _, spot in ipairs(gadgetHandler.GG.resource_spot_finder.metalSpotsList) do
-			local owner = byKey[Shared.SpotKey(spot.x, spot.z)]
-			if owner == locals.myTeamID and mine == nil then
+			local holders = byKey[Shared.SpotKey(spot.x, spot.z)]
+			local held = false
+			for _, teamID in ipairs(holders or {}) do
+				held = held or teamID == locals.myTeamID
+			end
+			if held and mine == nil then
 				mine = { x = spot.x, z = spot.z }
-			elseif owner ~= nil and owner ~= locals.myTeamID and theirs == nil then
+			elseif holders ~= nil and not held and theirs == nil then
 				theirs = { x = spot.x, z = spot.z }
 			end
 		end
 		return { mine = mine, theirs = theirs }
 	end)
 	assert(spots.mine, "no metal spot inside a region my team holds")
-	assert(spots.theirs, "no metal spot inside a region another team holds")
+	assert(spots.theirs, "no metal spot inside a region my ally holds")
 
 	local function orderMexAt(spot)
 		local x, z, builder, defID, teamID = spot.x, spot.z, builderName, mexDefID, myTeamID
@@ -47,7 +51,7 @@ function test()
 		return queued
 	end
 
-	assertEqual(orderMexAt(spots.theirs), 0, "a mex order on a spot another team holds should be refused")
+	assertEqual(orderMexAt(spots.theirs), 0, "a mex order on a spot my ally holds should be refused")
 	assertEqual(orderMexAt(spots.mine), 1, "a mex order on a spot my team holds should queue")
 end
 

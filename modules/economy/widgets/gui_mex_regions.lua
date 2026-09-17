@@ -61,13 +61,13 @@ local function holderName(teamID)
 end
 
 -- The metal spots my side's holdings name, by spot key: mine and my allies', which is all a player may read.
-local spotHolders = {} ---@type table<string, integer>
+local spotHolders = {} ---@type table<string, integer[]>
 local sinceRead = math.huge
 function widget:Update(dt)
 	sinceRead = sinceRead + dt
 	if sinceRead >= 1 then
 		sinceRead = 0
-		spotHolders = Shared.HolderBySpot(Spring, Spring.GetTeamList())
+		spotHolders = Shared.HoldersBySpot(Spring, Spring.GetTeamList())
 	end
 end
 
@@ -140,9 +140,9 @@ function widget:DrawWorldPreUnit()
 	end
 	local myTeamID = Spring.GetMyTeamID()
 	for _, spot in ipairs(metalSpots()) do
-		local holder = spotHolders[Shared.SpotKey(spot.x, spot.z)]
-		if holder ~= nil then
-			local c = holder == myTeamID and MINE or THEIRS
+		local holders = spotHolders[Shared.SpotKey(spot.x, spot.z)]
+		if holders ~= nil then
+			local c = table.contains(holders, myTeamID) and MINE or THEIRS
 			glColor(c[1], c[2], c[3], 0.9)
 			gl.DrawGroundCircle(spot.x, 0, spot.z, SPOT_RING, 24)
 		end
@@ -164,11 +164,15 @@ local function explainSpotUnderCursor()
 	local reach = (Game.extractorRadius or 80) ^ 2
 	for _, spot in ipairs(metalSpots()) do
 		if (spot.x - pos[1]) ^ 2 + (spot.z - pos[3]) ^ 2 <= reach then
-			local holder = spotHolders[Shared.SpotKey(spot.x, spot.z)]
-			if holder ~= nil and holder ~= Spring.GetMyTeamID() then
+			local holders = spotHolders[Shared.SpotKey(spot.x, spot.z)]
+			if holders ~= nil and not table.contains(holders, Spring.GetMyTeamID()) then
+				local names = {}
+				for i, holder in ipairs(holders) do
+					names[i] = holderName(holder)
+				end
 				WG.tooltip.ShowTooltip(
 					"mex_regions",
-					"This metal spot is " .. holderName(holder) .. "'s: Mex Splitting is Map Assigned."
+					"This metal spot belongs to " .. table.concat(names, " and ") .. ": Mex Splitting is Map Assigned."
 				)
 			end
 			return

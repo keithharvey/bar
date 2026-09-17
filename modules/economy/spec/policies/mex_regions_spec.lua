@@ -82,16 +82,21 @@ describe("the deal", function()
 
 	it("claims each spot for the team holding the region it lies in", function()
 		local d = deal(fourTeams, sevenRegions)
-		assert.are.equal(0, d.spots[Shared.SpotKey(5, 5)])
-		assert.are.equal(0, d.spots[Shared.SpotKey(100, 20)])
-		assert.are.equal(1, d.spots[Shared.SpotKey(100, 100)])
-		assert.are.equal(2, d.spots[Shared.SpotKey(100, 180)])
-		assert.are.equal(3, d.spots[Shared.SpotKey(5, 195)])
+		assert.are.same({ 0 }, d.spots[Shared.SpotKey(5, 5)])
+		assert.are.same({ 0 }, d.spots[Shared.SpotKey(100, 20)])
+		assert.are.same({ 1 }, d.spots[Shared.SpotKey(100, 100)])
+		assert.are.same({ 2 }, d.spots[Shared.SpotKey(100, 180)])
+		assert.are.same({ 3 }, d.spots[Shared.SpotKey(5, 195)])
 		assert.are.equal(7, count(d.spots))
 	end)
 
 	it("shares a start's regions between the teams seated there, nearest first, round by round", function()
-		local regions = parse({ rect("a", 1, 0, 0, 40, 40), rect("b", 1, 40, 0, 80, 40), rect("c", 1, 80, 0, 120, 40) })
+		local regions = parse({
+			rect("a", 1, 0, 0, 40, 40),
+			rect("b", 1, 40, 0, 80, 40),
+			rect("c", 1, 80, 0, 120, 40),
+			rect("theirs", 2, 160, 160, 200, 200),
+		})
 		local allies = {
 			{ teamID = 0, allyTeam = 1, x = 10, z = 10 },
 			{ teamID = 5, allyTeam = 1, x = 100, z = 10 },
@@ -102,21 +107,20 @@ describe("the deal", function()
 		assert.are.equal(0, d.regions["a@1"])
 		assert.are.equal(5, d.regions["c@1"])
 		assert.are.equal(0, d.regions["b@1"], "round two: team 0 is nearer b")
-		for _, holder in pairs(d.regions) do
-			assert.are_not.equal(1, holder, "team 1 sits at another start")
-		end
+		assert.are.equal(1, d.regions["theirs@2"], "team 1 sits at another start, and holds only what is bound to it")
 	end)
 
-	it("leaves teams beyond the regions holding nothing, and deals nothing to no teams", function()
+	it("is refused when a team would hold nothing, and deals nothing to no teams", function()
 		local two = parse({ rect("a", 1, 0, 0, 10, 10), rect("b", 2, 190, 190, 200, 200) })
 		local metal = { { x = 5, z = 5 }, { x = 195, z = 195 } }
-		local d = deal(fourTeams, two, metal)
+		local d = deal({ fourTeams[1], fourTeams[2] }, two, metal)
 		assert.are.equal(0, d.regions["a@1"])
 		assert.are.equal(1, d.regions["b@2"])
-		assert.are.equal(2, count(d.regions))
+		local short = deal(fourTeams, two, metal)
+		assert.are.same({}, short.regions)
+		assert.are.same({ "2 teams would hold no mex region: the layout has too few" }, short.problems)
 		local none = deal({}, two, metal)
 		assert.are.same({}, none.regions)
-		assert.are.same({}, none.spots)
 		assert.are.same({}, none.problems)
 	end)
 
@@ -125,18 +129,18 @@ describe("the deal", function()
 			rect("a", 1, 0, 0, 40, 40),
 			{ name = "b", team = 2, poly = { { x = 160, y = 160 }, { x = 200, y = 200 } } },
 		})
-		local d = deal(fourTeams, ungrouped, { { x = 5, z = 5 }, { x = 195, z = 195 } })
+		local d = deal({ fourTeams[1], fourTeams[2] }, ungrouped, { { x = 5, z = 5 }, { x = 195, z = 195 } })
 		assert.are.same({}, d.regions)
 		assert.are.same({}, d.spots)
 		assert.are.same({ "b: a mex region needs a group" }, d.problems)
 	end)
 
-	it("hands a spot two regions cover to the first of them in the layout", function()
+	it("lets every team whose region covers a spot hold it", function()
 		local nested = parse({ rect("outer", 1, 0, 0, 100, 100), rect("inner", 2, 40, 40, 60, 60) })
-		local d = deal(fourTeams, nested, { { x = 50, z = 50 }, { x = 5, z = 5 } })
+		local d = deal({ fourTeams[1], fourTeams[2] }, nested, { { x = 50, z = 50 }, { x = 5, z = 5 } })
 		assert.are.same({}, d.problems)
-		assert.are.equal(0, d.spots[Shared.SpotKey(50, 50)])
-		assert.are.equal(0, d.spots[Shared.SpotKey(5, 5)])
+		assert.are.same({ 0, 1 }, d.spots[Shared.SpotKey(50, 50)], "both regions cover it, so both teams hold it")
+		assert.are.same({ 0 }, d.spots[Shared.SpotKey(5, 5)])
 	end)
 
 	it("is refused when a metal spot lies in no region", function()
@@ -161,6 +165,7 @@ describe("the spot holder fact", function()
 	local mexSplitting ---@type string
 	local rules ---@type table<string, string>
 	local params ---@type table<integer, string>
+	local allies = { [0] = "north", [1] = "north", [2] = "south", [3] = "north" } -- which side each team is on
 	local repo = {
 		GetGameRulesParam = function(key)
 			return rules[key]
@@ -176,6 +181,12 @@ describe("the spot holder fact", function()
 		end,
 		SetTeamRulesParam = function(teamID, _, value)
 			params[teamID] = value
+		end,
+		AreTeamsAllied = function(a, b)
+			return allies[a] == allies[b]
+		end,
+		GetTeamInfo = function()
+			return nil, nil, false
 		end,
 	}
 
@@ -209,12 +220,39 @@ describe("the spot holder fact", function()
 		local record = Shared.Holdings.Read(repo, 0) ---@type MexHoldingsRecord
 		assert.are.same({ "nw@1", "n@9" }, record.regions)
 		assert.are.same({ Shared.SpotKey(100, 20), Shared.SpotKey(5, 5) }, record.spots)
-		local byKey = Shared.HolderBySpot(repo, { 0, 1, 2, 3 })
-		assert.are.equal(2, byKey[Shared.SpotKey(195.4, 194.6)], "keys round to whole elmos")
+		local byKey = Shared.HoldersBySpot(repo, { 0, 1, 2, 3 })
+		assert.are.same({ 2 }, byKey[Shared.SpotKey(195.4, 194.6)], "keys round to whole elmos")
 		assert.are.same(
 			{ [0] = { "nw@1", "n@9" }, [1] = { "ne@2", "c@9" }, [2] = { "se@3", "s@9" }, [3] = { "sw@4" } },
 			MexRegions.Holdings()
 		)
+	end)
+
+	it("names an ally before an enemy, and is the builder's own when the builder is one of several holders", function()
+		state.mexRegions = parse({
+			rect("outer", 1, 0, 0, 100, 100),
+			rect("inner", 3, 40, 40, 60, 60),
+			rect("far", 2, 150, 150, 200, 200),
+			rect("last", 4, 0, 150, 50, 200),
+		})
+		MexRegions.Deal(fourTeams, repo, { { x = 50, z = 50 }, { x = 175, z = 175 }, { x = 25, z = 175 } })
+		assert.are.equal(0, holderAt(50, 50, 0), "team 0 holds it through outer")
+		assert.are.equal(2, holderAt(50, 50, 2), "team 2 holds it through inner")
+		assert.are.equal(0, holderAt(50, 50, 1), "of its holders, team 0 is on team 1's side")
+	end)
+
+	it("passes a departing team's regions and spots to the ally gifted the fewest, then the nearest", function()
+		assert.are.equal(
+			1,
+			MexRegions.Inherit(0, repo),
+			"teams 1 and 3 are allies gifted nothing; 1 comes first at equal distance"
+		)
+		assert.are.same({ "nw@1", "ne@2", "n@9", "c@9" }, MexRegions.Holdings()[1])
+		assert.are.equal(1, holderAt(5, 5, 3))
+		assert.are.same({}, Shared.Holdings.Read(repo, 0).regions)
+		allies[2] = "north"
+		assert.are.equal(3, MexRegions.Inherit(2, repo), "team 1 has been gifted two already")
+		assert.is_nil(MexRegions.Inherit(2, repo), "it holds nothing now")
 	end)
 
 	it("is the builder's own for a spot the deal never saw", function()

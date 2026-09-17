@@ -28,28 +28,6 @@ local WaterfillSolver = VFS.Include("modules/economy/lib/waterfill_solver.lua")
 local ModuleHandler = VFS.Include("modules/module_handler.lua")
 local Contract = VFS.Include("modules/economy/contract.lua") ---@type EconomyContract
 
-local function overlaySharing(teamID, resource, sent, received)
-	local s = ShareStats.Read(Spring, teamID, resource)
-	return s.sentRecent or sent, s.receivedRecent or received
-end
-
-function GG.GetTeamResourceData(teamID, resource)
-	local d = TeamResourceData.Get(Spring, teamID, resource)
-	d.sent, d.received = overlaySharing(teamID, resource, d.sent, d.received)
-	return d
-end
-
-function GG.GetTeamResources(teamID, resource)
-	local cur, stor, pull, inc, exp, share, sent, received = Spring.GetTeamResources(teamID, resource)
-	sent, received = overlaySharing(teamID, resource, sent, received)
-	return cur, stor, pull, inc, exp, share, sent, received
-end
-
-function GG.AddTeamResource(teamID, resource, amount)
-	local current = Spring.GetTeamResources(teamID, resource) or 0
-	return Spring.SetTeamResource(teamID, resource, current + amount)
-end
-
 local tracyAvailable = (tracy and tracy.ZoneBeginN and tracy.ZoneEnd) ~= nil --[[@as boolean]]
 
 local METAL = ResourceTypes.METAL

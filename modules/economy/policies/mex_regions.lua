@@ -130,18 +130,48 @@ Policies.On(Contract.MexRegions)
 			return seated[region.team] == nil
 		end)
 
+		local holding = {} ---@type table<integer, boolean>
+		for _, teamID in pairs(held) do
+			holding[teamID] = true
+		end
+		local without = 0
+		for _, team in ipairs(ctx.teams) do
+			without = without + (holding[team.teamID] and 0 or 1)
+		end
+		if without > 0 then
+			return noDeal({
+				without
+					.. " team"
+					.. (without == 1 and "" or "s")
+					.. " would hold no mex region: the layout has too few",
+			})
+		end
+
 		local byRegion = Claims.SpotsIn(ctx.regions, ctx.spots)
-		local spots = {} ---@type table<string, integer>
+		local spots = {} ---@type table<string, integer[]>
 		for _, region in ipairs(ctx.regions) do
 			local teamID = held[region.id]
 			for _, key in ipairs(teamID and byRegion[region.id] or {}) do
-				if spots[key] == nil then
-					spots[key] = teamID
+				spots[key] = spots[key] or {}
+				if not table.contains(spots[key], teamID) then
+					table.insert(spots[key], teamID)
 				end
 			end
 		end
 		return { regions = held, spots = spots, problems = {} }
 	end)
+
+Policies.On(Contract.MexRegionsHeir).Answer(Contract.MexRegionsHeir.FewestGiftedThenNearest, function(ctx)
+	local from = ctx.departing
+	local best, bestGifted, bestDistance = nil, math.huge, math.huge
+	for _, heir in ipairs(ctx.heirs) do
+		local distance = Geometry.Distance(from.x, from.z, heir.x, heir.z)
+		if heir.gifted < bestGifted or (heir.gifted == bestGifted and distance < bestDistance) then
+			best, bestGifted, bestDistance = heir.teamID, heir.gifted, distance
+		end
+	end
+	return best
+end)
 
 Policies.On(ConstructionContract.PlacementFacts)
 	.Provide(ConstructionContract.PlacementFacts.SpotHolder, function(ctx, springRepo)
@@ -152,6 +182,14 @@ Policies.On(ConstructionContract.PlacementFacts)
 			return nil
 		end
 		local engine = springRepo or Spring
-		local byKey = Shared.HolderBySpot(engine, engine.GetTeamList())
-		return byKey[Shared.SpotKey(ctx.spotX, ctx.spotZ)]
+		local holders = Shared.HoldersBySpot(engine, engine.GetTeamList())[Shared.SpotKey(ctx.spotX, ctx.spotZ)]
+		if holders == nil or table.contains(holders, ctx.builderTeam) then
+			return nil
+		end
+		for _, teamID in ipairs(holders) do
+			if engine.AreTeamsAllied and engine.AreTeamsAllied(ctx.builderTeam, teamID) then
+				return teamID
+			end
+		end
+		return holders[1]
 	end)

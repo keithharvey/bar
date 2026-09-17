@@ -46,19 +46,31 @@ local Redistribution = {
 
 ---@class MexRegionsDeal who holds what; empty when the deal was refused, and problems say why
 ---@field regions table<string, integer> the team holding each region, by region id
----@field spots table<string, integer> the team holding each metal spot, by spot key: the claims a mex is judged by
+---@field spots table<string, integer[]> the teams holding each metal spot, by spot key: the claims a mex is judged by. A spot two regions cover is held by both their teams
 ---@field problems string[] why there is no deal; empty when there is one
 
 ---@class EconomyMexRegionsStages: PolicyStages<MexRegionsDealContext, MexRegionsDeal>
 ---@field LayoutChecksOut string the layout passes the regions module's set check for mex regions: each region whole and fielded, no two sharing ground, every spot covered
 ---@field SpotsKnown string the map has metal spots; a metal map has nothing to deal
----@field NearestRoundRobin string a region goes round the teams seated at its start, nearest first; one whose start is empty this match goes round every team
+---@field NearestRoundRobin string a region goes round the teams seated at its start, nearest first; one whose start is empty this match goes round every team. A team left holding nothing means the layout has too few regions, and there is no deal
 
 ---@type EconomyMexRegionsStages
 local MexRegions = {
 	LayoutChecksOut = "LayoutChecksOut",
 	SpotsKnown = "SpotsKnown",
 	NearestRoundRobin = "NearestRoundRobin",
+}
+
+---@class MexRegionsHeirContext a team has left the match; who takes its regions
+---@field departing MexRegionsTeamStart
+---@field heirs { teamID: integer, x: number, z: number, gifted: integer }[] its living allies in the deal, each with how many regions departing teams have already left it
+
+---@class EconomyMexRegionsHeirStages: PolicyStages<MexRegionsHeirContext, integer|false>
+---@field FewestGiftedThenNearest string the ally gifted the fewest regions so far; among equals, the one who starts nearest the departing team
+
+---@type EconomyMexRegionsHeirStages
+local MexRegionsHeir = {
+	FewestGiftedThenNearest = "FewestGiftedThenNearest",
 }
 
 ---@class EconomyMexRegionsSetStages what economy adds to the regions module's set check, for its own type
@@ -79,11 +91,13 @@ local MexRegionsNames = {
 
 ---@class EconomyPipelines what LoadPolicies("economy") hands back
 ---@field mex_regions AssembledPipeline<MexRegionsDealContext, MexRegionsDeal>
+---@field mex_regions_heir AssembledPipeline<MexRegionsHeirContext, integer|false>
 
 ---@class EconomyContract
 ---@field Distribution EconomyDistributionFacts
 ---@field Redistribution EconomyRedistributionFacts
 ---@field MexRegions EconomyMexRegionsStages
+---@field MexRegionsHeir EconomyMexRegionsHeirStages
 ---@field MexRegionsSet EconomyMexRegionsSetStages
 ---@field MexRegionsNames EconomyMexRegionsNamesStages
 
@@ -91,6 +105,7 @@ return PolicyBuilder.Contract(Modules.Economy, {
 	Distribution = PolicyBuilder.Facts(Distribution),
 	Redistribution = PolicyBuilder.Facts(Redistribution),
 	MexRegions = PolicyBuilder.Single(MexRegions),
+	MexRegionsHeir = PolicyBuilder.Single(MexRegionsHeir),
 	MexRegionsSet = PolicyBuilder.Contributes(RegionsContract.CheckSet, MexRegionsSet),
 	MexRegionsNames = PolicyBuilder.Contributes(RegionsContract.Names, MexRegionsNames),
 })
