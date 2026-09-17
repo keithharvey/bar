@@ -2178,19 +2178,6 @@ function R.hullAround(points, pad)
 	return out
 end
 
-function R.heldByASibling(x, z)
-	local kind = R.TYPES[R.type]
-	if not (kind and kind.disjoint) then
-		return false
-	end
-	for _, region in ipairs(startboxes) do
-		if region.vertices and R.api.Contains(x, z, region.vertices) then
-			return true
-		end
-	end
-	return false
-end
-
 function R.spotsInRadial()
 	local finder = WG.resource_spot_finder
 	local spots = finder and finder.metalSpotsList or {}
@@ -2200,7 +2187,7 @@ function R.spotsInRadial()
 		return inside
 	end
 	for _, spot in ipairs(spots) do
-		if (spot.x - rad.cx) ^ 2 + (spot.z - rad.cz) ^ 2 <= rad.r * rad.r and not R.heldByASibling(spot.x, spot.z) then
+		if (spot.x - rad.cx) ^ 2 + (spot.z - rad.cz) ^ 2 <= rad.r * rad.r then
 			inside[#inside + 1] = spot
 		end
 	end
@@ -2225,7 +2212,7 @@ function R.nearestSpot(mx, my)
 	local best, bestD = nil, 90 * 90
 	for _, spot in ipairs(finder and finder.metalSpotsList or {}) do
 		local d = (spot.x - wx) ^ 2 + (spot.z - wz) ^ 2
-		if d < bestD and not R.heldByASibling(spot.x, spot.z) then
+		if d < bestD then
 			best, bestD = spot, d
 		end
 	end
@@ -2281,10 +2268,9 @@ function R.closeSelection()
 	if #gathered == 0 then
 		return false
 	end
-	local pad = (Game.extractorRadius or 80) * 1.5
-	local hull = R.disjointHull(gathered, pad)
+	local hull = R.hullFor(gathered)
 	if not hull then
-		R.error = "those spots sit against a neighbouring region; no hull fits between"
+		R.error = "no hull fits around those spots"
 		R.bump()
 		return false
 	end
@@ -2300,29 +2286,9 @@ function R.closeSelection()
 	return true
 end
 
-function R.disjointHull(points, pad)
-	local kind = R.TYPES[R.type]
-	local floor = Game.extractorRadius or 80
-	for _, factor in ipairs({ 1, 0.75, 0.5 }) do
-		local hull = R.hullAround(points, math.max(floor, pad * factor))
-		if not hull then
-			return nil
-		end
-		if not (kind and kind.disjoint) then
-			return hull
-		end
-		local clear = true
-		for _, region in ipairs(startboxes) do
-			if region.vertices and R.api.Overlaps(hull, region.vertices) then
-				clear = false
-				break
-			end
-		end
-		if clear then
-			return hull
-		end
-	end
-	return nil
+-- The ring the Mexes tool closes around the picked spots: their hull, padded by an extractor's reach and a half.
+function R.hullFor(points)
+	return R.hullAround(points, (Game.extractorRadius or 80) * 1.5)
 end
 
 function R.applyMode()
@@ -4840,7 +4806,7 @@ function widget:DrawWorld()
 		if R.previewFor ~= R.radialPending then
 			R.previewFor = R.radialPending
 			R.previewRing = nil
-			local preview = R.disjointHull(R.radialPending, (Game.extractorRadius or 80) * 1.5)
+			local preview = R.hullFor(R.radialPending)
 			if preview and #preview >= 3 then
 				local anchors = {}
 				for i, v in ipairs(preview) do
