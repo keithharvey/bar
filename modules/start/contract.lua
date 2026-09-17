@@ -1,5 +1,11 @@
 local PolicyBuilder = VFS.Include("modules/policy_builder.lua")
 local Modules = VFS.Include("modules/enums.lua").Modules
+local RegionsContract = VFS.Include("modules/regions/contract.lua") ---@type RegionsContract
+
+---@class StartRegion: Region a team's start as the editor draws it: a position, or the area the positions sit in
+---@field type "start"
+---@field team integer the start ordinal: start 1 is team 1
+---@field name string|nil the area's label
 
 ---@class StartArea one ally team's area, as the match resolved it
 ---@field allyTeam integer 1-based, the order the boxes come in
@@ -39,9 +45,29 @@ local Facts = {
 	Positions = "positions",
 }
 
+---@class StartRegionsSetStages what start adds to the regions module's set check, for its own type
+---@field AreasDisjoint string no two starts' areas share ground; neighbours may touch
+
+---@type StartRegionsSetStages
+local RegionsSet = {
+	AreasDisjoint = "AreasDisjoint",
+}
+
+---@class StartRegionsNamesStages what start adds to the regions module's naming, for its own type
+---@field FromTeam string a start that carries no name is called after its team
+
+---@type StartRegionsNamesStages
+local RegionsNames = {
+	FromTeam = "FromTeam",
+}
+
 ---@class StartContract
 ---@field Facts StartFacts
+---@field RegionsSet StartRegionsSetStages
+---@field RegionsNames StartRegionsNamesStages
 
 return PolicyBuilder.Contract(Modules.Start, {
 	Facts = PolicyBuilder.Facts(Facts),
+	RegionsSet = PolicyBuilder.Contributes(RegionsContract.CheckSet, RegionsSet),
+	RegionsNames = PolicyBuilder.Contributes(RegionsContract.Names, RegionsNames),
 })

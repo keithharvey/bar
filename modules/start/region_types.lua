@@ -6,7 +6,6 @@ return {
 		key = Enums.Types.Start,
 		label = "Start",
 		geometries = { Enums.Geometry.Point, Enums.Geometry.Polygon },
-		order = 10,
 		fields = {
 			Fields.Team({ required = true, unique = true }),
 			{ key = "name", label = "Label", kind = "string" },
