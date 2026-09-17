@@ -1,3 +1,5 @@
+local ModuleHandler = VFS.Include("modules/module_handler.lua")
+local Modules = VFS.Include("modules/enums.lua").Modules
 local Contract = VFS.Include("modules/regions/contract.lua") ---@type RegionsContract
 local Enums = VFS.Include("modules/regions/enums.lua")
 local Geometry = VFS.Include("modules/regions/lib/geometry.lua") ---@type RegionGeometry
@@ -17,18 +19,15 @@ local function shapeOf(region)
 	return nil
 end
 
----@param kind RegionType
+---@param ctx RegionCheckContext
 ---@param region Region
----@param index integer the region's place among its siblings, when no field names it
----@return string
-local function describe(kind, region, index)
-	for _, field in ipairs(kind.fields) do
-		local value = region[field.key]
-		if value ~= nil and value ~= "" then
-			return tostring(value)
-		end
+---@param field RegionField
+---@return any the field's value; for the name, what the region is called even when it carries none
+local function valueOf(ctx, region, field)
+	if field.key == "name" then
+		return ctx.names[region]
 	end
-	return "#" .. index
+	return region[field.key]
 end
 
 Policies.On(Contract.Check)
@@ -53,7 +52,7 @@ Policies.On(Contract.Check)
 	end)
 	.Apply(Contract.Check.Fields, function(ctx)
 		for _, field in ipairs(ctx.type.fields) do
-			local value = ctx.region[field.key]
+			local value = valueOf(ctx, ctx.region, field)
 			local missing = value == nil or value == ""
 			if field.required and missing then
 				ctx.problems[#ctx.problems + 1] = "a " .. ctx.type.label:lower() .. " needs a " .. field.label:lower()
@@ -65,7 +64,7 @@ Policies.On(Contract.Check)
 				for _, other in ipairs(ctx.siblings) do
 					if
 						other ~= ctx.region
-						and other[field.key] == value
+						and valueOf(ctx, other, field) == value
 						and (scope == nil or other[scope] == ctx.region[scope])
 					then
 						ctx.problems[#ctx.problems + 1] = "a "
@@ -85,16 +84,29 @@ Policies.On(Contract.Check)
 		if not ctx.type.disjoint or ctx.fieldsOnly or not ctx.region.vertices then
 			return
 		end
-		for i, other in ipairs(ctx.siblings) do
+		for _, other in ipairs(ctx.siblings) do
 			if other ~= ctx.region and other.vertices and Geometry.Overlaps(ctx.region.vertices, other.vertices) then
-				ctx.problems[#ctx.problems + 1] = "overlaps "
-					.. ctx.type.label:lower()
-					.. " "
-					.. describe(ctx.type, other, i)
+				ctx.problems[#ctx.problems + 1] = "overlaps " .. ctx.type.label:lower() .. " " .. ctx.names[other]
 				return
 			end
 		end
 	end)
+
+Policies.On(Contract.CheckSet).Apply(Contract.CheckSet.Each, function(ctx)
+	local pipelines = ModuleHandler.LoadPolicies(Modules.Regions) ---@type RegionsPipelines
+	local names = {} ---@type table<Region, string>
+	for i, region in ipairs(ctx.regions) do
+		names[region] = ctx.names[i]
+	end
+	for i, region in ipairs(ctx.regions) do
+		---@type RegionCheckContext
+		local one = { type = ctx.type, region = region, siblings = ctx.regions, names = names, problems = {} }
+		ModuleHandler.Evaluate(pipelines.check, one)
+		for _, problem in ipairs(one.problems) do
+			ctx.problems[#ctx.problems + 1] = ctx.names[i] .. ": " .. problem
+		end
+	end
+end)
 
 Policies.On(Contract.Facts)
 	.Default(Contract.Facts.Area, function(ctx)

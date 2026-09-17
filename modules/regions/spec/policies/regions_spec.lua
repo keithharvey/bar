@@ -4,6 +4,20 @@ local Enums = VFS.Include("modules/regions/enums.lua")
 
 local square = { { x = 0, z = 0 }, { x = 100, z = 0 }, { x = 100, z = 100 }, { x = 0, z = 100 } }
 
+---@param fields table
+---@return Region
+local function mex(fields)
+	fields.type = Enums.Types.MexRegion
+	return fields
+end
+
+---@param fields table
+---@return Region
+local function start(fields)
+	fields.type = Enums.Types.Start
+	return fields
+end
+
 describe("the region types", function()
 	it("come in dropdown order, each saying what it may be drawn as", function()
 		local order, byKey = Regions.Types()
@@ -12,106 +26,145 @@ describe("the region types", function()
 		assert.are.same({ "polygon" }, byKey.mex_region.geometries)
 		assert.are.equal("start", byKey.start.module)
 		assert.are.equal("economy", byKey.mex_region.module)
+		assert.are.equal("group", byKey.mex_region.nameFrom)
+	end)
+end)
+
+describe("a region's name", function()
+	it("is what the map gave it, or its type's nameFrom field, numbered once siblings share it", function()
+		local names = Regions.Names(Enums.Types.MexRegion, {
+			mex({ team = 1, group = "anti" }),
+			mex({ team = 1, group = "tech" }),
+			mex({ team = 1, group = "tech" }),
+			mex({ team = 2, group = "tech" }),
+			mex({ team = 1, group = "tech", name = "given" }),
+		})
+		assert.are.same({ name = "anti", derived = true }, names[1])
+		assert.are.same({ name = "tech_1", derived = true }, names[2])
+		assert.are.same({ name = "tech_2", derived = true }, names[3])
+		assert.are.same({ name = "tech", derived = true }, names[4], "another team's tech is the only one there")
+		assert.are.same({ name = "given", derived = false }, names[5])
+	end)
+
+	it("falls back to the type's label when the field is empty, and to numbering for a type without one", function()
+		local names = Regions.Names(Enums.Types.MexRegion, { mex({ team = 1 }), mex({ team = 1 }) })
+		assert.are.same({ "mex_region_1", "mex_region_2" }, { names[1].name, names[2].name })
+		local starts = Regions.Names(Enums.Types.Start, { start({ team = 1 }), start({ team = 2, name = "N" }) })
+		assert.are.same({ "start", "N" }, { starts[1].name, starts[2].name })
 	end)
 end)
 
 describe("checking a region", function()
 	it("passes a whole polygon with its required fields", function()
-		assert.are.same({}, Regions.Check(Enums.Types.MexRegion, { name = "west", team = 1, vertices = square }, {}))
+		assert.are.same({}, Regions.Check(Enums.Types.MexRegion, mex({ team = 1, group = "g", vertices = square }), {}))
 	end)
 
 	it("collects every problem rather than stopping at the first", function()
-		local problems = Regions.Check(Enums.Types.Start, { vertices = { { x = 0, z = 0 } } }, {})
+		local problems = Regions.Check(Enums.Types.Start, start({ vertices = { { x = 0, z = 0 } } }), {})
 		assert.are.same({ "a polygon needs at least three vertices", "a start needs a team" }, problems)
 	end)
 
 	it("refuses a shape the type cannot take, and a name a sibling already has", function()
 		assert.are.same(
 			{ "a mex region cannot be a point" },
-			Regions.Check(Enums.Types.MexRegion, { name = "a", team = 1, x = 1, z = 1 }, {})
+			Regions.Check(Enums.Types.MexRegion, mex({ team = 1, group = "g", x = 1, z = 1 }), {})
 		)
 		assert.are.same(
 			{ "a mex region with name west already exists" },
 			Regions.Check(
 				Enums.Types.MexRegion,
-				{ name = "west", team = 1, vertices = square },
-				{ { name = "west", team = 1, x = 0, z = 0 } }
+				mex({ name = "west", team = 1, group = "g", vertices = square }),
+				{ mex({ name = "west", team = 1, group = "g", x = 0, z = 0 }) }
 			)
 		)
 	end)
 
-	it("checks only the fields when the region has no shape yet; a mex region needs its name and team first", function()
-		assert.are.same({}, Regions.Check(Enums.Types.MexRegion, { name = "soon", team = 1 }, {}, true))
+	it(
+		"checks only the fields when the region has no shape yet; a mex region needs its team and group first",
+		function()
+			assert.are.same({}, Regions.Check(Enums.Types.MexRegion, mex({ team = 1, group = "g" }), {}, true))
+			assert.are.same(
+				{ "a mex region needs a team", "a mex region needs a group" },
+				Regions.Check(Enums.Types.MexRegion, mex({}), {}, true)
+			)
+		end
+	)
+
+	it("judges a derived name like a given one: unique within its team", function()
+		local souths = { mex({ name = "anti", team = 2, group = "x" }) }
+		assert.are.same({}, Regions.Check(Enums.Types.MexRegion, mex({ team = 1, group = "anti" }), souths, true))
 		assert.are.same(
-			{ "a mex region needs a name", "a mex region needs a team" },
-			Regions.Check(Enums.Types.MexRegion, {}, {}, true)
+			{ "a mex region with name anti already exists" },
+			Regions.Check(Enums.Types.MexRegion, mex({ team = 2, group = "anti" }), souths, true)
 		)
 		assert.are.same(
-			{ "a mex region with name soon already exists" },
-			Regions.Check(Enums.Types.MexRegion, { name = "soon", team = 1 }, { { name = "soon", team = 1 } }, true)
+			{ "Team must be a number" },
+			Regions.Check(Enums.Types.MexRegion, mex({ team = "south", group = "g" }), {}, true)
 		)
 	end)
 
 	it("a start may be a point or a polygon, and names its team", function()
-		assert.are.same({}, Regions.Check(Enums.Types.Start, { team = 1, x = 5, z = 5 }, {}))
-		assert.are.same({}, Regions.Check(Enums.Types.Start, { team = 2, vertices = square }, {}))
-		assert.are.same({ "a start needs a team" }, Regions.Check(Enums.Types.Start, { x = 5, z = 5 }, {}))
-	end)
-
-	it("a mex region's name is unique within its team, so two teams may each have an anti1", function()
-		local souths = { { name = "anti1", team = 2 } }
-		assert.are.same({}, Regions.Check(Enums.Types.MexRegion, { name = "anti1", team = 1 }, souths, true))
-		assert.are.same(
-			{ "a mex region with name anti1 already exists" },
-			Regions.Check(Enums.Types.MexRegion, { name = "anti1", team = 2 }, souths, true)
-		)
-		assert.are.same(
-			{ "Team must be a number" },
-			Regions.Check(Enums.Types.MexRegion, { name = "x", team = "south" }, {}, true)
-		)
+		assert.are.same({}, Regions.Check(Enums.Types.Start, start({ team = 1, x = 5, z = 5 }), {}))
+		assert.are.same({}, Regions.Check(Enums.Types.Start, start({ team = 2, vertices = square }), {}))
+		assert.are.same({ "a start needs a team" }, Regions.Check(Enums.Types.Start, start({ x = 5, z = 5 }), {}))
 	end)
 end)
 
 describe("a disjoint type", function()
-	local a = {
+	local a = mex({
 		name = "a",
 		team = 1,
+		group = "g",
 		vertices = { { x = 0, z = 0 }, { x = 100, z = 0 }, { x = 100, z = 100 }, { x = 0, z = 100 } },
-	}
-	local b = {
-		name = "b",
+	})
+	local b = mex({
 		team = 1,
+		group = "b",
 		vertices = { { x = 50, z = 50 }, { x = 150, z = 50 }, { x = 150, z = 150 }, { x = 50, z = 150 } },
-	}
-	local c = {
+	})
+	local c = mex({
 		name = "c",
 		team = 2,
+		group = "g",
 		vertices = { { x = 500, z = 500 }, { x = 600, z = 500 }, { x = 600, z = 600 }, { x = 500, z = 600 } },
-	}
+	})
 
-	it("never has two regions sharing ground", function()
+	it("never has two regions sharing ground, and names the one in the way", function()
 		local _, byKey = Regions.Types()
 		assert.is_true(byKey.mex_region.disjoint)
 		assert.are.same({ "overlaps mex region a" }, Regions.Check(Enums.Types.MexRegion, b, { a, c }))
+		assert.are.same(
+			{ "overlaps mex region b" },
+			Regions.Check(Enums.Types.MexRegion, a, { b, c }),
+			"b by its derived name"
+		)
 		assert.are.same({}, Regions.Check(Enums.Types.MexRegion, c, { a, b }))
 	end)
 
 	it("is a rule only for types that declare it, and only once there is a shape", function()
-		assert.are.same({}, Regions.Check(Enums.Types.MexRegion, { name = "b", team = 1 }, { a }, true))
+		assert.are.same({}, Regions.Check(Enums.Types.MexRegion, mex({ team = 1, group = "b" }), { a }, true))
 		assert.are.same(
 			{},
 			Regions.Check(
 				Enums.Types.Start,
-				{ team = 2, vertices = b.vertices },
-				{ { team = 1, vertices = a.vertices } }
+				start({ team = 2, vertices = b.vertices }),
+				{ start({ team = 1, vertices = a.vertices }) }
 			)
 		)
+	end)
+
+	it("as a set, every problem names its region", function()
+		assert.are.same(
+			{ "a: overlaps mex region b", "b: overlaps mex region a" },
+			Regions.CheckSet(Enums.Types.MexRegion, { a, b, c })
+		)
+		assert.are.same({}, Regions.CheckSet(Enums.Types.MexRegion, { a, c }))
 	end)
 end)
 
 describe("a region's facts", function()
 	it("come from the geometry alone when the asker knows nothing else", function()
-		local facts = Regions.Facts({ type = "mex_region", name = "a", vertices = square }, {})
+		local facts = Regions.Facts(mex({ team = 1, group = "a", vertices = square }), {})
 		assert.are.equal(10000, facts[Contract.Facts.Area])
 		assert.are.same({ x = 50, z = 50 }, facts[Contract.Facts.Centre])
 		assert.is_nil(facts[Contract.Facts.MetalSpots])
@@ -119,7 +172,7 @@ describe("a region's facts", function()
 	end)
 
 	it("count the metal under the region and find the nearest start", function()
-		local facts = Regions.Facts({ type = "mex_region", name = "a", vertices = square }, {
+		local facts = Regions.Facts(mex({ team = 1, group = "a", vertices = square }), {
 			spots = { { x = 10, z = 10, worth = 2 }, { x = 20, z = 20, worth = 1.5 }, { x = 500, z = 500, worth = 9 } },
 			starts = { { allyTeam = 1, x = 1000, z = 1000 }, { allyTeam = 2, x = 60, z = 60 } },
 		})
@@ -130,7 +183,7 @@ describe("a region's facts", function()
 	end)
 
 	it("a point has no area and is its own centre", function()
-		local facts = Regions.Facts({ type = "start", team = 1, x = 7, z = 9 }, {})
+		local facts = Regions.Facts(start({ team = 1, x = 7, z = 9 }), {})
 		assert.are.equal(0, facts[Contract.Facts.Area])
 		assert.are.same({ x = 7, z = 9 }, facts[Contract.Facts.Centre])
 	end)

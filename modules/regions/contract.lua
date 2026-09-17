@@ -8,11 +8,17 @@ local Modules = VFS.Include("modules/enums.lua").Modules
 ---@field z number|nil
 ---@field vertices { x: number, z: number }[]|nil a polygon's ring, elmos
 ---@field tags string[]|nil what no type has claimed yet
+---@field name string|nil what the region is called; when absent the type derives one, see RegionsApi.Names
+
+---@class RegionEnv what the map knows around the regions, when the asker has it
+---@field spots { x: number, z: number, worth: number|nil }[]|nil the map's metal spots
+---@field starts { allyTeam: integer, x: number, z: number }[]|nil the map's start positions
 
 ---@class RegionCheckContext one region on its way through the rules; problems collect, so a form can show them all
 ---@field type RegionType the descriptor the region claims
 ---@field region Region
 ---@field siblings Region[] the other regions of the same type
+---@field names table<Region, string> what the region and each sibling are called, derived where they carry no name
 ---@field fieldsOnly boolean|nil the region has no shape yet: check what it will carry, not what it is
 ---@field problems string[]
 
@@ -26,6 +32,21 @@ local Check = {
 	Shape = "Shape",
 	Fields = "Fields",
 	Disjoint = "Disjoint",
+}
+
+---@class RegionSetContext every region of one type together, on its way through the rules that judge the set; problems collect
+---@field type RegionType
+---@field regions Region[]
+---@field names string[] what each region is called, by index, derived where it carries no name
+---@field env RegionEnv
+---@field problems string[]
+
+---@class RegionSetStages: PolicyStages<RegionSetContext, RegionSetContext> the set's rules; a type's owner contributes its own, such as what the set must cover
+---@field Each string every region passes its type's Check against its siblings; a problem names its region
+
+---@type RegionSetStages
+local CheckSet = {
+	Each = "Each",
 }
 
 ---@class RegionFactsContext what the facts are computed from: the region, and what the map knows around it
@@ -49,12 +70,15 @@ local Facts = {
 
 ---@class RegionsPipelines what LoadPolicies("regions") hands back
 ---@field check AssembledPipeline<RegionCheckContext, RegionCheckContext>
+---@field check_set AssembledPipeline<RegionSetContext, RegionSetContext>
 
 ---@class RegionsContract
 ---@field Check RegionCheckStages
+---@field CheckSet RegionSetStages
 ---@field Facts RegionFacts
 
 return PolicyBuilder.Contract(Modules.Regions, {
 	Check = PolicyBuilder.Fold(Check),
+	CheckSet = PolicyBuilder.Fold(CheckSet),
 	Facts = PolicyBuilder.Facts(Facts),
 })
