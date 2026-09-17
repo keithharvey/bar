@@ -1,5 +1,5 @@
 local Enums = VFS.Include("modules/regions/enums.lua")
-local Fields = VFS.Include("modules/regions/fields.lua") ---@type RegionFields
+local Fields = VFS.Include("modules/start/fields.lua") ---@type StartRegionFields
 
 return {
 	[Enums.Types.Start] = {
@@ -8,7 +8,7 @@ return {
 		geometries = { Enums.Geometry.Point, Enums.Geometry.Polygon },
 		order = 10,
 		fields = {
-			Fields.With(Fields.Team, { required = true, unique = true }),
+			Fields.Team({ required = true, unique = true }),
 			{ key = "name", label = "Label", kind = "string" },
 		},
 	},
