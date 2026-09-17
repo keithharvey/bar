@@ -46,7 +46,7 @@ local StartboxLib = VFS.Include("luarules/gadgets/include/startbox_utilities.lua
 local Start = VFS.Include("modules/start/api.lua") ---@type StartApi
 
 local function editorHasTheMap()
-	local tool = WG.StartPosTool
+	local tool = WG.RegionsTool
 	return tool ~= nil and tool.isActive ~= nil and tool.isActive() == true
 end
 local getCurrentMiniMapRotationOption = VFS.Include("luaui/Include/minimap_utils.lua").getCurrentMiniMapRotationOption

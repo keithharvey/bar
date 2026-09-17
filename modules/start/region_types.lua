@@ -8,7 +8,7 @@ return {
 		geometries = { Enums.Geometry.Point, Enums.Geometry.Polygon },
 		order = 10,
 		fields = {
-			Fields.With(Fields.Team, { required = true }),
+			Fields.With(Fields.Team, { required = true, unique = true }),
 			{ key = "name", label = "Label", kind = "string" },
 		},
 	},
