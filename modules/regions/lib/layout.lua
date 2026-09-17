@@ -1,4 +1,4 @@
----@class RegionLayout the layout codec: every type's regions in one table keyed by type, drawn in the startbox 0..200 space, to and from Region records in elmos. Besides its shape an entry carries the fields its type declares, and nothing else
+---@class RegionLayout the layout codec: every type's regions in one table keyed by type, drawn in the startbox 0..200 space, to and from Region records in elmos. An entry is a poly or a point's x and y, plus the fields its type declares, and nothing else
 local Layout = {}
 
 Layout.SPACE = 200
@@ -57,14 +57,15 @@ function Layout.Export(regions, byKey, mapSizeX, mapSizeZ)
 				end
 				entry.tags = tags
 			end
-			if region.vertices then
+			local vertices = region.vertices or {}
+			if #vertices == 1 then
+				entry.x, entry.y = round(vertices[1].x * sx), round(vertices[1].z * sz)
+			elseif #vertices > 0 then
 				local poly = {}
-				for j, v in ipairs(region.vertices) do
+				for j, v in ipairs(vertices) do
 					poly[j] = { x = round(v.x * sx), y = round(v.z * sz) }
 				end
 				entry.poly = poly
-			elseif region.x and region.z then
-				entry.x, entry.y = round(region.x * sx), round(region.z * sz)
 			end
 			local slot = layout.regions[kind.key] or {}
 			layout.regions[kind.key] = slot
@@ -118,7 +119,7 @@ function Layout.Parse(layout, kind, mapSizeX, mapSizeZ)
 			end
 			region.vertices = vertices
 		elseif type(entry.x) == "number" and type(entry.y) == "number" then
-			region.x, region.z = entry.x * scaleX, entry.y * scaleZ
+			region.vertices = { { x = entry.x * scaleX, z = entry.y * scaleZ } }
 		else
 			return nil, who .. " has no shape: a poly, or x and y"
 		end

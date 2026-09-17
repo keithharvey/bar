@@ -3,10 +3,7 @@ local Modules = VFS.Include("modules/enums.lua").Modules
 
 ---@class Region contained space on the map: the shape, and nothing a type adds. A type's own record extends it, in the module that owns the type
 ---@field type RegionTypeKey
----@field geometry RegionGeometryKey|nil inferred from the shape when absent: vertices make a polygon, x and z a point
----@field x number|nil a point's position, elmos
----@field z number|nil
----@field vertices { x: number, z: number }[]|nil a polygon's ring, elmos
+---@field vertices { x: number, z: number }[]|nil the shape, elmos: one vertex is a point, three or more a polygon, see RegionGeometry.Of; absent while the region is still being drawn
 ---@field tags string[]|nil what no type has claimed yet
 ---@field name string|nil what the region is called; when absent the type derives one, see RegionsApi.Names
 

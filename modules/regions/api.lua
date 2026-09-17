@@ -9,6 +9,7 @@ local Layout = VFS.Include("modules/regions/lib/layout.lua") ---@type RegionLayo
 ---@class RegionsApi what the game's files and the other modules call: the registry, the rules, the names and the layout codec
 ---@field Overlaps fun(a: { x: number, z: number }[], b: { x: number, z: number }[]): boolean
 ---@field Contains fun(x: number, z: number, vertices: { x: number, z: number }[]): boolean
+---@field GeometryOf fun(vertices: { x: number, z: number }[]): RegionGeometryKey|nil what a region is drawn as, from its vertices alone
 ---@field EncodeLayout fun(layout: table): string|nil the layout as the modoption carries it
 ---@field DecodeLayout fun(raw: string): table|nil
 local Api = {}
@@ -145,6 +146,7 @@ end
 
 Api.Overlaps = Geometry.Overlaps
 Api.Contains = Geometry.Contains
+Api.GeometryOf = Geometry.Of
 
 Api.EncodeLayout = Layout.Encode
 Api.DecodeLayout = Layout.Decode

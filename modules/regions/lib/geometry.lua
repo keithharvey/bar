@@ -3,6 +3,19 @@
 local Geometry = {}
 
 ---@param vertices { x: number, z: number }[]
+---@return RegionGeometryKey|nil what the ring is: one vertex a point, three or more a polygon; nil for anything else
+function Geometry.Of(vertices)
+	local n = #vertices
+	if n == 1 then
+		return "point"
+	end
+	if n >= 3 then
+		return "polygon"
+	end
+	return nil
+end
+
+---@param vertices { x: number, z: number }[]
 ---@return number
 function Geometry.Area(vertices)
 	local n = #vertices

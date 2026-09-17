@@ -40,9 +40,7 @@ describe("a region layout", function()
 		assert.are.equal("7", regions[1].group)
 		local starts =
 			assert(Layout.Parse({ regions = { start = { { team = 1, x = 50, y = 100 } } } }, byKey.start, 400, 400))
-		assert.are.equal(100, starts[1].x)
-		assert.are.equal(200, starts[1].z)
-		assert.is_nil(starts[1].vertices)
+		assert.are.same({ { x = 100, z = 200 } }, starts[1].vertices, "a point is a ring of one")
 	end)
 
 	it("refuses what it cannot read, naming the entry", function()
@@ -74,7 +72,7 @@ describe("a region layout", function()
 				tags = { "x" },
 				vertices = { { x = 0, z = 0 }, { x = 200, z = 0 }, { x = 0, z = 200 } },
 			},
-			{ type = "start", team = 1, x = 100, z = 50 },
+			{ type = "start", team = 1, vertices = { { x = 100, z = 50 } } },
 			{ type = "nobody_knows", vertices = {} },
 		}, byKey, 200, 200)
 		assert.are.same({

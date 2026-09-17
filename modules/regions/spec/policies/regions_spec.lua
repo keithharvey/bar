@@ -60,21 +60,24 @@ describe("checking a region", function()
 	end)
 
 	it("collects every problem rather than stopping at the first", function()
-		local problems = Regions.Check(Enums.Types.Start, start({ vertices = { { x = 0, z = 0 } } }), {})
-		assert.are.same({ "a polygon needs at least three vertices", "a start needs a team" }, problems)
+		local problems = Regions.Check(Enums.Types.MexRegion, mex({ vertices = { { x = 0, z = 0 } } }), {})
+		assert.are.same(
+			{ "a mex region cannot be a point", "a mex region needs a team", "a mex region needs a group" },
+			problems
+		)
 	end)
 
 	it("refuses a shape the type cannot take, and a name a sibling already has", function()
 		assert.are.same(
 			{ "a mex region cannot be a point" },
-			Regions.Check(Enums.Types.MexRegion, mex({ team = 1, group = "g", x = 1, z = 1 }), {})
+			Regions.Check(Enums.Types.MexRegion, mex({ team = 1, group = "g", vertices = { { x = 1, z = 1 } } }), {})
 		)
 		assert.are.same(
 			{ "a mex region with name west already exists" },
 			Regions.Check(
 				Enums.Types.MexRegion,
 				mex({ name = "west", team = 1, group = "g", vertices = square }),
-				{ mex({ name = "west", team = 1, group = "g", x = 0, z = 0 }) }
+				{ mex({ name = "west", team = 1, group = "g", vertices = { { x = 0, z = 0 } } }) }
 			)
 		)
 	end)
@@ -103,10 +106,24 @@ describe("checking a region", function()
 		)
 	end)
 
+	it("two vertices are neither a point nor a polygon", function()
+		assert.are.same(
+			{ "two vertices make neither a point nor a polygon" },
+			Regions.Check(Enums.Types.Start, start({ team = 1, vertices = { { x = 0, z = 0 }, { x = 5, z = 5 } } }), {})
+		)
+		assert.are.same(
+			{ "a region is a point or a polygon" },
+			Regions.Check(Enums.Types.Start, start({ team = 1 }), {})
+		)
+	end)
+
 	it("a start may be a point or a polygon, and names its team", function()
-		assert.are.same({}, Regions.Check(Enums.Types.Start, start({ team = 1, x = 5, z = 5 }), {}))
+		assert.are.same({}, Regions.Check(Enums.Types.Start, start({ team = 1, vertices = { { x = 5, z = 5 } } }), {}))
 		assert.are.same({}, Regions.Check(Enums.Types.Start, start({ team = 2, vertices = square }), {}))
-		assert.are.same({ "a start needs a team" }, Regions.Check(Enums.Types.Start, start({ x = 5, z = 5 }), {}))
+		assert.are.same(
+			{ "a start needs a team" },
+			Regions.Check(Enums.Types.Start, start({ vertices = { { x = 5, z = 5 } } }), {})
+		)
 	end)
 end)
 
@@ -183,7 +200,7 @@ describe("a region's facts", function()
 	end)
 
 	it("a point has no area and is its own centre", function()
-		local facts = Regions.Facts(start({ team = 1, x = 7, z = 9 }), {})
+		local facts = Regions.Facts(start({ team = 1, vertices = { { x = 7, z = 9 } } }), {})
 		assert.are.equal(0, facts[Contract.Facts.Area])
 		assert.are.same({ x = 7, z = 9 }, facts[Contract.Facts.Centre])
 	end)

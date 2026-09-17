@@ -1,23 +1,7 @@
 local ModuleHandler = VFS.Include("modules/module_handler.lua")
 local Modules = VFS.Include("modules/enums.lua").Modules
 local Contract = VFS.Include("modules/regions/contract.lua") ---@type RegionsContract
-local Enums = VFS.Include("modules/regions/enums.lua")
 local Geometry = VFS.Include("modules/regions/lib/geometry.lua") ---@type RegionGeometry
-
----@param region Region
----@return RegionGeometryKey|nil
-local function shapeOf(region)
-	if region.geometry then
-		return region.geometry
-	end
-	if type(region.vertices) == "table" then
-		return Enums.Geometry.Polygon
-	end
-	if type(region.x) == "number" and type(region.z) == "number" then
-		return Enums.Geometry.Point
-	end
-	return nil
-end
 
 ---@param ctx RegionCheckContext
 ---@param region Region
@@ -35,9 +19,11 @@ Policies.On(Contract.Check)
 		if ctx.fieldsOnly then
 			return
 		end
-		local shape = shapeOf(ctx.region)
+		local vertices = ctx.region.vertices or {}
+		local shape = Geometry.Of(vertices)
 		if shape == nil then
-			ctx.problems[#ctx.problems + 1] = "a region is a point or a polygon"
+			ctx.problems[#ctx.problems + 1] = #vertices == 2 and "two vertices make neither a point nor a polygon"
+				or "a region is a point or a polygon"
 			return
 		end
 		local allowed = false
@@ -46,8 +32,6 @@ Policies.On(Contract.Check)
 		end
 		if not allowed then
 			ctx.problems[#ctx.problems + 1] = "a " .. ctx.type.label:lower() .. " cannot be a " .. shape
-		elseif shape == Enums.Geometry.Polygon and #ctx.region.vertices < 3 then
-			ctx.problems[#ctx.problems + 1] = "a polygon needs at least three vertices"
 		end
 	end)
 	.Apply(Contract.Check.Fields, function(ctx)
@@ -113,11 +97,8 @@ Policies.On(Contract.Facts)
 		return ctx.region.vertices and Geometry.Area(ctx.region.vertices) or 0
 	end)
 	.Default(Contract.Facts.Centre, function(ctx)
-		if ctx.region.vertices then
-			local x, z = Geometry.Centroid(ctx.region.vertices)
-			return { x = x, z = z }
-		end
-		return { x = ctx.region.x or 0, z = ctx.region.z or 0 }
+		local x, z = Geometry.Centroid(ctx.region.vertices or {})
+		return { x = x, z = z }
 	end)
 	.Default(Contract.Facts.MetalSpots, function(ctx)
 		if not ctx.spots or not ctx.region.vertices then
@@ -136,12 +117,7 @@ Policies.On(Contract.Facts)
 		if not ctx.starts or #ctx.starts == 0 then
 			return nil
 		end
-		local cx, cz
-		if ctx.region.vertices then
-			cx, cz = Geometry.Centroid(ctx.region.vertices)
-		else
-			cx, cz = ctx.region.x or 0, ctx.region.z or 0
-		end
+		local cx, cz = Geometry.Centroid(ctx.region.vertices or {})
 		local best, bestD = ctx.starts[1], math.huge
 		for _, start in ipairs(ctx.starts) do
 			local d = Geometry.Distance(cx, cz, start.x, start.z)
