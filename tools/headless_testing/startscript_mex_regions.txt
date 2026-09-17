@@ -14,7 +14,7 @@
 		debugcommands=1:cheat|2:godmode|30:runtestsheadless economy;
 		deathmode=neverend;
 		mex_splitting=map_assigned;
-		mex_regions_layout=eJx9zksKgzAYBOC7zDqLJBaFXKVkEcqvLdVEkkgrkrsX7YNEpMsZho9Z4Km7ORugzgusGQgKDwoRDJHMACUYOu-mEQptb-wdDKPr523_hOIMMxRPbEv1O0rOk16rD0gmA-V_UJxKUvJj0zofr_nLHKlL42s2JRHclBHykBDVHtkfuZCN5H9Mdcg0e2V1ddLpBfq6b_Y;
+		mex_regions_layout=eJx9zkEKgzAQheG7vHUWSSwKc5USipRUSjWRNAUlzN2LhtIatMs3DB9_QrDd3bsnKGGw0yVP0Dkh2nYAKYEu-NcIwq1v3QMCo-_n9WMCSYEZJFmsq85TS8lmOWVC_yfUaYtouav8hgTvYqHUW-SDNoclx4aqSqVIqb7M1bpow77TlMwCGzbMb91nbqM;
 	}
 	[ALLYTEAM0]
 	{

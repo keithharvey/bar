@@ -1,5 +1,6 @@
 local PolicyBuilder = VFS.Include("modules/policy_builder.lua")
 local Modules = VFS.Include("modules/enums.lua").Modules
+local RegionsContract = VFS.Include("modules/regions/contract.lua") ---@type RegionsContract
 
 ---@class EconomyTeamContext one team, asked what redistribution costs it
 ---@field teamId integer
@@ -24,12 +25,12 @@ local Redistribution = {
 	Results = "results",
 }
 
----@class MexRegion: Region one of the layout's regions, in elmos: a named area whose metal is dealt to the teams seated at one start
+---@class MexRegion: Region one of the layout's regions, in elmos: an area whose metal is dealt to the teams seated at one start
 ---@field type "mex_region"
 ---@field id string name@team, unique in the layout
----@field name string
+---@field name string given by the map, or derived from the group at load
 ---@field team integer the start ordinal the region belongs to: start 1 is team 1
----@field group string|nil
+---@field group string what the region is for on this map: "anti", "tech"
 ---@field vertices { x: number, z: number }[]
 
 ---@class MexRegionsTeamStart a team, seated at a start
@@ -44,13 +45,12 @@ local Redistribution = {
 ---@field teams MexRegionsTeamStart[] the order the deal goes round
 
 ---@class MexRegionsDeal who holds what; empty when the deal was refused, and problems say why
----@field regions table<string, integer> region id -> the team that holds it
----@field spots table<string, integer> spot key -> the team that holds it: the claims a mex is judged by
----@field open string[] the spot keys no region covers; whoever builds there holds them
+---@field regions table<string, integer> the team holding each region, by region id
+---@field spots table<string, integer> the team holding each metal spot, by spot key: the claims a mex is judged by
 ---@field problems string[] why there is no deal; empty when there is one
 
 ---@class EconomyMexRegionsStages: PolicyStages<MexRegionsDealContext, MexRegionsDeal>
----@field LayoutChecksOut string every region passes the regions module's Check for its type: whole, its fields present and unique, no two sharing ground
+---@field LayoutChecksOut string the layout passes the regions module's set check for mex regions: each region whole and fielded, no two sharing ground, every spot covered
 ---@field SpotsKnown string the map has metal spots; a metal map has nothing to deal
 ---@field NearestRoundRobin string a region goes round the teams seated at its start, nearest first; one whose start is empty this match goes round every team
 
@@ -61,6 +61,14 @@ local MexRegions = {
 	NearestRoundRobin = "NearestRoundRobin",
 }
 
+---@class EconomyMexRegionsSetStages what economy adds to the regions module's set check, for its own type
+---@field MexesCovered string every metal spot the asker knows lies inside a mex region
+
+---@type EconomyMexRegionsSetStages
+local MexRegionsSet = {
+	MexesCovered = "MexesCovered",
+}
+
 ---@class EconomyPipelines what LoadPolicies("economy") hands back
 ---@field mex_regions AssembledPipeline<MexRegionsDealContext, MexRegionsDeal>
 
@@ -68,9 +76,11 @@ local MexRegions = {
 ---@field Distribution EconomyDistributionFacts
 ---@field Redistribution EconomyRedistributionFacts
 ---@field MexRegions EconomyMexRegionsStages
+---@field MexRegionsSet EconomyMexRegionsSetStages
 
 return PolicyBuilder.Contract(Modules.Economy, {
 	Distribution = PolicyBuilder.Facts(Distribution),
 	Redistribution = PolicyBuilder.Facts(Redistribution),
 	MexRegions = PolicyBuilder.Single(MexRegions),
+	MexRegionsSet = PolicyBuilder.Contributes(RegionsContract.CheckSet, MexRegionsSet),
 })

@@ -1,19 +1,50 @@
 local Claims = VFS.Include("modules/economy/lib/mex_regions/claims.lua") ---@type MexRegionsClaimsLib
-local Layout = VFS.Include("modules/economy/lib/mex_regions/layout.lua") ---@type MexRegionsLayout
+local Records = VFS.Include("modules/economy/lib/mex_regions/records.lua") ---@type MexRegionsRecords
+local Regions = VFS.Include("modules/regions/api.lua") ---@type RegionsApi
+local RegionEnums = VFS.Include("modules/regions/enums.lua")
 local Shared = VFS.Include("modules/economy/lib/mex_regions/shared.lua") ---@type MexRegionsShared
 
-local function rect(name, team, x1, y1, x2, y2)
-	return { name = name, team = team, poly = { { x = x1, y = y1 }, { x = x2, y = y2 } } }
+local function rect(team, group, x1, y1, x2, y2, name)
+	return { name = name, team = team, group = group, poly = { { x = x1, y = y1 }, { x = x2, y = y2 } } }
 end
 
+---@return MexRegion[]
+local function parse(entries)
+	local regions, reason = Regions.ParseLayout(
+		{ regions = { [RegionEnums.Types.MexRegion] = entries } },
+		RegionEnums.Types.MexRegion,
+		200,
+		200
+	)
+	assert(regions, reason)
+	return Records.From(regions)
+end
+
+describe("a mex region record", function()
+	it("is named by the map or after its group, and keyed by name and team", function()
+		local regions = parse({
+			rect(1, "anti", 0, 0, 20, 20),
+			rect(1, "tech", 20, 0, 40, 20),
+			rect(1, "tech", 40, 0, 60, 20),
+			rect(2, "tech", 180, 180, 200, 200, "far"),
+		})
+		assert.are.same(
+			{ "anti", "tech_1", "tech_2", "far" },
+			{ regions[1].name, regions[2].name, regions[3].name, regions[4].name }
+		)
+		assert.are.same(
+			{ "anti@1", "tech_1@1", "tech_2@1", "far@2" },
+			{ regions[1].id, regions[2].id, regions[3].id, regions[4].id }
+		)
+	end)
+end)
+
 describe("the deal's steps", function()
-	local regions = assert(Layout.Parse({
-		regions = {
-			rect("near", 1, 0, 0, 20, 20),
-			rect("far", 2, 180, 180, 200, 200),
-			rect("mid", 1, 90, 90, 110, 110),
-		},
-	}, 200, 200))
+	local regions = parse({
+		rect(1, "g", 0, 0, 20, 20, "near"),
+		rect(2, "g", 180, 180, 200, 200, "far"),
+		rect(1, "g", 90, 90, 110, 110, "mid"),
+	})
 
 	it("rank every region from where each team starts, nearest first", function()
 		local views = Claims.Rank({
@@ -31,12 +62,11 @@ describe("the deal's steps", function()
 		assert.is_true(views[1].regions[1].distance < views[1].regions[2].distance)
 	end)
 
-	it("place each spot in the region that covers it, and set aside the ones none does", function()
-		local byRegion, open = Claims.SpotsIn(regions, { { x = 5, z = 5 }, { x = 100, z = 100 }, { x = 150, z = 150 } })
-		assert.are.same({ [Shared.SpotKey(5, 5)] = true }, { [byRegion["near@1"][1]] = true })
+	it("place each spot in the region that covers it", function()
+		local byRegion = Claims.SpotsIn(regions, { { x = 5, z = 5 }, { x = 100, z = 100 }, { x = 150, z = 150 } })
+		assert.are.same({ Shared.SpotKey(5, 5) }, byRegion["near@1"])
 		assert.are.same({ Shared.SpotKey(100, 100) }, byRegion["mid@1"])
 		assert.is_nil(byRegion["far@2"])
-		assert.are.same({ Shared.SpotKey(150, 150) }, open)
 	end)
 
 	it("list each team's holdings in layout order", function()
@@ -46,11 +76,13 @@ describe("the deal's steps", function()
 		)
 	end)
 
-	it("find nothing wrong with a layout its type accepts, and name what the type refuses", function()
-		assert.are.same({}, Claims.Problems(regions))
-		local overlapping = assert(Layout.Parse({
-			regions = { rect("a", 1, 0, 0, 40, 40), rect("b", 1, 20, 20, 60, 60) },
-		}, 200, 200))
-		assert.are.same({ "a@1: overlaps mex region b", "b@1: overlaps mex region a" }, Claims.Problems(overlapping))
+	it("find nothing wrong with a layout its type accepts, and name what the set check refuses", function()
+		assert.are.same({}, Claims.Problems(regions, { { x = 5, z = 5 } }))
+		assert.are.same(
+			{ "1 metal spot in no mex region: 150, 150" },
+			Claims.Problems(regions, { { x = 150, z = 150 } })
+		)
+		local overlapping = parse({ rect(1, "a", 0, 0, 40, 40), rect(1, "b", 20, 20, 60, 60) })
+		assert.are.same({ "a: overlaps mex region b", "b: overlaps mex region a" }, Claims.Problems(overlapping, {}))
 	end)
 end)

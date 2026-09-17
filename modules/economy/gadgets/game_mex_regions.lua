@@ -84,8 +84,6 @@ function gadget:Initialize()
 	if #deal.problems > 0 then
 		refused = deal.problems
 		Spring.Log(TAG, LOG.WARNING, "the deal was refused: " .. table.concat(deal.problems, "; "))
-	elseif #deal.open > 0 then
-		Spring.Log(TAG, LOG.WARNING, #deal.open .. " metal spot(s) lie in no region")
 	end
 end
 

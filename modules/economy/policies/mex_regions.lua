@@ -1,5 +1,8 @@
 local Contract = VFS.Include("modules/economy/contract.lua") ---@type EconomyContract
 local ConstructionContract = VFS.Include("modules/construction/contract.lua") ---@type ConstructionContract
+local RegionsContract = VFS.Include("modules/regions/contract.lua") ---@type RegionsContract
+local RegionEnums = VFS.Include("modules/regions/enums.lua")
+local Geometry = VFS.Include("modules/regions/lib/geometry.lua") ---@type RegionGeometry
 local EconomyEnums = VFS.Include("modules/economy/enums.lua")
 local Claims = VFS.Include("modules/economy/lib/mex_regions/claims.lua") ---@type MexRegionsClaimsLib
 local Shared = VFS.Include("modules/economy/lib/mex_regions/shared.lua") ---@type MexRegionsShared
@@ -7,19 +10,47 @@ local Shared = VFS.Include("modules/economy/lib/mex_regions/shared.lua") ---@typ
 ---@param problems string[]
 ---@return MexRegionsDeal
 local function noDeal(problems)
-	return { regions = {}, spots = {}, open = {}, problems = problems }
+	return { regions = {}, spots = {}, problems = problems }
 end
+
+Policies.On(RegionsContract.CheckSet).Apply(Contract.MexRegionsSet.MexesCovered, function(ctx)
+	if ctx.type.key ~= RegionEnums.Types.MexRegion or ctx.env.spots == nil then
+		return
+	end
+	local uncovered = {} ---@type string[]
+	for _, spot in ipairs(ctx.env.spots) do
+		local covered = false
+		for _, region in ipairs(ctx.regions) do
+			covered = covered or (region.vertices ~= nil and Geometry.Contains(spot.x, spot.z, region.vertices))
+		end
+		if not covered then
+			uncovered[#uncovered + 1] = string.format("%d, %d", spot.x, spot.z)
+		end
+	end
+	if #uncovered > 0 then
+		local shown = {}
+		for i = 1, math.min(#uncovered, 4) do
+			shown[i] = uncovered[i]
+		end
+		ctx.problems[#ctx.problems + 1] = #uncovered
+			.. " metal spot"
+			.. (#uncovered == 1 and "" or "s")
+			.. " in no mex region: "
+			.. table.concat(shown, "; ")
+			.. (#uncovered > #shown and "; ..." or "")
+	end
+end)
 
 Policies.On(Contract.MexRegions)
 	.Refusal(function(ctx)
-		local problems = Claims.Problems(ctx.regions)
+		local problems = Claims.Problems(ctx.regions, ctx.spots)
 		if #problems == 0 and #ctx.spots == 0 then
 			problems[1] = "the map has no metal spots to deal"
 		end
 		return noDeal(problems)
 	end)
 	.If(Contract.MexRegions.LayoutChecksOut, function(ctx)
-		return #Claims.Problems(ctx.regions) == 0
+		return #Claims.Problems(ctx.regions, ctx.spots) == 0
 	end)
 	.If(Contract.MexRegions.SpotsKnown, function(ctx)
 		return #ctx.spots > 0
@@ -82,14 +113,14 @@ Policies.On(Contract.MexRegions)
 			return seated[region.team] == nil
 		end)
 
-		local byRegion, open = Claims.SpotsIn(ctx.regions, ctx.spots)
+		local byRegion = Claims.SpotsIn(ctx.regions, ctx.spots)
 		local spots = {} ---@type table<string, integer>
 		for id, teamID in pairs(held) do
 			for _, key in ipairs(byRegion[id] or {}) do
 				spots[key] = teamID
 			end
 		end
-		return { regions = held, spots = spots, open = open, problems = {} }
+		return { regions = held, spots = spots, problems = {} }
 	end)
 
 Policies.On(ConstructionContract.PlacementFacts)

@@ -8,10 +8,11 @@ return {
 		geometries = { Enums.Geometry.Polygon },
 		disjoint = true,
 		order = 20,
+		nameFrom = "group",
 		fields = {
-			{ key = "name", label = "Name", kind = "string", required = true, unique = "team" },
 			Fields.Team({ required = true }),
-			{ key = "group", label = "Group", kind = "string", suggest = true },
+			{ key = "group", label = "Group", kind = "string", required = true, suggest = true },
+			{ key = "name", label = "Name", kind = "string", unique = "team" },
 		},
 	},
 }

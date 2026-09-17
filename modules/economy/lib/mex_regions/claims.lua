@@ -15,20 +15,15 @@ local Claims = {}
 ---@field regions MexRegionsRanked[] nearest first
 
 ---@param regions MexRegion[]
----@return string[] problems what the regions module finds wrong with the layout, each naming its region
-function Claims.Problems(regions)
-	local problems = {} ---@type string[]
-	for _, region in ipairs(regions) do
-		for _, problem in ipairs(Regions.Check(Enums.Types.MexRegion, region, regions)) do
-			problems[#problems + 1] = region.id .. ": " .. problem
-		end
-	end
-	return problems
+---@param spots { x: number, z: number }[] the map's metal spots, for the rule that every one is covered
+---@return string[] problems # what the regions module's set check finds wrong with the layout
+function Claims.Problems(regions, spots)
+	return Regions.CheckSet(Enums.Types.MexRegion, regions, { spots = spots })
 end
 
 ---@param teams MexRegionsTeamStart[]
 ---@param regions MexRegion[]
----@return MexRegionsTeamView[] in the teams' order
+---@return MexRegionsTeamView[] views # in the teams' order
 function Claims.Rank(teams, regions)
 	local centres = {} ---@type table<MexRegion, { x: number, z: number }>
 	for _, region in ipairs(regions) do
@@ -53,33 +48,26 @@ function Claims.Rank(teams, regions)
 	return views
 end
 
+---The keys of the spots inside each region, by region id.
 ---@param regions MexRegion[]
 ---@param spots { x: number, z: number }[]
----@return table<string, string[]> byRegion # the keys of the spots inside each region, by region id
----@return string[] open # the keys of the spots no region covers
+---@return table<string, string[]>
 function Claims.SpotsIn(regions, spots)
 	local byRegion = {} ---@type table<string, string[]>
-	local open = {} ---@type string[]
 	for _, spot in ipairs(spots) do
-		local key = Shared.SpotKey(spot.x, spot.z)
-		local covered = false
 		for _, region in ipairs(regions) do
 			if Geometry.Contains(spot.x, spot.z, region.vertices) then
 				byRegion[region.id] = byRegion[region.id] or {}
-				table.insert(byRegion[region.id], key)
-				covered = true
+				table.insert(byRegion[region.id], Shared.SpotKey(spot.x, spot.z))
 			end
 		end
-		if not covered then
-			open[#open + 1] = key
-		end
 	end
-	return byRegion, open
+	return byRegion
 end
 
 ---@param regions MexRegion[]
 ---@param holders table<string, integer> the team holding each region, by region id
----@return table<integer, string[]|nil> the ids of each team's regions in layout order, by team
+---@return table<integer, string[]|nil> holdings # the ids of each team's regions in layout order, by team
 function Claims.Holdings(regions, holders)
 	local holdings = {} ---@type table<integer, string[]|nil>
 	for _, region in ipairs(regions) do
