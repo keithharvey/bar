@@ -7,6 +7,7 @@ local ModuleHandler = VFS.Include("modules/module_handler.lua")
 ---@field required boolean|nil
 ---@field unique boolean|string|nil true: unique among regions of this type; a field key: unique among those sharing that field's value
 ---@field picks "start"|nil what an editor offers as the values: the map's starts, by ordinal
+---@field suggest boolean|nil an editor offers the values its siblings already carry
 
 ---@class RegionType
 ---@field key RegionTypeKey
