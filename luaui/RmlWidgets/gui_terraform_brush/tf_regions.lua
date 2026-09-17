@@ -83,7 +83,8 @@ local function fieldPickers(doc, prefix, defs, values, rgState, onSet)
 	end
 end
 
-local function renderFields(doc, widgetState, containerId, prefix, defs, values, onSet)
+-- derived: values the module fills in for fields left empty; shown selected, so one keystroke replaces them
+local function renderFields(doc, widgetState, containerId, prefix, defs, values, onSet, derived)
 	local container = doc:GetElementById(containerId)
 	if not container then
 		return
@@ -118,9 +119,14 @@ local function renderFields(doc, widgetState, containerId, prefix, defs, values,
 		local input = doc:GetElementById(prefix .. "-" .. field.key)
 		if input then
 			local value = values[field.key]
-			input:SetAttribute("value", value ~= nil and tostring(value) or "")
+			local fallback = value == nil and derived and derived[field.key] or nil
+			input:SetAttribute("value", value ~= nil and tostring(value) or fallback and tostring(fallback) or "")
 			if widgetState.wireTextInput then
 				widgetState.wireTextInput(input)
+			end
+			if fallback ~= nil then
+				input:Focus()
+				input:Select()
 			end
 			input:AddEventListener("change", function()
 				onSet(field.key, input:GetAttribute("value") or "")
@@ -270,7 +276,16 @@ function M.sync(doc, ctx, rgState, setSummary)
 				renderFields(doc, widgetState, "rg-new-fields", "rg-new", defs, pending, setPending)
 			end
 			if selected and selected.hasBox then
-				renderFields(doc, widgetState, "rg-detail-fields", "rg-detail", defs, selected.fields or {}, setField)
+				renderFields(
+					doc,
+					widgetState,
+					"rg-detail-fields",
+					"rg-detail",
+					defs,
+					selected.fields or {},
+					setField,
+					selected.derived
+				)
 			end
 		end
 		if detailsMode == "new" then
@@ -342,8 +357,11 @@ function M.sync(doc, ctx, rgState, setSummary)
 			else
 				local regions = rgState.regions or {}
 				count = #regions
+				local names = rgState.names or {}
 				for i, region in ipairs(regions) do
-					local label = (region.name or "?") .. (region.group and (" (" .. region.group .. ")") or "")
+					local named = names[i]
+					local label = (named and named.name or region.name or "?")
+						.. (region.group and (" (" .. region.group .. ")") or "")
 					if region.team then
 						label = (teamLabels[region.team] or ("Team " .. region.team)) .. " · " .. label
 					end

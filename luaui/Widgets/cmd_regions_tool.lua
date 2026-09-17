@@ -160,7 +160,6 @@ local R = {
 }
 R.api = VFS.Include("modules/regions/api.lua") ---@type RegionsApi
 R.ORDER, R.TYPES = R.api.Types()
-R.mexLayout = VFS.Include("modules/economy/lib/mex_regions/layout.lua") ---@type MexRegionsLayout
 R.CATEGORY_ORDER = R.ORDER
 R.CATEGORIES = {}
 for _, key in ipairs(R.ORDER) do
@@ -2861,6 +2860,18 @@ function R.factsFor(key, compute)
 	return R.factsValue
 end
 
+function R.startPositions()
+	local starts = {}
+	for _, pos in ipairs(positions) do
+		starts[#starts + 1] = { allyTeam = pos.allyTeam, x = pos.x, z = pos.z }
+	end
+	return starts
+end
+
+function R.names()
+	return R.api.Names(R.type, startboxes)
+end
+
 function R.facts(box)
 	local verts = box.vertices or {}
 	if #verts < 3 then
@@ -2868,10 +2879,7 @@ function R.facts(box)
 	end
 	local finder = WG.resource_spot_finder
 	local spots = finder and not finder.isMetalMap and finder.metalSpotsList or nil
-	local starts = {}
-	for _, pos in ipairs(positions) do
-		starts[#starts + 1] = { allyTeam = pos.allyTeam, x = pos.x, z = pos.z }
-	end
+	local starts = R.startPositions()
 	local candidate = R.fieldValues(box)
 	candidate.type = box.type or R.type
 	candidate.vertices = verts
@@ -2905,28 +2913,56 @@ function R.suggestions()
 	return out
 end
 
+-- What the regions module and the types' owners find wrong with each type's set of regions.
+function R.setProblems()
+	local finder = WG.resource_spot_finder
+	local env = {
+		spots = finder and not finder.isMetalMap and finder.metalSpotsList or nil,
+		starts = R.startPositions(),
+	}
+	local problems = {}
+	for _, typeKey in ipairs(R.ORDER) do
+		local regions = R.list(typeKey)
+		if #regions > 0 then
+			for _, problem in ipairs(R.api.CheckSet(typeKey, regions, env)) do
+				problems[#problems + 1] = problem
+			end
+		end
+	end
+	return problems
+end
+
 function R.exportLayout()
-	return R.mexLayout.Export(R.list("mex_region"), Game.mapSizeX, Game.mapSizeZ)
+	return R.api.ExportLayout(R.regions, Game.mapSizeX, Game.mapSizeZ)
 end
 
 function R.encodeLayout()
-	if #R.list("mex_region") == 0 then
+	if #R.regions == 0 then
 		return nil
 	end
-	return R.mexLayout.Encode(R.exportLayout())
+	return R.api.EncodeLayout(R.exportLayout())
 end
 
 function R.copyLayout()
+	local problems = R.setProblems()
+	if problems[1] then
+		for _, problem in ipairs(problems) do
+			Echo("[Regions] " .. problem)
+		end
+		R.error = problems[1]
+		R.bump()
+		return false
+	end
 	local blob = R.encodeLayout()
 	if not blob then
-		R.error = "no mex regions to copy"
+		R.error = "no regions to copy"
 		R.bump()
 		return false
 	end
 	Spring.SetClipboard(blob)
 	R.error = ""
 	R.bump()
-	Echo("[Regions] Mex region layout copied: paste it as the mex_regions_layout modoption")
+	Echo("[Regions] Layout copied: paste it as the mex_regions_layout modoption")
 	return true
 end
 
@@ -2995,6 +3031,9 @@ function R.save(explicitPath)
 	file:write(table.concat(lines, "\n"))
 	file:close()
 	Echo("[Regions] Saved regions to: " .. explicitPath)
+	for _, problem in ipairs(R.setProblems()) do
+		Echo("[Regions] Saved with a problem: " .. problem)
+	end
 	return true
 end
 
@@ -3059,12 +3098,14 @@ function R.selectedRecord()
 	if not box then
 		return nil
 	end
+	local named = R.names()[R.selectedIdx]
 	return {
 		idx = R.selectedIdx,
 		type = R.type,
 		team = box.team,
 		hasBox = true,
 		fields = R.fieldValues(box),
+		derived = named and named.derived and { name = named.name } or nil,
 		tags = box.tags or {},
 		vertexCount = #box.vertices,
 		facts = R.factsFor(R.type .. ":" .. R.selectedIdx .. ":" .. R.revision, function()
@@ -3116,6 +3157,7 @@ local function getState()
 		strategy = R.strategy,
 		placing = R.placing,
 		regions = startboxes,
+		names = R.names(),
 		selectedIdx = R.selectedIdx,
 		selectedStart = R.selectedStart,
 		starts = R.type == "start" and R.starts() or nil,
