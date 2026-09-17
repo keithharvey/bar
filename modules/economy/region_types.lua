@@ -12,7 +12,7 @@ return {
 		fields = {
 			Fields.Team,
 			{ key = "name", label = "Name", kind = "string", unique = "team" },
-			{ key = "group", label = "Group", kind = "string" },
+			{ key = "group", label = "Group", kind = "string", suggest = true },
 		},
 	},
 }
