@@ -1,5 +1,5 @@
 
-local Regions = VFS.Include("modules/regions/api.lua") ---@type RegionsApi
+local Layout = VFS.Include("modules/economy/lib/mex_regions/layout.lua") ---@type MexRegionsLayout
 local EconomyEnums = VFS.Include("modules/economy/enums.lua")
 
 ---@class MexRegionSources
@@ -37,7 +37,7 @@ local function layoutFromEditor(entries, mapSizeX, mapSizeZ)
 			regions[#regions + 1] = { name = entry.name, team = entry.team, group = entry.group, vertices = vertices }
 		end
 	end
-	return Regions.ExportLayout(regions, mapSizeX, mapSizeZ)
+	return Layout.Export(regions, mapSizeX, mapSizeZ)
 end
 
 ---@param modOptions table<string, any>
@@ -49,7 +49,7 @@ end
 local function find(modOptions, mapName, mapSizeX, mapSizeZ)
 	local raw = modOptions[EconomyEnums.ModOptions.MexRegionsLayout]
 	if type(raw) == "string" and raw ~= "" then
-		return Regions.DecodeLayout(raw), "modoption " .. EconomyEnums.ModOptions.MexRegionsLayout
+		return Layout.Decode(raw), "modoption " .. EconomyEnums.ModOptions.MexRegionsLayout
 	end
 	if VFS.FileExists(MAP_FILE) then
 		return VFS.Include(MAP_FILE), MAP_FILE .. " (from the map)"
@@ -76,7 +76,7 @@ function Sources.Load(modOptions, mapName, mapSizeX, mapSizeZ)
 	if layout == nil then
 		return nil, source, nil
 	end
-	local regions, reason = Regions.ParseLayout(layout, mapSizeX, mapSizeZ)
+	local regions, reason = Layout.Parse(layout, mapSizeX, mapSizeZ)
 	return regions, source, reason
 end
 

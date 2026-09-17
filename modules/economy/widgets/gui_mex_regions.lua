@@ -18,22 +18,8 @@ if Spring.GetModOptions()[EconomyEnums.ModOptions.MexSplitting] ~= EconomyEnums.
 end
 
 local Deal = VFS.Include("modules/economy/lib/mex_regions/deal.lua") ---@type MexRegionsDealLib
-local Shared = VFS.Include("modules/economy/lib/mex_regions/shared.lua") ---@type MexRegionsShared
+local Geometry = VFS.Include("modules/regions/lib/geometry.lua") ---@type RegionGeometry
 local readDeal = Deal.Reader()
-
----@return table<string, integer>
-local function holderByRegion()
-	local byRegion = {}
-	for _, teamID in ipairs(Spring.GetTeamList()) do
-		local record = Shared.Holdings.Read(Spring, teamID) ---@type MexHoldingsRecord|nil
-		if record and record.regions then
-			for _, id in ipairs(record.regions) do
-				byRegion[id] = teamID
-			end
-		end
-	end
-	return byRegion
-end
 
 local glColor = gl.Color
 local glLineWidth = gl.LineWidth
@@ -73,16 +59,16 @@ local function colourOf(teamID)
 end
 
 local styledFor = nil ---@type table|nil the deal these styles were built for
-local styles = {} ---@type { colour: number[], label: string }[]
+local styles = {} ---@type { colour: number[], label: string, x: number, z: number }[]
+---@param deal MexRegionsDealRecord
 local function stylesFor(deal)
 	if styledFor == deal then
 		return styles
 	end
 	styledFor = deal
 	styles = {}
-	local holders = holderByRegion()
 	for i, region in ipairs(deal.regions) do
-		local holder = holders[region.id]
+		local holder = deal.holders[region.id]
 		local label = region.name
 		if holder ~= nil then
 			local players = Spring.GetPlayerList(holder)
@@ -91,7 +77,8 @@ local function stylesFor(deal)
 		else
 			label = label .. " · open"
 		end
-		styles[i] = { colour = colourOf(holder), label = label }
+		local cx, cz = Geometry.Centroid(region.vertices)
+		styles[i] = { colour = colourOf(holder), label = label, x = cx, z = cz }
 	end
 	return styles
 end
@@ -110,10 +97,10 @@ function widget:DrawWorldPreUnit()
 		local c = style[i].colour
 		glColor(c[1], c[2], c[3], 0.9)
 		glBeginEnd(GL_LINE_LOOP, function()
-			local poly = region.polygon
+			local poly = region.vertices
 			for i, v in ipairs(poly) do
 				local vn = poly[(i % #poly) + 1] or v
-				local vx, vz, nx, nz = v[1] or 0, v[2] or 0, vn[1] or 0, vn[2] or 0
+				local vx, vz, nx, nz = v.x or 0, v.z or 0, vn.x or 0, vn.z or 0
 				local segLen = math.sqrt((nx - vx) ^ 2 + (nz - vz) ^ 2)
 				local steps = math.max(1, math.ceil(segLen / 64))
 				for s = 0, steps - 1 do
@@ -137,13 +124,13 @@ function widget:DrawScreenEffects()
 		return
 	end
 	local style = stylesFor(deal)
-	for i, region in ipairs(deal.regions) do
-		local gy = GetGroundHeight(region.centerX, region.centerZ) or 0
-		local sx, sy, sz = WorldToScreenCoords(region.centerX, gy, region.centerZ)
+	for _, s in ipairs(style) do
+		local gy = GetGroundHeight(s.x, s.z) or 0
+		local sx, sy, sz = WorldToScreenCoords(s.x, gy, s.z)
 		if sz and sz > 0 and sz < 1 then
-			local c = style[i].colour
+			local c = s.colour
 			glColor(c[1], c[2], c[3], 1)
-			glText(style[i].label, sx, sy, 14, "cdo")
+			glText(s.label, sx, sy, 14, "cdo")
 		end
 	end
 	glColor(1, 1, 1, 1)

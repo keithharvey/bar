@@ -1,19 +1,9 @@
+local Enums = VFS.Include("modules/regions/enums.lua")
 
-local Geometry = VFS.Include("modules/regions/lib/geometry.lua") ---@type RegionGeometry
-
----@class RegionLayout
+---@class MexRegionsLayout the mex_regions_layout codec: regions drawn in the startbox 0..200 space, to and from MexRegion records in elmos
 local Layout = {}
 
 Layout.SPACE = 200
-
----@class LayoutRegion a region as the layout lists it, in elmos once parsed
----@field id string name, or name@team when the region has a team; unique among its type
----@field name string
----@field team integer|nil the start ordinal the region belongs to
----@field group string|nil
----@field polygon number[][] {x, z} vertices
----@field centerX number the polygon's vertex centroid
----@field centerZ number
 
 ---@param poly table
 ---@return number[][]|nil vertices {x, y} in layout space
@@ -39,57 +29,56 @@ local function expandPoly(poly)
 end
 
 ---@param name string
----@param team integer|nil
+---@param team integer
 ---@return string
 function Layout.Id(name, team)
-	return team and (name .. "@" .. team) or name
+	return name .. "@" .. team
 end
 
 ---@param layout table the decoded layout
 ---@param mapSizeX number
 ---@param mapSizeZ number
----@return LayoutRegion[]|nil regions
+---@return MexRegion[]|nil regions
 ---@return string|nil reason why not
 function Layout.Parse(layout, mapSizeX, mapSizeZ)
 	if type(layout) ~= "table" or type(layout.regions) ~= "table" then
 		return nil, "a layout is { regions = { ... } }"
 	end
 	local scaleX, scaleZ = mapSizeX / Layout.SPACE, mapSizeZ / Layout.SPACE
-	local regions = {} ---@type LayoutRegion[]
+	local regions = {} ---@type MexRegion[]
 	local seen = {} ---@type table<string, boolean>
 	for i, entry in ipairs(layout.regions) do
 		if type(entry) ~= "table" or type(entry.name) ~= "string" or entry.name == "" then
 			return nil, "region " .. i .. " has no name"
 		end
 		local team = entry.team
-		if team ~= nil and (type(team) ~= "number" or team < 1 or team % 1 ~= 0) then
+		if team == nil then
+			return nil, "region " .. entry.name .. " has no team"
+		end
+		if type(team) ~= "number" or team < 1 or team % 1 ~= 0 then
 			return nil, "region " .. entry.name .. " has a team that is not a start ordinal"
 		end
+		---@cast team integer
 		local id = Layout.Id(entry.name, team)
 		if seen[id] then
-			return nil, "two regions are named " .. entry.name .. (team and (" for team " .. team) or "")
+			return nil, "two regions are named " .. entry.name .. " for team " .. team
 		end
 		seen[id] = true
 		local poly = expandPoly(entry.poly)
 		if poly == nil then
 			return nil, "region " .. entry.name .. " needs a poly of two {x, y} corners or three or more vertices"
 		end
-		local polygon = {} ---@type number[][]
-		local verts = {}
+		local vertices = {} ---@type { x: number, z: number }[]
 		for j, p in ipairs(poly) do
-			local x, z = (p[1] or 0) * scaleX, (p[2] or 0) * scaleZ
-			polygon[j] = { x, z }
-			verts[j] = { x = x, z = z }
+			vertices[j] = { x = (p[1] or 0) * scaleX, z = (p[2] or 0) * scaleZ }
 		end
-		local cx, cz = Geometry.Centroid(verts)
 		regions[#regions + 1] = {
+			type = Enums.Types.MexRegion,
 			id = id,
 			name = entry.name,
 			team = team,
 			group = type(entry.group) == "string" and entry.group or nil,
-			polygon = polygon,
-			centerX = cx,
-			centerZ = cz,
+			vertices = vertices,
 		}
 	end
 	if #regions == 0 then
@@ -98,7 +87,7 @@ function Layout.Parse(layout, mapSizeX, mapSizeZ)
 	return regions, nil
 end
 
----@param regions { name: string, team: integer|nil, group: string|nil, vertices: { x: number, z: number }[] }[]
+---@param regions { name: string|nil, team: integer, group: string|nil, vertices: { x: number, z: number }[] }[]
 ---@param mapSizeX number
 ---@param mapSizeZ number
 ---@return table layout

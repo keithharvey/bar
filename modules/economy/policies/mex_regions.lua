@@ -1,24 +1,42 @@
 local Contract = VFS.Include("modules/economy/contract.lua") ---@type EconomyContract
 local ConstructionContract = VFS.Include("modules/construction/contract.lua") ---@type ConstructionContract
 local EconomyEnums = VFS.Include("modules/economy/enums.lua")
+local Claims = VFS.Include("modules/economy/lib/mex_regions/claims.lua") ---@type MexRegionsClaimsLib
 local Shared = VFS.Include("modules/economy/lib/mex_regions/shared.lua") ---@type MexRegionsShared
 
+---@param problems string[]
+---@return MexRegionsDeal
+local function noDeal(problems)
+	return { regions = {}, spots = {}, open = {}, problems = problems }
+end
+
 Policies.On(Contract.MexRegions)
-	.Refusal(function()
-		return {}
+	.Refusal(function(ctx)
+		local problems = Claims.Problems(ctx.regions)
+		if #problems == 0 and #ctx.spots == 0 then
+			problems[1] = "the map has no metal spots to deal"
+		end
+		return noDeal(problems)
+	end)
+	.If(Contract.MexRegions.LayoutChecksOut, function(ctx)
+		return #Claims.Problems(ctx.regions) == 0
+	end)
+	.If(Contract.MexRegions.SpotsKnown, function(ctx)
+		return #ctx.spots > 0
 	end)
 	.Answer(Contract.MexRegions.NearestRoundRobin, function(ctx)
-		local held = {} ---@type MexRegionsClaims
+		local views = Claims.Rank(ctx.teams, ctx.regions)
+		local held = {} ---@type table<string, integer>
 
-		---@param teams MexRegionsTeamView[]
-		---@param takes fun(ranked: MexRegionsRanked): boolean
-		local function goRound(teams, takes)
-			---@param team MexRegionsTeamView
-			---@return MexRegionsRanked|nil
-			local function nearestFree(team)
-				for _, ranked in ipairs(team.regions) do
-					if held[ranked.id] == nil and takes(ranked) then
-						return ranked
+		---@param seated MexRegionsTeamView[] the teams taking turns
+		---@param takes fun(region: MexRegion): boolean which regions are on the table
+		local function goRound(seated, takes)
+			---@param view MexRegionsTeamView
+			---@return MexRegion|nil
+			local function nearestFree(view)
+				for _, ranked in ipairs(view.regions) do
+					if held[ranked.region.id] == nil and takes(ranked.region) then
+						return ranked.region
 					end
 				end
 				return nil
@@ -27,10 +45,10 @@ Policies.On(Contract.MexRegions)
 			---@return boolean
 			local function round()
 				local took = false
-				for _, team in ipairs(teams) do
-					local pick = nearestFree(team)
+				for _, view in ipairs(seated) do
+					local pick = nearestFree(view)
 					if pick then
-						held[pick.id] = team.teamID
+						held[pick.id] = view.team.teamID
 						took = true
 					end
 				end
@@ -46,23 +64,32 @@ Policies.On(Contract.MexRegions)
 
 		local seated = {} ---@type table<integer, MexRegionsTeamView[]>
 		local ordinals = {} ---@type integer[]
-		for _, team in ipairs(ctx.teams) do
-			if seated[team.allyTeam] == nil then
-				seated[team.allyTeam] = {}
-				ordinals[#ordinals + 1] = team.allyTeam
+		for _, view in ipairs(views) do
+			local ordinal = view.team.allyTeam
+			if seated[ordinal] == nil then
+				seated[ordinal] = {}
+				ordinals[#ordinals + 1] = ordinal
 			end
-			table.insert(seated[team.allyTeam], team)
+			table.insert(seated[ordinal], view)
 		end
 		table.sort(ordinals)
 		for _, ordinal in ipairs(ordinals) do
-			goRound(seated[ordinal], function(ranked)
-				return ranked.team == ordinal
+			goRound(seated[ordinal], function(region)
+				return region.team == ordinal
 			end)
 		end
-		goRound(ctx.teams, function(ranked)
-			return ranked.team == nil or seated[ranked.team] == nil
+		goRound(views, function(region)
+			return seated[region.team] == nil
 		end)
-		return held
+
+		local byRegion, open = Claims.SpotsIn(ctx.regions, ctx.spots)
+		local spots = {} ---@type table<string, integer>
+		for id, teamID in pairs(held) do
+			for _, key in ipairs(byRegion[id] or {}) do
+				spots[key] = teamID
+			end
+		end
+		return { regions = held, spots = spots, open = open, problems = {} }
 	end)
 
 Policies.On(ConstructionContract.PlacementFacts)

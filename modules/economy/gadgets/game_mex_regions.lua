@@ -39,6 +39,7 @@ if raptorTeamID then
 end
 
 local reasonNone ---@type string|nil
+local refused ---@type string[]|nil the deal's problems, when it was refused
 
 ---@param message string
 local function tellEveryone(message)
@@ -79,7 +80,13 @@ function gadget:Initialize()
 	end
 	Spring.Log(TAG, LOG.INFO, #regions .. " regions from " .. source)
 	local finder = GG.resource_spot_finder
-	MexRegions.Deal(teamStarts(), Spring, finder and not finder.isMetalMap and finder.metalSpotsList or {})
+	local deal = MexRegions.Deal(teamStarts(), Spring, finder and not finder.isMetalMap and finder.metalSpotsList or {})
+	if #deal.problems > 0 then
+		refused = deal.problems
+		Spring.Log(TAG, LOG.WARNING, "the deal was refused: " .. table.concat(deal.problems, "; "))
+	elseif #deal.open > 0 then
+		Spring.Log(TAG, LOG.WARNING, #deal.open .. " metal spot(s) lie in no region")
+	end
 end
 
 function gadget:GameStart()
@@ -88,6 +95,17 @@ function gadget:GameStart()
 			"Mex income is Map Assigned, but " .. Game.mapName .. " has no region layout, so mexes are unrestricted."
 		)
 		tellEveryone(TAG .. ": " .. reasonNone)
+		return
+	end
+	if refused then
+		tellEveryone(
+			"Mex income is Map Assigned, but "
+				.. Game.mapName
+				.. "'s region layout was refused, so mexes are unrestricted."
+		)
+		for _, problem in ipairs(refused) do
+			tellEveryone(TAG .. ": " .. problem)
+		end
 		return
 	end
 	tellEveryone("Mex placement is restricted to map-assigned regions, dealt by the lobby's Mex Splitting setting.")

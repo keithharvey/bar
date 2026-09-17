@@ -1,17 +1,16 @@
 local Enums = VFS.Include("modules/regions/enums.lua")
-local Fields = VFS.Include("modules/regions/fields.lua") ---@type RegionFields
+local Fields = VFS.Include("modules/start/fields.lua") ---@type StartRegionFields
 
 return {
 	[Enums.Types.MexRegion] = {
 		key = Enums.Types.MexRegion,
 		label = "Mex region",
 		geometries = { Enums.Geometry.Polygon },
-		layoutKey = "regions",
 		disjoint = true,
 		order = 20,
 		fields = {
-			Fields.Team,
-			{ key = "name", label = "Name", kind = "string", unique = "team" },
+			{ key = "name", label = "Name", kind = "string", required = true, unique = "team" },
+			Fields.Team({ required = true }),
 			{ key = "group", label = "Group", kind = "string", suggest = true },
 		},
 	},
