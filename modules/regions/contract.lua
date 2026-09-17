@@ -22,13 +22,11 @@ local Modules = VFS.Include("modules/enums.lua").Modules
 ---@class RegionCheckStages: PolicyStages<RegionCheckContext, RegionCheckContext>
 ---@field Shape string the region is drawn as a shape its type allows, and the shape is whole
 ---@field Fields string required fields are present; unique fields are unique among siblings
----@field Disjoint string a type that declares disjoint never has two regions sharing ground
 
 ---@type RegionCheckStages
 local Check = {
 	Shape = "Shape",
 	Fields = "Fields",
-	Disjoint = "Disjoint",
 }
 
 ---@class RegionSetContext every region of one type together, on its way through the rules that judge the set; problems collect

@@ -127,52 +127,19 @@ describe("checking a region", function()
 	end)
 end)
 
-describe("a disjoint type", function()
-	local a = mex({
+describe("a set of regions", function()
+	local a = mex({ name = "a", team = 1, group = "g", vertices = square })
+	local b = mex({
 		name = "a",
 		team = 1,
-		group = "g",
-		vertices = { { x = 0, z = 0 }, { x = 100, z = 0 }, { x = 100, z = 100 }, { x = 0, z = 100 } },
+		group = "h",
+		vertices = { { x = 500, z = 500 }, { x = 600, z = 500 }, { x = 600, z = 600 } },
 	})
-	local b = mex({
-		team = 1,
-		group = "b",
-		vertices = { { x = 50, z = 50 }, { x = 150, z = 50 }, { x = 150, z = 150 }, { x = 50, z = 150 } },
-	})
-	local c = mex({
-		name = "c",
-		team = 2,
-		group = "g",
-		vertices = { { x = 500, z = 500 }, { x = 600, z = 500 }, { x = 600, z = 600 }, { x = 500, z = 600 } },
-	})
+	local c = mex({ team = 2, group = "g", vertices = square })
 
-	it("never has two regions sharing ground, and names the one in the way", function()
-		local _, byKey = Regions.Types()
-		assert.is_true(byKey.mex_region.disjoint)
-		assert.are.same({ "overlaps mex region a" }, Regions.Check(Enums.Types.MexRegion, b, { a, c }))
+	it("is checked region by region, every problem naming its region", function()
 		assert.are.same(
-			{ "overlaps mex region b" },
-			Regions.Check(Enums.Types.MexRegion, a, { b, c }),
-			"b by its derived name"
-		)
-		assert.are.same({}, Regions.Check(Enums.Types.MexRegion, c, { a, b }))
-	end)
-
-	it("is a rule only for types that declare it, and only once there is a shape", function()
-		assert.are.same({}, Regions.Check(Enums.Types.MexRegion, mex({ team = 1, group = "b" }), { a }, true))
-		assert.are.same(
-			{},
-			Regions.Check(
-				Enums.Types.Start,
-				start({ team = 2, vertices = b.vertices }),
-				{ start({ team = 1, vertices = a.vertices }) }
-			)
-		)
-	end)
-
-	it("as a set, every problem names its region", function()
-		assert.are.same(
-			{ "a: overlaps mex region b", "b: overlaps mex region a" },
+			{ "a: a mex region with name a already exists", "a: a mex region with name a already exists" },
 			Regions.CheckSet(Enums.Types.MexRegion, { a, b, c })
 		)
 		assert.are.same({}, Regions.CheckSet(Enums.Types.MexRegion, { a, c }))

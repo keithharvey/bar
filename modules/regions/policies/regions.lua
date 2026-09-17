@@ -64,17 +64,6 @@ Policies.On(Contract.Check)
 			end
 		end
 	end)
-	.Apply(Contract.Check.Disjoint, function(ctx)
-		if not ctx.type.disjoint or ctx.fieldsOnly or not ctx.region.vertices then
-			return
-		end
-		for _, other in ipairs(ctx.siblings) do
-			if other ~= ctx.region and other.vertices and Geometry.Overlaps(ctx.region.vertices, other.vertices) then
-				ctx.problems[#ctx.problems + 1] = "overlaps " .. ctx.type.label:lower() .. " " .. ctx.names[other]
-				return
-			end
-		end
-	end)
 
 Policies.On(Contract.CheckSet).Apply(Contract.CheckSet.Each, function(ctx)
 	local pipelines = ModuleHandler.LoadPolicies(Modules.Regions) ---@type RegionsPipelines
