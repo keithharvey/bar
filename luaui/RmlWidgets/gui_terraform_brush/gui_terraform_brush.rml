@@ -164,7 +164,7 @@
 				<img class="tf-icon-md" src="/luaui/images/terraform_brush/mode_lights.png" />
 				<div class="tf-btn-text">LIGHTS</div>
 			</div>
-			<div id="btn-startpos" class="tf-mode-btn tf-btn-startpos" data-class-active="activeTool == 'stp'" data-event-mousedown="onTfSwitchStartpos()">
+			<div id="btn-regions" class="tf-mode-btn tf-btn-regions" data-class-active="activeTool == 'rg'" data-event-mousedown="onTfSwitchRegions()">
 				<div class="tf-keybind-badge">S</div>
 				<img class="tf-icon-md" src="/luaui/images/terraform_brush/mode_startpos.png" />
 				<div class="tf-btn-text">REGIONS</div>
@@ -183,52 +183,52 @@
 		</div>
 		</div><!-- /frame-tools -->
 
-		<!-- Start Positions sub-mode row (visible only when StartPos tool active) -->
-		<div id="tf-startpos-submodes" data-if="activeTool == 'stp'">
-			<div class="tf-section-frame" id="frame-sp-mode">
-				<div id="btn-toggle-sp-mode" class="tf-section-title-row" style="cursor: pointer;">
-					<img id="img-toggle-sp-mode" class="tf-icon-sm" src="/luaui/images/terraform_brush/minus.png" />
+		<!-- Regions sub-mode row -->
+		<div id="tf-regions-submodes" data-if="activeTool == 'rg'">
+			<div class="tf-section-frame" id="frame-rg-mode">
+				<div id="btn-toggle-rg-mode" class="tf-section-title-row" style="cursor: pointer;">
+					<img id="img-toggle-rg-mode" class="tf-icon-sm" src="/luaui/images/terraform_brush/minus.png" />
 					<div class="tf-collapsible-title">REGIONS</div>
-					<div id="startpos-mode-notify-dot" class="tf-notify-dot hidden"></div>
+					<div id="regions-mode-notify-dot" class="tf-notify-dot hidden"></div>
 				</div>
-			<div id="section-sp-mode">
+			<div id="section-rg-mode">
 			<div class="text-lg text-light font-bold mb-1">CATEGORY</div>
-			<div id="sp-category-chips" class="flex flex-row gap-1 mb-1 tf-chip-row"></div>
+			<div id="rg-category-chips" class="flex flex-row gap-1 mb-1 tf-chip-row"></div>
 			<div class="text-lg text-light font-bold mb-1">MODE</div>
 			<div class="flex flex-row gap-1 mb-1 tf-chip-row">
-				<div id="btn-sp-mode-select" class="tf-overlay-chip" data-class-active="stpEditMode == 'select'" data-event-mousedown="onSpSetEditMode('select')">
+				<div id="btn-rg-mode-select" class="tf-overlay-chip" data-class-active="rgEditMode == 'select'" data-event-mousedown="onRgSetEditMode('select')">
 					<div class="tf-overlay-chip-label">Select</div>
 				</div>
-				<div id="btn-sp-mode-create" class="tf-overlay-chip" data-class-active="stpEditMode == 'create'" data-event-mousedown="onSpSetEditMode('create')">
+				<div id="btn-rg-mode-create" class="tf-overlay-chip" data-class-active="rgEditMode == 'create'" data-event-mousedown="onRgSetEditMode('create')">
 					<div class="tf-overlay-chip-label">Create</div>
 				</div>
 			</div>
-			<div class="text-lg text-light font-bold mb-1" data-if="stpEditMode == 'create'">DRAW</div>
-			<div id="sp-geometry-chips" class="flex flex-row gap-1 mb-1 tf-chip-row" data-if="stpEditMode == 'create'"></div>
-			<div class="text-sm text-keybind mb-1" data-if="stpHint == 'select'">LMB: select a region or a position · Drag positions, vertices and edges · Nothing is created</div>
-			<div class="text-sm text-keybind mb-1" data-if="stpHint == 'points'">LMB: place a start position · Drag to move · RMB: remove</div>
-			<div class="text-sm text-keybind mb-1" data-if="stpHint == 'mexes'">LMB drag: select the mexes inside · Alt+drag: deselect · Click a mex: toggle · Ctrl+Z: one step back · RMB: close the region · Esc: clear</div>
-			<div class="text-sm text-keybind mb-1" data-if="stpGatheredSpots != '0'">{{stpGatheredSpots}} spots selected · RMB closes the region shown</div>
-			<div class="text-sm text-keybind mb-1" data-if="stpHint == 'square'">LMB drag: a square · Drag edges to resize · Click inside to select</div>
-			<div class="text-sm text-keybind mb-1" data-if="stpHint == 'polygon'">LMB: add vertex · LMB drag from empty: free-draw · RMB: close (3+ vertices) · Esc: cancel · Drag vertices to move · Click inside to select</div>
-			<div class="text-sm text-keybind mb-1" data-if="stpAreaTarget != ''">The next area drawn becomes Start {{stpAreaTarget}}'s</div>
+			<div class="text-lg text-light font-bold mb-1" data-if="rgEditMode == 'create'">DRAW</div>
+			<div id="rg-geometry-chips" class="flex flex-row gap-1 mb-1 tf-chip-row" data-if="rgEditMode == 'create'"></div>
+			<div class="text-sm text-keybind mb-1" data-if="rgHint == 'select'">LMB: select a region or a position · Drag positions, vertices and edges · Nothing is created</div>
+			<div class="text-sm text-keybind mb-1" data-if="rgHint == 'points'">LMB: place a start position · Drag to move · RMB: remove</div>
+			<div class="text-sm text-keybind mb-1" data-if="rgHint == 'mexes'">LMB drag: select the mexes inside · Alt+drag: deselect · Click a mex: toggle · Ctrl+Z: one step back · RMB: close the region · Esc: clear</div>
+			<div class="text-sm text-keybind mb-1" data-if="rgGatheredSpots != '0'">{{rgGatheredSpots}} spots selected · RMB closes the region shown</div>
+			<div class="text-sm text-keybind mb-1" data-if="rgHint == 'square'">LMB drag: a square · Drag edges to resize · Click inside to select</div>
+			<div class="text-sm text-keybind mb-1" data-if="rgHint == 'polygon'">LMB: add vertex · LMB drag from empty: free-draw · RMB: close (3+ vertices) · Esc: cancel · Drag vertices to move · Click inside to select</div>
+			<div class="text-sm text-keybind mb-1" data-if="rgAreaTarget != ''">The next area drawn becomes Start {{rgAreaTarget}}'s</div>
 
-			</div><!-- /section-sp-mode -->
-			</div><!-- /frame-sp-mode -->
+			</div><!-- /section-rg-mode -->
+			</div><!-- /frame-rg-mode -->
 		</div>
 
-		<!-- Start Positions controls (visible only when StartPos tool active) -->
-		<div id="tf-startpos-controls" data-if="activeTool == 'stp'">
+		<!-- Regions controls -->
+		<div id="tf-regions-controls" data-if="activeTool == 'rg'">
 
 		<div class="tf-section-frame" id="frame-st-region">
 			<div id="btn-toggle-st-region" class="tf-section-title-row" style="cursor: pointer;">
 				<img id="img-toggle-st-region" class="tf-icon-sm" src="/luaui/images/terraform_brush/minus.png" />
-				<div class="tf-collapsible-title">{{stpRegionListTitle}}</div>
+				<div class="tf-collapsible-title">{{rgRegionListTitle}}</div>
 			</div>
 		<div id="section-st-region">
-			<div class="text-sm mb-1" style="color: #ff8080;" data-if="stpRegionError != ''">{{stpRegionError}}</div>
+			<div class="text-sm mb-1" style="color: #ff8080;" data-if="rgRegionError != ''">{{rgRegionError}}</div>
 
-			<div id="sp-region-list" class="mb-1"></div>
+			<div id="rg-region-list" class="mb-1"></div>
 
 		</div><!-- /section-st-region -->
 		</div><!-- /frame-st-region -->
@@ -236,62 +236,44 @@
 		<div class="tf-section-frame" id="frame-st-details">
 			<div id="btn-toggle-st-details" class="tf-section-title-row" style="cursor: pointer;">
 				<img id="img-toggle-st-details" class="tf-icon-sm" src="/luaui/images/terraform_brush/minus.png" />
-				<div class="tf-collapsible-title">{{stpDetailsTitle}}</div>
+				<div class="tf-collapsible-title">{{rgDetailsTitle}}</div>
 			</div>
 		<div id="section-st-details">
-			<div class="text-xs text-keybind mb-1" data-if="stpDetailsMode == 'prompt'">Click a region on the map, or a row above, to see it here.</div>
-			<div data-if="stpDetailsMode == 'new'">
-			<div id="sp-new-region">
-				<div class="text-sm text-light">Team</div>
-				<div id="sp-team-picker" class="flex flex-row gap-1 mb-1 tf-chip-row"></div>
-				<div class="text-sm text-light">Name (optional)</div>
-				<input type="text" id="sp-region-name" class="ll-search-input mb-1" style="width:100%;" data-event-change="onSpRegionPendingChange()" />
-				<div class="text-sm text-light">Group</div>
-				<input type="text" id="sp-region-group" class="ll-search-input mb-1" style="width:100%;" data-event-change="onSpRegionPendingChange()" />
-				<div id="sp-group-picker" class="flex flex-row gap-1 mb-1 tf-chip-row"></div>
+			<div class="text-xs text-keybind mb-1" data-if="rgDetailsMode == 'prompt'">Click a region on the map, or a row above, to see it here.</div>
+			<div data-if="rgDetailsMode == 'new'">
+				<div id="rg-new-fields"></div>
 			</div>
-			</div>
-			<div id="sp-details" data-if="stpSelected">
-				<div data-if="stpRegionType == 'start'">
-					<div class="text-sm text-light mb-1">Start for ally team {{stpSelectedAllyTeam}}</div>
-					<div data-if="stpSelectedHasBox">
-						<div class="text-sm text-light">Label</div>
-						<input type="text" id="sp-detail-label" class="ll-search-input mb-1" style="width:100%;" data-event-change="onSpRegionFieldChange('label')" />
-					</div>
-					<div class="flex flex-row gap-1 mb-1" data-if="stpSelectedHasBox">
-						<div id="btn-sp-draw-area" class="tf-action-btn" style="flex:1;" data-if="!stpDrawingArea" data-event-mousedown="onSpDrawArea()">
+			<div id="rg-details" data-if="rgSelected">
+				<div data-if="rgRegionType == 'start'">
+					<div class="text-sm text-light mb-1">Start {{rgSelectedTeam}}</div>
+					<div class="text-xs text-keybind mb-1" data-if="!rgSelectedHasBox">No area drawn yet: the next area drawn becomes this start's.</div>
+					<div class="flex flex-row gap-1 mb-1" data-if="rgSelectedHasBox">
+						<div id="btn-rg-draw-area" class="tf-action-btn" style="flex:1;" data-if="!rgDrawingArea" data-event-mousedown="onRgDrawArea()">
 							<div class="tf-action-btn-text">REDRAW AREA</div>
 						</div>
-						<div id="btn-sp-cancel-area" class="tf-action-btn" style="flex:1;" data-if="stpDrawingArea" data-event-mousedown="onSpCancelArea()">
+						<div id="btn-rg-cancel-area" class="tf-action-btn" style="flex:1;" data-if="rgDrawingArea" data-event-mousedown="onRgCancelArea()">
 							<div class="tf-action-btn-text">KEEP AREA</div>
 						</div>
-						<div id="btn-sp-remove-area" class="tf-action-btn" style="flex:1;" data-event-mousedown="onSpRemoveArea()">
+						<div id="btn-rg-remove-area" class="tf-action-btn" style="flex:1;" data-event-mousedown="onRgRemoveArea()">
 							<div class="tf-action-btn-text">REMOVE AREA</div>
 						</div>
 					</div>
 				</div>
-				<div data-if="stpRegionType == 'mex_region'">
-					<div class="text-sm text-light">Team</div>
-					<div id="sp-detail-team-picker" class="flex flex-row gap-1 mb-1 tf-chip-row"></div>
-					<div class="text-sm text-light">Name</div>
-					<input type="text" id="sp-detail-name" class="ll-search-input mb-1" style="width:100%;" data-event-change="onSpRegionFieldChange('name')" />
-					<div class="text-sm text-light">Group</div>
-					<input type="text" id="sp-detail-group" class="ll-search-input mb-1" style="width:100%;" data-event-change="onSpRegionFieldChange('group')" />
-					<div class="text-sm text-light mb-1">{{stpSelectedVertices}} vertices</div>
-				</div>
+				<div id="rg-detail-fields" data-if="rgSelectedHasBox"></div>
+				<div class="text-sm text-light mb-1" data-if="rgSelectedHasBox">{{rgSelectedVertices}} vertices</div>
 				<div class="text-sm text-light">Tags</div>
 				<div class="flex flex-row gap-1 items-center mb-1">
-					<input type="text" id="sp-tag-input" class="ll-search-input" style="flex:1;" data-event-change="onSpRegionAddTag()" />
-					<div id="btn-sp-tag-add" class="tf-sm-btn" data-event-mousedown="onSpRegionAddTag()"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/plus.png" /></div>
+					<input type="text" id="rg-tag-input" class="ll-search-input" style="flex:1;" data-event-change="onRgRegionAddTag()" />
+					<div id="btn-rg-tag-add" class="tf-sm-btn" data-event-mousedown="onRgRegionAddTag()"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/plus.png" /></div>
 				</div>
-				<div id="sp-tag-list" class="flex flex-row gap-1 mb-1 tf-chip-row"></div>
+				<div id="rg-tag-list" class="flex flex-row gap-1 mb-1 tf-chip-row"></div>
 				<div class="text-lg text-light font-bold mb-1">FACTS</div>
-				<div id="sp-detail-facts" class="mb-1"></div>
+				<div id="rg-detail-facts" class="mb-1"></div>
 				<div class="flex flex-row gap-1 mb-1">
-					<div id="btn-sp-region-remove" class="tf-action-btn" style="flex:1;" data-if="stpRegionType != 'start'" data-event-mousedown="onSpRegionRemove()">
+					<div id="btn-rg-region-remove" class="tf-action-btn" style="flex:1;" data-if="rgRegionType != 'start'" data-event-mousedown="onRgRegionRemove()">
 						<div class="tf-action-btn-text">REMOVE</div>
 					</div>
-					<div id="btn-sp-region-deselect" class="tf-action-btn" style="flex:1;" data-event-mousedown="onSpRegionDeselect()">
+					<div id="btn-rg-region-deselect" class="tf-action-btn" style="flex:1;" data-event-mousedown="onRgRegionDeselect()">
 						<div class="tf-action-btn-text">DESELECT</div>
 					</div>
 				</div>
@@ -458,47 +440,47 @@
 			</div>
 		<div id="section-st-controls">
 
-			<div id="sp-start-controls" data-if="stpRegionType == 'start'">
+			<div id="rg-start-controls" data-if="rgRegionType == 'start'">
 			<!-- Ally Teams count -->
 			<div class="flex flex-row items-center mb-1">
 				<div class="text-lg text-light font-bold">Ally Teams</div>
-				<div id="sp-allyteams-label" class="text-lg text-light">{{stpAllyTeamsStr}}</div>
-				<div id="slider-sp-allyteams-transport-toggle" class="tf-transport-toggle" style="margin-left: 6dp;">DYNAMIC</div>
-				<div id="slider-sp-allyteams-transport" class="tf-transport-group hidden">
-					<div id="slider-sp-allyteams-back" class="tf-transport-btn"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/transport_back.png" /></div>
-					<div id="slider-sp-allyteams-play" class="tf-transport-btn"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/passthrough_play.png" /></div>
-					<div id="slider-sp-allyteams-fwd"  class="tf-transport-btn"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/transport_fwd.png" /></div>
+				<div id="rg-allyteams-label" class="text-lg text-light">{{rgAllyTeamsStr}}</div>
+				<div id="slider-rg-allyteams-transport-toggle" class="tf-transport-toggle" style="margin-left: 6dp;">DYNAMIC</div>
+				<div id="slider-rg-allyteams-transport" class="tf-transport-group hidden">
+					<div id="slider-rg-allyteams-back" class="tf-transport-btn"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/transport_back.png" /></div>
+					<div id="slider-rg-allyteams-play" class="tf-transport-btn"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/passthrough_play.png" /></div>
+					<div id="slider-rg-allyteams-fwd"  class="tf-transport-btn"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/transport_fwd.png" /></div>
 				</div>
 			</div>
 			<div class="flex flex-row gap-1 items-center mb-1">
-				<div id="btn-sp-teams-down" class="tf-sm-btn" data-event-mousedown="onSpTeamsDown()"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/minus.png" /></div>
-				<input id="slider-sp-allyteams" type="range" class="tf-slider" min="2" max="32" step="1" value="2" style="flex:1;" data-event-change="onSpAllyTeamsChange()" />
-				<div id="btn-sp-teams-up" class="tf-sm-btn" data-event-mousedown="onSpTeamsUp()"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/plus.png" /></div>
-				<input type="text" id="slider-sp-allyteams-numbox" class="tf-slider-numbox" value="2" />
+				<div id="btn-rg-teams-down" class="tf-sm-btn" data-event-mousedown="onRgTeamsDown()"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/minus.png" /></div>
+				<input id="slider-rg-allyteams" type="range" class="tf-slider" min="2" max="32" step="1" value="2" style="flex:1;" data-event-change="onRgAllyTeamsChange()" />
+				<div id="btn-rg-teams-up" class="tf-sm-btn" data-event-mousedown="onRgTeamsUp()"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/plus.png" /></div>
+				<input type="text" id="slider-rg-allyteams-numbox" class="tf-slider-numbox" value="2" />
 			</div>
 
 			<!-- Teams per Ally (for 2..16 players per allyteam; enables 32x16=512 capped at 256) -->
 			<div class="flex flex-row items-center mb-1">
 				<div class="text-lg text-light font-bold">Teams / Ally</div>
-				<div id="sp-teams-per-ally-label" class="text-lg text-light">{{stpTeamsPerAllyStr}}</div>
+				<div id="rg-teams-per-ally-label" class="text-lg text-light">{{rgTeamsPerAllyStr}}</div>
 			</div>
 			<div class="flex flex-row gap-1 items-center mb-1">
-				<div id="btn-sp-teams-per-ally-down" class="tf-sm-btn" data-event-mousedown="onSpTeamsPerAllyDown()"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/minus.png" /></div>
-				<input id="slider-sp-teams-per-ally" type="range" class="tf-slider" min="1" max="16" step="1" value="1" style="flex:1;" data-event-change="onSpTeamsPerAllyChange()" />
-				<div id="btn-sp-teams-per-ally-up" class="tf-sm-btn" data-event-mousedown="onSpTeamsPerAllyUp()"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/plus.png" /></div>
-				<input type="text" id="slider-sp-teams-per-ally-numbox" class="tf-slider-numbox" value="1" />
+				<div id="btn-rg-teams-per-ally-down" class="tf-sm-btn" data-event-mousedown="onRgTeamsPerAllyDown()"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/minus.png" /></div>
+				<input id="slider-rg-teams-per-ally" type="range" class="tf-slider" min="1" max="16" step="1" value="1" style="flex:1;" data-event-change="onRgTeamsPerAllyChange()" />
+				<div id="btn-rg-teams-per-ally-up" class="tf-sm-btn" data-event-mousedown="onRgTeamsPerAllyUp()"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/plus.png" /></div>
+				<input type="text" id="slider-rg-teams-per-ally-numbox" class="tf-slider-numbox" value="1" />
 			</div>
 
 			<!-- Placement Mode Toggle -->
 			<div class="flex flex-row gap-1 items-center mb-1">
 				<div class="text-lg text-light font-bold" style="flex:1;">Placement</div>
-				<div id="btn-sp-placement-mode" class="tf-sm-btn" style="padding: 2dp 10dp;" data-event-mousedown="onSpTogglePlacement()">{{stpPlacementModeStr}}</div>
+				<div id="btn-rg-placement-mode" class="tf-sm-btn" style="padding: 2dp 10dp;" data-event-mousedown="onRgTogglePlacement()">{{rgPlacementModeStr}}</div>
 			</div>
-			</div><!-- /sp-start-controls -->
+			</div><!-- /rg-start-controls -->
 
 			<!-- Action buttons -->
-			<div class="flex flex-row gap-1 mb-1" data-if="stpRegionType == 'start'">
-				<div id="btn-sp-clear" class="tf-action-btn" style="flex: 1;" data-event-mousedown="onSpClear()">
+			<div class="flex flex-row gap-1 mb-1" data-if="rgRegionType == 'start'">
+				<div id="btn-rg-clear" class="tf-action-btn" style="flex: 1;" data-event-mousedown="onRgClear()">
 					<div class="tf-action-btn-text">CLEAR ALL</div>
 				</div>
 			</div>
@@ -513,13 +495,13 @@
 			</div>
 		<div id="section-st-save" class="hidden">
 		<div class="flex flex-row gap-1 mb-1">
-			<div id="btn-sp-save" class="tf-action-btn tf-save-btn" style="flex: 1;" data-event-click="onSpSave()">
+			<div id="btn-rg-save" class="tf-action-btn tf-save-btn" style="flex: 1;" data-event-click="onRgSave()">
 				<div class="tf-action-btn-text">SAVE</div>
 			</div>
-			<div id="btn-sp-load" class="tf-action-btn" style="flex: 1;" data-event-mousedown="onSpLoad()">
+			<div id="btn-rg-load" class="tf-action-btn" style="flex: 1;" data-event-mousedown="onRgLoad()">
 				<div class="tf-action-btn-text">LOAD</div>
 			</div>
-			<div id="btn-sp-copy" class="tf-action-btn" style="flex: 1;" data-event-mousedown="onSpCopy()">
+			<div id="btn-rg-copy" class="tf-action-btn" style="flex: 1;" data-event-mousedown="onRgCopy()">
 				<div class="tf-action-btn-text">COPY</div>
 			</div>
 		</div>

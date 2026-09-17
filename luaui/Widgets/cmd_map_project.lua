@@ -1240,10 +1240,10 @@ local function stepLabels()
 end
 
 local function stepStartPos()
-	local st = WG.StartPosTool
+	local st = WG.RegionsTool
 	if not st then
-		sectionSkip("startpos", "startpos tool not loaded")
-		sectionSkip("startboxes", "startpos tool not loaded")
+		sectionSkip("startpos", "regions tool not loaded")
+		sectionSkip("startboxes", "regions tool not loaded")
 		return true
 	end
 	local posPath = job.dir .. "startpos.lua"
@@ -1262,9 +1262,9 @@ local function stepStartPos()
 end
 
 local function stepRegions()
-	local st = WG.StartPosTool
+	local st = WG.RegionsTool
 	if not (st and st.saveRegions) then
-		sectionSkip("regions", "startpos tool not loaded")
+		sectionSkip("regions", "regions tool not loaded")
 		return true
 	end
 	local path = job.dir .. "regions.lua"
@@ -2845,7 +2845,7 @@ end
 -- Phase 10: startpos + startboxes + grass (all need sim-acked terrain: slope
 -- validation and patch ground-snap read final heights).
 local function phaseStartposGrass(c)
-	local st = WG.StartPosTool
+	local st = WG.RegionsTool
 	local posPath = sectionFile("startpos")
 	if posPath then
 		if st and st.loadStartPositions then

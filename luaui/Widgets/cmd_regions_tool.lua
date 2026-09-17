@@ -1,7 +1,7 @@
 function widget:GetInfo()
 	return {
-		name = "Start Positions Tool",
-		desc = "Place and configure start positions and start boxes for map editing",
+		name = "Regions Tool",
+		desc = "Draw the map's regions: start areas and positions, mex regions, and whatever other types modules contribute",
 		author = "PtaQ",
 		date = "2026",
 		license = "GPL v2",
@@ -139,8 +139,7 @@ local shapeCount = 4 -- number of positions to place with shape
 
 -- Startbox state
 local R = {
-	startList = {},
-	mexList = {},
+	regions = {},
 	type = "start",
 	strategy = "express",
 	placing = "points",
@@ -154,7 +153,7 @@ local R = {
 	radial = nil,
 	radialPending = {},
 	radialHistory = {},
-	pending = { name = "", group = "", team = nil },
+	pending = {},
 	error = "",
 	revision = 0,
 	COLOR = { 0.35, 0.85, 1.0, 1.0 },
@@ -171,7 +170,7 @@ for _, key in ipairs(R.ORDER) do
 	end
 	R.CATEGORIES[key] = { key = key, label = kind.label, type = key, placing = placesPoints and "points" or "area" }
 end
-local startboxes = R.startList
+local startboxes = {}
 -- Forward declarations for cached-fill-list helpers defined further down in the drawing section.
 -- Needed because removeLastStartbox / clearAllStartboxes / drag handlers reference them from
 -- this upper part of the file.
@@ -275,17 +274,113 @@ end
 -- Unique color per (allyTeam, teamSlot) pair — gives every player a distinct color
 -- when multiple teams per allyteam are used. playerIdx = (allyTeam-1)*numTeamsPerAlly + teamSlot.
 function R.color(box, bi)
-	if R.type == "mex_region" then
-		return box.team and getColorForAllyTeam(box.team) or R.COLOR
-	end
-	return getColorForAllyTeam(box.allyTeam or bi)
+	local team = box.team or (R.type == "start" and bi) or nil
+	return team and getColorForAllyTeam(team) or R.COLOR
 end
 
 function R.nextColor()
-	if R.type == "mex_region" then
-		return R.pending.team and getColorForAllyTeam(R.pending.team) or R.COLOR
+	local team = (R.type == "start" and R.areaTarget()) or R.pending.team
+	return team and getColorForAllyTeam(team) or R.COLOR
+end
+
+function R.list(typeKey)
+	local out = {}
+	for _, region in ipairs(R.regions) do
+		if region.type == typeKey then
+			out[#out + 1] = region
+		end
 	end
-	return getColorForAllyTeam(#startboxes + 1)
+	if typeKey == "start" then
+		table.sort(out, function(a, b)
+			return (a.team or 0) < (b.team or 0)
+		end)
+	end
+	return out
+end
+
+function R.refresh()
+	startboxes = R.list(R.type)
+end
+
+function R.start(team)
+	for _, region in ipairs(R.regions) do
+		if region.type == "start" and region.team == team then
+			return region
+		end
+	end
+	return nil
+end
+
+function R.indexOf(region)
+	for i, other in ipairs(R.regions) do
+		if other == region then
+			return i
+		end
+	end
+	return nil
+end
+
+function R.viewIndexOf(region)
+	for i, other in ipairs(startboxes) do
+		if other == region then
+			return i
+		end
+	end
+	return nil
+end
+
+function R.add(box, at)
+	box.type = box.type or R.type
+	box.tags = box.tags or {}
+	local before = at and startboxes[at]
+	local i = before and R.indexOf(before) or (#R.regions + 1)
+	table.insert(R.regions, i, box)
+	R.refresh()
+	return box
+end
+
+function R.removeAt(idx)
+	local box = startboxes[idx]
+	if not box then
+		return nil
+	end
+	table.remove(R.regions, R.indexOf(box))
+	R.refresh()
+	return box
+end
+
+function R.replaceAt(idx, box)
+	local old = startboxes[idx]
+	if not old then
+		return nil
+	end
+	box.type = old.type
+	R.regions[R.indexOf(old)] = box
+	R.refresh()
+	return old
+end
+
+function R.clear(typeKey)
+	for i = #R.regions, 1, -1 do
+		if R.regions[i].type == typeKey then
+			freeBoxFillList(R.regions[i])
+			table.remove(R.regions, i)
+		end
+	end
+	R.refresh()
+end
+
+function R.fieldDefs(typeKey)
+	local kind = R.TYPES[typeKey or R.type]
+	return kind and kind.fields or {}
+end
+
+function R.fieldValues(box)
+	local out = {}
+	for _, field in ipairs(R.fieldDefs(box.type)) do
+		out[field.key] = box[field.key]
+	end
+	return out
 end
 
 local function getColorForPlayer(playerIdx)
@@ -659,81 +754,101 @@ end
 -- modoption format means by order (box 1 is allyTeam 0) and it makes a delete impossible to
 -- desync. One box per team falls out of it.
 local function renumberBoxAllyTeams()
-	for i = 1, #R.startList do
-		R.startList[i].allyTeam = i
-		R.startList[i].team = i
+	for i, box in ipairs(R.list("start")) do
+		box.allyTeam = i
+		box.team = i
 	end
+	R.refresh()
 end
 
 function R.bump()
 	R.revision = R.revision + 1
 end
 
+function R.pendingCandidate(vertices)
+	local candidate = { type = R.type, vertices = vertices }
+	for _, field in ipairs(R.fieldDefs()) do
+		local value = R.pending[field.key]
+		if value == "" then
+			value = nil
+		end
+		candidate[field.key] = value
+	end
+	if R.type == "start" and candidate.team == nil then
+		candidate.team = R.areaTarget()
+	end
+	return candidate
+end
+
+function R.pendingSiblings(candidate)
+	local replaced = R.type == "start" and R.start(candidate.team) or nil
+	local out = {}
+	for _, other in ipairs(startboxes) do
+		if other ~= replaced then
+			out[#out + 1] = other
+		end
+	end
+	return out
+end
+
 ---@return string|nil reason
 function R.validatePending()
-	if R.type ~= "mex_region" then
-		return nil
-	end
-	local candidate = {
-		type = R.type,
-		name = R.pending.name,
-		team = R.pending.team,
-		group = R.pending.group ~= "" and R.pending.group or nil,
-	}
-	local problems = R.api.Check(R.type, candidate, R.mexList, true)
+	local candidate = R.pendingCandidate(nil)
+	local problems = R.api.Check(R.type, candidate, R.pendingSiblings(candidate), true)
 	return problems[1]
 end
 
+function R.freshName(field)
+	local n = #startboxes
+	local name
+	repeat
+		name = "region " .. n
+		n = n + 1
+		local taken = false
+		for _, other in ipairs(startboxes) do
+			taken = taken or other[field.key] == name
+		end
+	until not taken
+	return name
+end
+
+---@param box table a region already in R.regions
+---@return integer idx its index in the layer
 function R.stampNew(box)
-	if R.type == "mex_region" then
-		box.type = "mex_region"
-		local name = R.pending.name
-		if name == nil or name == "" then
-			local n = #R.mexList
-			repeat
-				name = "region " .. n
-				n = n + 1
-				local taken = false
-				for _, other in ipairs(R.mexList) do
-					taken = taken or other.name == name
-				end
-			until not taken
+	local candidate = R.pendingCandidate(box.vertices)
+	for _, field in ipairs(R.fieldDefs()) do
+		local value = candidate[field.key]
+		if value == nil and field.unique and field.kind == "string" then
+			value = R.freshName(field)
 		end
-		box.name = name
-		box.team = R.pending.team
-		box.group = R.pending.group ~= "" and R.pending.group or nil
-		box.tags = {}
-		R.pending.name = ""
-		R.error = ""
-	else
-		box.tags = box.tags or {}
-		local target = math.min(R.areaTarget(), #startboxes)
-		if target < #startboxes then
-			local appended = table.remove(startboxes)
-			if startboxes[target] then
-				freeBoxFillList(startboxes[target])
-			end
-			startboxes[target] = appended
+		box[field.key] = value
+		if field.unique then
+			R.pending[field.key] = nil
 		end
-		box.allyTeam = target
-		R.drawForTeam = nil
-		R.selectedStart = target
-		R.selectedIdx = target
-		R.newIdx = target
-		R.bump()
-		return
 	end
-	R.selectedIdx = #startboxes
+	box.tags = box.tags or {}
 	if R.type == "start" then
-		R.selectedStart = box.allyTeam
+		local existing = R.start(box.team)
+		if existing and existing ~= box then
+			freeBoxFillList(existing)
+			table.remove(R.regions, R.indexOf(existing))
+		end
+		box.allyTeam = box.team
+		R.drawForTeam = nil
+		R.selectedStart = box.team
 	end
+	R.error = ""
+	renumberBoxAllyTeams()
+	R.selectedIdx = R.viewIndexOf(box)
+	R.newIdx = R.selectedIdx
 	R.bump()
+	return R.selectedIdx
 end
 
 ---@param strength number|nil anchor strength for the new polygon; nil keeps a plain ring
 local function finishStartbox(strength)
 	if #currentBoxVerts >= 3 then
-		local box = { allyTeam = #startboxes + 1 }
+		local box = {}
 		if strength ~= nil then
 			box.kind = "spline"
 			box.controls = {}
@@ -745,29 +860,18 @@ local function finishStartbox(strength)
 		else
 			box.vertices = currentBoxVerts
 		end
-		if R.type == "mex_region" then
-			local candidate = {
-				type = R.type,
-				name = R.pending.name ~= "" and R.pending.name or nil,
-				team = R.pending.team,
-				group = R.pending.group ~= "" and R.pending.group or nil,
-				vertices = box.vertices,
-			}
-			local problems = R.api.Check(R.type, candidate, startboxes, false)
-			if problems[1] then
-				R.error = problems[1]
-				currentBoxVerts = {}
-				drawingBox = false
-				R.bump()
-				return
-			end
+		local candidate = R.pendingCandidate(box.vertices)
+		local problems = R.api.Check(R.type, candidate, R.pendingSiblings(candidate), false)
+		if problems[1] then
+			R.error = problems[1]
+			currentBoxVerts = {}
+			drawingBox = false
+			R.bump()
+			return
 		end
-		startboxes[#startboxes + 1] = box
-		R.newIdx = nil
-		R.stampNew(startboxes[#startboxes])
-		renumberBoxAllyTeams()
-		local idx = R.newIdx or #startboxes
-		boxUndo.push("add", idx, startboxes[idx])
+		R.add(box)
+		local idx = R.stampNew(box)
+		boxUndo.push("add", idx, box)
 	end
 	currentBoxVerts = {}
 	drawingBox = false
@@ -950,7 +1054,7 @@ local function removeLastStartbox()
 	if #startboxes > 0 then
 		boxUndo.push("remove", #startboxes, startboxes[#startboxes])
 		freeBoxFillList(startboxes[#startboxes])
-		table.remove(startboxes, #startboxes)
+		R.removeAt(#startboxes)
 		if R.selectedIdx and not startboxes[R.selectedIdx] then
 			R.selectedIdx = nil
 		end
@@ -989,7 +1093,8 @@ function boxUndo.snap(box)
 	end
 	local anchors = box.controls or box.vertices or {}
 	local out = { kind = box.kind, allyTeam = box.allyTeam, anchors = {} }
-	out.type, out.name, out.group = box.type, box.name, box.group
+	out.type = box.type
+	out.fields = R.fieldValues(box)
 	if box.tags then
 		out.tags = {}
 		for k = 1, #box.tags do
@@ -1011,7 +1116,10 @@ function boxUndo.build(snap)
 		anchors[k] = { x = a.x, z = a.z, strength = a.strength }
 	end
 	local box = { kind = snap.kind, allyTeam = snap.allyTeam }
-	box.type, box.name, box.group = snap.type, snap.name, snap.group
+	box.type = snap.type
+	for key, value in pairs(snap.fields or {}) do
+		box[key] = value
+	end
 	if snap.tags then
 		box.tags = {}
 		for k = 1, #snap.tags do
@@ -1100,7 +1208,7 @@ function boxUndo.apply(entry)
 		mirror.op = "remove"
 		if startboxes[entry.idx] then
 			freeBoxFillList(startboxes[entry.idx])
-			table.remove(startboxes, entry.idx)
+			R.removeAt(entry.idx)
 		end
 	elseif entry.op == "remove" then
 		mirror.op = "add"
@@ -1111,12 +1219,12 @@ function boxUndo.apply(entry)
 			at = #startboxes + 1
 		end
 		mirror.idx = at
-		table.insert(startboxes, at, boxUndo.build(entry.box))
+		R.add(boxUndo.build(entry.box), at)
 	else
 		mirror.box = boxUndo.snap(startboxes[entry.idx])
 		if startboxes[entry.idx] then
 			freeBoxFillList(startboxes[entry.idx])
-			startboxes[entry.idx] = boxUndo.build(entry.box)
+			R.replaceAt(entry.idx, boxUndo.build(entry.box))
 		end
 	end
 	renumberBoxAllyTeams()
@@ -1142,8 +1250,7 @@ end
 function boxExport.arrangement()
 	local sizeX, sizeZ = Game.mapSizeX, Game.mapSizeZ
 	local out = {}
-	for bi = 1, #R.startList do
-		local box = R.startList[bi]
+	for bi, box in ipairs(R.list("start")) do
 		-- Not getEditHandles: this runs above its declaration. The only thing it adds is a nil
 		-- for rect kinds, and box.vertices is the right answer for those anyway.
 		local anchors = box.controls or box.vertices
@@ -1593,7 +1700,7 @@ local function saveStartPositions(name, explicitPath)
 	local lines = {}
 	lines[#lines + 1] = "-- Start Positions Config"
 	lines[#lines + 1] = "-- Map: " .. getMapName()
-	lines[#lines + 1] = "-- Generated by Start Positions Tool"
+	lines[#lines + 1] = "-- Generated by Regions Tool"
 	lines[#lines + 1] = ""
 	lines[#lines + 1] = "local startPositions = {"
 	for i, pos in ipairs(positions) do
@@ -1663,10 +1770,10 @@ local function saveStartboxes(name, explicitPath)
 	local lines = {}
 	lines[#lines + 1] = "-- Startbox Config"
 	lines[#lines + 1] = "-- Map: " .. getMapName()
-	lines[#lines + 1] = "-- Generated by Start Positions Tool"
+	lines[#lines + 1] = "-- Generated by Regions Tool"
 	lines[#lines + 1] = ""
 	lines[#lines + 1] = "local startboxes = {"
-	for i, box in ipairs(R.startList) do
+	for i, box in ipairs(R.list("start")) do
 		lines[#lines + 1] = string.format("  [%d] = {", i)
 		lines[#lines + 1] = string.format("    allyTeam = %d,", box.allyTeam)
 		if box.name then
@@ -1712,36 +1819,35 @@ local function loadStartboxes(name, explicitPath)
 		return VFS.Include(filename, nil, VFS.RAW_FIRST)
 	end)
 	if ok and data then
-		for i = 1, #R.startList do
-			freeBoxFillList(R.startList[i])
-		end
-		for k in pairs(R.startList) do
-			R.startList[k] = nil
-		end
+		R.clear("start")
 		for i, box in ipairs(data) do
 			-- anchors is the current shape; vertices is what older saves hold, and those had no
 			-- curvature to lose, so loading them as plain polygons is faithful.
 			local anchors = box.anchors
 			if anchors and box.kind ~= "box" then
-				R.startList[i] = {
+				local loaded = R.add({
+					type = "start",
 					controls = anchors,
 					vertices = {},
 					kind = "spline",
 					allyTeam = box.allyTeam or i,
+					team = box.team or box.allyTeam or i,
 					name = box.name,
 					tags = box.tags or {},
-				}
-				retessellateSpline(R.startList[i])
+				})
+				retessellateSpline(loaded)
 			else
 				-- Axis-aligned rects never curve, so their anchors are their vertices.
 				local verts = box.vertices or anchors
-				R.startList[i] = {
+				R.add({
+					type = "start",
 					vertices = verts,
 					allyTeam = box.allyTeam or i,
+					team = box.team or box.allyTeam or i,
 					kind = box.kind,
 					name = box.name,
 					tags = box.tags or {},
-				}
+				})
 			end
 		end
 		renumberBoxAllyTeams()
@@ -1792,7 +1898,7 @@ local function generateStartScript(opts)
 	local mapSizeX = Game.mapSizeX
 	local mapSizeZ = Game.mapSizeZ
 
-	local boxes = R.startList
+	local boxes = R.list("start")
 	if #boxes == 0 then
 		Echo("[Regions] No startboxes to export.")
 		return nil
@@ -2228,7 +2334,7 @@ function R.applyMode()
 	if not ok then
 		R.geometry = allowed[1] or "polygon"
 	end
-	startboxes = (R.type == "mex_region") and R.mexList or R.startList
+	R.refresh()
 	if R.editMode == "select" then
 		R.placing = (R.geometry == "point") and "points" or "area"
 		subMode = "startbox"
@@ -2280,7 +2386,7 @@ function R.setCategory(key)
 		R.geometry = R.geometriesFor(cat.type)[1] or "polygon"
 	end
 	R.type = cat.type
-	if R.type == "mex_region" and R.pending.team == nil and R.selectedStart then
+	if R.type ~= "start" and R.pending.team == nil and R.selectedStart then
 		R.pending.team = R.selectedStart
 	end
 	R.applyMode()
@@ -2320,23 +2426,29 @@ function R.cancelArea()
 end
 
 function R.areaTarget()
-	if R.drawForTeam then
-		return math.min(R.drawForTeam, #R.startList + 1)
+	local n = 0
+	for _, box in ipairs(R.list("start")) do
+		if box.team then
+			n = n + 1
+		end
 	end
-	if R.selectedStart and not R.startList[R.selectedStart] and R.selectedStart <= #R.startList + 1 then
+	if R.drawForTeam then
+		return math.min(R.drawForTeam, n + 1)
+	end
+	if R.pending.team then
+		return math.min(R.pending.team, n + 1)
+	end
+	if R.selectedStart and not R.start(R.selectedStart) and R.selectedStart <= n + 1 then
 		return R.selectedStart
 	end
-	return #R.startList + 1
+	return n + 1
 end
 
 function R.removeArea(allyTeam)
-	if R.type ~= "start" or not R.startList[allyTeam] then
+	if R.type ~= "start" or not R.start(allyTeam) then
 		return false
 	end
-	local wasActive = startboxes
-	startboxes = R.startList
 	local ok = R.remove(allyTeam)
-	startboxes = wasActive
 	R.selectedStart = allyTeam
 	R.bump()
 	return ok
@@ -2357,7 +2469,7 @@ function R.setPlacing(pl)
 end
 
 function R.seedMexRegions()
-	if #R.mexList > 0 then
+	if #R.list("mex_region") > 0 then
 		return
 	end
 	local okDeal, Deal = pcall(VFS.Include, "modules/economy/lib/mex_regions/deal.lua")
@@ -2368,7 +2480,7 @@ function R.seedMexRegions()
 			for i, p in ipairs(region.polygon) do
 				vertices[i] = { x = p[1], z = p[2] }
 			end
-			R.mexList[#R.mexList + 1] = {
+			R.add({
 				type = "mex_region",
 				name = region.name,
 				team = region.team,
@@ -2376,7 +2488,7 @@ function R.seedMexRegions()
 				kind = "polygon",
 				vertices = vertices,
 				tags = {},
-			}
+			})
 		end
 		Echo("[Regions] Opened on the match's " .. #deal.regions .. " mex region(s)")
 		return
@@ -2389,7 +2501,7 @@ end
 
 function R.seedFromMatch()
 	R.seedMexRegions()
-	if R.seeded or #R.startList > 0 or #positions > 0 then
+	if R.seeded or #R.list("start") > 0 or #positions > 0 then
 		return
 	end
 	R.seeded = true
@@ -2403,7 +2515,7 @@ function R.seedFromMatch()
 		for _, a in ipairs(area.anchors) do
 			curved = curved or (a.strength ~= nil and a.strength > 0)
 		end
-		local box = { allyTeam = area.allyTeam, team = area.allyTeam, name = area.name, tags = {} }
+		local box = { type = "start", allyTeam = area.allyTeam, team = area.allyTeam, name = area.name, tags = {} }
 		if curved then
 			box.kind = "spline"
 			box.controls = area.anchors
@@ -2413,7 +2525,7 @@ function R.seedFromMatch()
 			box.kind = "polygon"
 			box.vertices = area.anchors
 		end
-		R.startList[#R.startList + 1] = box
+		R.add(box)
 	end
 	renumberBoxAllyTeams()
 	local slots = {}
@@ -2573,12 +2685,12 @@ end
 
 function R.selectStart(allyTeam)
 	R.selectedStart = allyTeam
-	R.selectedIdx = allyTeam and R.startList[allyTeam] and allyTeam or nil
+	R.selectedIdx = allyTeam and R.start(allyTeam) and allyTeam or nil
 	R.bump()
 end
 
 function R.starts()
-	local count = #R.startList
+	local count = #R.list("start")
 	local perTeam = {}
 	for _, pos in ipairs(positions) do
 		perTeam[pos.allyTeam] = (perTeam[pos.allyTeam] or 0) + 1
@@ -2588,19 +2700,20 @@ function R.starts()
 	end
 	local out = {}
 	for allyTeam = 1, count do
+		local box = R.start(allyTeam)
 		out[allyTeam] = {
 			allyTeam = allyTeam,
 			positions = perTeam[allyTeam] or 0,
-			hasBox = R.startList[allyTeam] ~= nil,
-			name = R.startList[allyTeam] and R.startList[allyTeam].name or nil,
-			tags = R.startList[allyTeam] and R.startList[allyTeam].tags or nil,
+			hasBox = box ~= nil,
+			name = box and box.name or nil,
+			tags = box and box.tags or nil,
 		}
 	end
 	return out
 end
 
 function R.startFacts(allyTeam)
-	local box = R.startList[allyTeam]
+	local box = R.start(allyTeam)
 	local facts = box and R.facts(box) or {}
 	local count, cx, cz = 0, 0, 0
 	for _, pos in ipairs(positions) do
@@ -2620,19 +2733,25 @@ function R.startFacts(allyTeam)
 end
 
 function R.setPendingField(key, value)
-	if key == "team" then
-		R.pending.team = tonumber(value)
-		R.error = ""
-		R.bump()
-	elseif key == "name" or key == "group" then
-		R.pending[key] = value or ""
-		R.error = ""
-		R.bump()
+	for _, field in ipairs(R.fieldDefs()) do
+		if field.key == key then
+			if value == nil or value == "" then
+				R.pending[key] = nil
+			elseif field.kind == "integer" then
+				R.pending[key] = tonumber(value)
+			else
+				R.pending[key] = value
+			end
+			R.error = ""
+			R.bump()
+			return true
+		end
 	end
+	return false
 end
 
 function R.teamLabel(team)
-	local start = team and R.startList[team]
+	local start = team and R.start(team)
 	return (start and start.name) or (team and ("Team " .. team)) or nil
 end
 
@@ -2724,7 +2843,7 @@ function R.remove(idx)
 	end
 	boxUndo.push("remove", idx, box)
 	freeBoxFillList(box)
-	table.remove(startboxes, idx)
+	R.removeAt(idx)
 	if R.type == "start" then
 		renumberBoxAllyTeams()
 	end
@@ -2752,13 +2871,10 @@ function R.facts(box)
 	for _, pos in ipairs(positions) do
 		starts[#starts + 1] = { allyTeam = pos.allyTeam, x = pos.x, z = pos.z }
 	end
-	local facts = R.api.Facts({
-		type = box.type or R.type,
-		vertices = verts,
-		name = box.name,
-		team = box.team,
-		group = box.group,
-	}, {
+	local candidate = R.fieldValues(box)
+	candidate.type = box.type or R.type
+	candidate.vertices = verts
+	local facts = R.api.Facts(candidate, {
 		spots = spots,
 		starts = starts,
 	})
@@ -2769,24 +2885,31 @@ function R.facts(box)
 	return lines
 end
 
-function R.groups()
-	local seen, out = {}, {}
-	for _, region in ipairs(R.mexList) do
-		if region.group and not seen[region.group] then
-			seen[region.group] = true
-			out[#out + 1] = region.group
+function R.suggestions()
+	local out = {}
+	for _, field in ipairs(R.fieldDefs()) do
+		if field.suggest then
+			local seen, values = {}, {}
+			for _, region in ipairs(startboxes) do
+				local value = region[field.key]
+				if value ~= nil and not seen[value] then
+					seen[value] = true
+					values[#values + 1] = value
+				end
+			end
+			table.sort(values)
+			out[field.key] = values
 		end
 	end
-	table.sort(out)
 	return out
 end
 
 function R.exportLayout()
-	return R.api.ExportLayout(R.mexList, Game.mapSizeX, Game.mapSizeZ)
+	return R.api.ExportLayout(R.list("mex_region"), Game.mapSizeX, Game.mapSizeZ)
 end
 
 function R.encodeLayout()
-	if #R.mexList == 0 then
+	if #R.list("mex_region") == 0 then
 		return nil
 	end
 	return R.api.EncodeLayout(R.exportLayout())
@@ -2807,7 +2930,8 @@ function R.copyLayout()
 end
 
 function R.save(explicitPath)
-	if #R.mexList == 0 then
+	local regions = R.list("mex_region")
+	if #regions == 0 then
 		Echo("[Regions] No regions to save.")
 		return false, "no regions drawn"
 	end
@@ -2818,18 +2942,21 @@ function R.save(explicitPath)
 	local lines = {}
 	lines[#lines + 1] = "-- Regions"
 	lines[#lines + 1] = "-- Map: " .. getMapName()
-	lines[#lines + 1] = "-- Generated by Start Positions Tool; anchors in elmos"
+	lines[#lines + 1] = "-- Generated by Regions Tool; anchors in elmos"
 	lines[#lines + 1] = ""
 	lines[#lines + 1] = "local regions = {"
-	for _, region in ipairs(R.mexList) do
+	for _, region in ipairs(regions) do
 		lines[#lines + 1] = "  {"
 		lines[#lines + 1] = string.format("    type = %q,", region.type or "mex_region")
-		lines[#lines + 1] = string.format("    name = %q,", region.name or "")
-		if region.team then
-			lines[#lines + 1] = string.format("    team = %d,", region.team)
-		end
-		if region.group then
-			lines[#lines + 1] = string.format("    group = %q,", region.group)
+		for _, field in ipairs(R.fieldDefs("mex_region")) do
+			local value = region[field.key]
+			if value ~= nil then
+				lines[#lines + 1] = string.format(
+					"    %s = %s,",
+					field.key,
+					field.kind == "integer" and tostring(value) or string.format("%q", value)
+				)
+			end
 		end
 		if region.tags and #region.tags > 0 then
 			local quoted = {}
@@ -2879,22 +3006,20 @@ function R.load(explicitPath)
 		Echo("[Regions] No saved regions found: " .. explicitPath)
 		return false
 	end
-	for i = 1, #R.mexList do
-		freeBoxFillList(R.mexList[i])
-	end
-	for k in pairs(R.mexList) do
-		R.mexList[k] = nil
-	end
+	R.clear("mex_region")
 	for _, entry in ipairs(data) do
 		local anchors = entry.anchors or entry.vertices
 		if type(entry) == "table" and type(entry.name) == "string" and type(anchors) == "table" and #anchors >= 3 then
-			local region = {
-				type = "mex_region",
-				name = entry.name,
-				team = tonumber(entry.team),
-				group = type(entry.group) == "string" and entry.group or nil,
-				tags = type(entry.tags) == "table" and entry.tags or {},
-			}
+			local region = { type = "mex_region", tags = type(entry.tags) == "table" and entry.tags or {} }
+			for _, field in ipairs(R.fieldDefs("mex_region")) do
+				local value = entry[field.key]
+				if field.kind == "integer" then
+					value = tonumber(value)
+				elseif type(value) ~= "string" then
+					value = nil
+				end
+				region[field.key] = value
+			end
 			if entry.kind ~= "box" then
 				region.kind = "spline"
 				region.controls = anchors
@@ -2904,7 +3029,7 @@ function R.load(explicitPath)
 				region.kind = "box"
 				region.vertices = anchors
 			end
-			R.mexList[#R.mexList + 1] = region
+			R.add(region)
 		end
 	end
 	R.selectedIdx = nil
@@ -2913,12 +3038,47 @@ function R.load(explicitPath)
 	return true
 end
 
+function R.selectedRecord()
+	if R.type == "start" and R.selectedStart then
+		local box = R.start(R.selectedStart)
+		return {
+			idx = R.selectedIdx,
+			type = R.type,
+			team = R.selectedStart,
+			hasBox = box ~= nil,
+			fields = box and R.fieldValues(box) or { team = R.selectedStart },
+			tags = box and box.tags or {},
+			vertexCount = box and #box.vertices or 0,
+			facts = R.factsFor("start:" .. R.selectedStart .. ":" .. R.revision .. ":" .. #positions, function()
+				return R.startFacts(R.selectedStart)
+			end),
+		}
+	end
+	local box = R.selectedIdx and startboxes[R.selectedIdx]
+	if not box then
+		return nil
+	end
+	return {
+		idx = R.selectedIdx,
+		type = R.type,
+		team = box.team,
+		hasBox = true,
+		fields = R.fieldValues(box),
+		tags = box.tags or {},
+		vertexCount = #box.vertices,
+		facts = R.factsFor(R.type .. ":" .. R.selectedIdx .. ":" .. R.revision, function()
+			return R.facts(box)
+		end),
+	}
+end
+
 local function getState()
 	-- Startbox submode derives its ally-team count from the boxes drawn; the panel disables
 	-- the slider there and shows it as dynamic, so reporting the stale slider value would lie.
 	local allyCount = numAllyTeams
-	if R.type == "start" and R.placing == "area" and #R.startList > 0 then
-		allyCount = #R.startList
+	local startCount = #R.list("start")
+	if R.type == "start" and R.placing == "area" and startCount > 0 then
+		allyCount = startCount
 	end
 
 	return {
@@ -2958,34 +3118,13 @@ local function getState()
 		selectedIdx = R.selectedIdx,
 		selectedStart = R.selectedStart,
 		starts = R.type == "start" and R.starts() or nil,
-		selected = (R.type == "start" and R.selectedStart and {
-			idx = R.selectedIdx,
-			type = R.type,
-			allyTeam = R.selectedStart,
-			name = R.startList[R.selectedStart] and R.startList[R.selectedStart].name or nil,
-			tags = R.startList[R.selectedStart] and R.startList[R.selectedStart].tags or {},
-			hasBox = R.startList[R.selectedStart] ~= nil,
-			vertexCount = R.startList[R.selectedStart] and #R.startList[R.selectedStart].vertices or 0,
-			facts = R.factsFor("start:" .. R.selectedStart .. ":" .. R.revision .. ":" .. #positions, function()
-				return R.startFacts(R.selectedStart)
-			end),
-		}) or (R.type ~= "start" and R.selectedIdx and startboxes[R.selectedIdx] and {
-			idx = R.selectedIdx,
-			type = R.type,
-			name = startboxes[R.selectedIdx].name,
-			team = startboxes[R.selectedIdx].team,
-			group = startboxes[R.selectedIdx].group,
-			tags = startboxes[R.selectedIdx].tags or {},
-			vertexCount = #startboxes[R.selectedIdx].vertices,
-			facts = R.factsFor(R.type .. ":" .. R.selectedIdx .. ":" .. R.revision, function()
-				return R.facts(startboxes[R.selectedIdx])
-			end),
-		}) or nil,
+		selected = R.selectedRecord(),
+		regionFields = R.fieldDefs(),
 		pendingRegion = R.pending,
 		teamOptions = R.teamOptions(),
+		suggestions = R.suggestions(),
 		regionError = R.error,
 		regionRevision = R.revision,
-		mexGroups = R.groups(),
 		drawingBox = drawingBox,
 		currentBoxVerts = currentBoxVerts,
 		boxRectActive = boxRectActive,
@@ -3762,19 +3901,10 @@ function widget:MouseRelease(mx, my, button)
 				for _, c in ipairs(controls) do
 					c.strength = 1
 				end
-				startboxes[#startboxes + 1] = {
-					vertices = {},
-					controls = controls,
-					kind = "spline",
-					allyTeam = #startboxes + 1,
-				}
-				R.newIdx = nil
-				R.stampNew(startboxes[#startboxes])
-				local idx = R.newIdx or #startboxes
-				-- Same path a control drag takes, so what is drawn matches what editing produces.
-				retessellateSpline(startboxes[idx])
-				renumberBoxAllyTeams()
-				boxUndo.push("add", idx, startboxes[idx])
+				local box = R.add({ vertices = {}, controls = controls, kind = "spline" })
+				local idx = R.stampNew(box)
+				retessellateSpline(box)
+				boxUndo.push("add", idx, box)
 			end
 		end
 		freeDrawPts = {}
@@ -4234,15 +4364,15 @@ function widget:Update()
 	hoverBoxEdge = nil
 	hoverPolyEdge = nil
 	if not active then
-		if WG.StartPosTool then
-			WG.StartPosTool.hoveringDraggable = false
+		if WG.RegionsTool then
+			WG.RegionsTool.hoveringDraggable = false
 		end
 		return
 	end
 	-- Don't steal cursor while a drag is in progress (cursor already correct)
 	if dragIdx or boxDragIdx or boxEdgeDrag then
-		if WG.StartPosTool then
-			WG.StartPosTool.hoveringDraggable = true
+		if WG.RegionsTool then
+			WG.RegionsTool.hoveringDraggable = true
 		end
 		return
 	end
@@ -4291,8 +4421,8 @@ function widget:Update()
 		or (hoverBoxEdge ~= nil)
 		or (hoverPolyEdge ~= nil)
 		or strengthEdit.hoverKnob
-	if WG.StartPosTool then
-		WG.StartPosTool.hoveringDraggable = shouldMove
+	if WG.RegionsTool then
+		WG.RegionsTool.hoveringDraggable = shouldMove
 	end
 end
 
@@ -4918,8 +5048,8 @@ function widget:DrawScreenEffects()
 		end
 	end
 
-	if R.type == "mex_region" then
-		for bi, region in ipairs(R.mexList) do
+	if R.type ~= "start" then
+		for bi, region in ipairs(startboxes) do
 			local verts = region.vertices
 			if #verts >= 3 then
 				local cx, cz = 0, 0
@@ -4944,7 +5074,7 @@ function widget:DrawScreenEffects()
 		end
 	end
 
-	for _, box in ipairs(R.type == "start" and R.startList or {}) do
+	for _, box in ipairs(R.type == "start" and startboxes or {}) do
 		if #box.vertices >= 3 then
 			-- Place the badge above the box's TOP screen edge so it doesn't sit on top of
 			-- the body-drag affordance at the centroid. Find the smallest screen-y across
@@ -5037,7 +5167,7 @@ end
 -- Widget Interface
 
 function widget:Initialize()
-	WG.StartPosTool = {
+	WG.RegionsTool = {
 		activate = activate,
 		deactivate = deactivate,
 		getState = getState,
@@ -5096,11 +5226,8 @@ function widget:Initialize()
 end
 
 function widget:Shutdown()
-	WG.StartPosTool = nil
-	for i = 1, #R.startList do
-		freeBoxFillList(R.startList[i])
-	end
-	for i = 1, #R.mexList do
-		freeBoxFillList(R.mexList[i])
+	WG.RegionsTool = nil
+	for _, region in ipairs(R.regions) do
+		freeBoxFillList(region)
 	end
 end
