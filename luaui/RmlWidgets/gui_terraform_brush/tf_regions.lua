@@ -83,6 +83,15 @@ local function fieldPickers(doc, prefix, defs, values, rgState, onSet)
 	end
 end
 
+local function problemLines(messages)
+	local html = {}
+	for i, message in ipairs(messages or {}) do
+		local safe = tostring(message):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
+		html[i] = '<div class="ll-preset-desc" style="color: #ff8080;">' .. safe .. "</div>"
+	end
+	return table.concat(html)
+end
+
 -- derived: values the module fills in for fields left empty; shown selected, so one keystroke replaces them
 local function renderFields(doc, widgetState, containerId, prefix, defs, values, onSet, derived)
 	local container = doc:GetElementById(containerId)
@@ -305,7 +314,7 @@ function M.sync(doc, ctx, rgState, setSummary)
 					.. fact[2]
 					.. "</span></div>"
 			end
-			factsEl.inner_rml = table.concat(html)
+			factsEl.inner_rml = table.concat(html) .. problemLines(selected and selected.problems)
 		end
 
 		local tags = selected and selected.tags or {}
@@ -321,6 +330,11 @@ function M.sync(doc, ctx, rgState, setSummary)
 			end
 		end)
 
+		local problems = rgState.problems or {}
+		local setEl = doc:GetElementById("rg-set-problems")
+		if setEl then
+			setEl.inner_rml = problemLines(problems.ofSet)
+		end
 		local listEl = doc:GetElementById("rg-region-list")
 		if listEl then
 			local teamLabels = {}
@@ -347,7 +361,9 @@ function M.sync(doc, ctx, rgState, setSummary)
 						.. (start.name and (" · " .. start.name) or "")
 						.. '</div><div class="ll-preset-desc">'
 						.. desc
-						.. "</div></div>"
+						.. "</div>"
+						.. problemLines(problems.byTeam and problems.byTeam[start.allyTeam])
+						.. "</div>"
 				end
 				onClick = function(i)
 					if st and st.selectStart then
@@ -376,7 +392,9 @@ function M.sync(doc, ctx, rgState, setSummary)
 						.. #(region.vertices or {})
 						.. " pts"
 						.. ((region.tags and #region.tags > 0) and (" · " .. #region.tags .. " tags") or "")
-						.. "</div></div>"
+						.. "</div>"
+						.. problemLines(problems.byIndex and problems.byIndex[i])
+						.. "</div>"
 				end
 				onClick = function(i)
 					if st and st.selectRegion then

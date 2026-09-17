@@ -274,6 +274,9 @@ end
 -- Unique color per (allyTeam, teamSlot) pair — gives every player a distinct color
 -- when multiple teams per allyteam are used. playerIdx = (allyTeam-1)*numTeamsPerAlly + teamSlot.
 function R.color(box, bi)
+	if R.validate().byRegion[box] then
+		return R.INVALID
+	end
 	local team = box.team or (R.type == "start" and bi) or nil
 	return team and getColorForAllyTeam(team) or R.COLOR
 end
@@ -2879,23 +2882,56 @@ function R.suggestions()
 	return out
 end
 
--- What the regions module and the types' owners find wrong with each type's set of regions.
-function R.setProblems()
+-- What the regions module and the types' owners find wrong with each type's set of regions: one call per type over the
+-- whole set as it stands, kept until the set changes. lines: every problem, printable; byRegion: a region's own
+-- messages, for its row, its details and its outline; ofSet: the messages about a type's set as a whole.
+R.INVALID = { 1.0, 0.25, 0.55, 1.0 }
+R.validated = { revision = -1, positions = -1, count = -1, lines = {}, byRegion = {}, ofSet = {} }
+function R.validate()
+	local was = R.validated
+	if was.revision == R.revision and was.positions == #positions and was.count == #R.regions then
+		return was
+	end
 	local finder = WG.resource_spot_finder
 	local env = {
 		spots = finder and not finder.isMetalMap and finder.metalSpotsList or nil,
 		starts = R.startPositions(),
 	}
-	local problems = {}
+	local lines, byRegion, ofSet = {}, {}, {}
 	for _, typeKey in ipairs(R.ORDER) do
 		local regions = R.list(typeKey)
 		if #regions > 0 then
 			for _, problem in ipairs(R.api.CheckSet(typeKey, regions, env)) do
-				problems[#problems + 1] = problem
+				lines[#lines + 1] = R.api.ProblemLine(problem)
+				local region = problem.index and regions[problem.index]
+				local into = region and byRegion or ofSet
+				local key = region or typeKey
+				into[key] = into[key] or {}
+				table.insert(into[key], problem.message)
 			end
 		end
 	end
-	return problems
+	R.validated = {
+		revision = R.revision,
+		positions = #positions,
+		count = #R.regions,
+		lines = lines,
+		byRegion = byRegion,
+		ofSet = ofSet,
+	}
+	return R.validated
+end
+
+function R.problemsState()
+	local validated = R.validate()
+	local byIndex, byTeam = {}, {}
+	for i, region in ipairs(startboxes) do
+		byIndex[i] = validated.byRegion[region]
+		if region.team then
+			byTeam[region.team] = validated.byRegion[region]
+		end
+	end
+	return { ofSet = validated.ofSet[R.type] or {}, byIndex = byIndex, byTeam = byTeam }
 end
 
 function R.exportLayout()
@@ -2910,7 +2946,7 @@ function R.encodeLayout()
 end
 
 function R.copyLayout()
-	local problems = R.setProblems()
+	local problems = R.validate().lines
 	if problems[1] then
 		for _, problem in ipairs(problems) do
 			Echo("[Regions] " .. problem)
@@ -2997,7 +3033,7 @@ function R.save(explicitPath)
 	file:write(table.concat(lines, "\n"))
 	file:close()
 	Echo("[Regions] Saved regions to: " .. explicitPath)
-	for _, problem in ipairs(R.setProblems()) do
+	for _, problem in ipairs(R.validate().lines) do
 		Echo("[Regions] Saved with a problem: " .. problem)
 	end
 	return true
@@ -3072,6 +3108,7 @@ function R.selectedRecord()
 		hasBox = true,
 		fields = R.fieldValues(box),
 		derived = named and named.derived and { name = named.name } or nil,
+		problems = R.validate().byRegion[box] or {},
 		tags = box.tags or {},
 		vertexCount = #box.vertices,
 		facts = R.factsFor(R.type .. ":" .. R.selectedIdx .. ":" .. R.revision, function()
@@ -3124,6 +3161,7 @@ local function getState()
 		placing = R.placing,
 		regions = startboxes,
 		names = R.names(),
+		problems = R.problemsState(),
 		selectedIdx = R.selectedIdx,
 		selectedStart = R.selectedStart,
 		starts = R.type == "start" and R.starts() or nil,

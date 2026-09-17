@@ -228,6 +228,7 @@
 		<div id="section-st-region">
 			<div class="text-sm mb-1" style="color: #ff8080;" data-if="rgRegionError != ''">{{rgRegionError}}</div>
 
+			<div id="rg-set-problems"></div>
 			<div id="rg-region-list" class="mb-1"></div>
 
 		</div><!-- /section-st-region -->
