@@ -14,6 +14,7 @@ local Problems = VFS.Include("modules/regions/lib/problems.lua") ---@type Region
 ---@field GeometryOf fun(vertices: { x: number, z: number }[]): RegionGeometryKey|nil what a region is drawn as, from its vertices alone
 ---@field EncodeLayout fun(layout: table): string|nil the layout as the modoption carries it
 ---@field DecodeLayout fun(raw: string): table|nil
+---@field LayoutFromStartboxArrangement fun(arrangement: table|nil): table|nil SHIM: one arrangement of the old startbox mod options, as a region layout
 local Api = {}
 
 ---@param kind RegionType
@@ -164,5 +165,6 @@ Api.ProblemLine = Problems.Line
 
 Api.EncodeLayout = Layout.Encode
 Api.DecodeLayout = Layout.Decode
+Api.LayoutFromStartboxArrangement = Layout.FromStartboxArrangement -- SHIM, see lib/layout.lua
 
 return Api

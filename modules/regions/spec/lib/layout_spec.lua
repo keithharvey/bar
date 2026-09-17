@@ -88,3 +88,37 @@ describe("a region layout", function()
 		assert.are.same({ "x" }, back[1].tags)
 	end)
 end)
+
+describe("the startbox arrangement shim", function()
+	local arrangement = {
+		startboxes = {
+			{ poly = { { x = 0, y = 0 }, { x = 200, y = 40 } } },
+			{ poly = { { x = 0, y = 160, strength = 1 }, { x = 200, y = 160 }, { x = 100, y = 200 } } },
+		},
+	}
+
+	it("turns the old mod option's boxes into starts, box i belonging to start i", function()
+		local layout = assert(Layout.FromStartboxArrangement(arrangement))
+		assert.are.same({
+			{ team = 1, poly = { { x = 0, y = 0 }, { x = 200, y = 40 } } },
+			{ team = 2, poly = { { x = 0, y = 160 }, { x = 200, y = 160 }, { x = 100, y = 200 } } },
+		}, layout.regions.start)
+	end)
+
+	it("gives a layout the codec reads like any other", function()
+		local starts = assert(Layout.Parse(Layout.FromStartboxArrangement(arrangement), byKey.start, 400, 400))
+		assert.are.equal(2, #starts)
+		assert.are.equal(1, starts[1].team)
+		assert.are.same(
+			{ { x = 0, z = 0 }, { x = 400, z = 0 }, { x = 400, z = 80 }, { x = 0, z = 80 } },
+			starts[1].vertices,
+			"two corners are a rect, as they are in the startbox format"
+		)
+		assert.are.equal(3, #starts[2].vertices)
+	end)
+
+	it("is nil for anything that is not an arrangement", function()
+		assert.is_nil(Layout.FromStartboxArrangement(nil))
+		assert.is_nil(Layout.FromStartboxArrangement({ regions = {} }))
+	end)
+end)

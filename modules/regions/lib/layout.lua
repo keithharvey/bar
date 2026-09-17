@@ -1,3 +1,5 @@
+local Enums = VFS.Include("modules/regions/enums.lua")
+
 ---@class RegionLayout the layout codec: every type's regions in one table keyed by type, drawn in the startbox 0..200 space, to and from Region records in elmos. An entry is a poly or a point's x and y, plus the fields its type declares, and nothing else
 local Layout = {}
 
@@ -159,6 +161,39 @@ function Layout.Decode(raw)
 		return parsed
 	end
 	return nil
+end
+
+-- =====================================================================================================================
+-- SHIM: the old startbox mod option format, translated into a region layout.
+--
+-- The lobby and SPADS already carry start boxes in `mapmetadata_startbox_override` (one arrangement) and
+-- `mapmetadata_startboxes_set` (one arrangement per team count), decoded by the same ModoptionPayload as our layouts.
+-- An arrangement is maps-metadata's `startboxesInfo`: { startboxes = { { poly = { { x, y, strength? }, ... } }, ... } },
+-- in the same 0..200 space, box i belonging to start i. This turns ONE arrangement into
+-- { regions = { start = { { team = i, poly = ... } } } }, so Layout.Parse reads it like any other layout and regions
+-- does not wait on a new mod option key being accepted anywhere.
+--
+-- It translates the format and nothing else. Which arrangement applies to a match (the override, else the set's entry
+-- for the team count, else the nearest) is luarules/gadgets/include/startbox_utilities.lua's to decide; hand this the
+-- one it picked. A spline anchor's strength is dropped: the ring comes through as its straight-edged anchors.
+--
+-- Delete this once start boxes are published as a region layout in their own right.
+-- =====================================================================================================================
+---@param arrangement table|nil one decoded startbox arrangement
+---@return table|nil layout nil when it is not an arrangement
+function Layout.FromStartboxArrangement(arrangement)
+	if type(arrangement) ~= "table" or type(arrangement.startboxes) ~= "table" then
+		return nil
+	end
+	local starts = {}
+	for i, box in ipairs(arrangement.startboxes) do
+		local poly = {}
+		for j, p in ipairs(type(box) == "table" and type(box.poly) == "table" and box.poly or {}) do
+			poly[j] = { x = p.x, y = p.y }
+		end
+		starts[i] = { team = i, poly = poly }
+	end
+	return { regions = { [Enums.Types.Start] = starts } }
 end
 
 return Layout
