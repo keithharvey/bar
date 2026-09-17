@@ -47,6 +47,13 @@ describe("Published", function()
 			assert.is_nil(decoded.tags)
 		end)
 
+		it("keeps an empty list or string in its place, whatever field comes after it", function()
+			assert.are.same({ name = "x", tags = {} }, Published.Decode(fields, "tags::name:x"))
+			assert.are.same({ name = "", tags = { "a" } }, Published.Decode(fields, "name::tags:a"))
+			assert.are.same({ tags = {} }, Published.Decode(fields, Published.Encode(fields, { tags = {} })))
+			assert.are.same({}, Published.Decode(fields, ""))
+		end)
+
 		it("reads false back as false", function()
 			assert.is_false(Published.Decode(fields, Published.Encode(fields, { on = false })).on)
 		end)

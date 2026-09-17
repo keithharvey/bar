@@ -58,8 +58,11 @@ function Published.Decode(fields, serialized, extras)
 		serialized = tostring(serialized or "")
 	end
 	local parts = {}
-	for part in string.gmatch(serialized, "([^:]+)") do
-		parts[#parts + 1] = part
+	if serialized ~= "" then
+		-- an empty value is still a value: splitting on runs of ":" would shift every field after it
+		for part in string.gmatch(serialized .. ":", "([^:]*):") do
+			parts[#parts + 1] = part
+		end
 	end
 	for i = 1, #parts, 2 do
 		local key, value = parts[i], parts[i + 1]
