@@ -19,6 +19,7 @@ end
 
 local Deal = VFS.Include("modules/economy/lib/mex_regions/deal.lua") ---@type MexRegionsDealLib
 local Geometry = VFS.Include("modules/regions/lib/geometry.lua") ---@type RegionGeometry
+local Shared = VFS.Include("modules/economy/lib/mex_regions/shared.lua") ---@type MexRegionsShared
 local readDeal = Deal.Reader()
 
 local glColor = gl.Color
@@ -39,7 +40,7 @@ end
 
 local function placingAMex()
 	local _, cmdID = Spring.GetActiveCommand()
-	return cmdID ~= nil and cmdID < 0 and isMex[-cmdID] == true
+	return cmdID ~= nil and (cmdID == GameCMD.AREA_MEX or (cmdID < 0 and isMex[-cmdID] == true))
 end
 
 local function showing()
@@ -47,6 +48,34 @@ local function showing()
 end
 
 local UNHELD = { 0.6, 0.6, 0.6 }
+local MINE = { 0.3, 1.0, 0.3 }
+local THEIRS = { 1.0, 0.55, 0.55 }
+local SPOT_RING = (Game.extractorRadius or 80) * 0.75
+
+---@param teamID integer
+---@return string
+local function holderName(teamID)
+	local players = Spring.GetPlayerList(teamID)
+	local name = players and players[1] and Spring.GetPlayerInfo(players[1], false) or nil
+	return name or ("team " .. teamID)
+end
+
+-- The metal spots my side's holdings name, by spot key: mine and my allies', which is all a player may read.
+local spotHolders = {} ---@type table<string, integer>
+local sinceRead = math.huge
+function widget:Update(dt)
+	sinceRead = sinceRead + dt
+	if sinceRead >= 1 then
+		sinceRead = 0
+		spotHolders = Shared.HolderBySpot(Spring, Spring.GetTeamList())
+	end
+end
+
+---@return { x: number, z: number }[]
+local function metalSpots()
+	local finder = WG.resource_spot_finder
+	return finder and not finder.isMetalMap and finder.metalSpotsList or {}
+end
 
 ---@param teamID integer|nil
 ---@return number[]
@@ -71,9 +100,7 @@ local function stylesFor(deal)
 		local holder = deal.holders[region.id]
 		local label = region.name
 		if holder ~= nil then
-			local players = Spring.GetPlayerList(holder)
-			local name = players and players[1] and Spring.GetPlayerInfo(players[1], false) or nil
-			label = label .. " · " .. (name or ("team " .. holder))
+			label = label .. " · " .. holderName(holder)
 		else
 			label = label .. " · open"
 		end
@@ -111,14 +138,49 @@ function widget:DrawWorldPreUnit()
 			end
 		end)
 	end
+	local myTeamID = Spring.GetMyTeamID()
+	for _, spot in ipairs(metalSpots()) do
+		local holder = spotHolders[Shared.SpotKey(spot.x, spot.z)]
+		if holder ~= nil then
+			local c = holder == myTeamID and MINE or THEIRS
+			glColor(c[1], c[2], c[3], 0.9)
+			gl.DrawGroundCircle(spot.x, 0, spot.z, SPOT_RING, 24)
+		end
+	end
 	glLineWidth(1.0)
 	glColor(1, 1, 1, 1)
+end
+
+-- Over a spot another team holds, while a mex is being placed: say whose it is, in the game's own tooltip.
+local function explainSpotUnderCursor()
+	if not (placingAMex() and WG.tooltip and WG.tooltip.ShowTooltip) then
+		return
+	end
+	local mx, my = Spring.GetMouseState()
+	local _, pos = Spring.TraceScreenRay(mx, my, true)
+	if not pos then
+		return
+	end
+	local reach = (Game.extractorRadius or 80) ^ 2
+	for _, spot in ipairs(metalSpots()) do
+		if (spot.x - pos[1]) ^ 2 + (spot.z - pos[3]) ^ 2 <= reach then
+			local holder = spotHolders[Shared.SpotKey(spot.x, spot.z)]
+			if holder ~= nil and holder ~= Spring.GetMyTeamID() then
+				WG.tooltip.ShowTooltip(
+					"mex_regions",
+					"This metal spot is " .. holderName(holder) .. "'s: Mex Splitting is Map Assigned."
+				)
+			end
+			return
+		end
+	end
 end
 
 function widget:DrawScreenEffects()
 	if not showing() then
 		return
 	end
+	explainSpotUnderCursor()
 	local deal = readDeal(Spring)
 	if not deal then
 		return
