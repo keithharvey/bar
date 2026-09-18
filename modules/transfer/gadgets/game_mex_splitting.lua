@@ -107,10 +107,29 @@ end
 -- The regions follow the players: each start position chosen before the game deals again from where everyone now
 -- stands, and the start deals once more when every position is settled. Whether the position is allowed is the spawn
 -- gadget's call, not this one's.
+local toldHoldings = {} ---@type table<integer, string> what each team was last told it holds
+
+-- Tell a team's players what they hold, when that has changed.
+---@param teamID integer
+local function tellHoldings(teamID)
+	local held = table.concat(MexSplitting.Holdings()[teamID] or {}, ", ")
+	if held == toldHoldings[teamID] then
+		return
+	end
+	toldHoldings[teamID] = held
+	local line = held ~= "" and ("your mex regions: " .. held:gsub("@%d+", "")) or "you hold no mex regions"
+	for _, playerID in ipairs(Spring.GetPlayerList(teamID)) do
+		Spring.SendMessageToPlayer(playerID, TAG .. ": " .. line)
+	end
+end
+
 function gadget:AllowStartPosition(_, teamID, _, x, _, z)
 	if reasonNone == nil and not ignoredTeams[teamID] and x and z and x > 0 and z > 0 then
 		chosen[teamID] = { x = x, z = z }
 		deal()
+		if not refused then
+			tellHoldings(teamID)
+		end
 	end
 	return true
 end
@@ -119,6 +138,13 @@ function gadget:GameStart()
 	if reasonNone == nil then
 		chosen = {}
 		deal()
+		if not refused then
+			for _, teamID in ipairs(Spring.GetTeamList()) do
+				if not ignoredTeams[teamID] then
+					tellHoldings(teamID)
+				end
+			end
+		end
 	end
 end
 

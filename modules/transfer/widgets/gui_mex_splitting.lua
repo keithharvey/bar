@@ -94,13 +94,19 @@ local function metalSpots()
 	return finder and not finder.isMetalMap and finder.metalSpotsList or {}
 end
 
-local DULL = 0.7 -- an outline is context, not a unit: the holder's colour, turned down
+local DULL = 0.55 -- an outline is context, not a unit: another holder's colour, turned well down
+local MINE_OUTLINE = { 0.25, 0.85, 0.25 }
 
+-- By meaning, not by team colour alone: with simple team colours every ally is one colour, and a region passing
+-- from a teammate to me would not change at all.
 ---@param teamID integer|nil
 ---@return number[]
 local function colourOf(teamID)
 	if teamID == nil then
 		return UNHELD
+	end
+	if teamID == Spring.GetMyTeamID() then
+		return MINE_OUTLINE
 	end
 	local r, g, b = Spring.GetTeamColor(teamID)
 	if not r or (r + g + b) < 0.15 then
