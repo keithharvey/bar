@@ -2399,6 +2399,12 @@ function R.seedMexRegions()
 	if #R.list("mex_region") > 0 then
 		return
 	end
+	-- The map maker's own save first: it holds the anchors they drew. The match's deal holds only the outline the game
+	-- plays with, every point along every curve, so it is the fallback for a layout that came from somewhere else.
+	local file = REGIONS_SAVE_DIR .. getMapName() .. ".lua"
+	if VFS.FileExists(file, VFS.RAW_FIRST) and R.load(file) then
+		return
+	end
 	local okDeal, Deal = pcall(VFS.Include, "modules/transfer/mex_splitting/deal.lua")
 	local deal = okDeal and type(Deal) == "table" and Deal.Reader()(Spring) or nil
 	if deal and deal.regions and #deal.regions > 0 then
@@ -2418,11 +2424,6 @@ function R.seedMexRegions()
 			})
 		end
 		Echo("[Regions] Opened on the match's " .. #deal.regions .. " mex region(s)")
-		return
-	end
-	local file = REGIONS_SAVE_DIR .. getMapName() .. ".lua"
-	if VFS.FileExists(file, VFS.RAW_FIRST) then
-		R.load(file)
 	end
 end
 
