@@ -48,7 +48,7 @@ function Placement.Decide(unitDefID, builderTeam, x, y, z, springRepo)
 	local kind = extractorKinds()[unitDefID]
 	local spotX, spotZ
 	if kind == "mex" then
-		local finder = GG and GG.resource_spot_finder
+		local finder = (GG and GG.resource_spot_finder) or (WG and WG.resource_spot_finder) -- the gadgets' or the widgets'
 		local spot = finder and finder.GetClosestMexSpot and finder.GetClosestMexSpot(x, z)
 		if spot then
 			spotX, spotZ = spot.x, spot.z
@@ -77,6 +77,28 @@ function Placement.Decide(unitDefID, builderTeam, x, y, z, springRepo)
 		and springRepo.AreTeamsAllied(builderTeam, ctx.spotHolder) == true
 	local pipelines = ModuleHandler.LoadPolicies(Modules.Construction) ---@type ConstructionPipelines
 	return ModuleHandler.Evaluate(pipelines.placement, ctx) == true
+end
+
+local anyMex ---@type integer|nil
+
+---May this team put a mex on the metal spot at x, z: the same ask a build order gets, for any mex, from either side.
+---@param team integer
+---@param x number
+---@param z number
+---@param springRepo Spring
+---@return boolean
+function Placement.DecideMexAt(team, x, z, springRepo)
+	if anyMex == nil then
+		for unitDefID, kind in pairs(extractorKinds()) do
+			if kind == "mex" and (anyMex == nil or unitDefID < anyMex) then
+				anyMex = unitDefID
+			end
+		end
+	end
+	if anyMex == nil then
+		return true
+	end
+	return Placement.Decide(anyMex, team, x, springRepo.GetGroundHeight(x, z) or 0, z, springRepo)
 end
 
 ---@param unitDefID integer

@@ -383,13 +383,63 @@ local function checkMetalspots()
 
 		if changed then
 			local oldinstance = getElementInstanceData(spotInstanceVBO, spot.instanceID)
-			oldinstance[5] = (occupied and 0) or 1
+			oldinstance[5] = (occupied and 0) or (spot.tint or 1)
 			oldinstance[6] = gf
 			pushElementInstance(spotInstanceVBO, oldinstance, spot.instanceID, true)
 		end
 	end
 	sceduledCheckedSpotsFrame = gf + 151
 	checkspots = false
+end
+
+-- Which free spots are open to me, by construction's own placement rule: the one a build order is refused by. Asked
+-- only before the start and while a mex is being placed, and shown only when some spot on the map is closed to me, so
+-- a match where every spot is open looks exactly as it always has. 1 is plain, 2 open to me, 3 closed to me.
+local Construction = VFS.Include("modules/construction/api.lua") ---@type ConstructionApi
+local tinted = false
+
+local function placingAMex()
+	local _, cmdID = Spring.GetActiveCommand()
+	return cmdID ~= nil and ((GameCMD and cmdID == GameCMD.AREA_MEX) or (cmdID < 0 and extractorDefs[-cmdID] ~= nil))
+end
+
+local function retintSpots()
+	local asking = spGetGameFrame() <= 0 or placingAMex()
+	if not asking and not tinted then
+		return
+	end
+	local myTeamID = spGetMyTeamID()
+	local open, anyClosed = {}, false
+	if asking then
+		for i = 1, #mySpots do
+			open[i] = Construction.MayPlaceMexAt(myTeamID, mySpots[i].x, mySpots[i].z)
+			anyClosed = anyClosed or not open[i]
+		end
+	end
+	tinted = asking and anyClosed
+	for i = 1, #mySpots do
+		local spot = mySpots[i]
+		local tint = (not tinted and 1) or (open[i] and 2) or 3
+		if spot.tint ~= tint then
+			spot.tint = tint
+			if not spot.occupied then
+				local instance = getElementInstanceData(spotInstanceVBO, spot.instanceID)
+				if instance then
+					instance[5] = tint
+					pushElementInstance(spotInstanceVBO, instance, spot.instanceID, true)
+				end
+			end
+		end
+	end
+end
+
+local sinceRetint = 0
+function widget:Update(dt)
+	sinceRetint = sinceRetint + dt
+	if sinceRetint >= 1 then
+		sinceRetint = 0
+		retintSpots()
+	end
 end
 
 local function valueToText(value)
@@ -499,7 +549,7 @@ local function InitializeSpots(mSpots)
 							gh,
 							spot.z,
 							scale,
-							(occupied and 0) or 1,
+							(occupied and 0) or (mySpot.tint or 1),
 							-1000,
 							uvcoords.w,
 							uvcoords.h,
@@ -539,7 +589,7 @@ local function UpdateSpotValues() -- This will only get called on playerchanged
 						spot.y,
 						spot.z,
 						spot.scale,
-						(occupied and 0) or 1,
+						(occupied and 0) or (spot.tint or 1),
 						-1000,
 						uvcoords.w,
 						uvcoords.h,

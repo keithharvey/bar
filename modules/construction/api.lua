@@ -31,6 +31,16 @@ return {
 		return Placement.Decide(unitDefID, builderTeam, x, y, z, Spring)
 	end,
 
+	---May this team put a mex on the metal spot at x, z. One rule: the gadget refuses a build order by it, and a
+	---widget colours the spot by it.
+	---@param teamID integer
+	---@param x number
+	---@param z number
+	---@return boolean
+	MayPlaceMexAt = function(teamID, x, z)
+		return Placement.DecideMexAt(teamID, x, z, Spring)
+	end,
+
 	---@param unitDefID integer
 	---@return boolean
 	IsExtractor = function(unitDefID)
