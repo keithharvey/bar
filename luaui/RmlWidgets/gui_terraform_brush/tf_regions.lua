@@ -134,8 +134,12 @@ local function renderFields(doc, widgetState, containerId, prefix, defs, values,
 				widgetState.wireTextInput(input)
 			end
 			if fallback ~= nil then
-				input:Focus()
-				input:Select()
+				-- Select() is the text input's own method; not every binding exposes it, and a derived name
+				-- shown unselected is no reason to lose the rest of the panel.
+				pcall(function()
+					input:Focus()
+					input:Select()
+				end)
 			end
 			input:AddEventListener("change", function()
 				onSet(field.key, input:GetAttribute("value") or "")
