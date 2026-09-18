@@ -2705,24 +2705,14 @@ function R.setField(key, value)
 	end
 	value = value or ""
 	if declared.kind == "integer" and value ~= "" then
-		value = tonumber(value) or value
-	end
-	local candidate = { type = R.type, vertices = box.vertices }
-	for _, field in ipairs(kind.fields) do
-		candidate[field.key] = box[field.key]
-	end
-	candidate[key] = value ~= "" and value or nil
-	local siblings = {}
-	for _, other in ipairs(startboxes) do
-		if other ~= box then
-			siblings[#siblings + 1] = other
+		-- The one edit refused here: a number field is what the tool itself indexes by. Everything else the
+		-- set validation reports on the region's row.
+		if tonumber(value) == nil then
+			R.error = declared.label .. " must be a number"
+			R.bump()
+			return false
 		end
-	end
-	local problems = R.api.Check(R.type, candidate, siblings, true)
-	if problems[1] then
-		R.error = problems[1]
-		R.bump()
-		return false
+		value = tonumber(value)
 	end
 	box[key] = value ~= "" and value or nil
 	R.error = ""
