@@ -2850,10 +2850,13 @@ function R.validate()
 			for _, problem in ipairs(R.api.CheckSet(typeKey, regions, env)) do
 				lines[#lines + 1] = R.api.ProblemLine(problem)
 				local region = problem.index and regions[problem.index]
-				local into = region and byRegion or ofSet
-				local key = region or typeKey
-				into[key] = into[key] or {}
-				table.insert(into[key], problem.message)
+				if region then
+					byRegion[region] = byRegion[region] or {}
+					table.insert(byRegion[region], problem.message)
+				else
+					ofSet[typeKey] = ofSet[typeKey] or {}
+					table.insert(ofSet[typeKey], { message = problem.message, at = problem.at })
+				end
 			end
 		end
 	end
@@ -2866,6 +2869,13 @@ function R.validate()
 		ofSet = ofSet,
 	}
 	return R.validated
+end
+
+-- Take the camera to where a problem of the set says to look.
+function R.lookAt(x, z)
+	if x and z then
+		Spring.SetCameraTarget(x, Spring.GetGroundHeight(x, z) or 0, z, 0.6)
+	end
 end
 
 function R.problemsState()
@@ -5190,6 +5200,7 @@ function widget:Initialize()
 		encodeLayout = R.encodeLayout,
 		copyLayout = R.copyLayout,
 		saveRegions = R.save,
+		lookAt = R.lookAt,
 		loadRegions = R.load,
 		clearAllPositions = clearAllPositions,
 		addPosition = addPosition,

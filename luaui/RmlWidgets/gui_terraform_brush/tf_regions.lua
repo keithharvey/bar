@@ -23,6 +23,16 @@ local function chip(id, label, active)
 		.. "</div></div>"
 end
 
+-- One part of the panel failing must not take the rest with it, and the failure has to be seen: the infolog is
+-- buffered while the game runs, chat is not.
+local function safely(widgetState, what, fn)
+	local ok, err = pcall(fn)
+	if not ok and widgetState.rgLastError ~= err then
+		widgetState.rgLastError = err
+		Spring.Echo("[Regions] panel " .. what .. " failed: " .. tostring(err))
+	end
+end
+
 local function listen(doc, id, fn)
 	local el = doc:GetElementById(id)
 	if el then
@@ -284,140 +294,165 @@ function M.sync(doc, ctx, rgState, setSummary)
 			end
 		end
 
-		if selectionChanged then
+		safely(widgetState, "details", function()
+			if selectionChanged then
+				if detailsMode == "new" then
+					renderFields(doc, widgetState, "rg-new-fields", "rg-new", defs, pending, setPending)
+				end
+				if selected and selected.hasBox then
+					renderFields(
+						doc,
+						widgetState,
+						"rg-detail-fields",
+						"rg-detail",
+						defs,
+						selected.fields or {},
+						setField,
+						selected.derived
+					)
+				end
+			end
 			if detailsMode == "new" then
-				renderFields(doc, widgetState, "rg-new-fields", "rg-new", defs, pending, setPending)
+				fieldPickers(doc, "rg-new", defs, pending, rgState, setPending)
 			end
 			if selected and selected.hasBox then
-				renderFields(
-					doc,
-					widgetState,
-					"rg-detail-fields",
-					"rg-detail",
-					defs,
-					selected.fields or {},
-					setField,
-					selected.derived
-				)
+				fieldPickers(doc, "rg-detail", defs, selected.fields or {}, rgState, setField)
 			end
-		end
-		if detailsMode == "new" then
-			fieldPickers(doc, "rg-new", defs, pending, rgState, setPending)
-		end
-		if selected and selected.hasBox then
-			fieldPickers(doc, "rg-detail", defs, selected.fields or {}, rgState, setField)
-		end
 
-		local factsEl = doc:GetElementById("rg-detail-facts")
-		if factsEl then
-			local html = {}
-			for _, fact in ipairs(selected and selected.facts or {}) do
-				html[#html + 1] = '<div class="text-sm text-light">'
-					.. fact[1]
-					.. ': <span class="text-keybind">'
-					.. fact[2]
-					.. "</span></div>"
+			local factsEl = doc:GetElementById("rg-detail-facts")
+			if factsEl then
+				local html = {}
+				for _, fact in ipairs(selected and selected.facts or {}) do
+					html[#html + 1] = '<div class="text-sm text-light">'
+						.. fact[1]
+						.. ': <span class="text-keybind">'
+						.. fact[2]
+						.. "</span></div>"
+				end
+				factsEl.inner_rml = table.concat(html) .. problemLines(selected and selected.problems)
 			end
-			factsEl.inner_rml = table.concat(html) .. problemLines(selected and selected.problems)
-		end
 
-		local tags = selected and selected.tags or {}
-		local tagOptions = {}
-		for i, tag in ipairs(tags) do
-			tagOptions[i] = { label = tag .. " ×", value = i }
-		end
-		fillChips(doc, "rg-tag-list", tagOptions, function()
-			return false
-		end, function(option)
-			if st and st.removeTag then
-				st.removeTag(option.value)
+			local tags = selected and selected.tags or {}
+			local tagOptions = {}
+			for i, tag in ipairs(tags) do
+				tagOptions[i] = { label = tag .. " ×", value = i }
+			end
+			fillChips(doc, "rg-tag-list", tagOptions, function()
+				return false
+			end, function(option)
+				if st and st.removeTag then
+					st.removeTag(option.value)
+				end
+			end)
+
+		end)
+		safely(widgetState, "list", function()
+			local problems = rgState.problems or {}
+			local setEl = doc:GetElementById("rg-set-problems")
+			if setEl then
+				local html = {}
+				for i, problem in ipairs(problems.ofSet or {}) do
+					local safe = tostring(problem.message):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
+					html[i] = '<div id="rg-set-problem-'
+						.. i
+						.. '" class="ll-preset-desc" style="color: #ff8080;'
+						.. (problem.at and " cursor: pointer; text-decoration: underline;" or "")
+						.. '">'
+						.. safe
+						.. (problem.at and " (show me)" or "")
+						.. "</div>"
+				end
+				setEl.inner_rml = table.concat(html)
+				for i, problem in ipairs(problems.ofSet or {}) do
+					if problem.at then
+						listen(doc, "rg-set-problem-" .. i, function()
+							if st and st.lookAt then
+								st.lookAt(problem.at.x, problem.at.z)
+							end
+						end)
+					end
+				end
+			end
+			local listEl = doc:GetElementById("rg-region-list")
+			if listEl then
+				local teamLabels = {}
+				for _, option in ipairs(rgState.teamOptions or {}) do
+					teamLabels[option.team] = option.label
+				end
+				local html, count, onClick = {}, 0, nil
+				if rgState.regionType == "start" then
+					local starts = rgState.starts or {}
+					count = #starts
+					for i, start in ipairs(starts) do
+						local selectedClass = (start.allyTeam == rgState.selectedStart) and " selected" or ""
+						local desc = start.positions
+							.. " position"
+							.. (start.positions == 1 and "" or "s")
+							.. " · "
+							.. (start.hasBox and "area drawn" or "no area")
+						html[#html + 1] = '<div id="rg-region-item-'
+							.. i
+							.. '" class="ll-preset-item'
+							.. selectedClass
+							.. '"><div class="ll-preset-name">Start '
+							.. start.allyTeam
+							.. (start.name and (" · " .. start.name) or "")
+							.. '</div><div class="ll-preset-desc">'
+							.. desc
+							.. "</div>"
+							.. problemLines(problems.byTeam and problems.byTeam[start.allyTeam])
+							.. "</div>"
+					end
+					onClick = function(i)
+						if st and st.selectStart then
+							st.selectStart(i)
+						end
+					end
+				else
+					local regions = rgState.regions or {}
+					count = #regions
+					local names = rgState.names or {}
+					for i, region in ipairs(regions) do
+						local named = names[i]
+						local label = (named and named.name or region.name or "?")
+							.. (region.group and (" (" .. region.group .. ")") or "")
+						if region.team then
+							label = (teamLabels[region.team] or ("Team " .. region.team)) .. " · " .. label
+						end
+						local selectedClass = (i == rgState.selectedIdx) and " selected" or ""
+						html[#html + 1] = '<div id="rg-region-item-'
+							.. i
+							.. '" class="ll-preset-item'
+							.. selectedClass
+							.. '"><div class="ll-preset-name">'
+							.. label
+							.. '</div><div class="ll-preset-desc">'
+							.. #(region.vertices or {})
+							.. " pts"
+							.. ((region.tags and #region.tags > 0) and (" · " .. #region.tags .. " tags") or "")
+							.. "</div>"
+							.. problemLines(problems.byIndex and problems.byIndex[i])
+							.. "</div>"
+					end
+					onClick = function(i)
+						if st and st.selectRegion then
+							st.selectRegion(i)
+						end
+					end
+				end
+				if count == 0 then
+					listEl.inner_rml =
+						'<div class="text-xs text-keybind" style="padding: 4dp;">Nothing on this layer yet.</div>'
+				else
+					listEl.inner_rml = table.concat(html)
+					for i = 1, count do
+						listen(doc, "rg-region-item-" .. i, function()
+							onClick(i)
+						end)
+					end
+				end
 			end
 		end)
-
-		local problems = rgState.problems or {}
-		local setEl = doc:GetElementById("rg-set-problems")
-		if setEl then
-			setEl.inner_rml = problemLines(problems.ofSet)
-		end
-		local listEl = doc:GetElementById("rg-region-list")
-		if listEl then
-			local teamLabels = {}
-			for _, option in ipairs(rgState.teamOptions or {}) do
-				teamLabels[option.team] = option.label
-			end
-			local html, count, onClick = {}, 0, nil
-			if rgState.regionType == "start" then
-				local starts = rgState.starts or {}
-				count = #starts
-				for i, start in ipairs(starts) do
-					local selectedClass = (start.allyTeam == rgState.selectedStart) and " selected" or ""
-					local desc = start.positions
-						.. " position"
-						.. (start.positions == 1 and "" or "s")
-						.. " · "
-						.. (start.hasBox and "area drawn" or "no area")
-					html[#html + 1] = '<div id="rg-region-item-'
-						.. i
-						.. '" class="ll-preset-item'
-						.. selectedClass
-						.. '"><div class="ll-preset-name">Start '
-						.. start.allyTeam
-						.. (start.name and (" · " .. start.name) or "")
-						.. '</div><div class="ll-preset-desc">'
-						.. desc
-						.. "</div>"
-						.. problemLines(problems.byTeam and problems.byTeam[start.allyTeam])
-						.. "</div>"
-				end
-				onClick = function(i)
-					if st and st.selectStart then
-						st.selectStart(i)
-					end
-				end
-			else
-				local regions = rgState.regions or {}
-				count = #regions
-				local names = rgState.names or {}
-				for i, region in ipairs(regions) do
-					local named = names[i]
-					local label = (named and named.name or region.name or "?")
-						.. (region.group and (" (" .. region.group .. ")") or "")
-					if region.team then
-						label = (teamLabels[region.team] or ("Team " .. region.team)) .. " · " .. label
-					end
-					local selectedClass = (i == rgState.selectedIdx) and " selected" or ""
-					html[#html + 1] = '<div id="rg-region-item-'
-						.. i
-						.. '" class="ll-preset-item'
-						.. selectedClass
-						.. '"><div class="ll-preset-name">'
-						.. label
-						.. '</div><div class="ll-preset-desc">'
-						.. #(region.vertices or {})
-						.. " pts"
-						.. ((region.tags and #region.tags > 0) and (" · " .. #region.tags .. " tags") or "")
-						.. "</div>"
-						.. problemLines(problems.byIndex and problems.byIndex[i])
-						.. "</div>"
-				end
-				onClick = function(i)
-					if st and st.selectRegion then
-						st.selectRegion(i)
-					end
-				end
-			end
-			if count == 0 then
-				listEl.inner_rml =
-					'<div class="text-xs text-keybind" style="padding: 4dp;">Nothing on this layer yet.</div>'
-			else
-				listEl.inner_rml = table.concat(html)
-				for i = 1, count do
-					listen(doc, "rg-region-item-" .. i, function()
-						onClick(i)
-					end)
-				end
-			end
-		end
 	end
 
 	setRg("rgAllyTeamsStr", tostring(rgState.numAllyTeams))

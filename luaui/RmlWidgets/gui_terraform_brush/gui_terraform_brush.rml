@@ -220,20 +220,6 @@
 		<!-- Regions controls -->
 		<div id="tf-regions-controls" data-if="activeTool == 'rg'">
 
-		<div class="tf-section-frame" id="frame-st-region">
-			<div id="btn-toggle-st-region" class="tf-section-title-row" style="cursor: pointer;">
-				<img id="img-toggle-st-region" class="tf-icon-sm" src="/luaui/images/terraform_brush/minus.png" />
-				<div class="tf-collapsible-title">{{rgRegionListTitle}}</div>
-			</div>
-		<div id="section-st-region">
-			<div class="text-sm mb-1" style="color: #ff8080;" data-if="rgRegionError != ''">{{rgRegionError}}</div>
-
-			<div id="rg-set-problems"></div>
-			<div id="rg-region-list" class="mb-1"></div>
-
-		</div><!-- /section-st-region -->
-		</div><!-- /frame-st-region -->
-
 		<div class="tf-section-frame" id="frame-st-details">
 			<div id="btn-toggle-st-details" class="tf-section-title-row" style="cursor: pointer;">
 				<img id="img-toggle-st-details" class="tf-icon-sm" src="/luaui/images/terraform_brush/minus.png" />
@@ -283,6 +269,20 @@
 
 		</div><!-- /section-st-details -->
 		</div><!-- /frame-st-details -->
+
+		<div class="tf-section-frame" id="frame-st-region">
+			<div id="btn-toggle-st-region" class="tf-section-title-row" style="cursor: pointer;">
+				<img id="img-toggle-st-region" class="tf-icon-sm" src="/luaui/images/terraform_brush/minus.png" />
+				<div class="tf-collapsible-title">{{rgRegionListTitle}}</div>
+			</div>
+		<div id="section-st-region">
+			<div class="text-sm mb-1" style="color: #ff8080;" data-if="rgRegionError != ''">{{rgRegionError}}</div>
+
+			<div id="rg-set-problems"></div>
+			<div id="rg-region-list" class="mb-1"></div>
+
+		</div><!-- /section-st-region -->
+		</div><!-- /frame-st-region -->
 
 		<!-- ST: DISPLAY -->
 		<div class="tf-section-frame tf-collapsed" id="frame-st-overlays">
