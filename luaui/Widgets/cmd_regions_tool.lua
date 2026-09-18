@@ -783,48 +783,12 @@ function R.pendingCandidate(vertices)
 	return candidate
 end
 
-function R.pendingSiblings(candidate)
-	local replaced = R.type == "start" and R.start(candidate.team) or nil
-	local out = {}
-	for _, other in ipairs(startboxes) do
-		if other ~= replaced then
-			out[#out + 1] = other
-		end
-	end
-	return out
-end
-
----@return string|nil reason
-function R.validatePending()
-	local candidate = R.pendingCandidate(nil)
-	local problems = R.api.Check(R.type, candidate, R.pendingSiblings(candidate), true)
-	return problems[1]
-end
-
-function R.freshName(field)
-	local n = #startboxes
-	local name
-	repeat
-		name = "region " .. n
-		n = n + 1
-		local taken = false
-		for _, other in ipairs(startboxes) do
-			taken = taken or other[field.key] == name
-		end
-	until not taken
-	return name
-end
-
 ---@param box table a region already in R.regions
 ---@return integer idx its index in the layer
 function R.stampNew(box)
 	local candidate = R.pendingCandidate(box.vertices)
 	for _, field in ipairs(R.fieldDefs()) do
-		local value = candidate[field.key]
-		if value == nil and field.unique and field.kind == "string" then
-			value = R.freshName(field)
-		end
-		box[field.key] = value
+		box[field.key] = candidate[field.key]
 		if field.unique then
 			R.pending[field.key] = nil
 		end
@@ -862,15 +826,6 @@ local function finishStartbox(strength)
 			R.tessellate(box)
 		else
 			box.vertices = currentBoxVerts
-		end
-		local candidate = R.pendingCandidate(box.vertices)
-		local problems = R.api.Check(R.type, candidate, R.pendingSiblings(candidate), false)
-		if problems[1] then
-			R.error = problems[1]
-			currentBoxVerts = {}
-			drawingBox = false
-			R.bump()
-			return
 		end
 		R.add(box)
 		local idx = R.stampNew(box)
@@ -3427,15 +3382,6 @@ function widget:MousePress(mx, my, button)
 
 			if R.editMode == "select" then
 				return true
-			end
-			do
-				local reason = R.validatePending()
-				if reason then
-					R.error = reason
-					Echo("[Regions] Not yet: " .. reason)
-					R.bump()
-					return true
-				end
 			end
 			if
 				R.type ~= "start"
