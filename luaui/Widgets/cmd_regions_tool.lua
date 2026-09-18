@@ -789,7 +789,8 @@ function R.stampNew(box)
 	local candidate = R.pendingCandidate(box.vertices)
 	for _, field in ipairs(R.fieldDefs()) do
 		box[field.key] = candidate[field.key]
-		if field.unique then
+		-- The next region starts with a clear form, except what was picked from a list: the same team, usually.
+		if not field.picks then
 			R.pending[field.key] = nil
 		end
 	end
