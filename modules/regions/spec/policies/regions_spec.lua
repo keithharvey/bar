@@ -107,6 +107,7 @@ describe("a region's facts", function()
 		assert.are.equal(2, facts[Contract.Facts.NearestStart].allyTeam)
 		local lines = Regions.FactLines(facts)
 		assert.are.equal("Metal spots", lines[3][1])
+		assert.are.equal("2 (0.0 metal/s with T1 mexes)", lines[3][2])
 	end)
 
 	it("a point has no area and is its own centre", function()

@@ -71,7 +71,7 @@ local CheckSet = {
 ---@class RegionFacts: PolicyFacts<RegionFactsContext>
 ---@field Area string elmos squared; 0 for a point
 ---@field Centre string { x, z }: the vertex centroid, or the point itself
----@field MetalSpots string { count, worth } inside the region; nil when the asker knew no spots
+---@field MetalSpots string { count, worth } inside the region, worth being the metal map's own sum, a thousand to one metal a second for a T1 mex; nil when the asker knew no spots
 ---@field NearestStart string { allyTeam, distance } from the centre; nil when the asker knew no starts
 
 ---@type RegionFacts

@@ -147,7 +147,9 @@ function Api.FactLines(facts)
 	if spots then
 		lines[#lines + 1] = {
 			"Metal spots",
-			spots.count .. (spots.count > 0 and string.format(" (%.1f worth)", spots.worth) or ""),
+			-- worth is the metal map's own sum; a thousandth of it is what the game floats over a spot: a T1 mex's income
+			spots.count
+				.. (spots.count > 0 and string.format(" (%.1f metal/s with T1 mexes)", spots.worth / 1000) or ""),
 		}
 	end
 	local nearest = facts[Contract.Facts.NearestStart]
