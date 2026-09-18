@@ -46,6 +46,7 @@ local Names = {
 ---@field message string
 ---@field index integer|nil the region it is about, by its place in the set; nil when it is about the set as a whole
 ---@field name string|nil what that region is called
+---@field at { x: number, z: number }|nil where on the map to look, when the rule that found it knows
 
 ---@class RegionSetContext every region of one type together, on its way through the rules that judge the set; problems collect, see RegionProblems
 ---@field type RegionType

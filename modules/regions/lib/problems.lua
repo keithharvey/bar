@@ -10,8 +10,9 @@ end
 
 ---@param ctx RegionSetContext
 ---@param message string
-function Problems.OfSet(ctx, message)
-	ctx.problems[#ctx.problems + 1] = { message = message }
+---@param at { x: number, z: number }|nil where on the map to look: the first place the set falls short
+function Problems.OfSet(ctx, message, at)
+	ctx.problems[#ctx.problems + 1] = { message = message, at = at }
 end
 
 ---@param problem RegionProblem
