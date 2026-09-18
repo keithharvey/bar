@@ -50,6 +50,9 @@ local function tellEveryone(message)
 end
 
 ---@return MexRegionsTeamStart[]
+local chosen = {} ---@type table<integer, { x: number, z: number }> where a team has asked to start, before the engine has it
+
+-- Where each team starts from: the position it chose, else the one the engine holds, else its start area's centre.
 local function teamStarts()
 	local centres = {} ---@type { [integer]: { x: number, z: number } }
 	for _, area in ipairs(Start.Current(Spring).areas) do
@@ -65,8 +68,15 @@ local function teamStarts()
 	for _, teamID in ipairs(Spring.GetTeamList()) do
 		if not ignoredTeams[teamID] then
 			local allyTeamID = Spring.GetTeamAllyTeamID(teamID) or 0
-			local centre = centres[allyTeamID] or { x = Game.mapSizeX * 0.5, z = Game.mapSizeZ * 0.5 }
-			teams[#teams + 1] = { teamID = teamID, allyTeam = allyTeamID + 1, x = centre.x, z = centre.z }
+			local at = chosen[teamID]
+			if at == nil then
+				local x, _, z = Spring.GetTeamStartPosition(teamID)
+				if x and z and x > 0 and z > 0 then
+					at = { x = x, z = z }
+				end
+			end
+			at = at or centres[allyTeamID] or { x = Game.mapSizeX * 0.5, z = Game.mapSizeZ * 0.5 }
+			teams[#teams + 1] = { teamID = teamID, allyTeam = allyTeamID + 1, x = at.x, z = at.z }
 		end
 	end
 	return teams
@@ -92,6 +102,24 @@ function gadget:Initialize()
 	end
 	Spring.Log(TAG, LOG.NOTICE, #regions .. " regions from " .. source)
 	deal()
+end
+
+-- The regions follow the players: each start position chosen before the game deals again from where everyone now
+-- stands, and the start deals once more when every position is settled. Whether the position is allowed is the spawn
+-- gadget's call, not this one's.
+function gadget:AllowStartPosition(_, teamID, _, x, _, z)
+	if reasonNone == nil and not ignoredTeams[teamID] and x and z and x > 0 and z > 0 then
+		chosen[teamID] = { x = x, z = z }
+		deal()
+	end
+	return true
+end
+
+function gadget:GameStart()
+	if reasonNone == nil then
+		chosen = {}
+		deal()
+	end
 end
 
 -- A map maker trying out what they just drew: with no layout from the lobby or the map, before the start, the only

@@ -74,6 +74,8 @@ local function holderName(teamID)
 	return name or ("team " .. teamID)
 end
 
+local styledFor = nil ---@type table|nil the deal these styles were built for
+
 -- The metal spots my side's holdings name, by spot key: mine and my allies', which is all a player may read.
 local spotHolders = {} ---@type table<string, integer[]>
 local sinceRead = math.huge
@@ -82,6 +84,7 @@ function widget:Update(dt)
 	if sinceRead >= 1 then
 		sinceRead = 0
 		spotHolders = Shared.HoldersBySpot(Spring, Spring.GetTeamList())
+		styledFor = nil -- team colours and names settle after load, and the deal moves as starts are chosen
 	end
 end
 
@@ -91,6 +94,8 @@ local function metalSpots()
 	return finder and not finder.isMetalMap and finder.metalSpotsList or {}
 end
 
+local DULL = 0.7 -- an outline is context, not a unit: the holder's colour, turned down
+
 ---@param teamID integer|nil
 ---@return number[]
 local function colourOf(teamID)
@@ -98,10 +103,12 @@ local function colourOf(teamID)
 		return UNHELD
 	end
 	local r, g, b = Spring.GetTeamColor(teamID)
-	return { r or 1, g or 1, b or 1 }
+	if not r or (r + g + b) < 0.15 then
+		return UNHELD -- no colour yet, or one too dark to read against the ground
+	end
+	return { r * DULL, g * DULL, b * DULL }
 end
 
-local styledFor = nil ---@type table|nil the deal these styles were built for
 local styles = {} ---@type { colour: number[], label: string, x: number, z: number }[]
 ---@param deal MexRegionsDealRecord
 local function stylesFor(deal)
@@ -133,7 +140,7 @@ function widget:DrawWorldPreUnit()
 		return
 	end
 	local style = stylesFor(deal)
-	glLineWidth(3.0)
+	glLineWidth(2.5)
 	for i, region in ipairs(deal.regions) do
 		local c = style[i].colour
 		glColor(c[1], c[2], c[3], 0.9)
