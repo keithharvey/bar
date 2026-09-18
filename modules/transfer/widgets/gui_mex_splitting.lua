@@ -18,9 +18,7 @@ if Spring.GetModOptions()[TransferEnums.ModOptions.MexSplitting] ~= TransferEnum
 end
 
 local Deal = VFS.Include("modules/transfer/mex_splitting/deal.lua") ---@type MexRegionsDealLib
-local Geometry = VFS.Include("modules/regions/lib/geometry.lua") ---@type RegionGeometry
 local Shared = VFS.Include("modules/transfer/mex_splitting/shared.lua") ---@type MexRegionsShared
-local readDeal = Deal.Reader()
 
 -- No deal by the time the UI loads means the match found no layout. If this player has drawn one for the map in the
 -- terraformer, hand it to the gadget, which takes it only from a lone player before the start.
@@ -38,12 +36,6 @@ end
 
 local glColor = gl.Color
 local glLineWidth = gl.LineWidth
-local glBeginEnd = gl.BeginEnd
-local glVertex = gl.Vertex
-local glText = gl.Text
-local GL_LINE_LOOP = GL.LINE_LOOP
-local GetGroundHeight = Spring.GetGroundHeight
-local WorldToScreenCoords = Spring.WorldToScreenCoords
 
 local isMex = {} ---@type table<integer, boolean>
 for unitDefID, unitDef in pairs(UnitDefs) do
@@ -61,10 +53,9 @@ local function showing()
 	return Spring.GetGameFrame() <= 0 or placingAMex()
 end
 
-local UNHELD = { 0.6, 0.6, 0.6 }
-local MINE = { 0.3, 1.0, 0.3 }
-local THEIRS = { 1.0, 0.55, 0.55 }
-local SPOT_RING = (Game.extractorRadius or 80) * 0.75
+local BUILDABLE = { 0.3, 1.0, 0.3 } -- the same green the game gives a spot you may take
+local DULL = 0.6 -- an ally's spot is context: their colour, turned down
+local SPOT_RING = Game.extractorRadius or 80
 
 ---@param teamID integer
 ---@return string
@@ -74,7 +65,15 @@ local function holderName(teamID)
 	return name or ("team " .. teamID)
 end
 
-local styledFor = nil ---@type table|nil the deal these styles were built for
+---@param teamID integer
+---@return number[]
+local function allyColour(teamID)
+	local r, g, b = Spring.GetTeamColor(teamID)
+	if not r or (r + g + b) < 0.15 then
+		return { 0.6, 0.6, 0.6 } -- no colour yet, or one too dark to read against the ground
+	end
+	return { r * DULL, g * DULL, b * DULL }
+end
 
 -- The metal spots my side's holdings name, by spot key: mine and my allies', which is all a player may read.
 local spotHolders = {} ---@type table<string, integer[]>
@@ -84,7 +83,6 @@ function widget:Update(dt)
 	if sinceRead >= 1 then
 		sinceRead = 0
 		spotHolders = Shared.HoldersBySpot(Spring, Spring.GetTeamList())
-		styledFor = nil -- team colours and names settle after load, and the deal moves as starts are chosen
 	end
 end
 
@@ -94,85 +92,22 @@ local function metalSpots()
 	return finder and not finder.isMetalMap and finder.metalSpotsList or {}
 end
 
-local DULL = 0.55 -- an outline is context, not a unit: another holder's colour, turned well down
-local MINE_OUTLINE = { 0.25, 0.85, 0.25 }
-
--- By meaning, not by team colour alone: with simple team colours every ally is one colour, and a region passing
--- from a teammate to me would not change at all.
----@param teamID integer|nil
----@return number[]
-local function colourOf(teamID)
-	if teamID == nil then
-		return UNHELD
-	end
-	if teamID == Spring.GetMyTeamID() then
-		return MINE_OUTLINE
-	end
-	local r, g, b = Spring.GetTeamColor(teamID)
-	if not r or (r + g + b) < 0.15 then
-		return UNHELD -- no colour yet, or one too dark to read against the ground
-	end
-	return { r * DULL, g * DULL, b * DULL }
-end
-
-local styles = {} ---@type { colour: number[], label: string, x: number, z: number }[]
----@param deal MexRegionsDealRecord
-local function stylesFor(deal)
-	if styledFor == deal then
-		return styles
-	end
-	styledFor = deal
-	styles = {}
-	for i, region in ipairs(deal.regions) do
-		local holder = deal.holders[region.id]
-		local label = region.name
-		if holder ~= nil then
-			label = label .. " · " .. holderName(holder)
-		else
-			label = label .. " · open"
-		end
-		local cx, cz = Geometry.Centroid(region.vertices)
-		styles[i] = { colour = colourOf(holder), label = label, x = cx, z = cz }
-	end
-	return styles
-end
-
+-- While a mex is being placed, and before the start: every metal spot wears a ring. Green is a spot I may build on,
+-- which is my own, the enemy's, and any nobody holds. A spot an ally holds wears that ally's colour.
 function widget:DrawWorldPreUnit()
-	if not showing() then
-		return
-	end
-	local deal = readDeal(Spring)
-	if not deal then
-		return
-	end
-	local style = stylesFor(deal)
-	glLineWidth(2.5)
-	for i, region in ipairs(deal.regions) do
-		local c = style[i].colour
-		glColor(c[1], c[2], c[3], 0.9)
-		glBeginEnd(GL_LINE_LOOP, function()
-			local poly = region.vertices
-			for i, v in ipairs(poly) do
-				local vn = poly[(i % #poly) + 1] or v
-				local vx, vz, nx, nz = v.x or 0, v.z or 0, vn.x or 0, vn.z or 0
-				local segLen = math.sqrt((nx - vx) ^ 2 + (nz - vz) ^ 2)
-				local steps = math.max(1, math.ceil(segLen / 64))
-				for s = 0, steps - 1 do
-					local t = s / steps
-					local x, z = vx + (nx - vx) * t, vz + (nz - vz) * t
-					glVertex(x, (GetGroundHeight(x, z) or 0) + 6, z)
-				end
-			end
-		end)
+	if not showing() or next(spotHolders) == nil then
+		return -- no deal this match: nothing is restricted, so there is nothing to say
 	end
 	local myTeamID = Spring.GetMyTeamID()
+	glLineWidth(2.0)
 	for _, spot in ipairs(metalSpots()) do
 		local holders = spotHolders[Shared.SpotKey(spot.x, spot.z)]
-		if holders ~= nil then
-			local c = table.contains(holders, myTeamID) and MINE or THEIRS
-			glColor(c[1], c[2], c[3], 0.9)
-			gl.DrawGroundCircle(spot.x, 0, spot.z, SPOT_RING, 24)
+		local c = BUILDABLE
+		if holders ~= nil and not table.contains(holders, myTeamID) then
+			c = allyColour(holders[1])
 		end
+		glColor(c[1], c[2], c[3], 0.9)
+		gl.DrawGroundCircle(spot.x, 0, spot.z, SPOT_RING, 32)
 	end
 	glLineWidth(1.0)
 	glColor(1, 1, 1, 1)
@@ -208,23 +143,7 @@ local function explainSpotUnderCursor()
 end
 
 function widget:DrawScreenEffects()
-	if not showing() then
-		return
+	if showing() then
+		explainSpotUnderCursor()
 	end
-	explainSpotUnderCursor()
-	local deal = readDeal(Spring)
-	if not deal then
-		return
-	end
-	local style = stylesFor(deal)
-	for _, s in ipairs(style) do
-		local gy = GetGroundHeight(s.x, s.z) or 0
-		local sx, sy, sz = WorldToScreenCoords(s.x, gy, s.z)
-		if sz and sz > 0 and sz < 1 then
-			local c = s.colour
-			glColor(c[1], c[2], c[3], 1)
-			glText(s.label, sx, sy, 14, "cdo")
-		end
-	end
-	glColor(1, 1, 1, 1)
 end
