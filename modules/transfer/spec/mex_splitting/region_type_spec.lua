@@ -13,7 +13,7 @@ end
 describe("the mex region type", function()
 	it("is transfer's, drawn as a polygon only", function()
 		local order, byKey = Regions.Types()
-		assert.are.same({ "mex_region", "start" }, order)
+		assert.are.same({ "start", "mex_region" }, order, "start first: transfer is built on start")
 		assert.are.same({ "polygon" }, byKey.mex_region.geometries)
 		assert.are.equal("transfer", byKey.mex_region.module)
 		assert.are.same(
