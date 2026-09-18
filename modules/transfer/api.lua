@@ -73,6 +73,19 @@ local MexSplitting = {
 		return regions, source, reason
 	end,
 
+	---@param raw string a layout blob handed over after load
+	---@param source string where it came from, for the log
+	---@return MexRegion[]|nil regions
+	---@return string|nil reason
+	LoadBlob = function(raw, source)
+		local regions, reason = Sources.FromBlob(raw, Game.mapSizeX, Game.mapSizeZ)
+		if regions then
+			state.mexRegions = regions
+			state.mexRegionsSource = source
+		end
+		return regions, reason
+	end,
+
 	---@return MexRegion[] the loaded layout's regions; none before Load
 	Regions = function()
 		return state.mexRegions or {}

@@ -22,6 +22,20 @@ local Geometry = VFS.Include("modules/regions/lib/geometry.lua") ---@type Region
 local Shared = VFS.Include("modules/transfer/mex_splitting/shared.lua") ---@type MexRegionsShared
 local readDeal = Deal.Reader()
 
+-- No deal by the time the UI loads means the match found no layout. If this player has drawn one for the map in the
+-- terraformer, hand it to the gadget, which takes it only from a lone player before the start.
+function widget:Initialize()
+	if Spring.GetGameFrame() > 0 or Spring.GetGameRulesParam(Deal.PARAM) ~= nil then
+		return
+	end
+	local Sources = VFS.Include("modules/transfer/mex_splitting/sources.lua") ---@type MexRegionSources
+	local blob = Sources.EditorBlob(Game.mapName, Game.mapSizeX, Game.mapSizeZ)
+	if blob then
+		Spring.Echo("[Mex Splitting] offering this map's terraformer layout to the match")
+		Spring.SendLuaRulesMsg(Shared.LAYOUT_MSG .. blob)
+	end
+end
+
 local glColor = gl.Color
 local glLineWidth = gl.LineWidth
 local glBeginEnd = gl.BeginEnd

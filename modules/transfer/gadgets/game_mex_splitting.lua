@@ -22,8 +22,9 @@ if Spring.GetModOptions()[TransferEnums.ModOptions.MexSplitting] ~= TransferEnum
 	return false
 end
 
-local MexRegions = VFS.Include("modules/transfer/api.lua").MexSplitting ---@type TransferMexSplittingApi
+local MexSplitting = VFS.Include("modules/transfer/api.lua").MexSplitting ---@type TransferMexSplittingApi
 local Start = VFS.Include("modules/start/api.lua") ---@type StartApi
+local Shared = VFS.Include("modules/transfer/mex_splitting/shared.lua") ---@type MexRegionsShared
 local Geometry = VFS.Include("modules/regions/lib/geometry.lua") ---@type RegionGeometry
 
 local TAG = "Mex Splitting"
@@ -71,20 +72,65 @@ local function teamStarts()
 	return teams
 end
 
+local function deal()
+	local finder = GG.resource_spot_finder
+	local result =
+		MexSplitting.Deal(teamStarts(), Spring, finder and not finder.isMetalMap and finder.metalSpotsList or {})
+	refused = nil
+	if #result.problems > 0 then
+		refused = result.problems
+		Spring.Log(TAG, LOG.WARNING, "the deal was refused: " .. table.concat(result.problems, "; "))
+	end
+end
+
 function gadget:Initialize()
-	local regions, source, reason = MexRegions.Load(Spring)
+	local regions, source, reason = MexSplitting.Load(Spring)
 	if regions == nil then
 		reasonNone = reason and (source .. ": " .. reason) or source
 		Spring.Log(TAG, LOG.WARNING, reasonNone)
 		return
 	end
-	Spring.Log(TAG, LOG.INFO, #regions .. " regions from " .. source)
-	local finder = GG.resource_spot_finder
-	local deal = MexRegions.Deal(teamStarts(), Spring, finder and not finder.isMetalMap and finder.metalSpotsList or {})
-	if #deal.problems > 0 then
-		refused = deal.problems
-		Spring.Log(TAG, LOG.WARNING, "the deal was refused: " .. table.concat(deal.problems, "; "))
+	Spring.Log(TAG, LOG.NOTICE, #regions .. " regions from " .. source)
+	deal()
+end
+
+-- A map maker trying out what they just drew: with no layout from the lobby or the map, before the start, the only
+-- human in the match may hand over their terraformer save. Nobody can do that to a match other people are in.
+function gadget:RecvLuaMsg(msg)
+	if msg:sub(1, #Shared.LAYOUT_MSG) ~= Shared.LAYOUT_MSG then
+		return
 	end
+	if reasonNone == nil or Spring.GetGameFrame() > 0 then
+		Spring.Log(TAG, LOG.NOTICE, "a terraformer layout arrived too late, or the match already has one")
+		return true
+	end
+	local humans = 0
+	for _, playerID in ipairs(Spring.GetPlayerList()) do
+		-- not "active": nobody is, before the start. Every seated player counts, connected yet or not.
+		local _, _, spectator = Spring.GetPlayerInfo(playerID, false)
+		if not spectator then
+			humans = humans + 1
+		end
+	end
+	if humans ~= 1 then
+		Spring.Log(TAG, LOG.NOTICE, "a terraformer layout is only taken from a lone player; this match has " .. humans)
+		return true
+	end
+	local source = "the terraformer's save, from the only player"
+	local regions, reason = MexSplitting.LoadBlob(msg:sub(#Shared.LAYOUT_MSG + 1), source)
+	if regions == nil then
+		Spring.Log(TAG, LOG.WARNING, source .. ": " .. tostring(reason))
+		return true
+	end
+	reasonNone = nil
+	Spring.Log(TAG, LOG.NOTICE, #regions .. " regions from " .. source)
+	deal()
+	if refused then
+		tellEveryone(TAG .. ": your terraformer layout was refused: " .. table.concat(refused, "; "))
+	else
+		tellEveryone(TAG .. ": Map Assigned is using your terraformer layout for this map.")
+	end
+	return true
 end
 
 -- Said once the match has loaded, before anyone picks a start: what the option did to this match.
@@ -109,8 +155,8 @@ function gadget:TeamDied(teamID)
 	if refused or reasonNone or ignoredTeams[teamID] then
 		return
 	end
-	local heir = MexRegions.Inherit(teamID, Spring)
+	local heir = MexSplitting.Inherit(teamID, Spring)
 	if heir then
-		Spring.Log(TAG, LOG.INFO, "team " .. teamID .. "'s regions pass to team " .. heir)
+		Spring.Log(TAG, LOG.NOTICE, "team " .. teamID .. "'s regions pass to team " .. heir)
 	end
 end
