@@ -3432,6 +3432,7 @@ function widget:MousePress(mx, my, button)
 				local reason = R.validatePending()
 				if reason then
 					R.error = reason
+					Echo("[Regions] Not yet: " .. reason)
 					R.bump()
 					return true
 				end

@@ -242,6 +242,7 @@
 		<div id="section-st-details">
 			<div class="text-xs text-keybind mb-1" data-if="rgDetailsMode == 'prompt'">Click a region on the map, or a row above, to see it here.</div>
 			<div data-if="rgDetailsMode == 'new'">
+				<div class="text-sm mb-1" style="color: #ff8080;" data-if="rgRegionError != ''">{{rgRegionError}}</div>
 				<div id="rg-new-fields"></div>
 			</div>
 			<div id="rg-details" data-if="rgSelected">
