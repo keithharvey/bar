@@ -6,7 +6,7 @@ local Geometry = VFS.Include("modules/regions/lib/geometry.lua") ---@type Region
 local RegionProblems = VFS.Include("modules/regions/lib/problems.lua") ---@type RegionProblems
 local TransferEnums = VFS.Include("modules/transfer/enums.lua")
 local Claims = VFS.Include("modules/transfer/mex_splitting/claims.lua") ---@type MexRegionsClaimsLib
-local Shared = VFS.Include("modules/transfer/mex_splitting/shared.lua") ---@type MexRegionsShared
+local Holders = VFS.Include("modules/transfer/mex_splitting/holders.lua") ---@type MexRegionsHolders
 
 ---@param problems string[]
 ---@return MexRegionsDeal
@@ -175,8 +175,8 @@ Policies.On(ConstructionContract.PlacementFacts)
 			return nil
 		end
 		local engine = springRepo or Spring
-		local holders = Shared.HoldersBySpot(engine, engine.GetTeamList())[Shared.SpotKey(ctx.spotX, ctx.spotZ)]
-		if holders == nil or table.contains(holders, ctx.builderTeam) then
+		local holders = Holders.At(engine, ctx.spotX, ctx.spotZ)
+		if #holders == 0 or table.contains(holders, ctx.builderTeam) then
 			return nil
 		end
 		for _, teamID in ipairs(holders) do

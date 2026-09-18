@@ -6,7 +6,6 @@ local TransferEnums = VFS.Include("modules/transfer/enums.lua")
 local Claims = VFS.Include("modules/transfer/mex_splitting/claims.lua") ---@type MexRegionsClaimsLib
 local Sources = VFS.Include("modules/transfer/mex_splitting/sources.lua") ---@type MexRegionSources
 local Deal = VFS.Include("modules/transfer/mex_splitting/deal.lua") ---@type MexRegionsDealLib
-local Shared = VFS.Include("modules/transfer/mex_splitting/shared.lua") ---@type MexRegionsShared
 local state = VFS.Include("modules/transfer/state.lua") ---@type TransferState
 
 local mayUnitScratch = {}
@@ -39,24 +38,10 @@ local function perform(name, request)
 end
 
 ---@param springRepo Spring
----@param teams MexRegionsTeamStart[]
 ---@param regions MexRegion[]
 ---@param deal MexRegionsDeal
-local function publish(springRepo, teams, regions, deal)
+local function publish(springRepo, regions, deal)
 	springRepo.SetGameRulesParam(Deal.PARAM, Deal.Encode(regions, deal.regions))
-	local holdings = Claims.Holdings(regions, deal.regions)
-	local keysOf = {} ---@type table<integer, string[]>
-	for key, holders in pairs(deal.spots) do
-		for _, teamID in ipairs(holders) do
-			keysOf[teamID] = keysOf[teamID] or {}
-			table.insert(keysOf[teamID], key)
-		end
-	end
-	for _, team in ipairs(teams) do
-		local keys = keysOf[team.teamID] or {}
-		table.sort(keys)
-		Shared.Holdings.Write(springRepo, team.teamID, { regions = holdings[team.teamID] or {}, spots = keys })
-	end
 end
 
 ---@class TransferMexSplittingApi Map Assigned: the layout, the deal, and who holds what
@@ -104,7 +89,7 @@ local MexSplitting = {
 		state.mexDeal = deal
 		state.mexTeams = teams
 		state.mexGifted = {}
-		publish(springRepo, teams, regions, deal)
+		publish(springRepo, regions, deal)
 		return deal
 	end,
 
@@ -162,7 +147,7 @@ local MexSplitting = {
 		end
 		gifted[heir] = (gifted[heir] or 0) + moved
 		state.mexGifted = gifted
-		publish(springRepo, teams, state.mexRegions or {}, deal)
+		publish(springRepo, state.mexRegions or {}, deal)
 		return heir
 	end,
 

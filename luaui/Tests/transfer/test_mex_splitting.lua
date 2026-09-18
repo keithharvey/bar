@@ -19,18 +19,17 @@ function test()
 	local spots = SyncedRun(function(locals)
 		local state = gadgetHandler.GG.__moduleState.transfer ---@type TransferState
 		assert(state and state.mexRegions and state.mexDeal, "transfer has not dealt the regions")
-		local Shared = VFS.Include("modules/transfer/mex_splitting/shared.lua") ---@type MexRegionsShared
-		local byKey = Shared.HoldersBySpot(Spring, Spring.GetTeamList())
+		local Holders = VFS.Include("modules/transfer/mex_splitting/holders.lua") ---@type MexRegionsHolders
 		local mine, theirs
 		for _, spot in ipairs(gadgetHandler.GG.resource_spot_finder.metalSpotsList) do
-			local holders = byKey[Shared.SpotKey(spot.x, spot.z)]
+			local holders = Holders.At(Spring, spot.x, spot.z)
 			local held = false
-			for _, teamID in ipairs(holders or {}) do
+			for _, teamID in ipairs(holders) do
 				held = held or teamID == locals.myTeamID
 			end
 			if held and mine == nil then
 				mine = { x = spot.x, z = spot.z }
-			elseif holders ~= nil and not held and theirs == nil then
+			elseif #holders > 0 and not held and theirs == nil then
 				theirs = { x = spot.x, z = spot.z }
 			end
 		end
@@ -50,6 +49,28 @@ function test()
 		end)
 		return queued
 	end
+
+	-- the same rule, asked from the UI side: what a widget colours a spot by
+	-- the test sandbox lacks what every widget has; give the module the environment a widget would
+	local widgetLike = {
+		getmetatable = debug.getmetatable,
+		setmetatable = function(t, mt)
+			debug.setmetatable(t, mt)
+			return t
+		end,
+	}
+	debug.setmetatable(widgetLike, { __index = debug.getfenv(test) })
+	local Construction = VFS.Include("modules/construction/api.lua", widgetLike) ---@type ConstructionApi
+	assertEqual(
+		Construction.MayPlaceMexAt(myTeamID, spots.mine.x, spots.mine.z),
+		true,
+		"my own spot should read as open to me"
+	)
+	assertEqual(
+		Construction.MayPlaceMexAt(myTeamID, spots.theirs.x, spots.theirs.z),
+		false,
+		"my ally's spot should read as closed to me"
+	)
 
 	assertEqual(orderMexAt(spots.theirs), 0, "a mex order on a spot my ally holds should be refused")
 	assertEqual(orderMexAt(spots.mine), 1, "a mex order on a spot my team holds should queue")

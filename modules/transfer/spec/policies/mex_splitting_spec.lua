@@ -216,12 +216,10 @@ describe("the spot holder fact", function()
 		assert.are.equal(1, holderAt(100, 100, 3), "the centre went round to team 1")
 	end)
 
-	it("publishes each team's regions and the spots inside them", function()
-		local record = Shared.Holdings.Read(repo, 0) ---@type MexHoldingsRecord
-		assert.are.same({ "nw@1", "n@9" }, record.regions)
-		assert.are.same({ Shared.SpotKey(100, 20), Shared.SpotKey(5, 5) }, record.spots)
-		local byKey = Shared.HoldersBySpot(repo, { 0, 1, 2, 3 })
-		assert.are.same({ 2 }, byKey[Shared.SpotKey(195.4, 194.6)], "keys round to whole elmos")
+	it("knows each team's regions, and who holds a place on the map from the published deal", function()
+		local Holders = VFS.Include("modules/transfer/mex_splitting/holders.lua") ---@type MexRegionsHolders
+		assert.are.same({ 2 }, Holders.At(repo, 195.4, 194.6))
+		assert.are.same({}, Holders.At(repo, 60, 60), "no region covers it")
 		assert.are.same(
 			{ [0] = { "nw@1", "n@9" }, [1] = { "ne@2", "c@9" }, [2] = { "se@3", "s@9" }, [3] = { "sw@4" } },
 			MexRegions.Holdings()
@@ -249,7 +247,7 @@ describe("the spot holder fact", function()
 		)
 		assert.are.same({ "nw@1", "ne@2", "n@9", "c@9" }, MexRegions.Holdings()[1])
 		assert.are.equal(1, holderAt(5, 5, 3))
-		assert.are.same({}, Shared.Holdings.Read(repo, 0).regions)
+		assert.is_nil(MexRegions.Holdings()[0])
 		allies[2] = "north"
 		assert.are.equal(3, MexRegions.Inherit(2, repo), "team 1 has been gifted two already")
 		assert.is_nil(MexRegions.Inherit(2, repo), "it holds nothing now")
