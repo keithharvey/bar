@@ -31,7 +31,7 @@ Policies.On(RegionsContract.CheckSet).Apply(Contract.MexRegionsSet.MexesCovered,
 	if ctx.type.key ~= RegionEnums.Types.MexRegion or ctx.env.spots == nil then
 		return
 	end
-	local uncovered = 0
+	local uncovered, first = 0, nil
 	for _, spot in ipairs(ctx.env.spots) do
 		local covered = false
 		for _, region in ipairs(ctx.regions) do
@@ -39,10 +39,15 @@ Policies.On(RegionsContract.CheckSet).Apply(Contract.MexRegionsSet.MexesCovered,
 		end
 		if not covered then
 			uncovered = uncovered + 1
+			first = first or { x = spot.x, z = spot.z }
 		end
 	end
 	if uncovered > 0 then
-		RegionProblems.OfSet(ctx, uncovered .. " metal spot" .. (uncovered == 1 and "" or "s") .. " in no mex region")
+		RegionProblems.OfSet(
+			ctx,
+			uncovered .. " metal spot" .. (uncovered == 1 and "" or "s") .. " in no mex region",
+			first
+		)
 	end
 end)
 

@@ -60,6 +60,14 @@ describe("the mex region type", function()
 		)
 	end)
 
+	it("says where the first uncovered metal spot is, so an editor can take the map maker there", function()
+		local a = mex({ name = "a", team = 1, group = "g", vertices = square })
+		local problems = Regions.CheckSet(Enums.Types.MexRegion, { a }, {
+			spots = { { x = 50, z = 50 }, { x = 700, z = 300 }, { x = 900, z = 900 } },
+		})
+		assert.are.same({ { message = "2 metal spots in no mex region", at = { x = 700, z = 300 } } }, problems)
+	end)
+
 	it("may share ground with a sibling: coverage is its rule, not disjointness", function()
 		local a = mex({ name = "a", team = 1, group = "g", vertices = square })
 		local b = mex({

@@ -78,10 +78,7 @@ describe("the deal's steps", function()
 
 	it("find nothing wrong with a layout its type accepts, and name what the set check refuses", function()
 		assert.are.same({}, Claims.Problems(regions, { { x = 5, z = 5 } }))
-		assert.are.same(
-			{ "1 metal spot in no mex region" },
-			Claims.Problems(regions, { { x = 150, z = 150 } })
-		)
+		assert.are.same({ "1 metal spot in no mex region" }, Claims.Problems(regions, { { x = 150, z = 150 } }))
 		local unteamed =
 			parse({ rect(1, "a", 0, 0, 40, 40), { group = "b", poly = { { x = 60, y = 60 }, { x = 80, y = 80 } } } })
 		assert.are.same({ "b: a mex region needs a team" }, Claims.Problems(unteamed, {}))
