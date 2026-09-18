@@ -246,6 +246,14 @@
 				<div id="rg-new-fields"></div>
 			</div>
 			<div id="rg-details" data-if="rgSelected">
+				<div class="flex flex-row gap-1 mb-1">
+					<div id="btn-rg-region-remove" class="tf-action-btn" style="flex:1;" data-if="rgRegionType != 'start'" data-event-mousedown="onRgRegionRemove()">
+						<div class="tf-action-btn-text">REMOVE</div>
+					</div>
+					<div id="btn-rg-region-deselect" class="tf-action-btn" style="flex:1;" data-event-mousedown="onRgRegionDeselect()">
+						<div class="tf-action-btn-text">DESELECT</div>
+					</div>
+				</div>
 				<div data-if="rgRegionType == 'start'">
 					<div class="text-sm text-light mb-1">Start {{rgSelectedTeam}}</div>
 					<div class="text-xs text-keybind mb-1" data-if="!rgSelectedHasBox">No area drawn yet: the next area drawn becomes this start's.</div>
@@ -271,14 +279,6 @@
 				<div id="rg-tag-list" class="flex flex-row gap-1 mb-1 tf-chip-row"></div>
 				<div class="text-lg text-light font-bold mb-1">FACTS</div>
 				<div id="rg-detail-facts" class="mb-1"></div>
-				<div class="flex flex-row gap-1 mb-1">
-					<div id="btn-rg-region-remove" class="tf-action-btn" style="flex:1;" data-if="rgRegionType != 'start'" data-event-mousedown="onRgRegionRemove()">
-						<div class="tf-action-btn-text">REMOVE</div>
-					</div>
-					<div id="btn-rg-region-deselect" class="tf-action-btn" style="flex:1;" data-event-mousedown="onRgRegionDeselect()">
-						<div class="tf-action-btn-text">DESELECT</div>
-					</div>
-				</div>
 			</div>
 
 		</div><!-- /section-st-details -->
