@@ -53,11 +53,36 @@ for _, name in ipairs(names) do
 	end
 end
 
+-- The list order: the more basal the owning module, the earlier its types; start before what is built on it.
+local depths = {} ---@type table<string, integer>
+---@param name string
+---@return integer how many modules deep the module's requires go
+local function depth(name)
+	if depths[name] == nil then
+		depths[name] = 0
+		local deepest = 0
+		for _, required in ipairs(manifests[name] and manifests[name].requires or {}) do
+			deepest = math.max(deepest, depth(required) + 1)
+		end
+		depths[name] = deepest
+	end
+	return depths[name]
+end
+
 local order = {} ---@type string[]
 for key in pairs(byKey) do
 	order[#order + 1] = key
 end
-table.sort(order)
+table.sort(order, function(a, b)
+	local ma, mb = byKey[a].module, byKey[b].module
+	if depth(ma) ~= depth(mb) then
+		return depth(ma) < depth(mb)
+	end
+	if ma ~= mb then
+		return ma < mb
+	end
+	return a < b
+end)
 
 return {
 	order = order,
