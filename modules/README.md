@@ -42,12 +42,14 @@ Each module owns one concern:
 
 | Module | Owns | Requires |
 |---|---|---|
+| `regions` | Contained space on the map with facts attached, drawn as a point or a polygon: the shape, the rules every region type shares on one region and on the set, the name a region gets when it carries none, and the layout codec, one table keyed by type. Types are contributed by the modules that own them through a `region_types.lua`, each with its own record extending `Region` and its own stages on the set check. The terraformer draws them through this api alone. | the runtime |
+| `start` | A team's start as a region: its positions and the area they sit in, with its rule that no two areas share ground. Its facts default to the match's own startboxes and start positions, so an editor opens on what the map plays with. | regions |
 | `defs` | Def post-processing as a pipeline every unit and weapon def pass, and where a module adds its own stage. | the runtime |
 | `game` | Which game this is: the game axis, one selector, the presets, the export the lobby reads. | the runtime |
 | `transport` | Who may load and unload what, and how fast a loaded transport flies. The first module with real rules; the air transport rework builds on it. | defs |
 | `construction` | What may be built, and by whom: assist, reclaim, resurrect, build delay, geo and mex upgrades. | the runtime |
 | `economy` | How a shared pool is distributed. | the runtime |
-| `transfer` | What may pass between allied teams: units, resources, take, and the tax on what flows. | construction, economy |
+| `transfer` | What may pass between allied teams: units, resources, take, and the tax on what flows. Mex Splitting: the mex region type with its rule that every metal spot is covered, and Map Assigned's deal of those regions and the spots in them to the teams seated at each start, which no ally may build on. | construction, economy, regions, start |
 | `tech` | The keystones that raise a team's tier, and the tier as a fact construction and transfer read. Tech Core is its preset. | transfer, construction |
 | `combat` | Damage, targeting and protection as a lifetime. | proposed |
 | `placement` | Where a thing may legally stand, answered once. | proposed |
@@ -502,7 +504,7 @@ Every file under `modules/` is loaded by the game's own handlers, in the same Lu
 
 - A module is an opinionated directory that encapsulates game behavior.
 - A policy is a file that contains many decisions, each one a pipeline.
-- A pipeline is one statement chain of stages, each a guard or an Answer, with one Refusal saying what a no looks like. On a Product the stages are Factors; on a Fold, Applies. On a Product the stages are Factors; on a Fold, Applies. On a Product the stages are Factors; on a Fold, Applies. On a Product the stages are Factors; on a Fold, Applies. On a Product the stages are Factors; on a Fold, Applies. On a Product the stages are Factors; on a Fold, Applies. On a Product the stages are Factors; on a Fold, Applies. On a Product the stages are Factors; on a Fold, Applies. On a Product the stages are Factors; on a Fold, Applies. On a Product the stages are Factors; on a Fold, Applies. On a Product the stages are Factors; on a Fold, Applies. On a Product the stages are Factors; on a Fold, Applies. On a Product the stages are Factors; on a Fold, Applies. On a Product the stages are Factors; on a Fold, Applies. On a Product the stages are Factors; on a Fold, Applies. On a Product the stages are Factors; on a Fold, Applies.
+- A pipeline is one statement chain of stages, each a guard or an Answer, with one Refusal saying what a no looks like. On a Product the stages are Factors; on a Fold, Applies.
 - Read a pipeline top to bottom, and place your stage where the precedence says. No stage is the rule; the chain is.
 - A guard can only refuse, and only an Answer can answer. Loosening touches the rule by name; tightening never does.
 - Facts inform a decision and are filled before it runs; an Answer makes the decision. The mode decides whose fact is live.
