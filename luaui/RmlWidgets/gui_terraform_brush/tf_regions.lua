@@ -256,6 +256,7 @@ function M.sync(doc, ctx, rgState, setSummary)
 	setRg("rgSelectedTeam", tostring(rgState.selected and rgState.selected.team or ""))
 	setRg("rgSelectedVertices", tostring(rgState.selected and rgState.selected.vertexCount or 0))
 	setRg("rgRegionError", rgState.regionError or "")
+	setRg("rgRegionNotice", rgState.regionNotice or "")
 	setRg("rgRegionListTitle", (rgState.regionType == "start") and "STARTS" or (typeLabel:upper() .. "S"))
 	local detailsMode = "prompt"
 	if rgState.selected then

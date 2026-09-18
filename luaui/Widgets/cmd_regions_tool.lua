@@ -1682,6 +1682,7 @@ local function saveStartPositions(name, explicitPath)
 		file:write(content)
 		file:close()
 		Echo("[Regions] Saved start positions to: " .. filename)
+		R.say("Saved start positions to " .. filename)
 		return true
 	else
 		Echo("[Regions] ERROR: Could not write to: " .. filename)
@@ -1765,6 +1766,7 @@ local function saveStartboxes(name, explicitPath)
 		file:write(content)
 		file:close()
 		Echo("[Regions] Saved startboxes to: " .. filename)
+		R.say("Saved start areas to " .. filename)
 		return true
 	else
 		Echo("[Regions] ERROR: Could not write to: " .. filename)
@@ -2872,6 +2874,11 @@ function R.validate()
 end
 
 -- Take the camera to where a problem of the set says to look.
+-- Good news for the panel, shown until the regions next change.
+function R.say(text)
+	R.notice = { text = text, revision = R.revision }
+end
+
 function R.lookAt(x, z)
 	if x and z then
 		Spring.SetCameraTarget(x, Spring.GetGroundHeight(x, z) or 0, z, 0.6)
@@ -2920,6 +2927,7 @@ function R.copyLayout()
 	Spring.SetClipboard(blob)
 	R.error = ""
 	R.bump()
+	R.say("Layout copied to the clipboard")
 	Echo("[Regions] Layout copied: paste it as the mex_regions_layout modoption")
 	return true
 end
@@ -2989,9 +2997,23 @@ function R.save(explicitPath)
 	file:write(table.concat(lines, "\n"))
 	file:close()
 	Echo("[Regions] Saved regions to: " .. explicitPath)
-	for _, problem in ipairs(R.validate().lines) do
+	local problems = R.validate().lines
+	for _, problem in ipairs(problems) do
 		Echo("[Regions] Saved with a problem: " .. problem)
 	end
+	R.say(
+		"Saved "
+			.. #regions
+			.. " region"
+			.. (#regions == 1 and "" or "s")
+			.. " to "
+			.. explicitPath
+			.. (
+				#problems > 0
+					and (", with " .. #problems .. " problem" .. (#problems == 1 and "" or "s") .. " still to fix")
+				or ""
+			)
+	)
 	return true
 end
 
@@ -3127,6 +3149,7 @@ local function getState()
 		teamOptions = R.teamOptions(),
 		suggestions = R.suggestions(),
 		regionError = R.error,
+		regionNotice = (R.notice and R.notice.revision == R.revision) and R.notice.text or "",
 		regionRevision = R.revision,
 		drawingBox = drawingBox,
 		currentBoxVerts = currentBoxVerts,

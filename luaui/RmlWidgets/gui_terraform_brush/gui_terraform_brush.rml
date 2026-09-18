@@ -496,6 +496,7 @@
 				<div class="tf-collapsible-title">SAVE &amp; LOAD</div>
 			</div>
 		<div id="section-st-save" class="hidden">
+		<div class="text-sm mb-1" style="color: #8fdc8f;" data-if="rgRegionNotice != ''">{{rgRegionNotice}}</div>
 		<div class="flex flex-row gap-1 mb-1">
 			<div id="btn-rg-save" class="tf-action-btn tf-save-btn" style="flex: 1;" data-event-click="onRgSave()">
 				<div class="tf-action-btn-text">SAVE</div>

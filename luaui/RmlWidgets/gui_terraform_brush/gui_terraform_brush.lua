@@ -3892,6 +3892,7 @@ local initialModel = {
 	rgSelectedTeam = "",
 	rgSelectedVertices = "0",
 	rgRegionError = "",
+	rgRegionNotice = "",
 	rgRegionListTitle = "STARTS",
 	rgDetailsTitle = "DETAILS",
 	rgDetailsMode = "prompt",
