@@ -403,8 +403,20 @@ local function placingAMex()
 	return cmdID ~= nil and ((GameCMD and cmdID == GameCMD.AREA_MEX) or (cmdID < 0 and extractorDefs[-cmdID] ~= nil))
 end
 
+-- Before the start nothing about me is decided until I have placed: the engine holds no start position for a team
+-- that has not picked one, and whatever a rule says then is about nobody in particular.
+local function havePlaced()
+	local x, _, z = Spring.GetTeamStartPosition(spGetMyTeamID())
+	return x ~= nil and x > 0 and z > 0
+end
+
 local function retintSpots()
-	local asking = spGetGameFrame() <= 0 or placingAMex()
+	local asking
+	if spGetGameFrame() <= 0 then
+		asking = havePlaced()
+	else
+		asking = placingAMex()
+	end
 	if not asking and not tinted then
 		return
 	end
