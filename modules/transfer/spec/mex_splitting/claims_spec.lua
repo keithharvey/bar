@@ -79,7 +79,7 @@ describe("the deal's steps", function()
 	it("find nothing wrong with a layout its type accepts, and name what the set check refuses", function()
 		assert.are.same({}, Claims.Problems(regions, { { x = 5, z = 5 } }))
 		assert.are.same(
-			{ "1 metal spot in no mex region: 150, 150" },
+			{ "1 metal spot in no mex region" },
 			Claims.Problems(regions, { { x = 150, z = 150 } })
 		)
 		local unteamed =

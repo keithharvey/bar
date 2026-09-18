@@ -146,7 +146,7 @@ describe("the deal", function()
 	it("is refused when a metal spot lies in no region", function()
 		local d = deal(fourTeams, sevenRegions, { { x = 5, z = 5 }, { x = 60, z = 60 }, { x = 61, z = 61 } })
 		assert.are.same({}, d.regions)
-		assert.are.same({ "2 metal spots in no mex region: 60, 60; 61, 61" }, d.problems)
+		assert.are.same({ "2 metal spots in no mex region" }, d.problems)
 	end)
 
 	it("is refused on a map with no metal spots, since a mex is judged by the spot it mines", function()

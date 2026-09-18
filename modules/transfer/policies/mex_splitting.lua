@@ -31,30 +31,18 @@ Policies.On(RegionsContract.CheckSet).Apply(Contract.MexRegionsSet.MexesCovered,
 	if ctx.type.key ~= RegionEnums.Types.MexRegion or ctx.env.spots == nil then
 		return
 	end
-	local uncovered = {} ---@type string[]
+	local uncovered = 0
 	for _, spot in ipairs(ctx.env.spots) do
 		local covered = false
 		for _, region in ipairs(ctx.regions) do
 			covered = covered or (region.vertices ~= nil and Geometry.Contains(spot.x, spot.z, region.vertices))
 		end
 		if not covered then
-			uncovered[#uncovered + 1] = string.format("%d, %d", spot.x, spot.z)
+			uncovered = uncovered + 1
 		end
 	end
-	if #uncovered > 0 then
-		local shown = {}
-		for i = 1, math.min(#uncovered, 4) do
-			shown[i] = uncovered[i]
-		end
-		RegionProblems.OfSet(
-			ctx,
-			#uncovered
-				.. " metal spot"
-				.. (#uncovered == 1 and "" or "s")
-				.. " in no mex region: "
-				.. table.concat(shown, "; ")
-				.. (#uncovered > #shown and "; ..." or "")
-		)
+	if uncovered > 0 then
+		RegionProblems.OfSet(ctx, uncovered .. " metal spot" .. (uncovered == 1 and "" or "s") .. " in no mex region")
 	end
 end)
 
