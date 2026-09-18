@@ -104,7 +104,16 @@ describe("a region's facts", function()
 			starts = { { allyTeam = 1, x = 1000, z = 1000 }, { allyTeam = 2, x = 60, z = 60 } },
 		})
 		assert.are.same({ count = 2, worth = 3.5 }, facts[Contract.Facts.MetalSpots])
-		assert.are.equal(2, facts[Contract.Facts.NearestStart].allyTeam)
+		assert.are.same(
+			{ allyTeam = 2, distance = 0, inside = true },
+			facts[Contract.Facts.NearestStart],
+			"it starts inside"
+		)
+		local outside = Regions.Facts(start({ team = 1, vertices = square }), {
+			starts = { { allyTeam = 1, x = 1000, z = 1000 }, { allyTeam = 2, x = 50, z = 300 } },
+		})
+		assert.are.equal(2, outside[Contract.Facts.NearestStart].allyTeam)
+		assert.are.equal(250, outside[Contract.Facts.NearestStart].distance, "from the centre, when none is inside")
 		local lines = Regions.FactLines(facts)
 		assert.are.equal("Metal spots", lines[3][1])
 		assert.are.equal("2 (0.0 metal/s with T1 mexes)", lines[3][2])

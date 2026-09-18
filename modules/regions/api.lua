@@ -154,8 +154,12 @@ function Api.FactLines(facts)
 	end
 	local nearest = facts[Contract.Facts.NearestStart]
 	if nearest then
-		lines[#lines + 1] =
-			{ "Nearest start", string.format("ally team %d, %.0f elmos", nearest.allyTeam, nearest.distance) }
+		lines[#lines + 1] = nearest.inside
+				and { "Start", string.format("ally team %d starts inside", nearest.allyTeam) }
+			or {
+				"Nearest start",
+				string.format("ally team %d, %.0f elmos from the centre", nearest.allyTeam, nearest.distance),
+			}
 	end
 	return lines
 end

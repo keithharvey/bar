@@ -114,7 +114,13 @@ Policies.On(Contract.Facts)
 		if not ctx.starts or #ctx.starts == 0 then
 			return nil
 		end
-		local cx, cz = Geometry.Centroid(ctx.region.vertices or {})
+		local vertices = ctx.region.vertices or {}
+		for _, start in ipairs(ctx.starts) do
+			if Geometry.Contains(start.x, start.z, vertices) then
+				return { allyTeam = start.allyTeam, distance = 0, inside = true }
+			end
+		end
+		local cx, cz = Geometry.Centroid(vertices)
 		local best, bestD = ctx.starts[1], math.huge
 		for _, start in ipairs(ctx.starts) do
 			local d = Geometry.Distance(cx, cz, start.x, start.z)
