@@ -55,8 +55,8 @@ describe("the deal's steps", function()
 
 	it("rank every region from where each team starts, nearest first", function()
 		local views = Claims.Rank({
-			{ teamID = 0, allyTeam = 1, x = 0, z = 0 },
-			{ teamID = 1, allyTeam = 2, x = 200, z = 200 },
+			{ teamID = 0, allyTeamID = 0, x = 0, z = 0 },
+			{ teamID = 1, allyTeamID = 1, x = 200, z = 200 },
 		}, regions)
 		assert.are.equal(2, #views)
 		local names = {}

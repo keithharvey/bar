@@ -61,8 +61,7 @@ local function teamStarts()
 			ring[i] = { x = a.x, z = a.z }
 		end
 		local cx, cz = Geometry.Centroid(ring)
-		local allyTeamID = area.allyTeam - 1 --[[@as integer]]
-		centres[allyTeamID] = { x = cx, z = cz }
+		centres[area.allyTeamID] = { x = cx, z = cz }
 	end
 	local teams = {} ---@type MexRegionsTeamStart[]
 	for _, teamID in ipairs(Spring.GetTeamList()) do
@@ -76,7 +75,7 @@ local function teamStarts()
 				end
 			end
 			at = at or centres[allyTeamID] or { x = Game.mapSizeX * 0.5, z = Game.mapSizeZ * 0.5 }
-			teams[#teams + 1] = { teamID = teamID, allyTeam = allyTeamID + 1, x = at.x, z = at.z }
+			teams[#teams + 1] = { teamID = teamID, allyTeamID = allyTeamID, x = at.x, z = at.z }
 		end
 	end
 	return teams

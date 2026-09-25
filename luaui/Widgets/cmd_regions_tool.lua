@@ -1824,7 +1824,8 @@ function R.seedFromMatch()
 		for _, a in ipairs(area.anchors) do
 			curved = curved or (a.strength ~= nil and a.strength > 0)
 		end
-		local box = { type = "start", allyTeam = area.allyTeam, team = area.allyTeam, name = area.name, tags = {} }
+		local ordinal = area.allyTeamID + 1 -- the editor counts starts from 1
+		local box = { type = "start", allyTeam = ordinal, team = ordinal, name = area.name, tags = {} }
 		if curved then
 			box.kind = "spline"
 			box.controls = area.anchors
@@ -1839,8 +1840,9 @@ function R.seedFromMatch()
 	renumberBoxAllyTeams()
 	local slots = {}
 	for _, pos in ipairs(current.positions) do
-		slots[pos.allyTeam] = (slots[pos.allyTeam] or 0) + 1
-		addPosition(pos.x, pos.z, pos.allyTeam, slots[pos.allyTeam])
+		local ordinal = pos.allyTeamID + 1
+		slots[ordinal] = (slots[ordinal] or 0) + 1
+		addPosition(pos.x, pos.z, ordinal, slots[ordinal])
 	end
 	if #current.areas > 0 or #current.positions > 0 then
 		Echo(

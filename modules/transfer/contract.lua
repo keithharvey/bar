@@ -106,7 +106,7 @@ local ResourceTransfer = {
 
 ---@class MexRegionsTeamStart a team, seated at a start
 ---@field teamID integer
----@field allyTeam integer the start ordinal the team plays from; engine ally team 0 is 1
+---@field allyTeamID integer the engine's; the layout seats it at start allyTeamID + 1
 ---@field x number the team's start point: the centre of its start area
 ---@field z number
 
