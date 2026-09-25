@@ -16,16 +16,16 @@ if not gadgetHandler:IsSyncedCode() then
 	return false
 end
 
-local MexSplitting = require("modules/transfer/api").MexSplitting ---@type TransferMexSplittingApi
+local TransferEnums = require("modules/transfer/enums")
 
 if Spring.GetModOptions()[TransferEnums.ModOptions.MexSplitting] ~= TransferEnums.MexSplitting.MapAssigned then
 	return false
 end
 
+local MexSplitting = require("modules/transfer/api").MexSplitting ---@type TransferMexSplittingApi
 local Regions = require("modules/regions/api")
 local Shared = require("modules/transfer/mex_splitting/shared")
 local Start = require("modules/start/api")
-local TransferEnums = require("modules/transfer/enums")
 
 local TAG = "Mex Splitting"
 
