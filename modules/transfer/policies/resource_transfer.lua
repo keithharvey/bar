@@ -8,7 +8,7 @@ local METAL = TransferEnums.ResourceType.METAL
 
 ---@param ctx TransferPolicyContext
 ---@param resourceType ResourceName
----@return ResourcePolicyResult
+---@return TransferResourcePolicyResult
 local function deny(ctx, resourceType)
 	return Shared.CreateDenyPolicy(ctx.senderTeamId, ctx.receiverTeamId, resourceType, ctx.springRepo)
 end

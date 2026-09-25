@@ -52,9 +52,9 @@ local spring = Builders.Spring
 
 describe("Tech Core mode #policy", function()
 	describe("at T1 (base tax rate)", function()
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local metalResult
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local energyResult
 
 		before_each(function()
@@ -102,9 +102,9 @@ describe("Tech Core mode #policy", function()
 	end)
 
 	describe("at T2 (reduced tax rate)", function()
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local metalResult
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local energyResult
 
 		before_each(function()
@@ -152,9 +152,9 @@ describe("Tech Core mode #policy", function()
 	end)
 
 	describe("at T3 (lowest tax rate)", function()
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local metalResult
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local energyResult
 
 		before_each(function()

@@ -65,11 +65,11 @@ end
 
 local overflowAccum = {} ---@type table<integer, [number, number]>
 
-local snapshotPool = {} ---@type table<integer, TeamResourceData>
+local snapshotPool = {} ---@type table<integer, EconomyTeamResources>
 
----@return table<integer, TeamResourceData>
+---@return table<integer, EconomyTeamResources>
 local function buildSnapshot()
-	local teams = {} ---@type table<integer, TeamResourceData>
+	local teams = {} ---@type table<integer, EconomyTeamResources>
 	local teamList = spGetTeamList()
 	for i = 1, #teamList do
 		local teamID = teamList[i]
@@ -108,13 +108,13 @@ local function buildSnapshot()
 			entry.allyTeam = allyTeam
 			entry.isDead = isDead
 
-			local m = entry.metal --[[@as ResourceData]]
+			local m = entry.metal --[[@as EconomyResource]]
 			m.current = mCur
 			m.storage = mStor
 			m.shareSlider = mShare
 			m.excess = acc and acc[1] or 0
 
-			local e = entry.energy --[[@as ResourceData]]
+			local e = entry.energy --[[@as EconomyResource]]
 			e.current = eCur
 			e.storage = eStor
 			e.shareSlider = eShare

@@ -163,7 +163,7 @@ return {
 	---@param unitIDs integer[]
 	---@param toTeamID integer
 	---@param fromTeamID integer the team being asked to give them up
-	---@return UnitTransferResult
+	---@return TransferUnitResult
 	Units = function(unitIDs, toTeamID, fromTeamID)
 		local grant = UnitShared.GetCachedPolicyResult(fromTeamID, toTeamID, Spring)
 		return perform("units", {
@@ -179,7 +179,7 @@ return {
 	---@param amount number
 	---@param toTeamID integer
 	---@param fromTeamID integer
-	---@return ResourceTransferResult
+	---@return TransferResourceResult
 	Resources = function(resource, amount, toTeamID, fromTeamID)
 		return perform("resources", {
 			from = fromTeamID,

@@ -12,11 +12,6 @@ local Units = {
 	Constructor = "corcv",
 }
 
----@class UnitTransferTestConfig
----@field mode string The sharing mode to test
----@field canShareUnits boolean Expected canShareUnits result
----@field testUnits table<string, boolean> Map of unit names to expected outcomes
-
 ---@type table<string, UnitTransferTestConfig>
 local testConfigs = {
 	[ConstructionEnums.UnitFilterCategory.None] = {

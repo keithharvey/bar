@@ -1,5 +1,29 @@
 local ResourceTypes = require("gamedata/resource_types")
 
+---@class EconomyShareMember
+---@field teamId integer
+---@field allyTeam integer
+---@field resourceType ResourceName
+---@field resource EconomyResource
+---@field current number effective current = resource.current + resource.excess
+---@field storage number
+---@field shareCursor number
+---@field target number?
+
+---@class EconomyShareDelta
+---@field gross number Signed pool movement (negative = send)
+---@field net number Post-tax amount credited to the receiver
+---@field taxed number Amount withheld by tax
+
+---@class EconomyFlowLedger
+---@field received number
+---@field sent number
+---@field taxed number
+---@field wasted number Overflow lost to full storages this window
+---@field snapshot number Pool level when the window opened (delta base for publishing); 0 on per-solve ledgers
+
+---@alias EconomyFlowSummary table<integer, table<ResourceName, EconomyFlowLedger>>
+
 local ResourceType = ResourceTypes
 local RESOURCE_TYPES = { ResourceTypes.METAL, ResourceTypes.ENERGY }
 
@@ -32,7 +56,7 @@ local function normalizeSlider(value)
 	return value
 end
 
----@param teamsList table<integer, TeamResourceData>
+---@param teamsList table<integer, EconomyTeamResources>
 ---@param resourceType ResourceName
 ---@return table<integer, EconomyShareMember[]>, table<integer, integer>
 local function collectMembers(teamsList, resourceType)
@@ -262,8 +286,8 @@ local function applyDeltas(members, memberCount, lift, deltas, taxRate)
 end
 
 ---@param springRepo Spring
----@param teamsList table<integer, TeamResourceData>?
----@return table<integer, TeamResourceData>? teamsList the input table, updated in place (nil input passes through)
+---@param teamsList table<integer, EconomyTeamResources>?
+---@return table<integer, EconomyTeamResources>? teamsList the input table, updated in place (nil input passes through)
 ---@return EconomyFlowSummary
 function Gadgets.Solve(springRepo, teamsList, taxRateFor)
 	if tracyAvailable then
@@ -386,7 +410,7 @@ local function getPooledResult(teamId, resourceType)
 end
 
 ---@param springRepo Spring
----@param teamsList table<integer, TeamResourceData>?
+---@param teamsList table<integer, EconomyTeamResources>?
 ---@return EconomyTeamResult[]
 function Gadgets.SolveToResults(springRepo, teamsList, taxRateFor)
 	if tracyAvailable then

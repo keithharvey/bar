@@ -13,7 +13,7 @@ end
 
 ---@param ctx TransferPolicyContext
 ---@param canShare boolean
----@return UnitPolicyResult
+---@return TransferUnitPolicyResult
 local function terms(ctx, canShare)
 	local modOptions = ctx.springRepo.GetModOptions()
 	return {

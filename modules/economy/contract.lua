@@ -1,6 +1,14 @@
 local PolicyBuilder = require("modules/policy_builder")
 local Modules = require("modules/enums").Modules
 
+---@class EconomyTeamResult
+---@field teamId integer
+---@field resourceType ResourceName
+---@field delta number Net change vs the snapshot (informational; conservation/tests)
+---@field sent number
+---@field received number
+---@field excess number Wasted overflow this tick
+
 ---@class EconomyTeamContext one team, asked what redistribution costs it
 ---@field teamId integer
 ---@field springRepo Spring

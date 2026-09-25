@@ -5,7 +5,7 @@ local UnitSharingCategories = require("modules/transfer/unit/categories")
 
 ---@param unitID integer
 ---@param unitDefID integer
----@param policyResult UnitPolicyResult
+---@param policyResult TransferUnitPolicyResult
 local function applyStun(unitID, unitDefID, policyResult)
 	local buildDelaySeconds = tonumber(policyResult.buildDelaySeconds) or 0
 	if buildDelaySeconds > 0 and UnitSharingCategories.isMobileBuilderDef(UnitDefs[unitDefID]) then
@@ -26,12 +26,20 @@ local function applyStun(unitID, unitDefID, policyResult)
 	Spring.AddUnitDamage(unitID, maxHealth * 5, stunSeconds)
 end
 
+---@class TransferUnitResult
+---@field success boolean
+---@field outcome string TransferEnums.UnitValidationOutcome
+---@field senderTeamId integer
+---@field receiverTeamId integer
+---@field validationResult TransferUnitValidation
+---@field policyResult TransferUnitPolicyResult
+
 ---@class TransferUnitsRequest
 ---@field from integer giving team
 ---@field to integer receiving team
 ---@field unitIDs integer[]
----@field grant UnitPolicyResult the pair's policy result, as the api resolved it
----@field validation UnitValidationResult the grant applied to each unit
+---@field grant TransferUnitPolicyResult the pair's policy result, as the api resolved it
+---@field validation TransferUnitValidation the grant applied to each unit
 
 ---@param request table unvalidated; validate is what makes it a TransferUnitsRequest
 ---@return boolean allowed, string? reason
@@ -61,7 +69,7 @@ Actions.RegisterValidate(function(request)
 end)
 
 ---@param request TransferUnitsRequest
----@return UnitTransferResult
+---@return TransferUnitResult
 Actions.RegisterExecute(function(request)
 	local from, to = request.from, request.to
 	local policyResult, validation = request.grant, request.validation
@@ -75,7 +83,7 @@ Actions.RegisterExecute(function(request)
 	end
 	Spring.SendLuaUIMsg("unit_transfer:success:" .. from, "")
 
-	---@type UnitTransferResult
+	---@type TransferUnitResult
 	return {
 		success = true,
 		outcome = validation.status,
