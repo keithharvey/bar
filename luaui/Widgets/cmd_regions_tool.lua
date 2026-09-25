@@ -177,9 +177,8 @@ local R = {
 	COLOR = { 0.35, 0.85, 1.0, 1.0 },
 }
 R.api = require("modules/regions/api")
-local MexHull = require("modules/transfer/mex_splitting/hull")
-local StartExport = require("modules/start/lib/export")
-local StartPlacement = require("modules/start/lib/placement")
+local Start = require("modules/start/api")
+local Transfer = require("modules/transfer/api")
 R.ORDER, R.TYPES = R.api.Types()
 R.CATEGORY_ORDER = R.ORDER
 R.CATEGORIES = {}
@@ -191,7 +190,13 @@ for _, key in ipairs(R.ORDER) do
 	end
 	R.CATEGORIES[key] = { key = key, label = kind.label, type = key, placing = placesPoints and "points" or "area" }
 end
-local startboxes = {} ---@type Region[]
+---@class EditorRegion: Region what the tool keeps on a region while it is on screen
+---@field _fillList integer|nil the ground-fill display list drawn for the area
+---@field _fillDirty boolean|nil the fill is stale
+---@field _fillNeedsRebuild boolean|nil rebuild the fill on the next draw
+---@field _fillLastFrame integer|nil the draw frame the fill was last rebuilt on
+
+local startboxes = {} ---@type EditorRegion[]
 -- Forward declarations for cached-fill-list helpers defined further down in the drawing section.
 -- Needed because removeLastStartbox / clearAllStartboxes / drag handlers reference them from
 -- this upper part of the file.
@@ -489,11 +494,11 @@ local function shapeParams()
 end
 
 local function generateShapePositions(cx, cz)
-	return StartPlacement.Shape(cx, cz, shapeParams(), Game.mapSizeX, Game.mapSizeZ)
+	return Start.Placement.Shape(cx, cz, shapeParams(), Game.mapSizeX, Game.mapSizeZ)
 end
 
 local function generateRandomPositions(cx, cz)
-	return StartPlacement.Random(cx, cz, shapeParams(), Game.mapSizeX, Game.mapSizeZ)
+	return Start.Placement.Random(cx, cz, shapeParams(), Game.mapSizeX, Game.mapSizeZ)
 end
 
 -- Core Operations
@@ -502,7 +507,7 @@ end
 local commanderMaxSlope = nil
 local function isPlaceableForCommander(x, z)
 	commanderMaxSlope = commanderMaxSlope
-		or StartPlacement.CommanderMaxSlope(UnitDefs, Spring.GetModOptions and Spring.GetModOptions() or nil)
+		or Start.Placement.CommanderMaxSlope(UnitDefs, Spring.GetModOptions and Spring.GetModOptions() or nil)
 	local _, _, _, slope = Spring.GetGroundNormal(x, z, false)
 	return (slope or 0) <= commanderMaxSlope
 end
@@ -647,7 +652,7 @@ end
 -- so a 4-ally × 2-team shape of 8 places yields one of each.
 local function placeShapePositions(cx, cz)
 	for i, pt in ipairs(generateShapePositions(cx, cz)) do
-		addPosition(pt.x, pt.z, StartPlacement.SlotFor(i, numAllyTeams, numTeamsPerAlly, placementMode))
+		addPosition(pt.x, pt.z, Start.Placement.SlotFor(i, numAllyTeams, numTeamsPerAlly, placementMode))
 	end
 end
 
@@ -664,7 +669,7 @@ end
 
 local function placeRandomPositions(cx, cz)
 	for i, pt in ipairs(generateRandomPositions(cx, cz)) do
-		addPosition(pt.x, pt.z, StartPlacement.SlotFor(i, numAllyTeams, numTeamsPerAlly, placementMode))
+		addPosition(pt.x, pt.z, Start.Placement.SlotFor(i, numAllyTeams, numTeamsPerAlly, placementMode))
 	end
 end
 
@@ -692,7 +697,6 @@ end
 local function renumberBoxAllyTeams()
 	local areas = R.list("start")
 	for i, box in ipairs(areas) do
-		box.allyTeam = i
 		box.team = i
 	end
 	for _, region in ipairs(R.api.All("start")) do
@@ -749,7 +753,6 @@ function R.stampNew(box)
 			freeBoxFillList(existing)
 			R.api.Remove(existing.id)
 		end
-		box.allyTeam = box.team
 		R.drawForTeam = nil
 		R.selectedStart = box.team
 	end
@@ -999,7 +1002,7 @@ function boxUndo.snap(box)
 		return nil
 	end
 	local anchors = box.controls or box.vertices or {}
-	local out = { kind = box.kind, allyTeam = box.allyTeam, anchors = {} }
+	local out = { kind = box.kind, team = box.team, anchors = {} }
 	out.type = box.type
 	out.id = box.id
 	out.fields = R.fieldValues(box)
@@ -1017,7 +1020,7 @@ function boxUndo.build(snap)
 		local a = snap.anchors[k]
 		anchors[k] = { x = a.x, z = a.z, strength = a.strength }
 	end
-	local box = { kind = snap.kind, allyTeam = snap.allyTeam }
+	local box = { kind = snap.kind, team = snap.team }
 	box.type = snap.type
 	box.id = snap.id
 	for key, value in pairs(snap.fields or {}) do
@@ -1130,7 +1133,7 @@ function boxUndo.apply(entry)
 end
 
 function boxExport.encode()
-	local arrangement = StartExport.Arrangement(R.list("start"), Game.mapSizeX, Game.mapSizeZ)
+	local arrangement = Start.Export.Arrangement(R.list("start"), Game.mapSizeX, Game.mapSizeZ)
 	if #arrangement == 0 then
 		return nil
 	end
@@ -1532,7 +1535,7 @@ local STARTSCRIPT_SAVE_DIR = "Terraform Brush/StartScripts/"
 ---@return string|nil
 local function generateStartScript(opts)
 	opts = opts or {}
-	local script = StartExport.StartScript(R.list("start"), Game.mapSizeX, Game.mapSizeZ, {
+	local script = Start.Export.StartScript(R.list("start"), Game.mapSizeX, Game.mapSizeZ, {
 		mapName = opts.mapname or getMapName(),
 		playerName = opts.playerName,
 		aiShortName = opts.aiShortName,
@@ -1697,7 +1700,7 @@ end
 
 -- The ring the Mexes tool closes around the picked spots: their hull, padded by an extractor's reach and a half.
 function R.hullFor(points)
-	return MexHull.Around(points, (Game.extractorRadius or 80) * 1.5)
+	return Transfer.MexSplitting.Hull.Around(points, (Game.extractorRadius or 80) * 1.5)
 end
 
 function R.applyMode()
@@ -1870,10 +1873,6 @@ function R.seedFromMatch()
 		return
 	end
 	R.seeded = true
-	local ok, Start = pcall(VFS.Include, "modules/start/api.lua")
-	if not ok or type(Start) ~= "table" then
-		return
-	end
 	local current = Start.Current(Spring)
 	for _, area in ipairs(current.areas) do
 		local curved = false
@@ -4462,14 +4461,14 @@ function widget:DrawScreenEffects()
 				end
 			end
 			if bestVis then
-				local color = getColorForAllyTeam(box.allyTeam)
+				local color = getColorForAllyTeam(box.team)
 				drawScreenBadge(
 					bestSx,
 					bestSy + 28,
 					color,
-					box.allyTeam,
-					getTeamName(box.allyTeam) .. " BOX",
-					box.allyTeam,
+					box.team,
+					getTeamName(box.team) .. " BOX",
+					box.team,
 					26,
 					false
 				)

@@ -1,6 +1,8 @@
 local Boxes = require("modules/start/lib/boxes")
+local Export = require("modules/start/lib/export")
 local ModuleHandler = require("modules/module_handler")
 local Modules = require("modules/enums").Modules
+local Placement = require("modules/start/lib/placement")
 
 ---@return StartboxConfig
 local function resolveWithGame()
@@ -11,6 +13,9 @@ end
 
 ---@class StartApi
 return {
+	Export = Export,
+	Placement = Placement,
+
 	---@param springRepo Spring
 	---@param resolveBoxes (fun(): StartboxConfig)|nil
 	---@return { areas: StartArea[], positions: StartPosition[] }
