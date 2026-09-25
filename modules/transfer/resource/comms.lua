@@ -9,7 +9,7 @@ local Comms = {
 }
 Comms.__index = Comms
 
----@param policyResult ResourcePolicyResult
+---@param policyResult TransferResourcePolicyResult
 ---@return integer
 function Comms.DecideCommunicationCase(policyResult)
 	if policyResult.senderTeamId == policyResult.receiverTeamId then
@@ -87,8 +87,8 @@ Comms.SendTransferChatMessageProtocolHighlights = {
 	taxRatePercentage = false,
 }
 
----@param transferResult ResourceTransferResult
----@param policyResult ResourcePolicyResult
+---@param transferResult TransferResourceResult
+---@param policyResult TransferResourcePolicyResult
 function Comms.SendTransferChatMessages(transferResult, policyResult)
 	if transferResult.sent > 0 then
 		local resourceType = policyResult.resourceType

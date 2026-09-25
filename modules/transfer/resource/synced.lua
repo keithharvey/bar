@@ -5,6 +5,14 @@ local Shared = require("modules/transfer/resource/shared")
 local SharedConfig = require("modules/transfer/economy/shared_config")
 local TransferEnums = require("modules/transfer/enums")
 
+---@class TransferResourceResult
+---@field success boolean
+---@field sent number
+---@field received number
+---@field senderTeamId integer
+---@field receiverTeamId integer
+---@field policyResult TransferResourcePolicyResult? absent when the transfer was denied before a policy resolved
+
 local ResourceType = TransferEnums.ResourceType
 local METAL = ResourceType.METAL
 local ENERGY = ResourceType.ENERGY
@@ -13,13 +21,13 @@ local Gadgets = {
 	SendTransferChatMessages = Comms.SendTransferChatMessages,
 }
 
----@param ctx ResourceTransferRequest
----@return ResourceTransferResult
+---@param ctx TransferResourceRequest
+---@return TransferResourceResult
 function Gadgets.ResourceTransfer(ctx)
 	local policyResult = ctx.policyResult
 	local desiredAmount = ctx.desiredAmount
 	if (not policyResult or not policyResult.canShare) or (not desiredAmount or desiredAmount <= 0) then
-		---@type ResourceTransferResult
+		---@type TransferResourceResult
 		return {
 			success = false,
 			sent = 0,
@@ -38,7 +46,7 @@ function Gadgets.ResourceTransfer(ctx)
 	springRepo.SetTeamResource(ctx.senderTeamId, resourceType, math.max(0, senderCurrent - sent))
 	springRepo.AddTeamResource(ctx.receiverTeamId, resourceType, received)
 
-	---@type ResourceTransferResult
+	---@type TransferResourceResult
 	local result = {
 		success = true,
 		sent = sent,
@@ -51,7 +59,7 @@ function Gadgets.ResourceTransfer(ctx)
 	return result
 end
 
-local policyResultPool = {} ---@type table<ResourceName, ResourcePolicyResult>
+local policyResultPool = {} ---@type table<ResourceName, TransferResourcePolicyResult>
 
 ---@param ctx TransferPolicyContext
 ---@param resourceType ResourceName
@@ -64,11 +72,11 @@ end
 
 ---@param ctx TransferPolicyContext
 ---@param resourceType ResourceName
----@return ResourcePolicyResult
+---@return TransferResourcePolicyResult
 function Gadgets.CalcResourcePolicy(ctx, resourceType)
 	local result = policyResultPool[resourceType]
 	if not result then
-		result = {} --[[@as ResourcePolicyResult]]
+		result = {} --[[@as TransferResourcePolicyResult]]
 		policyResultPool[resourceType] = result
 	end
 	local pipelines = ModuleHandler.LoadPolicies(Modules.Transfer) ---@type TransferPipelines

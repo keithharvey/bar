@@ -9,7 +9,7 @@ local Synced = {
 }
 
 ---@param ctx TransferPolicyContext
----@return UnitPolicyResult
+---@return TransferUnitPolicyResult
 function Synced.GetPolicy(ctx)
 	local pipelines = ModuleHandler.LoadPolicies(Modules.Transfer) ---@type TransferPipelines
 	return ModuleHandler.Evaluate(pipelines.unit_transfer, ctx)

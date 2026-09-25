@@ -18,9 +18,9 @@ local spring = Builders.Spring
 
 describe("Transfer Enabled mode #policy", function()
 	describe("with default settings (zero tax, zero thresholds)", function()
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local metalResult
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local energyResult
 
 		before_each(function()

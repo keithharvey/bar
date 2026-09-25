@@ -2,14 +2,42 @@ local PolicyBuilder = require("modules/policy_builder")
 local Modules = require("modules/enums").Modules
 local ConstructionContract = require("modules/construction/contract")
 
+---@class TransferRequest : TransferPolicyContext
+---@field policyType string TransferEnums.PolicyType
+
+---@class TransferTeamResources
+---@field metal EconomyResource
+---@field energy EconomyResource
+
+---@class TransferPolicyResult
+---@field senderTeamId integer
+---@field receiverTeamId integer
+
+---@class TransferUnitPolicyResult : TransferPolicyResult
+---@field canShare boolean
+---@field sharingModes string[]
+---@field stunSeconds number?
+---@field stunCategory string?
+---@field buildDelaySeconds number?
+---@field techBlocking? TechBlockingContext
+
+---@class TransferResourcePolicyResult : TransferPolicyResult
+---@field canShare boolean
+---@field amountSendable number
+---@field amountReceivable number
+---@field taxedPortion number
+---@field taxRate number
+---@field resourceType ResourceName
+---@field techBlocking? TechBlockingContext
+
 ---@class TransferTakeContext
 ---@field modOptions table<string, string|number|boolean>|nil
 
 ---@class TransferPolicyContext
 ---@field senderTeamId integer
 ---@field receiverTeamId integer
----@field sender TeamResources
----@field receiver TeamResources
+---@field sender TransferTeamResources
+---@field receiver TransferTeamResources
 ---@field springRepo Spring
 ---@field areAlliedTeams boolean
 ---@field isCheatingEnabled boolean
@@ -30,7 +58,7 @@ local TeamTerms = {
 	TaxRate = "taxRate",
 }
 
----@class TransferUnitNotesFacts: PolicyFacts<UnitPolicyResult> display notes other modules attach to a unit-terms record
+---@class TransferUnitNotesFacts: PolicyFacts<TransferUnitPolicyResult> display notes other modules attach to a unit-terms record
 ---@field FutureUnlock string
 ---@field TechData string
 
@@ -40,7 +68,7 @@ local UnitNotes = {
 	TechData = "techData",
 }
 
----@class TransferResourceNotesFacts: PolicyFacts<ResourcePolicyResult> display notes other modules attach to a resource-terms record
+---@class TransferResourceNotesFacts: PolicyFacts<TransferResourcePolicyResult> display notes other modules attach to a resource-terms record
 ---@field TaxUnlock string
 
 ---@type TransferResourceNotesFacts
@@ -68,7 +96,7 @@ local Take = {
 	TakeTerms = "TakeTerms",
 }
 
----@class TransferUnitTransferStages: PolicyStages<TransferPolicyContext, UnitPolicyResult>
+---@class TransferUnitTransferStages: PolicyStages<TransferPolicyContext, TransferUnitPolicyResult>
 ---@field SharingDisabled string
 ---@field Allied string
 ---@field ReceiverHasNoPlayers string
@@ -82,7 +110,7 @@ local UnitTransfer = {
 	TransferTerms = "TransferTerms",
 }
 
----@class TransferResourceTransferStages: PolicyStages<TransferPolicyContext, ResourcePolicyResult>
+---@class TransferResourceTransferStages: PolicyStages<TransferPolicyContext, TransferResourcePolicyResult>
 ---@field SharingDisabled string
 ---@field Allied string
 ---@field ReceiverHasNoPlayers string
@@ -143,8 +171,8 @@ local MexSplittingHeir = {
 
 ---@class TransferPipelines the return value of LoadPolicies("transfer")
 ---@field take AssembledPipeline<TransferTakeContext, TakePolicy>
----@field unit_transfer AssembledPipeline<TransferPolicyContext, UnitPolicyResult>
----@field resource_transfer AssembledPipeline<TransferPolicyContext, ResourcePolicyResult>
+---@field unit_transfer AssembledPipeline<TransferPolicyContext, TransferUnitPolicyResult>
+---@field resource_transfer AssembledPipeline<TransferPolicyContext, TransferResourcePolicyResult>
 ---@field mex_splitting AssembledPipeline<MexRegionsDealContext, MexRegionsDeal>
 ---@field mex_splitting_heir AssembledPipeline<MexRegionsHeirContext, integer|false>
 

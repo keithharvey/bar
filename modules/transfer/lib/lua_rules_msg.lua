@@ -12,7 +12,7 @@ function LuaRulesMsg.SerializeResourceShare(senderTeamID, targetTeamID, resource
 end
 
 ---@param msg string
----@return ResourceShareParams|nil params nil if not a resource share message or invalid
+---@return TransferResourceShareParams|nil params nil if not a resource share message or invalid
 function LuaRulesMsg.ParseResourceShare(msg)
 	if msg:sub(1, #RESOURCE_SHARE_PREFIX) ~= RESOURCE_SHARE_PREFIX then
 		return nil
@@ -45,6 +45,12 @@ function LuaRulesMsg.ParseResourceShare(msg)
 end
 
 local UNIT_TRANSFER_PREFIX = "share:units:"
+
+---@class TransferResourceShareParams
+---@field senderTeamID integer
+---@field targetTeamID integer
+---@field resourceType string
+---@field amount number
 
 ---@class UnitTransferParams
 ---@field targetTeamID number

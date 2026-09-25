@@ -1,3 +1,5 @@
+---@alias TransferPolicyType "metal_transfer" | "energy_transfer" | "unit_transfer"
+
 local ResourceTypes = VFS.Include("gamedata/resource_types.lua")
 
 local M = {}
