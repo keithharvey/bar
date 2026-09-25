@@ -1,6 +1,6 @@
 local Contract = require("modules/transfer/contract")
+local Economy = require("modules/economy/api")
 local ModuleHandler = require("modules/module_handler")
-local TeamResourceData = require("modules/economy/lib/team_resource_data")
 local TransferEnums = require("modules/transfer/enums")
 
 ---@class TransferResourceRequest : TransferRequest
@@ -29,7 +29,7 @@ function ContextFactory.create(springRepo, enrichers)
 		end
 		local data = perTeam[resourceType]
 		if not data then
-			data = TeamResourceData.Get(springRepo, teamID, resourceType)
+			data = Economy.Resources.Snapshot(springRepo, teamID, resourceType)
 			perTeam[resourceType] = data
 		end
 		return data

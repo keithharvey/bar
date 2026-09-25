@@ -1,9 +1,14 @@
+local Actions = require("modules/construction/lib/actions")
 local Creation = require("modules/construction/lib/creation")
 local Debuff = require("modules/construction/lib/build_debuff")
 local Placement = require("modules/construction/lib/placement")
+local UnitCategories = require("modules/construction/lib/unit_categories")
 
 ---@class ConstructionApi
 return {
+	Actions = Actions.Construction,
+	UnitTypesFor = UnitCategories.TypesFor,
+
 	---@param unitID integer
 	---@param seconds number
 	DelayBuilder = function(unitID, seconds)

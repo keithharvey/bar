@@ -1,8 +1,8 @@
 local Comms = require("modules/transfer/unit/comms")
+local Construction = require("modules/construction/api")
 local ConstructionEnums = require("modules/construction/enums")
 local Published = require("modules/published")
 local TransferEnums = require("modules/transfer/enums")
-local UnitCategories = require("modules/construction/lib/unit_categories")
 local UnitSharingCategories = require("modules/transfer/unit/categories")
 
 ---@class TransferUnitValidation
@@ -187,7 +187,7 @@ function Shared.GetCachedPolicyResult(senderTeamId, receiverTeamId, springApi)
 end
 
 function Shared.GetModeUnitTypes(category)
-	return UnitCategories.TypesFor(category)
+	return Construction.UnitTypesFor(category)
 end
 
 local function UnitTypeMatchesCategory(unitDef, category)

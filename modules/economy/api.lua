@@ -17,7 +17,15 @@ end
 local Resources = {
 	---@param springRepo Spring
 	---@param teamID integer
-	---@param resource string
+	---@param resource ResourceName
+	---@return EconomyResource the engine's snapshot alone
+	Snapshot = function(springRepo, teamID, resource)
+		return TeamResourceData.Get(springRepo, teamID, resource)
+	end,
+
+	---@param springRepo Spring
+	---@param teamID integer
+	---@param resource ResourceName
 	Data = function(springRepo, teamID, resource)
 		local d = TeamResourceData.Get(springRepo, teamID, resource)
 		d.sent, d.received = overlaySharing(springRepo, teamID, resource, d.sent, d.received)
@@ -26,7 +34,7 @@ local Resources = {
 
 	---@param springRepo Spring
 	---@param teamID integer
-	---@param resource string
+	---@param resource ResourceName
 	---@return number|nil current
 	---@return number|nil storage
 	---@return number|nil pull
@@ -43,7 +51,7 @@ local Resources = {
 
 	---@param springRepo Spring
 	---@param teamID integer
-	---@param resource string
+	---@param resource ResourceName
 	---@param amount number
 	Add = function(springRepo, teamID, resource, amount)
 		local current = springRepo.GetTeamResources(teamID, resource) or 0
