@@ -257,12 +257,6 @@
 				</div>
 				<div id="rg-detail-fields" data-if="rgSelectedHasBox"></div>
 				<div class="text-sm text-light mb-1" data-if="rgSelectedHasBox">{{rgSelectedVertices}} vertices</div>
-				<div class="text-sm text-light">Tags</div>
-				<div class="flex flex-row gap-1 items-center mb-1">
-					<input type="text" id="rg-tag-input" class="ll-search-input" style="flex:1;" data-event-change="onRgRegionAddTag()" />
-					<div id="btn-rg-tag-add" class="tf-sm-btn" data-event-mousedown="onRgRegionAddTag()"><img class="tf-icon-xs" src="/luaui/images/terraform_brush/plus.png" /></div>
-				</div>
-				<div id="rg-tag-list" class="flex flex-row gap-1 mb-1 tf-chip-row"></div>
 				<div class="text-lg text-light font-bold mb-1">FACTS</div>
 				<div id="rg-detail-facts" class="mb-1"></div>
 			</div>

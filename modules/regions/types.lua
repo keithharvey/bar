@@ -6,7 +6,6 @@ local ModuleHandler = require("modules/module_handler")
 ---@field vertices { x: number, z: number }[]
 ---@field kind "point"|"polygon"|"box"|"spline"|nil
 ---@field controls { x: number, z: number, strength: number|nil }[]|nil
----@field tags string[]|nil
 ---@field name string|nil
 
 ---@class StoredRegion: Region

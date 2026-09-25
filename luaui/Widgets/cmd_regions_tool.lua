@@ -743,7 +743,6 @@ function R.stampNew(box)
 			R.pending[field.key] = nil
 		end
 	end
-	box.tags = box.tags or {}
 	if R.type == "start" then
 		local existing = R.start(box.team)
 		if existing and existing ~= box and existing.id then
@@ -1004,12 +1003,6 @@ function boxUndo.snap(box)
 	out.type = box.type
 	out.id = box.id
 	out.fields = R.fieldValues(box)
-	if box.tags then
-		out.tags = {}
-		for k = 1, #box.tags do
-			out.tags[k] = box.tags[k]
-		end
-	end
 	for k = 1, #anchors do
 		local a = anchors[k]
 		out.anchors[k] = { x = a.x, z = a.z, strength = a.strength }
@@ -1029,12 +1022,6 @@ function boxUndo.build(snap)
 	box.id = snap.id
 	for key, value in pairs(snap.fields or {}) do
 		box[key] = value
-	end
-	if snap.tags then
-		box.tags = {}
-		for k = 1, #snap.tags do
-			box.tags[k] = snap.tags[k]
-		end
 	end
 	if snap.kind == "spline" then
 		box.controls = anchors
@@ -1894,7 +1881,7 @@ function R.seedFromMatch()
 			curved = curved or (a.strength ~= nil and a.strength > 0)
 		end
 		local ordinal = area.allyTeamID + 1 -- the editor counts starts from 1
-		local box = { type = "start", allyTeam = ordinal, team = ordinal, name = area.name, tags = {} }
+		local box = { type = "start", allyTeam = ordinal, team = ordinal, name = area.name }
 		if curved then
 			box.kind = "spline"
 			box.controls = area.anchors
@@ -2083,7 +2070,6 @@ function R.starts()
 			positions = box and box.positions and #box.positions or 0,
 			hasBox = box ~= nil and box.vertices ~= nil and #box.vertices >= 3,
 			name = box and box.name or nil,
-			tags = box and box.tags or nil,
 		}
 	end
 	return out
@@ -2168,37 +2154,6 @@ function R.setField(key, value)
 	R.error = ""
 	R.bump()
 	return true
-end
-
-function R.addTag(tag)
-	local box = R.selectedIdx and startboxes[R.selectedIdx]
-	tag = tag and tag:match("^%s*(.-)%s*$") or ""
-	if not box or tag == "" then
-		if R.type == "start" and R.selectedStart and not box then
-			R.error = "draw this start's area first; tags live on it"
-			R.bump()
-		end
-		return false
-	end
-	box.tags = box.tags or {}
-	for _, existing in ipairs(box.tags) do
-		if existing == tag then
-			return false
-		end
-	end
-	box.tags[#box.tags + 1] = tag
-	R.bump()
-	return true
-end
-
-function R.removeTag(index)
-	local box = R.selectedIdx and startboxes[R.selectedIdx]
-	if box and box.tags and box.tags[index] then
-		table.remove(box.tags, index)
-		R.bump()
-		return true
-	end
-	return false
 end
 
 function R.remove(idx)
@@ -2448,7 +2403,6 @@ function R.selectedRecord()
 			team = R.selectedStart,
 			hasBox = box ~= nil,
 			fields = box and R.fieldValues(box) or { team = R.selectedStart },
-			tags = box and box.tags or {},
 			vertexCount = box and #box.vertices or 0,
 			facts = R.factsFor("start:" .. R.selectedStart .. ":" .. R.revision .. ":" .. R.api.Revision(), function()
 				return R.startFacts(R.selectedStart)
@@ -2468,7 +2422,6 @@ function R.selectedRecord()
 		fields = R.fieldValues(box),
 		derived = named and named.derived and { name = named.name } or nil,
 		problems = R.validate().byRegion[box] or {},
-		tags = box.tags or {},
 		vertexCount = #box.vertices,
 		facts = R.factsFor(R.type .. ":" .. R.selectedIdx .. ":" .. R.revision, function()
 			return R.facts(box)
@@ -4600,8 +4553,6 @@ function widget:Initialize()
 		selectStart = R.selectStart,
 		setPendingField = R.setPendingField,
 		setRegionField = R.setField,
-		addTag = R.addTag,
-		removeTag = R.removeTag,
 		removeRegion = R.remove,
 		exportLayout = R.exportLayout,
 		encodeLayout = R.encodeLayout,

@@ -4,7 +4,7 @@ local SplineLib = require("common/lib_spline")
 ---@class RegionLayout
 ---startbox 0..200 space, to and from Region records in elmos. It is what the map ships, what the modoption carries,
 ---what the editor saves, and what a gadget publishes for its widgets. An entry is the region's id, the fields its
----type declares, tags, and its shape: a point's x and y, or a poly of anchors { x, y, strength? }. Two anchors are
+---type declares, and its shape: a point's x and y, or a poly of anchors { x, y, strength? }. Two anchors are
 ---an axis-aligned rect's corners; an anchor with strength bends the ring, and the outline is derived from the
 ---anchors on the way in, never stored
 local Layout = {}
@@ -89,13 +89,6 @@ function Layout.Export(regions, byKey, mapSizeX, mapSizeZ)
 					entry[field.key] = value
 				end
 			end
-			if region.tags ~= nil and #region.tags > 0 then
-				local tags = {}
-				for j, tag in ipairs(region.tags) do
-					tags[j] = tag
-				end
-				entry.tags = tags
-			end
 			-- the anchors, never the outline: a curve cannot be recovered from its outline
 			local anchors = region.kind == "spline" and region.controls or region.vertices or {}
 			local only = anchors[1]
@@ -158,7 +151,6 @@ function Layout.Parse(layout, kind, mapSizeX, mapSizeZ)
 		local region = {
 			type = kind.key,
 			id = type(entry.id) == "string" and entry.id or nil,
-			tags = type(entry.tags) == "table" and entry.tags or nil,
 			vertices = {},
 		}
 		for _, field in ipairs(kind.fields) do
@@ -247,13 +239,6 @@ function Layout.Serialize(layout, order, byKey, header)
 					elseif value ~= nil then
 						lines[#lines + 1] = "        " .. field.key .. " = " .. literal(value) .. ","
 					end
-				end
-				if entry.tags then
-					local quoted = {}
-					for i, tag in ipairs(entry.tags) do
-						quoted[i] = literal(tag)
-					end
-					lines[#lines + 1] = "        tags = { " .. table.concat(quoted, ", ") .. " },"
 				end
 				if entry.poly then
 					lines[#lines + 1] = "        poly = {"
