@@ -6,15 +6,16 @@ local Policy = require("modules/policy")
 ---@field proposed string[]
 
 ---@class RegionNamesSteps: PolicySteps<RegionNamesContext, RegionNamesContext>
----@field Label string
+---@field Label "Label"
 
 ---@class (partial) RegionsContract
 ---@field Names RegionNamesSteps
 
 ---@type RegionNamesSteps
-local Names = Policy.Fold({
+local Names = {
 	Label = "Label",
-})
+}
+Policy.Fold(Names)
 
 Policies.On(Names).Apply(Names.Label, function(ctx)
 	local label = ctx.type.label:lower():gsub(" ", "_")

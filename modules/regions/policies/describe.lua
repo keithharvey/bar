@@ -11,15 +11,16 @@ local Policy = require("modules/policy")
 ---@field map RegionMap
 
 ---@class RegionDescribeSteps: PolicySteps<RegionDescribeContext, RegionDescription>
----@field Shape string
+---@field Shape "Shape"
 
 ---@class (partial) RegionsContract
 ---@field Describe RegionDescribeSteps
 
 ---@type RegionDescribeSteps
-local Describe = Policy.Single({
+local Describe = {
 	Shape = "Shape",
-})
+}
+Policy.Single(Describe)
 
 Policies.On(Describe).Answer(Describe.Shape, function(ctx)
 	return ctx.shape

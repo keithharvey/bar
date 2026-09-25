@@ -27,11 +27,11 @@ local Defs = require("modules/defs/contract")
 ---@field framesPerSecond number
 
 ---@class TransportLoadSteps: PolicySteps<TransportLoadContext, boolean>
----@field Submerged string
----@field WithinReach string
----@field MovingEnemy string
----@field AlliedNano string
----@field Allowed string
+---@field Submerged "Submerged"
+---@field WithinReach "WithinReach"
+---@field MovingEnemy "MovingEnemy"
+---@field AlliedNano "AlliedNano"
+---@field Allowed "Allowed"
 
 ---@type TransportLoadSteps
 local Load = {
@@ -43,10 +43,10 @@ local Load = {
 }
 
 ---@class TransportUnloadSteps: PolicySteps<TransportUnloadContext, boolean>
----@field Submerged string
----@field WithinReach string
----@field NanoOnSlope string
----@field Allowed string
+---@field Submerged "Submerged"
+---@field WithinReach "WithinReach"
+---@field NanoOnSlope "NanoOnSlope"
+---@field Allowed "Allowed"
 
 ---@type TransportUnloadSteps
 local Unload = {

@@ -18,7 +18,7 @@ local Creation = {
 }
 
 ---@class TechCoreSteps: PolicySteps<TechTierRequest, TechCoreLadder>
----@field TechCoreLadder string
+---@field TechCoreLadder "TechCoreLadder"
 
 ---@type TechCoreSteps
 local TechCore = {

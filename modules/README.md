@@ -210,6 +210,11 @@ local Modules = require("modules/enums").Modules
 ---@field stunSeconds number
 
 ---@class TransferUnitTransferSteps: PolicySteps<TransferPolicyContext, UnitPolicyResult>
+---@field Allied "Allied"
+---@field ReceiverHasNoPlayers "ReceiverHasNoPlayers"
+---@field TransferTerms "TransferTerms"
+
+---@type TransferUnitTransferSteps
 local UnitTransfer = {
 	Allied = "Allied",
 	ReceiverHasNoPlayers = "ReceiverHasNoPlayers",
@@ -234,6 +239,12 @@ Same again, line by line.
 The two types every policy has, written `<C, T>` everywhere else in this doc. `C` is what the gadget gathered up top. `T` is what `terms` built. `T` is a table here, not a boolean, because the gadget that stuns the unit and the widget that explains the stun in a tooltip both need the seconds, and they need them on a refusal too.
 
 ```lua
+---@class TransferUnitTransferSteps: PolicySteps<TransferPolicyContext, UnitPolicyResult>
+---@field Allied "Allied"
+---@field ReceiverHasNoPlayers "ReceiverHasNoPlayers"
+---@field TransferTerms "TransferTerms"
+
+---@type TransferUnitTransferSteps
 local UnitTransfer = {
 	Allied = "Allied",
 	ReceiverHasNoPlayers = "ReceiverHasNoPlayers",
@@ -241,7 +252,7 @@ local UnitTransfer = {
 }
 ```
 
-The three names the policy hung its steps on. A step added under a name not in this table is refused at load. A name in this table that never lands on the policy is refused at load too. The contract is a promise in both directions, and it is the only thing a mod needs to read to put its own step `.Before` yours.
+The three names the policy hung its steps on, twice: once as a type, once as the table. Lua has no reflection, so the table is what runs and the class is what the checker reads, and the class types each field as its own value so the checker holds the two together: a step left out of the table is a missing field, a misspelled value is a type error. The literal has to sit on the typed local directly; a table handed through `Policy.Fold(...)` on the same line is never checked. At load the loader checks the other direction: a step added under a name not in this table is refused, and a name in this table that never lands on the policy is refused too. The contract is a promise in both directions, and it is the only thing a mod needs to read to put its own step `.Before` yours.
 
 ```lua
 return Policy.Contract(Modules.Transfer, {
@@ -317,7 +328,7 @@ Where an owner expects loosening, it puts the knob on the context as a fact, so 
 
 ```lua
 -- transfer's contract
-TeamPairing = Policy.Facts({ TechBlocking = "techBlocking", TaxRate = "taxRate" }),
+TeamPairing = Policy.Facts(TeamPairing), -- { TechBlocking = "techBlocking", TaxRate = "taxRate" }, typed as TransferTeamPairingFacts
 ```
 
 ```lua

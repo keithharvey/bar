@@ -14,7 +14,7 @@ local Modules = require("modules/enums").Modules
 ---@field springRepo Spring
 
 ---@class EconomyDistributionFacts: PolicyFacts<EconomyTeamContext>
----@field TaxRate string
+---@field TaxRate "taxRate"
 
 ---@type EconomyDistributionFacts
 local Distribution = {
@@ -25,7 +25,7 @@ local Distribution = {
 ---@field results EconomyTeamResult[]
 
 ---@class EconomyRedistributionFacts: PolicyFacts<EconomyRedistributionContext>
----@field Results string
+---@field Results "results"
 
 ---@type EconomyRedistributionFacts
 local Redistribution = {

@@ -15,7 +15,7 @@ local UnitDef = {
 }
 
 ---@class WeaponDefSteps: PolicySteps<DefContext, DefContext>
----@field Base string
+---@field Base "Base"
 
 ---@type WeaponDefSteps
 local WeaponDef = {

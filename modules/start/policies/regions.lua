@@ -12,12 +12,13 @@ local Regions = Policies.Contract(Modules.Regions)
 ---@field positions { x: number, z: number }[]|nil
 
 ---@class StartRegionsNamesSteps
----@field FromTeam string
+---@field FromTeam "FromTeam"
 
 ---@type StartRegionsNamesSteps
-local RegionsNames = Policy.Contributes(Regions.Names, {
+local RegionsNames = {
 	FromTeam = "FromTeam",
-})
+}
+Policy.Contributes(Regions.Names, RegionsNames)
 
 Policies.On(Regions.Names).Apply(RegionsNames.FromTeam, function(ctx)
 	if ctx.type.key ~= RegionsApi.Enums.Types.Start then
@@ -32,12 +33,13 @@ Policies.On(Regions.Names).Apply(RegionsNames.FromTeam, function(ctx)
 end)
 
 ---@class StartRegionsSetSteps
----@field AreasDisjoint string
+---@field AreasDisjoint "AreasDisjoint"
 
 ---@type StartRegionsSetSteps
-local RegionsSet = Policy.Contributes(Regions.CheckSet, {
+local RegionsSet = {
 	AreasDisjoint = "AreasDisjoint",
-})
+}
+Policy.Contributes(Regions.CheckSet, RegionsSet)
 
 Policies.On(Regions.CheckSet).Apply(RegionsSet.AreasDisjoint, function(ctx)
 	if ctx.type.key ~= RegionsApi.Enums.Types.Start then
@@ -58,12 +60,13 @@ end)
 ---@field positions { x: number, z: number }[]
 
 ---@class StartRegionsDescribeSteps
----@field Start string
+---@field Start "Start"
 
 ---@type StartRegionsDescribeSteps
-local RegionsDescribe = Policy.Contributes(Regions.Describe, {
+local RegionsDescribe = {
 	Start = "Start",
-})
+}
+Policy.Contributes(Regions.Describe, RegionsDescribe)
 
 Policies.On(Regions.Describe)
 	.Answer(RegionsDescribe.Start, function(ctx)

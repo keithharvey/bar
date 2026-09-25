@@ -14,20 +14,22 @@ local Regions = Policies.Contract(Modules.Regions)
 ---@field spots { x: number, z: number, worth: number|nil }[]|nil
 
 ---@class TransferMexRegionsSetSteps
----@field MexesCovered string
+---@field MexesCovered "MexesCovered"
 
 ---@type TransferMexRegionsSetSteps
-local MexRegionsSet = Policy.Contributes(Regions.CheckSet, {
+local MexRegionsSet = {
 	MexesCovered = "MexesCovered",
-})
+}
+Policy.Contributes(Regions.CheckSet, MexRegionsSet)
 
 ---@class TransferMexRegionsNamesSteps
----@field FromGroup string
+---@field FromGroup "FromGroup"
 
 ---@type TransferMexRegionsNamesSteps
-local MexRegionsNames = Policy.Contributes(Regions.Names, {
+local MexRegionsNames = {
 	FromGroup = "FromGroup",
-})
+}
+Policy.Contributes(Regions.Names, MexRegionsNames)
 
 ---@class MexRegionDescription: RegionDescription
 ---@field team integer
@@ -36,12 +38,13 @@ local MexRegionsNames = Policy.Contributes(Regions.Names, {
 ---@field worth number|nil
 
 ---@class TransferMexRegionsDescribeSteps
----@field MexRegion string
+---@field MexRegion "MexRegion"
 
 ---@type TransferMexRegionsDescribeSteps
-local MexRegionsDescribe = Policy.Contributes(Regions.Describe, {
+local MexRegionsDescribe = {
 	MexRegion = "MexRegion",
-})
+}
+Policy.Contributes(Regions.Describe, MexRegionsDescribe)
 
 Policies.On(Regions.Names).Apply(MexRegionsNames.FromGroup, function(ctx)
 	if ctx.type.key ~= RegionsApi.Enums.Types.MexRegion then

@@ -51,7 +51,7 @@ local ConstructionContract = require("modules/construction/contract")
 ---@field opts table<string, string|number|boolean>
 
 ---@class TransferTeamTermsFacts: PolicyFacts<TransferTeamContext>
----@field TaxRate string
+---@field TaxRate "taxRate"
 
 ---@type TransferTeamTermsFacts
 local TeamTerms = {
@@ -59,8 +59,8 @@ local TeamTerms = {
 }
 
 ---@class TransferUnitNotesFacts: PolicyFacts<TransferUnitPolicyResult> display notes other modules attach to a unit-terms record; providers get the modoptions as their extra argument
----@field FutureUnlock string
----@field TechData string
+---@field FutureUnlock "futureUnlock"
+---@field TechData "techData"
 
 ---@type TransferUnitNotesFacts
 local UnitNotes = {
@@ -69,7 +69,7 @@ local UnitNotes = {
 }
 
 ---@class TransferResourceNotesFacts: PolicyFacts<TransferResourcePolicyResult> display notes other modules attach to a resource-terms record; providers get the modoptions as their extra argument
----@field TaxUnlock string
+---@field TaxUnlock "taxUnlock"
 
 ---@type TransferResourceNotesFacts
 local ResourceNotes = {
@@ -77,9 +77,9 @@ local ResourceNotes = {
 }
 
 ---@class TransferTeamPairingFacts: PolicyFacts<TransferPolicyContext>
----@field TechBlocking string
----@field UnitSharingModes string
----@field TaxRate string
+---@field TechBlocking "techBlocking"
+---@field UnitSharingModes "unitSharingModes"
+---@field TaxRate "taxRate"
 
 ---@type TransferTeamPairingFacts
 local TeamPairing = {
@@ -89,7 +89,7 @@ local TeamPairing = {
 }
 
 ---@class TransferTakeSteps: PolicySteps<TransferTakeContext, TakePolicy>
----@field TakeTerms string
+---@field TakeTerms "TakeTerms"
 
 ---@type TransferTakeSteps
 local Take = {
@@ -97,10 +97,10 @@ local Take = {
 }
 
 ---@class TransferUnitTransferSteps: PolicySteps<TransferPolicyContext, TransferUnitPolicyResult>
----@field SharingDisabled string
----@field Allied string
----@field ReceiverHasNoPlayers string
----@field TransferTerms string
+---@field SharingDisabled "SharingDisabled"
+---@field Allied "Allied"
+---@field ReceiverHasNoPlayers "ReceiverHasNoPlayers"
+---@field TransferTerms "TransferTerms"
 
 ---@type TransferUnitTransferSteps
 local UnitTransfer = {
@@ -111,10 +111,10 @@ local UnitTransfer = {
 }
 
 ---@class TransferResourceTransferSteps: PolicySteps<TransferPolicyContext, TransferResourcePolicyResult>
----@field SharingDisabled string
----@field Allied string
----@field ReceiverHasNoPlayers string
----@field RateAndCapacity string
+---@field SharingDisabled "SharingDisabled"
+---@field Allied "Allied"
+---@field ReceiverHasNoPlayers "ReceiverHasNoPlayers"
+---@field RateAndCapacity "RateAndCapacity"
 
 ---@type TransferResourceTransferSteps
 local ResourceTransfer = {

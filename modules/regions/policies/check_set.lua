@@ -19,15 +19,16 @@ local Problems = require("modules/regions/lib/problems")
 ---@class (partial) RegionMap
 
 ---@class RegionSetSteps: PolicySteps<RegionSetContext, RegionSetContext>
----@field Each string
+---@field Each "Each"
 
 ---@class (partial) RegionsContract
 ---@field CheckSet RegionSetSteps
 
 ---@type RegionSetSteps
-local CheckSet = Policy.Fold({
+local CheckSet = {
 	Each = "Each",
-})
+}
+Policy.Fold(CheckSet)
 
 Policies.On(CheckSet).Apply(CheckSet.Each, function(ctx)
 	local names = {} ---@type table<Region, string>
