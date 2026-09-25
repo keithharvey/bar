@@ -122,7 +122,7 @@ local TEAM_COLORS = {
 -- State
 local active = false
 local subMode = "express" -- "express" | "shape" | "startbox"
-local positions = {} -- { {x=, z=, allyTeam=, teamSlot=, playerIdx=}, ... }
+-- The start positions are the start regions' `positions`; `seats()` below is the tool's view over them.
 local nextAllyTeam = 1 -- next allyteam in rotation
 local nextTeamSlot = 1 -- next player slot within that allyteam
 local numAllyTeams = 2 -- configurable count (ally teams)
@@ -286,8 +286,15 @@ function R.nextColor()
 	return team and getColorForAllyTeam(team) or R.COLOR
 end
 
+-- The regions the area tools draw and pick by index. A start that is only its positions is not among them:
+-- it is reached by team, through R.start, and its positions through seats().
 function R.list(typeKey)
-	local out = R.api.All(typeKey)
+	local out = {}
+	for _, region in ipairs(R.api.All(typeKey)) do
+		if typeKey ~= "start" or (region.vertices ~= nil and #region.vertices >= 3) then
+			out[#out + 1] = region
+		end
+	end
 	if typeKey == "start" then
 		table.sort(out, function(a, b)
 			return (a.team or 0) < (b.team or 0)
@@ -300,13 +307,62 @@ function R.refresh()
 	startboxes = R.list(R.type)
 end
 
+---@return StartRegion|nil the team's start region, whatever its shape
 function R.start(team)
 	for _, region in ipairs(R.api.All("start")) do
+		---@cast region Region
+		---@cast region StartRegion
 		if region.team == team then
 			return region
 		end
 	end
 	return nil
+end
+
+---@class EditorSeat one start position as the tool sees it: the region it belongs to and its index there
+---@field region StartRegion
+---@field i integer index in region.positions
+---@field x number
+---@field z number
+---@field y number
+---@field allyTeam integer the start ordinal, region.team
+---@field teamSlot integer the seat's rank among its start's, in order
+---@field playerIdx integer
+
+local seatsCache, seatsCacheKey = {}, ""
+---@return EditorSeat[] every start's positions, by start then seat, rebuilt when the store or the tool moved
+local function seats()
+	local key = R.api.Revision() .. ":" .. R.revision
+	if key ~= seatsCacheKey then
+		seatsCacheKey = key
+		seatsCache = {}
+		for _, region in ipairs(R.api.All("start")) do
+			---@cast region Region
+			---@cast region StartRegion
+			for i, p in ipairs(region.positions or {}) do
+				seatsCache[#seatsCache + 1] = {
+					region = region,
+					i = i,
+					x = p.x,
+					z = p.z,
+					y = GetGroundHeight(p.x, p.z) or 0,
+					allyTeam = region.team,
+					teamSlot = i,
+					playerIdx = (region.team - 1) * math_max(1, numTeamsPerAlly) + i,
+				}
+			end
+		end
+	end
+	return seatsCache
+end
+
+-- A point start is where its one position is; an area keeps its shape whatever its positions do.
+---@param region StartRegion
+local function keepShape(region)
+	local positions = region.positions or {}
+	if region.kind == "point" or (region.vertices ~= nil and #region.vertices == 1) then
+		region.vertices = positions[1] and { { x = positions[1].x, z = positions[1].z } } or {}
+	end
 end
 
 function R.viewIndexOf(region)
@@ -428,7 +484,7 @@ local function isPlaceableForCommander(x, z)
 end
 
 local function addPosition(x, z, allyTeam, teamSlot)
-	if #positions >= MAX_POSITIONS then
+	if #seats() >= MAX_POSITIONS then
 		return false
 	end
 	x, z = clampToMap(x, z)
@@ -441,19 +497,32 @@ local function addPosition(x, z, allyTeam, teamSlot)
 		)
 		return false
 	end
-	local y = GetGroundHeight(x, z) or 0
-	teamSlot = teamSlot or 1
-	local playerIdx = (allyTeam - 1) * math_max(1, numTeamsPerAlly) + teamSlot
-	positions[#positions + 1] = {
-		x = x,
-		z = z,
-		y = y,
-		allyTeam = allyTeam,
-		teamSlot = teamSlot,
-		playerIdx = playerIdx,
-	}
+	local region = R.start(allyTeam)
+	if not region then
+		region = R.api.Put(R.api.Create("start", { team = allyTeam, kind = "point", vertices = {}, positions = {} })) --[[@as StartRegion]]
+	end
+	region.positions = region.positions or {}
+	local positions = region.positions
+	local at = math_min(teamSlot or (#positions + 1), #positions + 1)
+	table.insert(positions, at, { x = x, z = z })
+	keepShape(region)
 	R.bump()
 	return true
+end
+
+-- Take the seat back: the position, and the point start it was when it was the last one.
+---@param seat EditorSeat
+local function removeSeat(seat)
+	local region = seat.region
+	local positions = region.positions or {}
+	if positions[seat.i] then
+		table.remove(positions, seat.i)
+	end
+	keepShape(region)
+	if #positions == 0 and region.id and (region.vertices == nil or #region.vertices < 3) then
+		R.api.Remove(region.id)
+	end
+	R.bump()
 end
 
 -- Advance (nextAllyTeam, nextTeamSlot) per placement mode; returns the pair AFTER advancing.
@@ -482,18 +551,33 @@ local function advanceNextPlayer()
 end
 
 local function removePosition(idx)
-	R.bump()
-	if idx >= 1 and idx <= #positions then
-		table.remove(positions, idx)
-		return true
+	local seat = seats()[idx]
+	if not seat then
+		return false
 	end
-	return false
+	removeSeat(seat)
+	return true
+end
+
+-- The last seat placed: the one the placement pointers would give again, one step back.
+local function removeLastSeat()
+	local all = seats()
+	if #all == 0 then
+		return
+	end
+	local last = all[#all]
+	for _, seat in ipairs(all) do
+		if seat.allyTeam == nextAllyTeam and seat.teamSlot == nextTeamSlot then
+			last = seat
+		end
+	end
+	removeSeat(last)
 end
 
 local function removeNearestPosition(wx, wz)
 	local bestIdx = nil
 	local bestDist = CLICK_DISTANCE_SQ
-	for i, pos in ipairs(positions) do
+	for i, pos in ipairs(seats()) do
 		local d = distSq(wx, wz, pos.x, pos.z)
 		if d < bestDist then
 			bestDist = d
@@ -510,7 +594,7 @@ end
 local function findNearestPosition(wx, wz)
 	local bestIdx = nil
 	local bestDist = CLICK_DISTANCE_SQ
-	for i, pos in ipairs(positions) do
+	for i, pos in ipairs(seats()) do
 		local d = distSq(wx, wz, pos.x, pos.z)
 		if d < bestDist then
 			bestDist = d
@@ -521,8 +605,16 @@ local function findNearestPosition(wx, wz)
 end
 
 local function clearAllPositions()
+	for _, region in ipairs(R.api.All("start")) do
+		---@cast region Region
+		---@cast region StartRegion
+		region.positions = nil
+		keepShape(region)
+		if region.id and (region.vertices == nil or #region.vertices < 3) then
+			R.api.Remove(region.id)
+		end
+	end
 	R.bump()
-	positions = {}
 	nextAllyTeam = 1
 	nextTeamSlot = 1
 	undoHistory = {}
@@ -572,10 +664,29 @@ end
 -- Ally team is the box's position in the list, never a running counter: that is what the
 -- modoption format means by order (box 1 is allyTeam 0) and it makes a delete impossible to
 -- desync. One box per team falls out of it.
+-- The areas are the starts, numbered by order as the modoption has always read them. A start that was only
+-- its positions until now hands them to the area that takes its number.
 local function renumberBoxAllyTeams()
-	for i, box in ipairs(R.list("start")) do
+	local areas = R.list("start")
+	for i, box in ipairs(areas) do
 		box.allyTeam = i
 		box.team = i
+	end
+	for _, region in ipairs(R.api.All("start")) do
+		---@cast region Region
+		---@cast region StartRegion
+		if region.vertices == nil or #region.vertices < 3 then
+			local area = areas[region.team or 0]
+			if area and not rawequal(area, region) then
+				area.positions = area.positions or {}
+				for _, p in ipairs(region.positions or {}) do
+					area.positions[#area.positions + 1] = p
+				end
+				if region.id then
+					R.api.Remove(region.id)
+				end
+			end
+		end
 	end
 	R.refresh()
 end
@@ -1404,77 +1515,6 @@ local function getMapName()
 	return Game.mapName or "unknown"
 end
 
-local function saveStartPositions(name, explicitPath)
-	local filename = explicitPath
-	if not filename then
-		Spring.CreateDir(SAVE_DIR)
-		filename = SAVE_DIR .. (name or getMapName()) .. ".lua"
-	end
-	local lines = {}
-	lines[#lines + 1] = "-- Start Positions Config"
-	lines[#lines + 1] = "-- Map: " .. getMapName()
-	lines[#lines + 1] = "-- Generated by Regions Tool"
-	lines[#lines + 1] = ""
-	lines[#lines + 1] = "local startPositions = {"
-	for i, pos in ipairs(positions) do
-		lines[#lines + 1] = string.format(
-			"  [%d] = { x = %d, z = %d, allyTeam = %d, teamSlot = %d },",
-			i,
-			math_floor(pos.x),
-			math_floor(pos.z),
-			pos.allyTeam,
-			pos.teamSlot or 1
-		)
-	end
-	lines[#lines + 1] = "}"
-	lines[#lines + 1] = ""
-	lines[#lines + 1] = "return startPositions"
-	local content = table.concat(lines, "\n")
-
-	local file = io.open(filename, "w")
-	if file then
-		file:write(content)
-		file:close()
-		Echo("[Regions] Saved start positions to: " .. filename)
-		R.say("Saved start positions to " .. filename)
-		return true
-	else
-		Echo("[Regions] ERROR: Could not write to: " .. filename)
-		return false
-	end
-end
-
-local function loadStartPositions(name, explicitPath)
-	local filename = explicitPath or (SAVE_DIR .. (name or getMapName()) .. ".lua")
-	local ok, data = pcall(function()
-		return VFS.Include(filename, nil, VFS.RAW_FIRST)
-	end)
-	if ok and data then
-		clearAllPositions() -- also clears undoHistory
-		for i, pos in ipairs(data) do
-			addPosition(pos.x, pos.z, pos.allyTeam or i, pos.teamSlot or 1)
-		end
-		undoHistory = {} -- load is a clean slate
-		Echo("[Regions] Loaded start positions from: " .. filename)
-		return true
-	else
-		Echo("[Regions] No saved config found: " .. filename)
-		return false
-	end
-end
-
-local function listSavedConfigs()
-	local files = VFS.DirList(SAVE_DIR, "*.lua", VFS.RAW_FIRST)
-	local names = {}
-	for _, f in ipairs(files or {}) do
-		local name = f:match("([^/\\]+)%.lua$")
-		if name then
-			names[#names + 1] = name
-		end
-	end
-	return names
-end
-
 -- Start Script Generation
 
 local STARTSCRIPT_SAVE_DIR = "Terraform Brush/StartScripts/"
@@ -1817,7 +1857,7 @@ function R.seedFromMatch()
 		R.load()
 	end
 	R.seedMexRegions()
-	if R.seeded or #R.list("start") > 0 or #positions > 0 then
+	if R.seeded or #R.list("start") > 0 then
 		return
 	end
 	R.seeded = true
@@ -2008,21 +2048,17 @@ function R.selectStart(allyTeam)
 end
 
 function R.starts()
-	local count = #R.list("start")
-	local perTeam = {}
-	for _, pos in ipairs(positions) do
-		perTeam[pos.allyTeam] = (perTeam[pos.allyTeam] or 0) + 1
-		if pos.allyTeam > count then
-			count = pos.allyTeam
-		end
+	local count = 0
+	for _, region in ipairs(R.api.All("start")) do
+		count = math_max(count, region.team or 0)
 	end
 	local out = {}
 	for allyTeam = 1, count do
 		local box = R.start(allyTeam)
 		out[allyTeam] = {
 			allyTeam = allyTeam,
-			positions = perTeam[allyTeam] or 0,
-			hasBox = box ~= nil,
+			positions = box and box.positions and #box.positions or 0,
+			hasBox = box ~= nil and box.vertices ~= nil and #box.vertices >= 3,
 			name = box and box.name or nil,
 			tags = box and box.tags or nil,
 		}
@@ -2034,13 +2070,11 @@ function R.startFacts(allyTeam)
 	local box = R.start(allyTeam)
 	local facts = box and R.facts(box) or {}
 	local count, cx, cz = 0, 0, 0
-	for _, pos in ipairs(positions) do
-		if pos.allyTeam == allyTeam then
-			count = count + 1
-			cx, cz = cx + pos.x, cz + pos.z
-		end
+	for _, pos in ipairs(box and box.positions or {}) do
+		count = count + 1
+		cx, cz = cx + pos.x, cz + pos.z
 	end
-	if not box then
+	if not (box and box.vertices and #box.vertices >= 3) then
 		facts[#facts + 1] = { "Area", "none drawn" }
 		if count > 0 then
 			facts[#facts + 1] = { "Positions centre", string.format("%d, %d", cx / count, cz / count) }
@@ -2229,10 +2263,10 @@ end
 -- whole set as it stands, kept until the set changes. lines: every problem, printable; byRegion: a region's own
 -- messages, for its row, its details and its outline; ofSet: the messages about a type's set as a whole.
 R.INVALID = { 1.0, 0.25, 0.55, 1.0 }
-R.validated = { revision = -1, positions = -1, count = -1, lines = {}, byRegion = {}, ofSet = {} }
+R.validated = { revision = -1, count = -1, lines = {}, byRegion = {}, ofSet = {} }
 function R.validate()
 	local was = R.validated
-	if was.revision == R.revision and was.positions == #positions and was.count == R.api.Revision() then
+	if was.revision == R.revision and was.count == R.api.Revision() then
 		return was
 	end
 	local finder = WG.resource_spot_finder
@@ -2257,7 +2291,6 @@ function R.validate()
 	end
 	R.validated = {
 		revision = R.revision,
-		positions = #positions,
 		count = R.api.Revision(),
 		lines = lines,
 		byRegion = byRegion,
@@ -2393,7 +2426,7 @@ function R.selectedRecord()
 			fields = box and R.fieldValues(box) or { team = R.selectedStart },
 			tags = box and box.tags or {},
 			vertexCount = box and #box.vertices or 0,
-			facts = R.factsFor("start:" .. R.selectedStart .. ":" .. R.revision .. ":" .. #positions, function()
+			facts = R.factsFor("start:" .. R.selectedStart .. ":" .. R.revision .. ":" .. R.api.Revision(), function()
 				return R.startFacts(R.selectedStart)
 			end),
 		}
@@ -2431,7 +2464,7 @@ local function getState()
 	return {
 		active = active,
 		subMode = subMode,
-		positions = positions,
+		positions = seats(),
 		numAllyTeams = allyCount,
 		numTeamsPerAlly = numTeamsPerAlly,
 		nextAllyTeam = nextAllyTeam,
@@ -2525,7 +2558,7 @@ function widget:MousePress(mx, my, button)
 			do
 				local nearIdx = findNearestPosition(wx, wz)
 				local containBi = (not nearIdx) and findBoxContaining(wx, wz) or nil
-				local team = (nearIdx and positions[nearIdx].allyTeam) or containBi
+				local team = (nearIdx and seats()[nearIdx].allyTeam) or containBi
 				if team and team ~= R.selectedStart then
 					R.selectStart(team)
 				end
@@ -2546,7 +2579,7 @@ function widget:MousePress(mx, my, button)
 				local stb = tb and tb.getState and tb.getState() or nil
 				local prevNext = nextAllyTeam
 				local prevNextSlot = nextTeamSlot
-				local prevCount = #positions
+				local prevCount = #seats()
 				if stb and stb.symmetryActive and tb.getSymmetricPositions then
 					local copies = tb.getSymmetricPositions(wx, wz, 0)
 					for _, p in ipairs(copies) do
@@ -2556,7 +2589,7 @@ function widget:MousePress(mx, my, button)
 				elseif addPosition(wx, wz, nextAllyTeam, nextTeamSlot) then
 					advanceNextPlayer()
 				end
-				local added = #positions - prevCount
+				local added = #seats() - prevCount
 				if added > 0 then
 					undoHistory[#undoHistory + 1] = {
 						mode = subMode,
@@ -2583,15 +2616,13 @@ function widget:MousePress(mx, my, button)
 			local entry = at and undoHistory[at] or nil
 			if entry and at then
 				for _ = 1, (entry.count or 0) do
-					if #positions > 0 then
-						positions[#positions] = nil
-					end
+					removeLastSeat()
 				end
 				nextAllyTeam = entry.prevNextAllyTeam or 1
 				nextTeamSlot = entry.prevNextTeamSlot or 1
 				table.remove(undoHistory, at)
 			end
-			if #positions == 0 then
+			if #seats() == 0 then
 				nextAllyTeam = 1
 				nextTeamSlot = 1
 			end
@@ -2609,7 +2640,7 @@ function widget:MousePress(mx, my, button)
 			end
 			local prevNext = nextAllyTeam
 			local prevNextSlot = nextTeamSlot
-			local prevCount = #positions
+			local prevCount = #seats()
 			if stb and stb.symmetryActive and tb.getSymmetricPositions then
 				local copies = tb.getSymmetricPositions(sx, sz, shapeRotation)
 				if copies and #copies > 0 then
@@ -2623,7 +2654,7 @@ function widget:MousePress(mx, my, button)
 			else
 				placeShapePositions(sx, sz)
 			end
-			local added = #positions - prevCount
+			local added = #seats() - prevCount
 			if added > 0 then
 				undoHistory[#undoHistory + 1] = {
 					mode = subMode,
@@ -2696,7 +2727,7 @@ function widget:MousePress(mx, my, button)
 			if R.editMode == "select" and R.type == "start" then
 				local nearIdx = findNearestPosition(wx, wz)
 				if nearIdx then
-					R.selectStart(positions[nearIdx].allyTeam)
+					R.selectStart(seats()[nearIdx].allyTeam)
 					dragIdx = nearIdx
 					dragStartX = mx
 					dragStartY = my
@@ -2845,12 +2876,17 @@ function widget:MouseMove(mx, my, dx, dy, button)
 		end
 		if dragging then
 			local wx, wz = getWorldMousePosition()
-			if wx and positions[dragIdx] then
+			local seat = wx and seats()[dragIdx] or nil
+			if wx and seat then
 				local cx, cz = clampToMap(wx, wz)
 				-- Only move if the new spot is commander-spawnable; else keep position (silent).
 				if isPlaceableForCommander(cx, cz) then
-					positions[dragIdx].x, positions[dragIdx].z = cx, cz
-					positions[dragIdx].y = GetGroundHeight(cx, cz) or 0
+					local p = (seat.region.positions or {})[seat.i]
+					if p then
+						p.x, p.z = cx, cz
+						keepShape(seat.region)
+						R.bump()
+					end
 				end
 			end
 			return true
@@ -3348,9 +3384,7 @@ function widget:KeyPress(key, mods, isRepeat)
 			-- Positions rewind by count, the way they always have; the counter pair is
 			-- restored from the snapshot rather than guessed at.
 			for _ = 1, (entry.count or 0) do
-				if #positions > 0 then
-					positions[#positions] = nil
-				end
+				removeLastSeat()
 			end
 			nextAllyTeam = entry.prevNextAllyTeam or 1
 			nextTeamSlot = entry.prevNextTeamSlot or 1
@@ -3723,7 +3757,7 @@ function widget:Update()
 	if wx then
 		if subMode == "express" then
 			local bestIdx, bestDist = nil, DRAGGABLE_DIST_SQ
-			for i, pos in ipairs(positions) do
+			for i, pos in ipairs(seats()) do
 				local d = distSq(wx, wz, pos.x, pos.z)
 				if d < bestDist then
 					bestDist = d
@@ -3791,7 +3825,7 @@ function widget:DrawWorld()
 	end
 
 	-- Draw placed start positions (sleek 2026 style)
-	for i, pos in ipairs(positions) do
+	for i, pos in ipairs(seats()) do
 		local pIdx = pos.playerIdx or pos.allyTeam
 		local color = getColorForPlayer(pIdx)
 		local iconPath = COMMANDER_ICONS[((pIdx - 1) % #COMMANDER_ICONS) + 1]
@@ -4378,7 +4412,7 @@ function widget:DrawScreenEffects()
 	end
 
 	-- Screen-space sleek badges for placed positions
-	for i, pos in ipairs(positions) do
+	for i, pos in ipairs(seats()) do
 		local sx, sy, sr, vis = getScreenMarker(pos.x, pos.z, MARKER_RADIUS)
 		if vis then
 			local pIdx = pos.playerIdx or pos.allyTeam
@@ -4552,9 +4586,6 @@ function widget:Initialize()
 		clearAllPositions = clearAllPositions,
 		addPosition = addPosition,
 		placeRandomPositions = placeRandomPositions,
-		saveStartPositions = saveStartPositions,
-		loadStartPositions = loadStartPositions,
-		listSavedConfigs = listSavedConfigs,
 		copyStartboxOverride = copyStartboxOverride,
 		clearAllStartboxes = clearAllStartboxes,
 		setVertexStrength = strengthEdit.setVertex,

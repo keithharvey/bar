@@ -7413,10 +7413,6 @@ local initialModel = {
 		if not st then
 			return
 		end
-		-- One file holds every type's regions; the start positions list is the tool's own and saves beside it.
-		if st.getState().regionType == "start" then
-			st.saveStartPositions()
-		end
 		st.saveRegions()
 	end,
 	onRgCopy = function(_event)
@@ -7436,9 +7432,6 @@ local initialModel = {
 		local st = WG.RegionsTool
 		if not st then
 			return
-		end
-		if st.getState().regionType == "start" then
-			st.loadStartPositions()
 		end
 		st.loadRegions()
 	end,
