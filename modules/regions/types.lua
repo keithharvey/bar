@@ -9,6 +9,9 @@ local ModuleHandler = require("modules/module_handler")
 ---@field tags string[]|nil free-form tags not claimed by any type
 ---@field name string|nil display name. When nil, derived by the type's owner (see RegionsApi.Names)
 
+---@class StoredRegion: Region a region the store holds, so one with an id
+---@field id string
+
 ---@class RegionField
 ---@field key string
 ---@field label string

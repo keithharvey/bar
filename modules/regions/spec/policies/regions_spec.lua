@@ -84,8 +84,9 @@ describe("a set of regions", function()
 			{ region = regions[1], name = "1", message = "a start with team 1 already exists" },
 			{ region = regions[2], name = "twin", message = "a start with team 1 already exists" },
 		}, problems)
-		assert.is_true(rawequal(regions[1], problems[1].region), "the problem points at the caller's own table")
-		assert.are.equal("1: a start with team 1 already exists", Regions.ProblemLine(problems[1]))
+		local first = assert(problems[1])
+		assert.is_true(rawequal(regions[1], first.region), "the problem points at the caller's own table")
+		assert.are.equal("1: a start with team 1 already exists", Regions.ProblemLine(first))
 		assert.are.equal("about the set", Regions.ProblemLine({ message = "about the set" }))
 	end)
 end)

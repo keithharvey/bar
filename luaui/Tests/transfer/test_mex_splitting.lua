@@ -60,7 +60,7 @@ function test()
 		end,
 	}
 	debug.setmetatable(widgetLike, { __index = debug.getfenv(test) })
-	local Construction = VFS.Include("modules/construction/api.lua", widgetLike) ---@type ConstructionApi
+	local Construction = VFS.Include("modules/construction/api.lua", widgetLike)
 	assertEqual(
 		Construction.MayPlaceMexAt(myTeamID, spots.mine.x, spots.mine.z),
 		true,

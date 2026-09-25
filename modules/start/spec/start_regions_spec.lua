@@ -27,7 +27,7 @@ describe("a map's starts, as a set", function()
 			{ region = regions[1], name = "1", message = "overlaps start 2" },
 			{ region = regions[2], name = "2", message = "overlaps start 1" },
 		}, problems)
-		assert.are.equal("1: overlaps start 2", Regions.ProblemLine(problems[1]))
+		assert.are.equal("1: overlaps start 2", Regions.ProblemLine(assert(problems[1])))
 	end)
 
 	it("may touch along an edge, and a start that is a point overlaps nothing", function()

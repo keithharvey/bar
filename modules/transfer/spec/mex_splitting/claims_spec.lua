@@ -35,10 +35,11 @@ describe("a mex region record", function()
 			rect(1, "tech", 40, 0, 60, 20, nil, "t2"),
 			rect(2, "tech", 180, 180, 200, 200, "far"),
 		})
-		assert.are.same(
-			{ "anti", "tech_1", "tech_2", "far" },
-			{ regions[1].name, regions[2].name, regions[3].name, regions[4].name }
-		)
+		local names = {}
+		for i, region in ipairs(regions) do
+			names[i] = region.name
+		end
+		assert.are.same({ "anti", "tech_1", "tech_2", "far" }, names)
 		assert.are.same(
 			{ "anti@1", "t1", "t2", "far@2" },
 			{ regions[1].id, regions[2].id, regions[3].id, regions[4].id }
@@ -59,14 +60,15 @@ describe("the deal's steps", function()
 			{ teamID = 1, allyTeamID = 1, x = 200, z = 200 },
 		}, regions)
 		assert.are.equal(2, #views)
+		local first, second = assert(views[1]), assert(views[2])
 		local names = {}
-		for i, ranked in ipairs(views[1].regions) do
+		for i, ranked in ipairs(first.regions) do
 			names[i] = ranked.region.name
 		end
 		assert.are.same({ "near", "mid", "far" }, names)
-		assert.are.equal("far", views[2].regions[1].region.name)
-		assert.are.equal(1, views[2].team.teamID)
-		assert.is_true(views[1].regions[1].distance < views[1].regions[2].distance)
+		assert.are.equal("far", assert(second.regions[1]).region.name)
+		assert.are.equal(1, second.team.teamID)
+		assert.is_true(assert(first.regions[1]).distance < assert(first.regions[2]).distance)
 	end)
 
 	it("place each spot in the region that covers it", function()

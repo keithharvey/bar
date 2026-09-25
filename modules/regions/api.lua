@@ -41,13 +41,13 @@ end
 
 ---@param typeKey RegionTypeKey
 ---@param fields table|nil the region's fields and shape; adopted, not copied. An id already on it is kept (a region read back from a file)
----@return Region
+---@return StoredRegion
 function Api.Create(typeKey, fields)
 	local region = fields or {} ---@type Region
 	region.type = typeKey
 	region.id = region.id or mintId()
 	region.tags = region.tags or {}
-	return region
+	return region --[[@as StoredRegion]]
 end
 
 ---@param typeKey RegionTypeKey
@@ -153,32 +153,31 @@ end
 
 ---@param region Region its type set; an id is given when it has none. Already stored: kept in place. New: appended, or ahead of beforeId
 ---@param beforeId string|nil
----@return Region
+---@return StoredRegion
 function Api.Put(region, beforeId)
-	Api.Create(region.type, region)
-	return Store.Put(store(), region, beforeId)
+	return Store.Put(store(), Api.Create(region.type, region), beforeId)
 end
 
 ---@param id string
----@return Region|nil removed
+---@return StoredRegion|nil removed
 function Api.Remove(id)
 	return Store.Remove(store(), id)
 end
 
 ---@param id string
----@return Region|nil
+---@return StoredRegion|nil
 function Api.Get(id)
 	return store().byId[id]
 end
 
 ---@param typeKey RegionTypeKey|nil every type when nil
----@return Region[] regions insertion order; a new table
+---@return StoredRegion[] regions insertion order; a new table
 function Api.All(typeKey)
 	return Store.All(store(), typeKey)
 end
 
 ---@param typeKey RegionTypeKey|nil every type when nil
----@return Region[] removed
+---@return StoredRegion[] removed
 function Api.Clear(typeKey)
 	return Store.Clear(store(), typeKey)
 end
