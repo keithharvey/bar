@@ -16,16 +16,16 @@ if not gadgetHandler:IsSyncedCode() then
 	return false
 end
 
-local TransferEnums = require("modules/transfer/enums")
+local MexSplitting = require("modules/transfer/api").MexSplitting ---@type TransferMexSplittingApi
 
 if Spring.GetModOptions()[TransferEnums.ModOptions.MexSplitting] ~= TransferEnums.MexSplitting.MapAssigned then
 	return false
 end
 
-local MexSplitting = require("modules/transfer/api").MexSplitting ---@type TransferMexSplittingApi
-local Geometry = require("modules/regions/lib/geometry")
+local Regions = require("modules/regions/api")
 local Shared = require("modules/transfer/mex_splitting/shared")
 local Start = require("modules/start/api")
+local TransferEnums = require("modules/transfer/enums")
 
 local TAG = "Mex Splitting"
 
@@ -60,7 +60,7 @@ local function teamStarts()
 		for i, a in ipairs(area.anchors) do
 			ring[i] = { x = a.x, z = a.z }
 		end
-		local cx, cz = Geometry.Centroid(ring)
+		local cx, cz = Regions.Geometry.Centroid(ring)
 		centres[area.allyTeamID] = { x = cx, z = cz }
 	end
 	local teams = {} ---@type MexRegionsTeamStart[]

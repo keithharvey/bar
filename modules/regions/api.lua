@@ -1,5 +1,6 @@
 local ModuleHandler = require("modules/module_handler")
 local Modules = require("modules/enums").Modules
+local Enums = require("modules/regions/enums")
 local Geometry = require("modules/regions/lib/geometry")
 local Layout = require("modules/regions/lib/layout")
 local Names = require("modules/regions/lib/names")
@@ -11,6 +12,10 @@ local Types = require("modules/regions/types")
 ---@field Overlaps fun(a: { x: number, z: number }[], b: { x: number, z: number }[]): boolean
 ---@field Contains fun(x: number, z: number, vertices: { x: number, z: number }[]): boolean
 ---@field ProblemLine fun(problem: RegionProblem): string the message, prefixed with the region's name when it concerns one
+---@field ProblemWith fun(ctx: RegionSetContext, index: integer, message: string) a set-check stage records a problem with one region of the set
+---@field ProblemAt fun(ctx: RegionSetContext, message: string, at: { x: number, z: number }|nil) a set-check stage records a problem with the set, and where to look
+---@field Enums RegionEnums the type and geometry keys
+---@field Geometry RegionGeometry the shape helpers
 ---@field GeometryOf fun(vertices: { x: number, z: number }[]): RegionGeometryKey|nil the geometry kind implied by the vertex count
 ---@field EncodeLayout fun(layout: table): string|nil the layout in the modoption's string form
 ---@field DecodeLayout fun(raw: string): table|nil
@@ -385,10 +390,14 @@ function Api.Describe(region, map)
 	return ModuleHandler.Evaluate(pipelines.describe, ctx) or shape
 end
 
+Api.Enums = Enums
+Api.Geometry = Geometry
 Api.Overlaps = Geometry.Overlaps
 Api.Contains = Geometry.Contains
 Api.GeometryOf = Geometry.Of
 Api.ProblemLine = Problems.Line
+Api.ProblemWith = Problems.OfRegion
+Api.ProblemAt = Problems.OfSet
 
 Api.EncodeLayout = Layout.Encode
 Api.DecodeLayout = Layout.Decode

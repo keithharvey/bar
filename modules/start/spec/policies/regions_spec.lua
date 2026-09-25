@@ -1,4 +1,3 @@
-local Enums = require("modules/regions/enums")
 local Regions = require("modules/regions/api")
 
 ---@param team integer
@@ -8,7 +7,7 @@ local Regions = require("modules/regions/api")
 ---@return Region
 local function area(team, x, z, size)
 	return {
-		type = Enums.Types.Start,
+		type = Regions.Enums.Types.Start,
 		team = team,
 		vertices = {
 			{ x = x, z = z },
@@ -22,7 +21,7 @@ end
 describe("a map's starts, as a set", function()
 	it("never have two areas sharing ground, and each problem is the region's own", function()
 		local regions = { area(1, 0, 0, 100), area(2, 50, 50, 100), area(3, 500, 500, 100) }
-		local problems = Regions.CheckSet(Enums.Types.Start, regions)
+		local problems = Regions.CheckSet(Regions.Enums.Types.Start, regions)
 		assert.are.same({
 			{ region = regions[1], name = "1", message = "overlaps start 2" },
 			{ region = regions[2], name = "2", message = "overlaps start 1" },
@@ -31,8 +30,11 @@ describe("a map's starts, as a set", function()
 	end)
 
 	it("may touch along an edge, and a start that is a point overlaps nothing", function()
-		local point = { type = Enums.Types.Start, team = 3, vertices = { { x = 50, z = 50 } } }
-		assert.are.same({}, Regions.CheckSet(Enums.Types.Start, { area(1, 0, 0, 100), area(2, 100, 0, 100), point }))
+		local point = { type = Regions.Enums.Types.Start, team = 3, vertices = { { x = 50, z = 50 } } }
+		assert.are.same(
+			{},
+			Regions.CheckSet(Regions.Enums.Types.Start, { area(1, 0, 0, 100), area(2, 100, 0, 100), point })
+		)
 	end)
 end)
 

@@ -1,5 +1,3 @@
-local Enums = require("modules/regions/enums")
-local Geometry = require("modules/regions/lib/geometry")
 local Regions = require("modules/regions/api")
 local Shared = require("modules/transfer/mex_splitting/shared")
 
@@ -19,7 +17,7 @@ local Claims = {}
 ---@return string[] problems # what the regions module's set check finds wrong with the layout
 function Claims.Problems(regions, spots)
 	local lines = {} ---@type string[]
-	for i, problem in ipairs(Regions.CheckSet(Enums.Types.MexRegion, regions, { spots = spots })) do
+	for i, problem in ipairs(Regions.CheckSet(Regions.Enums.Types.MexRegion, regions, { spots = spots })) do
 		lines[i] = Regions.ProblemLine(problem)
 	end
 	return lines
@@ -31,7 +29,7 @@ end
 function Claims.Rank(teams, regions)
 	local centres = {} ---@type table<MexRegion, { x: number, z: number }>
 	for _, region in ipairs(regions) do
-		local x, z = Geometry.Centroid(region.vertices)
+		local x, z = Regions.Geometry.Centroid(region.vertices)
 		centres[region] = { x = x, z = z }
 	end
 	local views = {} ---@type MexRegionsTeamView[]
@@ -39,7 +37,7 @@ function Claims.Rank(teams, regions)
 		local ranked = {} ---@type MexRegionsRanked[]
 		for j, region in ipairs(regions) do
 			local centre = centres[region]
-			ranked[j] = { region = region, distance = Geometry.Distance(centre.x, centre.z, team.x, team.z) }
+			ranked[j] = { region = region, distance = Regions.Geometry.Distance(centre.x, centre.z, team.x, team.z) }
 		end
 		table.sort(ranked, function(a, b)
 			if a.distance ~= b.distance then
@@ -60,7 +58,7 @@ function Claims.SpotsIn(regions, spots)
 	local byRegion = {} ---@type table<string, string[]>
 	for _, spot in ipairs(spots) do
 		for _, region in ipairs(regions) do
-			if Geometry.Contains(spot.x, spot.z, region.vertices) then
+			if Regions.Contains(spot.x, spot.z, region.vertices) then
 				byRegion[region.id] = byRegion[region.id] or {}
 				table.insert(byRegion[region.id], Shared.SpotKey(spot.x, spot.z))
 			end

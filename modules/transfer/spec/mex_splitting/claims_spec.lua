@@ -1,6 +1,5 @@
 local Claims = require("modules/transfer/mex_splitting/claims")
 local Records = require("modules/transfer/mex_splitting/records")
-local RegionEnums = require("modules/regions/enums")
 local Regions = require("modules/regions/api")
 local Shared = require("modules/transfer/mex_splitting/shared")
 
@@ -18,8 +17,8 @@ end
 ---@return MexRegion[]
 local function parse(entries)
 	local regions, reason = Regions.ParseLayout(
-		{ regions = { [RegionEnums.Types.MexRegion] = entries } },
-		RegionEnums.Types.MexRegion,
+		{ regions = { [Regions.Enums.Types.MexRegion] = entries } },
+		Regions.Enums.Types.MexRegion,
 		200,
 		200
 	)

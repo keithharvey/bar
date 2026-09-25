@@ -1,4 +1,3 @@
-local Enums = require("modules/regions/enums")
 local Records = require("modules/transfer/mex_splitting/records")
 local Regions = require("modules/regions/api")
 local TransferEnums = require("modules/transfer/enums")
@@ -23,11 +22,12 @@ local function find(modOptions, mapSizeX, mapSizeZ)
 		if layout == nil then
 			return nil, source, "not a layout"
 		end
-		local regions, reason = Regions.ParseLayout(layout, Enums.Types.MexRegion, mapSizeX, mapSizeZ)
+		local regions, reason = Regions.ParseLayout(layout, Regions.Enums.Types.MexRegion, mapSizeX, mapSizeZ)
 		return regions, source, reason
 	end
 	if VFS.FileExists(MAP_FILE) then
-		local regions, reason = Regions.ParseLayout(VFS.Include(MAP_FILE), Enums.Types.MexRegion, mapSizeX, mapSizeZ)
+		local regions, reason =
+			Regions.ParseLayout(VFS.Include(MAP_FILE), Regions.Enums.Types.MexRegion, mapSizeX, mapSizeZ)
 		return regions, MAP_FILE .. " (from the map)", reason
 	end
 	return nil, "no layout: not the modoption, nor the map's " .. MAP_FILE, nil
@@ -58,7 +58,7 @@ function Sources.FromBlob(raw, mapSizeX, mapSizeZ)
 	if layout == nil then
 		return nil, "not a layout"
 	end
-	local regions, reason = Regions.ParseLayout(layout, Enums.Types.MexRegion, mapSizeX, mapSizeZ)
+	local regions, reason = Regions.ParseLayout(layout, Regions.Enums.Types.MexRegion, mapSizeX, mapSizeZ)
 	if regions == nil then
 		return nil, reason
 	end
@@ -81,7 +81,7 @@ function Sources.EditorBlob(mapName, mapSizeX, mapSizeZ)
 		return nil
 	end
 	-- the file is a layout already; it only has to hold mex regions to be worth sending
-	local regions = Regions.ParseLayout(layout, Enums.Types.MexRegion, mapSizeX, mapSizeZ)
+	local regions = Regions.ParseLayout(layout, Regions.Enums.Types.MexRegion, mapSizeX, mapSizeZ)
 	if not regions or #regions == 0 then
 		return nil
 	end
