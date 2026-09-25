@@ -1,7 +1,7 @@
 local Enums = require("modules/regions/enums")
 local SplineLib = require("common/lib_spline")
 
----@class RegionLayout the one serialized form of regions: every type's regions in one table keyed by type, in the
+---@class RegionLayout
 ---startbox 0..200 space, to and from Region records in elmos. It is what the map ships, what the modoption carries,
 ---what the editor saves, and what a gadget publishes for its widgets. An entry is the region's id, the fields its
 ---type declares, tags, and its shape: a point's x and y, or a poly of anchors { x, y, strength? }. Two anchors are
@@ -12,13 +12,13 @@ local Layout = {}
 Layout.SPACE = 200
 
 ---@class RegionLayoutAnchor
----@field x number 0..200
----@field y number 0..200
----@field strength number|nil 0..1; absent or 0 is a sharp corner
+---@field x number
+---@field y number
+---@field strength number|nil
 
 ---@param poly table
----@return RegionLayoutAnchor[]|nil anchors a rect expanded to its four corners; nil when malformed
----@return boolean curved any anchor carries strength
+---@return RegionLayoutAnchor[]|nil anchors
+---@return boolean curved
 local function readPoly(poly)
 	if type(poly) ~= "table" then
 		return nil, false
@@ -43,8 +43,8 @@ local function readPoly(poly)
 	return anchors, curved
 end
 
----@param controls { x: number, z: number, strength: number|nil }[] elmos
----@return { x: number, z: number }[] outline
+---@param controls { x: number, z: number, strength: number|nil }[]
+---@return { x: number, z: number }[]
 function Layout.Tessellate(controls)
 	local ring = {}
 	for i, a in ipairs(controls) do
@@ -58,16 +58,16 @@ function Layout.Tessellate(controls)
 end
 
 ---@param v number
----@return number to two decimals
+---@return number
 local function round(v)
 	return math.floor(v * 100 + 0.5) / 100
 end
 
----@param regions Region[] of any types; one the registry does not know is left out
----@param byKey table<string, RegionType|nil> the registry
+---@param regions Region[]
+---@param byKey table<string, RegionType|nil>
 ---@param mapSizeX number
 ---@param mapSizeZ number
----@return table layout { regions = { [typeKey] = entry[] } }
+---@return table
 function Layout.Export(regions, byKey, mapSizeX, mapSizeZ)
 	local layout = { regions = {} }
 	local sx, sz = Layout.SPACE / mapSizeX, Layout.SPACE / mapSizeZ
@@ -132,12 +132,12 @@ function Layout.Export(regions, byKey, mapSizeX, mapSizeZ)
 	return layout
 end
 
----@param layout table the decoded layout
----@param kind RegionType the type whose regions to read
+---@param layout table
+---@param kind RegionType
 ---@param mapSizeX number
 ---@param mapSizeZ number
----@return Region[]|nil regions typed and shaped, with kind ("point", "box", "polygon", "spline") and, for a spline, its controls in elmos; whether they keep the type's rules is the Check's to say
----@return string|nil reason why not
+---@return Region[]|nil regions
+---@return string|nil reason
 function Layout.Parse(layout, kind, mapSizeX, mapSizeZ)
 	if type(layout) ~= "table" or type(layout.regions) ~= "table" then
 		return nil, "a layout is { regions = { <type> = { ... } } }"
@@ -223,10 +223,10 @@ local function literal(value)
 end
 
 ---@param layout table
----@param order RegionTypeKey[] the types, in the order to write them
+---@param order RegionTypeKey[]
 ---@param byKey table<string, RegionType|nil>
----@param header string|nil a first comment line
----@return string lua source that returns the layout: one entry per line block, fields in declared order, for readable diffs
+---@param header string|nil
+---@return string
 function Layout.Serialize(layout, order, byKey, header)
 	local lines = { header and ("-- " .. header) or "-- Regions layout", "return {", "  regions = {" }
 	for _, typeKey in ipairs(order) do
@@ -327,8 +327,8 @@ end
 --
 -- Delete this once start boxes are published as a region layout in their own right.
 -- =====================================================================================================================
----@param arrangement table|nil one decoded startbox arrangement
----@return table|nil layout nil when it is not an arrangement
+---@param arrangement table|nil
+---@return table|nil
 function Layout.FromStartboxArrangement(arrangement)
 	if type(arrangement) ~= "table" or type(arrangement.startboxes) ~= "table" then
 		return nil

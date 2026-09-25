@@ -40,7 +40,7 @@ if raptorTeamID then
 end
 
 local reasonNone ---@type string|nil
-local refused ---@type string[]|nil the deal's problems, when it was refused
+local refused ---@type string[]|nil
 
 ---@param message string
 local function tellEveryone(message)
@@ -49,7 +49,7 @@ local function tellEveryone(message)
 	end
 end
 
-local chosen = {} ---@type table<integer, { x: number, z: number }> where a team has asked to start, before the engine has it
+local chosen = {} ---@type table<integer, { x: number, z: number }>
 
 -- Where each team starts from: the position it chose, else the one the engine holds, else its start area's centre.
 ---@return MexRegionsTeamStart[]
@@ -106,7 +106,7 @@ end
 -- The regions follow the players: each start position chosen before the game deals again from where everyone now
 -- stands, and the start deals once more when every position is settled. Whether the position is allowed is the spawn
 -- gadget's call, not this one's.
-local toldHoldings = {} ---@type table<integer, string> what each team was last told it holds
+local toldHoldings = {} ---@type table<integer, string>
 
 -- Tell a team's players what they hold, when that has changed.
 ---@param teamID integer
@@ -149,7 +149,7 @@ end
 
 -- A map maker trying out what they just drew: with no layout from the lobby or the map, before the start, the only
 -- human in the match may hand over their terraformer save. Nobody can do that to a match other people are in.
----@return boolean|nil consumed: true keeps the message from the gadgets after this one
+---@return boolean|nil
 function gadget:RecvLuaMsg(msg)
 	if msg:sub(1, #Shared.LAYOUT_MSG) ~= Shared.LAYOUT_MSG then
 		return

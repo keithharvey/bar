@@ -1,11 +1,11 @@
----@class StartPlacement where start positions go when an editor lays them out by shape: pure geometry, in elmos, clamped to the map
+---@class StartPlacement
 local Placement = {}
 
 ---@class StartPlacementShape
 ---@field shape "circle"|"square"|"triangle"|"hexagon"|"octagon"
----@field radius number elmos
----@field count integer positions to place
----@field rotation number degrees
+---@field radius number
+---@field count integer
+---@field rotation number
 
 local SIDES = { circle = 0, square = 4, triangle = 3, hexagon = 6, octagon = 8 }
 
@@ -23,8 +23,8 @@ end
 ---@param cz number
 ---@param radius number
 ---@param count integer
----@param rotation number degrees
----@return { x: number, z: number }[] evenly around the circle, from the rotation
+---@param rotation number
+---@return { x: number, z: number }[]
 local function onCircle(cx, cz, radius, count, rotation)
 	local pts = {}
 	local step = (2 * math.pi) / count
@@ -41,8 +41,8 @@ end
 ---@param radius number
 ---@param sides integer
 ---@param count integer
----@param rotation number degrees
----@return { x: number, z: number }[] the polygon's vertices first, then edge midpoints, subdividing until count is met
+---@param rotation number
+---@return { x: number, z: number }[]
 local function onPolygon(cx, cz, radius, sides, count, rotation)
 	local points = onCircle(cx, cz, radius, sides, rotation)
 	local level = 1
@@ -82,10 +82,10 @@ end
 
 ---@param cx number
 ---@param cz number
----@param shape StartPlacementShape only radius and count matter: points fall uniformly inside the circle
+---@param shape StartPlacementShape
 ---@param mapSizeX number
 ---@param mapSizeZ number
----@param random (fun(): number)|nil uniform in [0, 1); math.random when absent
+---@param random (fun(): number)|nil
 ---@return { x: number, z: number }[]
 function Placement.Random(cx, cz, shape, mapSizeX, mapSizeZ, random)
 	random = random or math.random
@@ -99,10 +99,10 @@ function Placement.Random(cx, cz, shape, mapSizeX, mapSizeZ, random)
 	return pts
 end
 
----@param index integer 1-based position in the placement
+---@param index integer
 ---@param allyTeams integer
 ---@param teamsPerAlly integer
----@param mode "roundrobin"|"sequential" roundrobin: A1 B1 C1 A2 B2 C2; sequential: A1 A2 B1 B2 C1 C2
+---@param mode "roundrobin"|"sequential"
 ---@return integer allyTeam
 ---@return integer teamSlot
 function Placement.SlotFor(index, allyTeams, teamsPerAlly, mode)
@@ -118,7 +118,7 @@ end
 -- The modoption startpos_max_slope overrides it; otherwise the tightest maxSlope among commander
 -- unit defs, found by the usual customParams conventions; 0.5 (about 30 degrees) when there is none.
 
----@param unitDefs table<any, table> UnitDefs
+---@param unitDefs table<any, table>
 ---@param modOptions table|nil
 ---@return number
 function Placement.CommanderMaxSlope(unitDefs, modOptions)

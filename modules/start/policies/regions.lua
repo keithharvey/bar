@@ -5,14 +5,14 @@ local RegionsApi = require("modules/regions/api")
 ---@type RegionsContract
 local Regions = Policies.Contract(Modules.Regions)
 
----@class StartRegion: Region a team's start as drawn in the editor: the area the team's positions lie in, or a point when only one position is drawn
+---@class StartRegion: Region
 ---@field type "start"
----@field team integer start ordinal; start 1 is team 1
----@field name string|nil the area's label
----@field positions { x: number, z: number }[]|nil the team's start positions, in elmos, one per seat
+---@field team integer
+---@field name string|nil
+---@field positions { x: number, z: number }[]|nil
 
----@class StartRegionsNamesStages start's stages on the regions module's naming, for the start type
----@field FromTeam string an unnamed start is named after its team
+---@class StartRegionsNamesStages
+---@field FromTeam string
 
 ---@type StartRegionsNamesStages
 local RegionsNames = PolicyBuilder.Contributes(Regions.Names, {
@@ -31,8 +31,8 @@ Policies.On(Regions.Names).Apply(RegionsNames.FromTeam, function(ctx)
 	end
 end)
 
----@class StartRegionsSetStages start's stages on the regions module's set check, for the start type
----@field AreasDisjoint string no two start areas overlap; sharing an edge is allowed
+---@class StartRegionsSetStages
+---@field AreasDisjoint string
 
 ---@type StartRegionsSetStages
 local RegionsSet = PolicyBuilder.Contributes(Regions.CheckSet, {
@@ -53,12 +53,12 @@ Policies.On(Regions.CheckSet).Apply(RegionsSet.AreasDisjoint, function(ctx)
 	end
 end)
 
----@class StartDescription: RegionDescription what start says of one of its regions
----@field team integer the start ordinal
----@field positions { x: number, z: number }[] the team's start positions; none when the start is drawn as an area alone
+---@class StartDescription: RegionDescription
+---@field team integer
+---@field positions { x: number, z: number }[]
 
----@class StartRegionsDescribeStages start's answer on the regions module's description, for its own type
----@field Start string the start's ordinal and its positions, with the shape
+---@class StartRegionsDescribeStages
+---@field Start string
 
 ---@type StartRegionsDescribeStages
 local RegionsDescribe = PolicyBuilder.Contributes(Regions.Describe, {

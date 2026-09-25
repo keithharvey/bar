@@ -1,13 +1,13 @@
 local Store = {}
 
----@class RegionStore the regions of this Lua state: one insertion-ordered list, keyed by id. The editor edits it; the game reads it
----@field list StoredRegion[] insertion order
+---@class RegionStore
+---@field list StoredRegion[]
 ---@field byId table<string, StoredRegion|nil>
----@field revision integer bumped on every change, so a reader can cache against it
+---@field revision integer
 
 ---@param state RegionStore
----@param region Region with an id
----@param beforeId string|nil the id to insert ahead of; nil appends
+---@param region Region
+---@param beforeId string|nil
 local function insert(state, region, beforeId)
 	local at = #state.list + 1
 	if beforeId then
@@ -25,7 +25,7 @@ end
 
 ---@param state RegionStore
 ---@param id string
----@return StoredRegion|nil removed
+---@return StoredRegion|nil
 local function remove(state, id)
 	local region = state.byId[id]
 	if not region then
@@ -43,7 +43,7 @@ local function remove(state, id)
 end
 
 ---@param state RegionStore
----@param region StoredRegion already stored: kept where it is. New: appended, or ahead of beforeId
+---@param region StoredRegion
 ---@param beforeId string|nil
 ---@return StoredRegion
 function Store.Put(state, region, beforeId)
@@ -64,7 +64,7 @@ Store.Remove = remove
 
 ---@param state RegionStore
 ---@param typeKey RegionTypeKey|nil
----@return StoredRegion[] regions insertion order; a new table
+---@return StoredRegion[]
 function Store.All(state, typeKey)
 	local out = {}
 	for _, region in ipairs(state.list) do
@@ -76,8 +76,8 @@ function Store.All(state, typeKey)
 end
 
 ---@param state RegionStore
----@param typeKey RegionTypeKey|nil every type when nil
----@return StoredRegion[] removed
+---@param typeKey RegionTypeKey|nil
+---@return StoredRegion[]
 function Store.Clear(state, typeKey)
 	local removed = {}
 	for i = #state.list, 1, -1 do

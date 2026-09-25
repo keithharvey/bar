@@ -1,7 +1,7 @@
----@class StartRegionFields the fields a start lends to other region types, so every type that names a start names it the same way
+---@class StartRegionFields
 local Fields = {}
 
----@param overrides table<string, any>|nil what the borrowing type adds: required, unique
+---@param overrides table<string, any>|nil
 ---@return RegionField
 function Fields.Team(overrides)
 	---@type RegionField

@@ -1,20 +1,20 @@
 local Regions = require("modules/regions/api")
 local Shared = require("modules/transfer/mex_splitting/shared")
 
----@class MexRegionsClaimsLib the pure steps of the deal, so the policy reads as the rule and the spec can check each step
+---@class MexRegionsClaimsLib
 local Claims = {}
 
----@class MexRegionsRanked one region as a team sees it
+---@class MexRegionsRanked
 ---@field region MexRegion
----@field distance number elmos from where the team starts to the region's centre
+---@field distance number
 
----@class MexRegionsTeamView a team and the regions ranked from where it starts
+---@class MexRegionsTeamView
 ---@field team MexRegionsTeamStart
----@field regions MexRegionsRanked[] nearest first
+---@field regions MexRegionsRanked[]
 
 ---@param teams MexRegionsTeamStart[]
 ---@param regions MexRegion[]
----@return MexRegionsTeamView[] views # in the teams' order
+---@return MexRegionsTeamView[]
 function Claims.Rank(teams, regions)
 	local centres = {} ---@type table<MexRegion, { x: number, z: number }>
 	for _, region in ipairs(regions) do
@@ -57,8 +57,8 @@ function Claims.SpotsIn(regions, spots)
 end
 
 ---@param regions MexRegion[]
----@param holders table<string, integer> the team holding each region, by region id
----@return table<integer, string[]|nil> holdings # the ids of each team's regions in layout order, by team
+---@param holders table<string, integer>
+---@return table<integer, string[]|nil>
 function Claims.Holdings(regions, holders)
 	local holdings = {} ---@type table<integer, string[]|nil>
 	for _, region in ipairs(regions) do

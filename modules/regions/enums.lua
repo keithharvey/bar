@@ -1,4 +1,4 @@
----@class RegionEnums the keys a region carries: its type, and the geometry a type allows
+---@class RegionEnums
 ---@field Geometry RegionGeometryFields
 ---@field Types RegionTypeFields
 local M = {}
@@ -16,8 +16,8 @@ M.Geometry = {
 
 ---@alias RegionTypeKey "start"|"mex_region"
 ---@class RegionTypeFields
----@field Start "start" a team's start: its positions, and the area they sit in
----@field MexRegion "mex_region" a named area whose metal is dealt to one team
+---@field Start "start"
+---@field MexRegion "mex_region"
 
 ---@type RegionTypeFields
 M.Types = {

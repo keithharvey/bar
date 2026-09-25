@@ -8,24 +8,24 @@ local Problems = require("modules/regions/lib/problems")
 local Store = require("modules/regions/lib/store")
 local Types = require("modules/regions/types")
 
----@class RegionsApi the regions module's public surface: the type registry, the store, the checks, the names, the descriptions and the layout codec
+---@class RegionsApi
 ---@field Overlaps fun(a: { x: number, z: number }[], b: { x: number, z: number }[]): boolean
 ---@field Contains fun(x: number, z: number, vertices: { x: number, z: number }[]): boolean
----@field ProblemLine fun(problem: RegionProblem): string the message, prefixed with the region's name when it concerns one
----@field ProblemLines fun(typeKey: RegionTypeKey, regions: Region[], map: RegionMap|nil): string[] the set check's problems as lines, each led by its region's name
----@field ProblemWith fun(ctx: RegionSetContext, index: integer, message: string) a set-check stage records a problem with one region of the set
----@field ProblemAt fun(ctx: RegionSetContext, message: string, at: { x: number, z: number }|nil) a set-check stage records a problem with the set, and where to look
----@field Enums RegionEnums the type and geometry keys
----@field Geometry RegionGeometry the shape helpers
----@field GeometryOf fun(vertices: { x: number, z: number }[]): RegionGeometryKey|nil the geometry kind implied by the vertex count
----@field EncodeLayout fun(layout: table): string|nil the layout in the modoption's string form
+---@field ProblemLine fun(problem: RegionProblem): string
+---@field ProblemLines fun(typeKey: RegionTypeKey, regions: Region[], map: RegionMap|nil): string[]
+---@field ProblemWith fun(ctx: RegionSetContext, index: integer, message: string)
+---@field ProblemAt fun(ctx: RegionSetContext, message: string, at: { x: number, z: number }|nil)
+---@field Enums RegionEnums
+---@field Geometry RegionGeometry
+---@field GeometryOf fun(vertices: { x: number, z: number }[]): RegionGeometryKey|nil
+---@field EncodeLayout fun(layout: table): string|nil
 ---@field DecodeLayout fun(raw: string): table|nil
----@field LayoutFromStartboxArrangement fun(arrangement: table|nil): table|nil SHIM: converts one arrangement from the old startbox mod options into a region layout
+---@field LayoutFromStartboxArrangement fun(arrangement: table|nil): table|nil
 local Api = {}
 
 ---@param kind RegionType
 ---@param regions Region[]
----@return { name: string, derived: boolean }[] by index
+---@return { name: string, derived: boolean }[]
 local function namesOf(kind, regions)
 	local pipelines = ModuleHandler.LoadPolicies(Modules.Regions) ---@type RegionsPipelines
 	---@type RegionNamesContext
@@ -40,13 +40,13 @@ function Api.Types()
 	return Types.order, Types.byKey
 end
 
----@return string twelve hex digits
+---@return string
 local function mintId()
 	return string.format("%06x%06x", math.random(0, 0xffffff), math.random(0, 0xffffff))
 end
 
 ---@param typeKey RegionTypeKey
----@param fields table|nil the region's fields and shape; adopted, not copied. An id already on it is kept (a region read back from a file)
+---@param fields table|nil
 ---@return StoredRegion
 function Api.Create(typeKey, fields)
 	local region = fields or {} ---@type Region
@@ -59,9 +59,9 @@ end
 
 ---@param typeKey RegionTypeKey
 ---@param region Region
----@param siblings Region[]|nil the other regions of the type
+---@param siblings Region[]|nil
 ---@param fieldsOnly boolean|nil
----@return string[] problems
+---@return string[]
 function Api.Check(typeKey, region, siblings, fieldsOnly)
 	local kind = Types.byKey[typeKey]
 	if not kind then
@@ -92,9 +92,9 @@ function Api.Check(typeKey, region, siblings, fieldsOnly)
 end
 
 ---@param typeKey RegionTypeKey
----@param regions Region[] every region of the type
----@param map RegionMap|nil what the caller knows of the map, for the type owners' rules
----@return RegionProblem[] problems each about one region or about the set as a whole
+---@param regions Region[]
+---@param map RegionMap|nil
+---@return RegionProblem[]
 function Api.CheckSet(typeKey, regions, map)
 	local kind = Types.byKey[typeKey]
 	if not kind then
@@ -112,8 +112,8 @@ function Api.CheckSet(typeKey, regions, map)
 end
 
 ---@param typeKey RegionTypeKey
----@param regions Region[] every region of the type; derived names are numbered against siblings
----@return { name: string, derived: boolean }[] display name per region, by index
+---@param regions Region[]
+---@return { name: string, derived: boolean }[]
 function Api.Names(typeKey, regions)
 	local kind = Types.byKey[typeKey]
 	if not kind then
@@ -122,20 +122,20 @@ function Api.Names(typeKey, regions)
 	return namesOf(kind, regions)
 end
 
----@param regions Region[] of any types
+---@param regions Region[]
 ---@param mapSizeX number
 ---@param mapSizeZ number
----@return table layout every type's regions under its key, in the startbox 0..200 space
+---@return table
 function Api.ExportLayout(regions, mapSizeX, mapSizeZ)
 	return Layout.Export(regions, Types.byKey, mapSizeX, mapSizeZ)
 end
 
 ---@param layout table
----@param typeKey RegionTypeKey the type whose regions to read
+---@param typeKey RegionTypeKey
 ---@param mapSizeX number
 ---@param mapSizeZ number
 ---@return Region[]|nil regions
----@return string|nil reason why the layout could not be parsed
+---@return string|nil reason
 function Api.ParseLayout(layout, typeKey, mapSizeX, mapSizeZ)
 	local kind = Types.byKey[typeKey]
 	if not kind then
@@ -158,7 +158,7 @@ local function store()
 	return state.store
 end
 
----@param region Region its type set; an id is given when it has none. Already stored: kept in place. New: appended, or ahead of beforeId
+---@param region Region
 ---@param beforeId string|nil
 ---@return StoredRegion
 function Api.Put(region, beforeId)
@@ -166,7 +166,7 @@ function Api.Put(region, beforeId)
 end
 
 ---@param id string
----@return StoredRegion|nil removed
+---@return StoredRegion|nil
 function Api.Remove(id)
 	return Store.Remove(store(), id)
 end
@@ -177,26 +177,26 @@ function Api.Get(id)
 	return store().byId[id]
 end
 
----@param typeKey RegionTypeKey|nil every type when nil
----@return StoredRegion[] regions insertion order; a new table
+---@param typeKey RegionTypeKey|nil
+---@return StoredRegion[]
 function Api.All(typeKey)
 	return Store.All(store(), typeKey)
 end
 
----@param typeKey RegionTypeKey|nil every type when nil
----@return StoredRegion[] removed
+---@param typeKey RegionTypeKey|nil
+---@return StoredRegion[]
 function Api.Clear(typeKey)
 	return Store.Clear(store(), typeKey)
 end
 
----@return integer bumped on every change to the store
+---@return integer
 function Api.Revision()
 	return store().revision
 end
 
 ---@param id string
----@param key string a field the region's type declares
----@param value any "" and nil clear the field; an integer field takes a number or a numeric string
+---@param key string
+---@param value any
 ---@return boolean ok
 ---@return string|nil reason
 function Api.Set(id, key, value)
@@ -229,8 +229,8 @@ function Api.Set(id, key, value)
 end
 
 ---@param id string
----@param tag string trimmed; empty adds nothing
----@return boolean added
+---@param tag string
+---@return boolean
 function Api.Tag(id, tag)
 	local region = store().byId[id]
 	tag = tag and tag:match("^%s*(.-)%s*$") or ""
@@ -250,7 +250,7 @@ end
 
 ---@param id string
 ---@param index integer
----@return boolean removed
+---@return boolean
 function Api.Untag(id, index)
 	local region = store().byId[id]
 	if region and region.tags and region.tags[index] then
@@ -263,13 +263,13 @@ end
 
 ---@param typeKey RegionTypeKey
 ---@param map RegionMap|nil
----@return RegionProblem[] the set check over every stored region of the type
+---@return RegionProblem[]
 function Api.Problems(typeKey, map)
 	return Api.CheckSet(typeKey, Api.All(typeKey), map)
 end
 
 ---@param typeKey RegionTypeKey
----@return table<string, string> display name by region id, over every stored region of the type
+---@return table<string, string>
 function Api.NamesById(typeKey)
 	local regions = Api.All(typeKey)
 	local out = {}
@@ -283,7 +283,7 @@ function Api.NamesById(typeKey)
 end
 
 ---@param typeKey RegionTypeKey
----@return table<string, any[]> for each field that offers suggestions, the distinct values stored regions of the type carry, sorted
+---@return table<string, any[]>
 function Api.Suggestions(typeKey)
 	local kind = Types.byKey[typeKey]
 	local out = {}
@@ -309,7 +309,7 @@ end
 ---@param layout table
 ---@param mapSizeX number
 ---@param mapSizeZ number
----@return Region[] every region the registry knows a type for, in the registry's type order; the layout's ids kept
+---@return Region[]
 function Api.ParseAllLayout(layout, mapSizeX, mapSizeZ)
 	local out = {}
 	for _, typeKey in ipairs(Types.order) do
@@ -326,7 +326,7 @@ end
 ---@param mapSizeX number
 ---@param mapSizeZ number
 ---@param header string|nil
----@return string lua source that returns the regions' layout
+---@return string
 function Api.SerializeLayout(regions, mapSizeX, mapSizeZ, header)
 	return Layout.Serialize(Api.ExportLayout(regions, mapSizeX, mapSizeZ), Types.order, Types.byKey, header)
 end
@@ -347,10 +347,10 @@ function Api.SaveLayoutFile(path, mapSizeX, mapSizeZ, header)
 	return true, nil
 end
 
----@param path string a Lua file that returns a layout
+---@param path string
 ---@param mapSizeX number
 ---@param mapSizeZ number
----@return Region[]|nil regions put into the store, replacing what was there; nil when there is no such file or it is not a layout
+---@return Region[]|nil regions
 ---@return string|nil reason
 function Api.LoadLayoutFile(path, mapSizeX, mapSizeZ)
 	if not VFS.FileExists(path, VFS.RAW_FIRST) then
@@ -374,8 +374,8 @@ end
 Api.Tessellate = Layout.Tessellate
 
 ---@param region Region
----@param map RegionMap|nil what the caller knows of the map, for the type owner's answer
----@return RegionDescription description the type owner's record for its own type, extending the shape's facts; the shape's facts alone otherwise
+---@param map RegionMap|nil
+---@return RegionDescription
 function Api.Describe(region, map)
 	local vertices = region.vertices or {}
 	local x, z = Geometry.Centroid(vertices)
@@ -400,9 +400,9 @@ Api.GeometryOf = Geometry.Of
 Api.ProblemLine = Problems.Line
 
 ---@param typeKey RegionTypeKey
----@param regions Region[] every region of the type
+---@param regions Region[]
 ---@param map RegionMap|nil
----@return string[] lines the set check's problems, each led by its region's name when it is about one
+---@return string[]
 function Api.ProblemLines(typeKey, regions, map)
 	local lines = {} ---@type string[]
 	for i, problem in ipairs(Api.CheckSet(typeKey, regions, map)) do

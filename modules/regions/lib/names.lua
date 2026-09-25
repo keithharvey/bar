@@ -1,9 +1,9 @@
----@class RegionNames derives display names for regions with none set: the base name from the type's owner, numbered when siblings share it
+---@class RegionNames
 local Names = {}
 
 ---@param regions Region[]
----@param bases string[] base name per region, by index, from the Names pipeline
----@return { name: string, derived: boolean }[] by index
+---@param bases string[]
+---@return { name: string, derived: boolean }[]
 function Names.Of(regions, bases)
 	local nameless = {} ---@type table<string, integer>
 	for i, region in ipairs(regions) do

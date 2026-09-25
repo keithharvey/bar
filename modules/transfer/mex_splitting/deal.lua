@@ -1,14 +1,14 @@
 
 local Regions = require("modules/regions/api")
 
----@class MexRegionsDealLib the deal on the wire: a game rules param carrying the regions as a layout, the one serialized form, and their holders by id; the widgets read both back
+---@class MexRegionsDealLib
 local Deal = {}
 
 Deal.PARAM = "mex_splitting_deal"
 
 ---@class MexRegionsDealRecord
 ---@field regions MexRegion[]
----@field holders table<string, integer> region id -> the team that holds it
+---@field holders table<string, integer>
 
 ---@param regions MexRegion[]
 ---@param holders table<string, integer>
@@ -45,7 +45,7 @@ end
 ---@param mapSizeZ number
 ---@return fun(springRepo: Spring): MexRegionsDealRecord|nil
 function Deal.Reader(mapSizeX, mapSizeZ)
-	local cachedRaw, cachedDeal ---@type string|nil, MexRegionsDealRecord|nil
+	local cachedRaw, cachedDeal ---@type string|nil,
 	return function(springRepo)
 		local raw = springRepo.GetGameRulesParam(Deal.PARAM)
 		if raw ~= cachedRaw then

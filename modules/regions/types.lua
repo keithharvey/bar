@@ -1,32 +1,32 @@
 local ModuleHandler = require("modules/module_handler")
 
----@class Region a contained area of the map. Holds only the shape; the module that owns a type extends this record with the type's fields
+---@class Region
 ---@field type RegionTypeKey
----@field id string|nil identity. Assigned by RegionsApi.Create and carried through the layout codec and the editor's files; nil only for regions that came from the startbox shim
----@field vertices { x: number, z: number }[] elmos. One vertex is a point, three or more a polygon (see RegionGeometry.Of); empty while the region is still being drawn
----@field kind "point"|"polygon"|"box"|"spline"|nil how the shape was drawn; derived by the layout codec when read
----@field controls { x: number, z: number, strength: number|nil }[]|nil a spline's anchors; vertices is then the outline
----@field tags string[]|nil free-form tags not claimed by any type
----@field name string|nil display name. When nil, derived by the type's owner (see RegionsApi.Names)
+---@field id string|nil
+---@field vertices { x: number, z: number }[]
+---@field kind "point"|"polygon"|"box"|"spline"|nil
+---@field controls { x: number, z: number, strength: number|nil }[]|nil
+---@field tags string[]|nil
+---@field name string|nil
 
----@class StoredRegion: Region a region the store holds, so one with an id
+---@class StoredRegion: Region
 ---@field id string
 
 ---@class RegionField
 ---@field key string
 ---@field label string
----@field kind "string"|"integer"|"points" points: { x: number, z: number }[] in elmos, kept by tools rather than a form; the layout carries them normalised like anchors
+---@field kind "string"|"integer"|"points"
 ---@field required boolean|nil
----@field unique boolean|nil the value must be unique among regions of this type
----@field picks string|nil name of a pick list an editor offers for the value; the type's owner and the editor agree on the name
----@field suggest boolean|nil an editor offers the values already used by siblings
+---@field unique boolean|nil
+---@field picks string|nil
+---@field suggest boolean|nil
 
 ---@class RegionType
 ---@field key RegionTypeKey
 ---@field label string
----@field geometries RegionGeometryKey[] the geometry kinds allowed for this type
+---@field geometries RegionGeometryKey[]
 ---@field fields RegionField[]
----@field module string|nil the module that contributed the type; set by the registry
+---@field module string|nil
 
 local FRAGMENT = "region_types.lua"
 
@@ -68,7 +68,7 @@ end
 -- The list order: the more basal the owning module, the earlier its types; start before what is built on it.
 local depths = {} ---@type table<string, integer>
 ---@param name string
----@return integer how many modules deep the module's requires go
+---@return integer
 local function depth(name)
 	if depths[name] == nil then
 		depths[name] = 0

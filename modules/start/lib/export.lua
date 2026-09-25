@@ -1,19 +1,19 @@
----@class StartExport the editor's two exports of the drawn starts: the startbox arrangement the old mod options carry (SHIM, the inverse of RegionLayout.FromStartboxArrangement), and a local start script for playtesting
+---@class StartExport
 local Export = {}
 
 local SPACE = 200
 
----@param v number elmos
----@param size number the map's extent on that axis
----@return integer 0..200
+---@param v number
+---@param size number
+---@return integer
 local function toNorm(v, size)
 	return math.max(0, math.min(SPACE, math.floor(v * SPACE / math.max(1, size) + 0.5)))
 end
 
----@param areas StartRegion[] team order; each with vertices, or controls and kind "spline" when curved, or kind "box" for an axis-aligned rect
+---@param areas StartRegion[]
 ---@param mapSizeX number
 ---@param mapSizeZ number
----@return { poly: { x: integer, y: integer, strength: number|nil }[] }[] one entry per area, the anchors normalised to 0..200; a rect as its two corners; strength snapped to 0.025 and omitted at zero, as maps-metadata reads it
+---@return { poly: { x: integer, y: integer, strength: number|nil }[] }[]
 function Export.Arrangement(areas, mapSizeX, mapSizeZ)
 	local out = {}
 	for _, area in ipairs(areas) do
@@ -52,11 +52,11 @@ end
 ---@field startPosType integer|nil
 ---@field modOptions table<string, any>|nil
 
----@param areas StartRegion[] with vertices; one ally team per distinct team, its start rect the areas' bounding box
+---@param areas StartRegion[]
 ---@param mapSizeX number
 ---@param mapSizeZ number
 ---@param opts StartScriptOptions
----@return string|nil script nil when there are no areas
+---@return string|nil
 function Export.StartScript(areas, mapSizeX, mapSizeZ, opts)
 	if #areas == 0 then
 		return nil
