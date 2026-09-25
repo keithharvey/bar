@@ -4,7 +4,7 @@ local PolicyBuilder = require("modules/policy_builder")
 ---@class RegionDescribeContext the context for building the label/value lines shown for one region
 ---@field type RegionType
 ---@field region Region
----@field env table caller-supplied map data, passed through untouched, as in RegionSetContext
+---@field map RegionMap what the caller knows of the map, passed through untouched
 ---@field lines { [1]: string, [2]: string }[] { label, value } pairs, in the order the stages add them
 
 ---@class RegionDescribeStages: PolicyStages<RegionDescribeContext, RegionDescribeContext> the lines shown for a region. The module that owns a type adds the lines only it can compute

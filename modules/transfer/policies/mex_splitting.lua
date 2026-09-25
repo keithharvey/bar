@@ -17,7 +17,7 @@ local Regions = Policies.Contract(Modules.Regions)
 ---@field MexRegionsNames TransferMexRegionsNamesStages
 ---@field MexRegionsDescribe TransferMexRegionsDescribeStages
 
----@class MexRegionEnv the keys the mex region stages read from the caller-supplied env (see RegionSetContext.env)
+---@class (partial) RegionMap
 ---@field spots { x: number, z: number, worth: number|nil }[]|nil the map's metal spots, when the caller has them. worth is the metal map's sum for the spot; a T1 mex yields worth/1000 metal per second
 
 ---@class TransferMexRegionsSetStages transfer's stages on the regions module's set check, for the mex region type
@@ -64,7 +64,7 @@ Policies.On(Regions.Names).Apply(MexRegionsNames.FromGroup, function(ctx)
 end)
 
 Policies.On(Regions.CheckSet).Apply(MexRegionsSet.MexesCovered, function(ctx)
-	local spots = (ctx.env --[[@as MexRegionEnv]]).spots
+	local spots = ctx.map.spots
 	if ctx.type.key ~= RegionEnums.Types.MexRegion or spots == nil then
 		return
 	end
@@ -89,7 +89,7 @@ Policies.On(Regions.CheckSet).Apply(MexRegionsSet.MexesCovered, function(ctx)
 end)
 
 Policies.On(Regions.Describe).Apply(MexRegionsDescribe.MetalSpots, function(ctx)
-	local spots = (ctx.env --[[@as MexRegionEnv]]).spots
+	local spots = ctx.map.spots
 	if not spots or not ctx.region.vertices then
 		return
 	end
