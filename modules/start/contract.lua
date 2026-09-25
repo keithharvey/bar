@@ -1,5 +1,8 @@
-local PolicyBuilder = require("modules/policy_builder")
+local Geometry = require("modules/regions/lib/geometry")
 local Modules = require("modules/enums").Modules
+local PolicyBuilder = require("modules/policy_builder")
+local Problems = require("modules/regions/lib/problems")
+local RegionEnums = require("modules/regions/enums")
 local RegionsContract = require("modules/regions/contract")
 
 ---@class StartRegion: Region a team's start as drawn in the editor: a single position, or the area the positions lie in
@@ -83,4 +86,136 @@ return PolicyBuilder.Contract(Modules.Start, {
 	RegionsSet = PolicyBuilder.Contributes(RegionsContract.CheckSet, RegionsSet),
 	RegionsNames = PolicyBuilder.Contributes(RegionsContract.Names, RegionsNames),
 	RegionsDescribe = PolicyBuilder.Contributes(RegionsContract.Describe, RegionsDescribe),
-})
+}, function(Policies)
+	---@param cx number
+	---@param cz number
+	---@return string
+	local function compassName(cx, cz)
+		local fx, fz = cx / Game.mapSizeX, cz / Game.mapSizeZ
+		local ns = (fz < 0.33) and "N" or (fz > 0.66) and "S" or ""
+		local ew = (fx < 0.33) and "W" or (fx > 0.66) and "E" or ""
+		local short = ns .. ew
+		return short ~= "" and short or "Center"
+	end
+
+	Policies.On(Facts)
+		.Default(Facts.Areas, function(ctx)
+			local boxes = ctx.resolveBoxes()
+			local areas = {} ---@type StartArea[]
+			if boxes.explicit and boxes.byAllyTeam then
+				local ids = {}
+				for allyTeamID in pairs(boxes.byAllyTeam) do
+					ids[#ids + 1] = allyTeamID
+				end
+				table.sort(ids)
+				for _, allyTeamID in ipairs(ids) do
+					local entry = boxes.byAllyTeam[allyTeamID]
+					local ring = entry and not entry.wholeMap and entry.boxes and entry.boxes[1]
+					if ring and #ring >= 3 then
+						local anchors = {}
+						for i, pt in ipairs(ring) do
+							anchors[i] = { x = pt[1], z = pt[2], strength = pt[3] }
+						end
+						areas[#areas + 1] = {
+							allyTeam = allyTeamID + 1 --[[@as integer]],
+							name = entry.nameShort,
+							anchors = anchors,
+							source = boxes.source or "modoption",
+						}
+					end
+				end
+				return areas
+			end
+			local spring = ctx.springRepo
+			local gaia = spring.GetGaiaTeamID and spring.GetGaiaTeamID() or nil
+			local gaiaAlly = gaia and spring.GetTeamAllyTeamID and spring.GetTeamAllyTeamID(gaia) or nil
+			local mapX, mapZ = Game.mapSizeX, Game.mapSizeZ
+			for _, allyTeamID in ipairs(spring.GetAllyTeamList() or {}) do
+				if allyTeamID ~= gaiaAlly then
+					local xmin, zmin, xmax, zmax = spring.GetAllyTeamStartBox(allyTeamID)
+					if xmin and xmax and zmin and zmax and xmax > xmin and zmax > zmin then
+						local wholeMap = xmin <= 0 and zmin <= 0 and xmax >= mapX and zmax >= mapZ
+						if not wholeMap then
+							areas[#areas + 1] = {
+								allyTeam = allyTeamID + 1 --[[@as integer]],
+								name = compassName((xmin + xmax) * 0.5, (zmin + zmax) * 0.5),
+								anchors = {
+									{ x = xmin, z = zmin },
+									{ x = xmax, z = zmin },
+									{ x = xmax, z = zmax },
+									{ x = xmin, z = zmax },
+								},
+								source = "engine",
+							}
+						end
+					end
+				end
+			end
+			return areas
+		end)
+		.Default(Facts.Positions, function(ctx)
+			local spring = ctx.springRepo
+			local out = {} ---@type StartPosition[]
+			local gaia = spring.GetGaiaTeamID and spring.GetGaiaTeamID() or nil
+			for _, teamID in ipairs(spring.GetTeamList() or {}) do
+				if teamID ~= gaia then
+					local x, _, z = spring.GetTeamStartPosition(teamID)
+					if x and z and (x > 0 or z > 0) then
+						local allyTeamID = spring.GetTeamAllyTeamID(teamID) or 0
+						out[#out + 1] = { allyTeam = allyTeamID + 1, teamID = teamID, x = x, z = z }
+					end
+				end
+			end
+			return out
+		end)
+
+	Policies.On(RegionsContract.Names).Apply(RegionsNames.FromTeam, function(ctx)
+		if ctx.type.key ~= RegionEnums.Types.Start then
+			return
+		end
+		for i, region in ipairs(ctx.regions) do
+			---@cast region StartRegion
+			if region.team ~= nil then
+				ctx.bases[i] = tostring(region.team)
+			end
+		end
+	end)
+
+	Policies.On(RegionsContract.CheckSet).Apply(RegionsSet.AreasDisjoint, function(ctx)
+		if ctx.type.key ~= RegionEnums.Types.Start then
+			return
+		end
+		local label = ctx.type.label:lower()
+		for i, a in ipairs(ctx.regions) do
+			for j, b in ipairs(ctx.regions) do
+				if i ~= j and a.vertices and b.vertices and Geometry.Overlaps(a.vertices, b.vertices) then
+					Problems.OfRegion(ctx, i, "overlaps " .. label .. " " .. ctx.names[j])
+				end
+			end
+		end
+	end)
+
+	Policies.On(RegionsContract.Describe).Apply(RegionsDescribe.NearestStart, function(ctx)
+		local starts = (ctx.env --[[@as StartRegionEnv]]).starts
+		if not starts or #starts == 0 then
+			return
+		end
+		local vertices = ctx.region.vertices or {}
+		for _, start in ipairs(starts) do
+			if Geometry.Contains(start.x, start.z, vertices) then
+				ctx.lines[#ctx.lines + 1] = { "Start", string.format("ally team %d starts inside", start.allyTeam) }
+				return
+			end
+		end
+		local cx, cz = Geometry.Centroid(vertices)
+		local best, bestD = starts[1], math.huge
+		for _, start in ipairs(starts) do
+			local d = Geometry.Distance(cx, cz, start.x, start.z)
+			if d < bestD then
+				best, bestD = start, d
+			end
+		end
+		ctx.lines[#ctx.lines + 1] =
+			{ "Nearest start", string.format("ally team %d, %.0f elmos from the centre", best.allyTeam, bestD) }
+	end)
+end)
