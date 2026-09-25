@@ -364,9 +364,16 @@ function R.clear(typeKey)
 	R.refresh()
 end
 
+-- The fields a form edits; a points field is a tool's to keep, not a form's.
 function R.fieldDefs(typeKey)
 	local kind = R.TYPES[typeKey or R.type]
-	return kind and kind.fields or {}
+	local out = {}
+	for _, field in ipairs(kind and kind.fields or {}) do
+		if field.kind ~= "points" then
+			out[#out + 1] = field
+		end
+	end
+	return out
 end
 
 function R.fieldValues(box)

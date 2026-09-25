@@ -15,7 +15,7 @@ local ModuleHandler = require("modules/module_handler")
 ---@class RegionField
 ---@field key string
 ---@field label string
----@field kind "string"|"integer"
+---@field kind "string"|"integer"|"points" points: { x: number, z: number }[] in elmos, kept by tools rather than a form; the layout carries them normalised like anchors
 ---@field required boolean|nil
 ---@field unique boolean|nil the value must be unique among regions of this type
 ---@field picks string|nil name of a pick list an editor offers for the value; the type's owner and the editor agree on the name
