@@ -16,32 +16,32 @@ local Regions = Policies.Contract(Modules.Regions)
 ---@field MexRegionsDescribe TransferMexRegionsDescribeStages
 
 ---@class (partial) RegionMap
----@field spots { x: number, z: number, worth: number|nil }[]|nil the map's metal spots, when the caller has them. worth is the metal map's sum for the spot; a T1 mex yields worth/1000 metal per second
+---@field spots { x: number, z: number, worth: number|nil }[]|nil
 
----@class TransferMexRegionsSetStages transfer's stages on the regions module's set check, for the mex region type
----@field MexesCovered string every metal spot in env.spots lies inside some mex region
+---@class TransferMexRegionsSetStages
+---@field MexesCovered string
 
 ---@type TransferMexRegionsSetStages
 local MexRegionsSet = PolicyBuilder.Contributes(Regions.CheckSet, {
 	MexesCovered = "MexesCovered",
 })
 
----@class TransferMexRegionsNamesStages transfer's stages on the regions module's naming, for the mex region type
----@field FromGroup string an unnamed mex region is named after its group
+---@class TransferMexRegionsNamesStages
+---@field FromGroup string
 
 ---@type TransferMexRegionsNamesStages
 local MexRegionsNames = PolicyBuilder.Contributes(Regions.Names, {
 	FromGroup = "FromGroup",
 })
 
----@class MexRegionDescription: RegionDescription what mex splitting says of one of its regions
----@field team integer the start ordinal the region belongs to
----@field group string the region's role on this map
----@field spots integer|nil the metal spots inside; nil when the map's spots are not known
----@field worth number|nil metal per second the spots yield with T1 mexes; nil with the spots
+---@class MexRegionDescription: RegionDescription
+---@field team integer
+---@field group string
+---@field spots integer|nil
+---@field worth number|nil
 
----@class TransferMexRegionsDescribeStages transfer's answer on the regions module's description, for its own type
----@field MexRegion string the region's team, group and metal, with the shape
+---@class TransferMexRegionsDescribeStages
+---@field MexRegion string
 
 ---@type TransferMexRegionsDescribeStages
 local MexRegionsDescribe = PolicyBuilder.Contributes(Regions.Describe, {
@@ -135,8 +135,8 @@ Policies.On(Contract.MexSplitting)
 		local views = Claims.Rank(ctx.teams, ctx.regions)
 		local held = {} ---@type table<string, integer>
 
-		---@param seated MexRegionsTeamView[] the teams taking turns
-		---@param takes fun(region: MexRegion): boolean which regions are on the table
+		---@param seated MexRegionsTeamView[]
+		---@param takes fun(region: MexRegion): boolean
 		local function goRound(seated, takes)
 			---@param view MexRegionsTeamView
 			---@return MexRegion|nil

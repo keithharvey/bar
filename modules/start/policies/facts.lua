@@ -1,24 +1,24 @@
 local PolicyBuilder = require("modules/policy_builder")
 
----@class StartArea one ally team's start area, as resolved for the match
----@field allyTeamID integer the engine's
----@field name string|nil the box's label; a compass name assigned by the resolver
----@field anchors { x: number, z: number, strength: number|nil }[] the ring in elmos; strength is set on curved anchors
----@field source string origin: the modoption, the host's override, or the engine
+---@class StartArea
+---@field allyTeamID integer
+---@field name string|nil
+---@field anchors { x: number, z: number, strength: number|nil }[]
+---@field source string
 
----@class StartPosition one team's start position for the match
----@field allyTeamID integer the engine's
+---@class StartPosition
+---@field allyTeamID integer
 ---@field teamID integer
 ---@field x number
 ---@field z number
 
----@class StartContext the engine and the match's start boxes
+---@class StartContext
 ---@field springRepo Spring
----@field boxes StartBox[] as the api resolved them, whatever set them
+---@field boxes StartBox[]
 
 ---@class StartFacts: PolicyFacts<StartContext>
----@field Areas string StartArea[] by ally team, in box order; ally teams without a box are absent
----@field Positions string StartPosition[] every team's start position known to the engine, in team order
+---@field Areas string
+---@field Positions string
 
 ---@class (partial) StartContract
 ---@field Facts StartFacts

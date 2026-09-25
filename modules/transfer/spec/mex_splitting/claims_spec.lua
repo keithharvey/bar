@@ -2,7 +2,7 @@ local Claims = require("modules/transfer/mex_splitting/claims")
 local Regions = require("modules/regions/api")
 local Shared = require("modules/transfer/mex_splitting/shared")
 
----@param id string|nil the layout's id; defaults to name@team, the fixtures' convention
+---@param id string|nil
 local function rect(team, group, x1, y1, x2, y2, name, id)
 	return {
 		id = id or ((name or group) .. "@" .. tostring(team)),

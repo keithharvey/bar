@@ -129,21 +129,21 @@ local nextAllyTeam = 1 -- next allyteam in rotation
 local nextTeamSlot = 1 -- next player slot within that allyteam
 local numAllyTeams = 2 -- configurable count (ally teams)
 local numTeamsPerAlly = 1 -- configurable count (players per ally)
-local placementMode = "roundrobin" ---@type "roundrobin"|"sequential" roundrobin: A,B,C,A,B,C; sequential: A,A,B,B,C,C
+local placementMode = "roundrobin" ---@type "roundrobin"|"sequential"
 
 -- Shape placement state
 local shapeType = "circle" ---@type "circle"|"square"|"hexagon"|"octagon"|"triangle"
 local shapeRadius = 2000 ---@type number
-local shapeRotation = 0 ---@type number degrees
+local shapeRotation = 0 ---@type number
 local shapeCount = 4 -- number of positions to place with shape
 
 -- Startbox state
----@class RegionsToolState the tool's own state: which type it is on, how it is placing, what is selected
----@field type RegionTypeKey the region type key the tool is on
+---@class RegionsToolState
+---@field type RegionTypeKey
 ---@field strategy "express"|"shape"
 ---@field placing "points"|"area"
----@field selectedIdx integer|nil index into the area list
----@field selectedStart integer|nil the selected start's ordinal
+---@field selectedIdx integer|nil
+---@field selectedStart integer|nil
 ---@field pendingVertex { wx: number, wz: number, mx: number, my: number }|nil
 ---@field category string
 ---@field drawForTeam integer|nil
@@ -152,7 +152,7 @@ local shapeCount = 4 -- number of positions to place with shape
 ---@field radial { cx: number, cz: number, r: number }|nil
 ---@field radialPending table
 ---@field radialHistory table
----@field pending table<string, any> the fields of the region being drawn
+---@field pending table<string, any>
 ---@field error string
 ---@field revision integer
 ---@field COLOR number[]
@@ -191,7 +191,7 @@ for _, key in ipairs(R.ORDER) do
 	end
 	R.CATEGORIES[key] = { key = key, label = kind.label, type = key, placing = placesPoints and "points" or "area" }
 end
-local startboxes = {} ---@type Region[] the area list the tools index, R.list(R.type)
+local startboxes = {} ---@type Region[]
 -- Forward declarations for cached-fill-list helpers defined further down in the drawing section.
 -- Needed because removeLastStartbox / clearAllStartboxes / drag handlers reference them from
 -- this upper part of the file.
@@ -211,10 +211,10 @@ local worldRadiusForScreenPx
 local startboxMode = "polygon" ---@type "polygon"|"box"|"freedraw"|"radial"
 local drawingBox = false
 local currentBoxVerts = {} ---@type { x: number, z: number }[]
-local boxDragIdx = nil ---@type integer|nil which vertex is being dragged
-local boxDragBoxIdx = nil ---@type integer|nil which box
-local boxEdgeDrag = nil ---@type { bi: integer, edge: string }|nil a box-kind edge being dragged
-local hoverBoxEdge = nil ---@type { bi: integer, edge: string }|nil the edge under the cursor
+local boxDragIdx = nil ---@type integer|nil
+local boxDragBoxIdx = nil ---@type integer|nil
+local boxEdgeDrag = nil ---@type { bi: integer, edge: string }|nil
+local hoverBoxEdge = nil ---@type { bi: integer, edge: string }|nil
 -- Anchor selected for curvature editing. Clicking a handle (press and release without
 -- moving) selects it and raises a gizmo along its outward normal; dragging along that
 -- gizmo sets the anchor strength between 0 and 1.
@@ -240,7 +240,7 @@ local boxBodyDrag = nil ---@type { bi: integer, lastX: number, lastZ: number }|n
 -- Set true whenever a startbox vertex / edge / body drag is in progress. Used by
 -- ensureBoxFillList to defer the expensive fill-list rebuild until MouseRelease.
 local isDraggingBox = false
-local pendingFillRebuildIdx = nil ---@type integer|nil box index whose fill needs rebuilding on drag end
+local pendingFillRebuildIdx = nil ---@type integer|nil
 -- Box drag-rect (startboxMode == "box"): two corners, live-updated during drag
 local boxRectStartX = nil ---@type number|nil
 local boxRectStartZ = nil ---@type number|nil
@@ -254,13 +254,13 @@ local FREEDRAW_MIN_DIST_SQ = 40 * 40 -- minimum world distance between sample po
 
 -- Drag state
 local dragging = false
-local dragIdx = nil ---@type integer|nil which seat is being dragged
-local dragStartX = nil ---@type number|nil screen coords at mouse-down
+local dragIdx = nil ---@type integer|nil
+local dragStartX = nil ---@type number|nil
 local dragStartY = nil ---@type number|nil
 
 -- Hover state (drives cursor + marker highlight)
-local hoverPosIdx = nil ---@type integer|nil the seat under the cursor (express mode)
-local hoverBoxIdx = nil ---@type integer|nil which startbox is being vertex-hovered
+local hoverPosIdx = nil ---@type integer|nil
+local hoverBoxIdx = nil ---@type integer|nil
 local hoverVertIdx = nil ---@type integer|nil
 -- Polygon edge-midpoint hover: shows a "ghost" handle at the middle of a polygon edge
 -- so the user can click/hold there to insert a new vertex (which immediately becomes a
@@ -333,7 +333,7 @@ function R.refresh()
 	startboxes = R.list(R.type)
 end
 
----@return StartRegion|nil the team's start region, whatever its shape
+---@return StartRegion|nil
 function R.start(team)
 	for _, region in ipairs(R.api.All("start")) do
 		---@cast region +StartRegion
@@ -344,18 +344,18 @@ function R.start(team)
 	return nil
 end
 
----@class EditorSeat one start position as the tool sees it: the region it belongs to and its index there
+---@class EditorSeat
 ---@field region StartRegion
----@field i integer index in region.positions
+---@field i integer
 ---@field x number
 ---@field z number
 ---@field y number
----@field allyTeam integer the start ordinal, region.team
----@field teamSlot integer the seat's rank among its start's, in order
+---@field allyTeam integer
+---@field teamSlot integer
 ---@field playerIdx integer
 
 local seatsCache, seatsCacheKey = {}, ""
----@return EditorSeat[] every start's positions, by start then seat, rebuilt when the store or the tool moved
+---@return EditorSeat[]
 local function seats()
 	local key = R.api.Revision() .. ":" .. R.revision
 	if key ~= seatsCacheKey then
@@ -732,8 +732,8 @@ function R.pendingCandidate(vertices)
 	return candidate
 end
 
----@param box table a region already in the store
----@return integer idx its index in the layer
+---@param box table
+---@return integer
 function R.stampNew(box)
 	local candidate = R.pendingCandidate(box.vertices)
 	for _, field in ipairs(R.fieldDefs()) do
@@ -762,7 +762,7 @@ function R.stampNew(box)
 	return R.selectedIdx
 end
 
----@param strength number|nil anchor strength for the new polygon; nil keeps a plain ring
+---@param strength number|nil
 local function finishStartbox(strength)
 	if #currentBoxVerts >= 3 then
 		local box = {}
@@ -1541,8 +1541,8 @@ end
 
 local STARTSCRIPT_SAVE_DIR = "Terraform Brush/StartScripts/"
 
----@param opts table|nil mapname, playerName, aiShortName, aiVersion, startpostype, modoptions
----@return string|nil script
+---@param opts table|nil
+---@return string|nil
 local function generateStartScript(opts)
 	opts = opts or {}
 	local script = StartExport.StartScript(R.list("start"), Game.mapSizeX, Game.mapSizeZ, {

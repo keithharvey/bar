@@ -1,22 +1,22 @@
 local Geometry = require("modules/regions/lib/geometry")
 local PolicyBuilder = require("modules/policy_builder")
 
----@class RegionCheckContext the context for checking one region. Problems accumulate rather than short-circuiting, so a form can show all of them
----@field type RegionType the region's type descriptor
+---@class RegionCheckContext
+---@field type RegionType
 ---@field region Region
----@field siblings Region[] the other regions of the same type
----@field names table<Region, string> display name of the region and each sibling, derived where none is set
----@field fieldsOnly boolean|nil skip the shape checks; used while the region is being drawn and has no vertices yet
+---@field siblings Region[]
+---@field names table<Region, string>
+---@field fieldsOnly boolean|nil
 ---@field problems string[]
 
 ---@class RegionCheckStages: PolicyStages<RegionCheckContext, RegionCheckContext>
----@field Shape string the geometry is one the type allows, and is well-formed
----@field Fields string required fields are set; unique fields do not repeat among siblings
+---@field Shape string
+---@field Fields string
 
 ---@class (partial) RegionsContract
 ---@field Check RegionCheckStages
 
----@class (partial) RegionsPipelines what LoadPolicies("regions") hands back
+---@class (partial) RegionsPipelines
 ---@field check AssembledPipeline<RegionCheckContext, RegionCheckContext>
 
 ---@type RegionCheckStages
@@ -28,7 +28,7 @@ local Check = PolicyBuilder.Fold({
 ---@param ctx RegionCheckContext
 ---@param region Region
 ---@param field RegionField
----@return any the field's value; for the name field, the derived display name when none is set
+---@return any
 local function valueOf(ctx, region, field)
 	if field.key == "name" then
 		return ctx.names[region]

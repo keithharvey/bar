@@ -1,7 +1,7 @@
 local Regions = require("modules/regions/api")
 local TransferEnums = require("modules/transfer/enums")
 
----@class MexRegionSources where a match's mex region layout comes from: the modoption or the map; a lone player's terraformer save reaches the gadget through their widget
+---@class MexRegionSources
 local Sources = {}
 
 local MAP_FILE = "luarules/configs/mex_regions.lua"
@@ -11,8 +11,8 @@ local EDITOR_DIR = "Terraform Brush/Regions/"
 ---@param mapSizeX number
 ---@param mapSizeZ number
 ---@return Region[]|nil regions
----@return string source where they came from, or what was looked for
----@return string|nil reason why the source gave none
+---@return string source
+---@return string|nil reason
 local function find(modOptions, mapSizeX, mapSizeZ)
 	local raw = modOptions[TransferEnums.ModOptions.MexRegionsLayout]
 	if type(raw) == "string" and raw ~= "" then
@@ -38,7 +38,7 @@ end
 ---@param mapSizeZ number
 ---@return MexRegion[]|nil regions
 ---@return string source
----@return string|nil reason why there are none
+---@return string|nil reason
 function Sources.Load(modOptions, mapName, mapSizeX, mapSizeZ)
 	local regions, source, reason = find(modOptions, mapSizeX, mapSizeZ)
 	if regions == nil then
@@ -49,11 +49,11 @@ function Sources.Load(modOptions, mapName, mapSizeX, mapSizeZ)
 		nil
 end
 
----@param raw string a layout as the modoption carries it
+---@param raw string
 ---@param mapSizeX number
 ---@param mapSizeZ number
 ---@return MexRegion[]|nil regions
----@return string|nil reason why not
+---@return string|nil reason
 function Sources.FromBlob(raw, mapSizeX, mapSizeZ)
 	local layout = Regions.DecodeLayout(raw)
 	if layout == nil then
@@ -72,7 +72,7 @@ end
 ---@param mapName string
 ---@param mapSizeX number
 ---@param mapSizeZ number
----@return string|nil blob
+---@return string|nil
 function Sources.EditorBlob(mapName, mapSizeX, mapSizeZ)
 	local editorFile = EDITOR_DIR .. mapName .. ".lua"
 	if not VFS.FileExists(editorFile, VFS.RAW) then

@@ -3,23 +3,23 @@ local Modules = require("modules/enums").Modules
 local PolicyBuilder = require("modules/policy_builder")
 local Problems = require("modules/regions/lib/problems")
 
----@class RegionProblem one problem found in a set of regions
+---@class RegionProblem
 ---@field message string
----@field region Region|nil the region the problem is about; nil when it concerns the set as a whole
----@field name string|nil display name of that region
----@field at { x: number, z: number }|nil map position of the problem, when the rule that found it has one
+---@field region Region|nil
+---@field name string|nil
+---@field at { x: number, z: number }|nil
 
----@class RegionSetContext the context for checking every region of one type as a set. Problems accumulate (see RegionProblems)
+---@class RegionSetContext
 ---@field type RegionType
 ---@field regions Region[]
----@field names string[] display name per region, by index, derived where none is set
----@field map RegionMap what the caller knows of the map, passed through untouched
+---@field names string[]
+---@field map RegionMap
 ---@field problems RegionProblem[]
 
----@class (partial) RegionMap what a caller of the regions api knows of the map beyond the regions: the editor knows what it is drawing, the game what the engine holds. The regions module never reads it; the module that owns a type declares the fields its stages read, as a partial of this class next to the rule
+---@class (partial) RegionMap
 
----@class RegionSetStages: PolicyStages<RegionSetContext, RegionSetContext> rules over the whole set. The module that owns a type contributes its own stages, such as coverage
----@field Each string runs the type's Check on every region against its siblings; each problem is attributed to its region
+---@class RegionSetStages: PolicyStages<RegionSetContext, RegionSetContext>
+---@field Each string
 
 ---@class (partial) RegionsContract
 ---@field CheckSet RegionSetStages

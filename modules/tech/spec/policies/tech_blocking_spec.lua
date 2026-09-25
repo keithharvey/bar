@@ -1,7 +1,7 @@
 local Contract = require("modules/transfer/contract")
 local ModuleHandler = require("modules/module_handler")
 
----@param rules table<string, any> the team rules params
+---@param rules table<string, any>
 ---@param opts table
 local function repo(rules, opts)
 	return {

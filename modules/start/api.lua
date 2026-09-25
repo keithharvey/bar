@@ -12,7 +12,7 @@ end
 ---@class StartApi
 return {
 	---@param springRepo Spring
-	---@param resolveBoxes (fun(): StartboxConfig)|nil the startbox parser; the game's when absent
+	---@param resolveBoxes (fun(): StartboxConfig)|nil
 	---@return { areas: StartArea[], positions: StartPosition[] }
 	Current = function(springRepo, resolveBoxes)
 		---@type StartContext

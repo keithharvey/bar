@@ -1,4 +1,4 @@
----@class MexRegionsHull the ring the editor's Mexes tool closes around the metal spots a map maker picks: their convex hull, pruned of near-straight corners, pushed out by an extractor's reach
+---@class MexRegionsHull
 local Hull = {}
 
 ---@param points { x: number, z: number }[]
@@ -21,14 +21,14 @@ local function cross(o, a, b)
 end
 
 ---@param ring { x: number, z: number }[]
----@param i integer any integer; wraps around the ring
+---@param i integer
 ---@return { x: number, z: number }
 local function around(ring, i)
 	return ring[((i - 1) % #ring) + 1] --[[@as { x: number, z: number }]]
 end
 
----@param points { x: number, z: number }[] three or more
----@return { x: number, z: number }[] the convex hull, counter-clockwise; fewer than three when the points are collinear
+---@param points { x: number, z: number }[]
+---@return { x: number, z: number }[]
 local function convexHull(points)
 	local sorted = {}
 	for i, p in ipairs(points) do
@@ -70,7 +70,7 @@ end
 ---@param prev { x: number, z: number }
 ---@param p { x: number, z: number }
 ---@param nxt { x: number, z: number }
----@return number the sine of the turn at p; 0 when the three are collinear or coincident
+---@return number
 local function bend(prev, p, nxt)
 	local ax, az = p.x - prev.x, p.z - prev.z
 	local bx, bz = nxt.x - p.x, nxt.z - p.z
@@ -82,7 +82,7 @@ local function bend(prev, p, nxt)
 end
 
 ---@param hull { x: number, z: number }[]
----@return { x: number, z: number }[] with corners that barely turn dropped, down to a triangle
+---@return { x: number, z: number }[]
 local function pruned(hull)
 	while #hull > 3 do
 		local dropped = false
@@ -100,9 +100,9 @@ local function pruned(hull)
 	return hull
 end
 
----@param points { x: number, z: number }[] the picked spots
----@param pad number elmos to push the ring out from the centroid, so the spots sit inside with room to build
----@return { x: number, z: number }[]|nil ring nil for no points; a square around one or two spots; the padded hull otherwise
+---@param points { x: number, z: number }[]
+---@param pad number
+---@return { x: number, z: number }[]|nil
 function Hull.Around(points, pad)
 	local n = #points
 	if n == 0 then

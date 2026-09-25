@@ -3,7 +3,7 @@
 local Geometry = {}
 
 ---@param vertices { x: number, z: number }[]
----@return RegionGeometryKey|nil what the ring is: one vertex a point, three or more a polygon; nil for anything else
+---@return RegionGeometryKey|nil
 function Geometry.Of(vertices)
 	local n = #vertices
 	if n == 1 then
@@ -74,7 +74,7 @@ local EPS = 1e-3 -- elmos: a point closer than this to an edge lies on it
 ---@param p { x: number, z: number }
 ---@param q { x: number, z: number }
 ---@param r { x: number, z: number }
----@return integer 1 or -1 for the side of the line pq the point r lies on; 0 when it lies on the line
+---@return integer
 local function side(p, q, r)
 	local dx, dz = q.x - p.x, q.z - p.z
 	local len = math.sqrt(dx * dx + dz * dz)
@@ -85,7 +85,7 @@ local function side(p, q, r)
 	return cross > 0 and 1 or -1
 end
 
----@return boolean the segments cross properly; ones that touch or run along each other do not
+---@return boolean
 local function segmentsCross(a1, a2, b1, b2)
 	return side(b1, b2, a1) * side(b1, b2, a2) < 0 and side(a1, a2, b1) * side(a1, a2, b2) < 0
 end
@@ -93,7 +93,7 @@ end
 ---@param x number
 ---@param z number
 ---@param vertices { x: number, z: number }[]
----@return boolean the point lies on the ring
+---@return boolean
 function Geometry.OnBoundary(x, z, vertices)
 	local n = #vertices
 	local p = { x = x, z = z }
@@ -115,14 +115,14 @@ end
 ---@param x number
 ---@param z number
 ---@param vertices { x: number, z: number }[]
----@return boolean the point lies inside the ring and not on it
+---@return boolean
 local function strictlyInside(x, z, vertices)
 	return Geometry.Contains(x, z, vertices) and not Geometry.OnBoundary(x, z, vertices)
 end
 
 ---@param a { x: number, z: number }[]
 ---@param b { x: number, z: number }[]
----@return boolean the two rings share ground; neighbours that only touch along an edge or at a corner do not
+---@return boolean
 function Geometry.Overlaps(a, b)
 	if #a < 3 or #b < 3 then
 		return false
