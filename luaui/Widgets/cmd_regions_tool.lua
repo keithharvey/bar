@@ -2221,7 +2221,8 @@ function R.validate()
 		return was
 	end
 	local finder = WG.resource_spot_finder
-	local env = {
+	---@type RegionMap
+	local map = {
 		spots = finder and not finder.isMetalMap and finder.metalSpotsList or nil,
 		starts = R.startPositions(),
 	}
@@ -2229,7 +2230,7 @@ function R.validate()
 	for _, typeKey in ipairs(R.ORDER) do
 		local regions = R.list(typeKey)
 		if #regions > 0 then
-			for _, problem in ipairs(R.api.Problems(typeKey, env)) do
+			for _, problem in ipairs(R.api.Problems(typeKey, map)) do
 				lines[#lines + 1] = R.api.ProblemLine(problem)
 				local region = problem.region
 				if region then

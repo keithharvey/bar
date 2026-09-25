@@ -86,9 +86,9 @@ end
 
 ---@param typeKey RegionTypeKey
 ---@param regions Region[] every region of the type
----@param env table|nil caller-supplied map data for the type owner's set rules; see RegionSetContext.env
+---@param map RegionMap|nil what the caller knows of the map, for the type owners' rules
 ---@return RegionProblem[] problems each about one region or about the set as a whole
-function Api.CheckSet(typeKey, regions, env)
+function Api.CheckSet(typeKey, regions, map)
 	local kind = Types.byKey[typeKey]
 	if not kind then
 		return { { message = "unknown region type " .. tostring(typeKey) } }
@@ -99,7 +99,7 @@ function Api.CheckSet(typeKey, regions, env)
 		names[i] = named.name
 	end
 	---@type RegionSetContext
-	local ctx = { type = kind, regions = regions, names = names, env = env or {}, problems = {} }
+	local ctx = { type = kind, regions = regions, names = names, map = map or {}, problems = {} }
 	ModuleHandler.Evaluate(pipelines.check_set, ctx)
 	return ctx.problems
 end
@@ -256,10 +256,10 @@ function Api.Untag(id, index)
 end
 
 ---@param typeKey RegionTypeKey
----@param env table|nil see RegionSetContext.env
+---@param map RegionMap|nil
 ---@return RegionProblem[] the set check over every stored region of the type
-function Api.Problems(typeKey, env)
-	return Api.CheckSet(typeKey, Api.All(typeKey), env)
+function Api.Problems(typeKey, map)
+	return Api.CheckSet(typeKey, Api.All(typeKey), map)
 end
 
 ---@param typeKey RegionTypeKey
@@ -365,16 +365,16 @@ end
 Api.Tessellate = Layout.Tessellate
 
 ---@param region Region
----@param env table|nil caller-supplied map data for the type owner's lines; see RegionDescribeContext.env
+---@param map RegionMap|nil what the caller knows of the map, for the type owners' lines
 ---@return { [1]: string, [2]: string }[] lines { label, value } pairs: the shape's lines first, then the type owner's
-function Api.Describe(region, env)
+function Api.Describe(region, map)
 	local kind = Types.byKey[region.type]
 	if not kind then
 		return {}
 	end
 	local pipelines = ModuleHandler.LoadPolicies(Modules.Regions) ---@type RegionsPipelines
 	---@type RegionDescribeContext
-	local ctx = { type = kind, region = region, env = env or {}, lines = {} }
+	local ctx = { type = kind, region = region, map = map or {}, lines = {} }
 	ModuleHandler.Evaluate(pipelines.describe, ctx)
 	return ctx.lines
 end

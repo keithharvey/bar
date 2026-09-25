@@ -13,8 +13,10 @@ local Problems = require("modules/regions/lib/problems")
 ---@field type RegionType
 ---@field regions Region[]
 ---@field names string[] display name per region, by index, derived where none is set
----@field env table caller-supplied map data, passed through untouched. The regions module does not read it; each type's owner documents the keys its stages expect (StartRegionEnv, MexRegionEnv)
+---@field map RegionMap what the caller knows of the map, passed through untouched
 ---@field problems RegionProblem[]
+
+---@class (partial) RegionMap what a caller of the regions api knows of the map beyond the regions: the editor knows what it is drawing, the game what the engine holds. The regions module never reads it; the module that owns a type declares the fields its stages read, as a partial of this class next to the rule
 
 ---@class RegionSetStages: PolicyStages<RegionSetContext, RegionSetContext> rules over the whole set. The module that owns a type contributes its own stages, such as coverage
 ---@field Each string runs the type's Check on every region against its siblings; each problem is attributed to its region

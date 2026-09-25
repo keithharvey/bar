@@ -54,7 +54,7 @@ Policies.On(Regions.CheckSet).Apply(RegionsSet.AreasDisjoint, function(ctx)
 	end
 end)
 
----@class StartRegionEnv the keys start's region stages read from the caller-supplied env (see RegionSetContext.env)
+---@class (partial) RegionMap
 ---@field starts { allyTeam: integer, x: number, z: number }[]|nil the map's start positions, when the caller has them
 
 ---@class StartRegionsDescribeStages start's stages on the regions module's description, for regions of any type
@@ -66,7 +66,7 @@ local RegionsDescribe = PolicyBuilder.Contributes(Regions.Describe, {
 })
 
 Policies.On(Regions.Describe).Apply(RegionsDescribe.NearestStart, function(ctx)
-	local starts = (ctx.env --[[@as StartRegionEnv]]).starts
+	local starts = ctx.map.starts
 	if not starts or #starts == 0 then
 		return
 	end
