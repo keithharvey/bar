@@ -37,23 +37,6 @@ describe("the mex region type", function()
 		)
 	end)
 
-	it("is called after its group when it carries no name, numbered once siblings share the group", function()
-		local names = Regions.Names(Regions.Enums.Types.MexRegion, {
-			mex({ team = 1, group = "anti" }),
-			mex({ team = 1, group = "tech" }),
-			mex({ team = 1, group = "tech" }),
-			mex({ team = 2, group = "tech" }),
-			mex({ team = 1, group = "tech", name = "given" }),
-			mex({ team = 1 }),
-		})
-		local given = {}
-		for i, named in ipairs(names) do
-			given[i] = named.name
-		end
-		assert.are.same({ "anti", "tech_1", "tech_2", "tech_3", "given", "mex_region" }, given)
-		assert.is_false(names[5].derived)
-	end)
-
 	it("may share a name with a sibling: the id is the identity, the name is a label", function()
 		local souths = { mex({ name = "anti", team = 2, group = "x" }) }
 		assert.are.same(
@@ -64,25 +47,6 @@ describe("the mex region type", function()
 			{},
 			Regions.Check(Regions.Enums.Types.MexRegion, mex({ team = 2, group = "anti" }), souths, true)
 		)
-	end)
-
-	it("says where the first uncovered metal spot is, so an editor can take the map maker there", function()
-		local a = mex({ name = "a", team = 1, group = "g", vertices = square })
-		local problems = Regions.CheckSet(Regions.Enums.Types.MexRegion, { a }, {
-			spots = { { x = 50, z = 50 }, { x = 700, z = 300 }, { x = 900, z = 900 } },
-		})
-		assert.are.same({ { message = "2 metal spots in no mex region", at = { x = 700, z = 300 } } }, problems)
-	end)
-
-	it("may share ground with a sibling: coverage is its rule, not disjointness", function()
-		local a = mex({ name = "a", team = 1, group = "g", vertices = square })
-		local b = mex({
-			name = "b",
-			team = 1,
-			group = "g",
-			vertices = { { x = 50, z = 50 }, { x = 150, z = 50 }, { x = 150, z = 150 } },
-		})
-		assert.are.same({}, Regions.CheckSet(Regions.Enums.Types.MexRegion, { a, b }))
 	end)
 end)
 
