@@ -136,6 +136,15 @@ describe("the layout as a file", function()
 		end
 	)
 
+	it("carries a points field normalised like the anchors, and reads it back in elmos", function()
+		local one = Regions.Put(start(1))
+		one.positions = { { x = 250, z = 500 }, { x = 1000, z = 0 } }
+		local source = Regions.SerializeLayout(Regions.All(), 1000, 1000)
+		assert.matches("positions = { { x = 50, y = 100 }, { x = 200, y = 0 } }", source)
+		local back = Regions.ParseAllLayout(assert(loadstring(source))(), 1000, 1000)
+		assert.are.same({ { x = 250, z = 500 }, { x = 1000, z = 0 } }, assert(back[1]).positions)
+	end)
+
 	it("reads only the types the registry knows", function()
 		local regions = Regions.ParseAllLayout({
 			regions = {

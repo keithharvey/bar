@@ -7,10 +7,11 @@ local RegionEnums = require("modules/regions/enums")
 ---@type RegionsContract
 local Regions = Policies.Contract(Modules.Regions)
 
----@class StartRegion: Region a team's start as drawn in the editor: a single position, or the area the positions lie in
+---@class StartRegion: Region a team's start as drawn in the editor: the area the team's positions lie in, or a point when only one position is drawn
 ---@field type "start"
 ---@field team integer start ordinal; start 1 is team 1
 ---@field name string|nil the area's label
+---@field positions { x: number, z: number }[]|nil the team's start positions, in elmos, one per seat
 
 ---@class StartRegionsNamesStages start's stages on the regions module's naming, for the start type
 ---@field FromTeam string an unnamed start is named after its team
@@ -56,7 +57,7 @@ end)
 
 ---@class StartDescription: RegionDescription what start says of one of its regions
 ---@field team integer the start ordinal
----@field positions StartRegion[] the start positions drawn for that team, the point regions carrying the same team, in the order they were put
+---@field positions { x: number, z: number }[] the team's start positions; none when the start is drawn as an area alone
 
 ---@class StartRegionsDescribeStages start's answer on the regions module's description, for its own type
 ---@field Start string the start's ordinal and its positions, with the shape
@@ -72,21 +73,13 @@ Policies.On(Regions.Describe)
 			return nil
 		end
 		local region = ctx.region --[[@as StartRegion]]
-		local positions = {} ---@type StartRegion[]
-		for _, other in ipairs(require("modules/regions/api").All(RegionEnums.Types.Start)) do
-			---@cast other Region
-			---@cast other StartRegion
-			if
-				other.team == region.team
-				and other.vertices ~= nil
-				and #other.vertices == 1
-				and not rawequal(other, region)
-			then
-				positions[#positions + 1] = other
-			end
-		end
 		---@type StartDescription
-		return { area = ctx.shape.area, centre = ctx.shape.centre, team = region.team, positions = positions }
+		return {
+			area = ctx.shape.area,
+			centre = ctx.shape.centre,
+			team = region.team,
+			positions = region.positions or {},
+		}
 	end)
 	.Before(Regions.Describe.Shape)
 

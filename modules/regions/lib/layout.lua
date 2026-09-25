@@ -77,7 +77,15 @@ function Layout.Export(regions, byKey, mapSizeX, mapSizeZ)
 			local entry = { id = region.id } ---@type table<string, any>
 			for _, field in ipairs(kind.fields) do
 				local value = region[field.key]
-				if value ~= nil and value ~= "" then
+				if field.kind == "points" then
+					if type(value) == "table" and #value > 0 then
+						local points = {}
+						for j, p in ipairs(value) do
+							points[j] = { x = round(p.x * sx), y = round(p.z * sz) }
+						end
+						entry[field.key] = points
+					end
+				elseif value ~= nil and value ~= "" then
 					entry[field.key] = value
 				end
 			end
@@ -158,6 +166,18 @@ function Layout.Parse(layout, kind, mapSizeX, mapSizeZ)
 				value = tonumber(value) or value
 			elseif field.kind == "string" and value ~= nil and type(value) ~= "string" then
 				value = tostring(value)
+			elseif field.kind == "points" then
+				local points = nil
+				if type(value) == "table" then
+					points = {}
+					for j, p in ipairs(value) do
+						if type(p) ~= "table" or type(p.x) ~= "number" or type(p.y) ~= "number" then
+							return nil, who .. " has a " .. field.key .. " entry that is not an {x, y}"
+						end
+						points[j] = { x = p.x * scaleX, z = p.y * scaleZ }
+					end
+				end
+				value = points
 			end
 			region[field.key] = value
 		end
@@ -216,8 +236,15 @@ function Layout.Serialize(layout, order, byKey, header)
 				lines[#lines + 1] = "      {"
 				lines[#lines + 1] = "        id = " .. literal(entry.id) .. ","
 				for _, field in ipairs((byKey[typeKey] or {}).fields or {}) do
-					if entry[field.key] ~= nil then
-						lines[#lines + 1] = "        " .. field.key .. " = " .. literal(entry[field.key]) .. ","
+					local value = entry[field.key]
+					if field.kind == "points" and type(value) == "table" then
+						local points = {}
+						for j, p in ipairs(value) do
+							points[j] = string.format("{ x = %s, y = %s }", p.x, p.y)
+						end
+						lines[#lines + 1] = "        " .. field.key .. " = { " .. table.concat(points, ", ") .. " },"
+					elseif value ~= nil then
+						lines[#lines + 1] = "        " .. field.key .. " = " .. literal(value) .. ","
 					end
 				end
 				if entry.tags then

@@ -43,15 +43,12 @@ describe("what start says about a region", function()
 
 	it("is the start's ordinal and the positions drawn for it, with the shape", function()
 		local one = area(1, 0, 0, 100)
-		Regions.Put(one)
-		Regions.Put({ type = Enums.Types.Start, team = 1, vertices = { { x = 10, z = 10 } } })
-		Regions.Put({ type = Enums.Types.Start, team = 2, vertices = { { x = 500, z = 500 } } })
-		Regions.Put({ type = Enums.Types.Start, team = 1, vertices = { { x = 90, z = 90 } } })
+		one.positions = { { x = 10, z = 10 }, { x = 90, z = 90 } }
 		local d = Regions.Describe(one)
 		assert.are.equal(1, d.team)
-		assert.are.equal(2, #d.positions, "the point regions carrying the same team")
-		assert.are.same({ x = 90, z = 90 }, assert(d.positions[2]).vertices[1])
+		assert.are.same({ { x = 10, z = 10 }, { x = 90, z = 90 } }, d.positions)
 		assert.are.equal(10000, d.area)
+		assert.are.same({}, Regions.Describe(area(2, 0, 0, 100)).positions, "an area alone has none")
 	end)
 
 	it("says nothing about a region of another type", function()

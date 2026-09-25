@@ -9,6 +9,7 @@ return {
 		fields = {
 			Fields.Team({ required = true, unique = true }),
 			{ key = "name", label = "Label", kind = "string" },
+			{ key = "positions", label = "Positions", kind = "points" },
 		},
 	},
 }
