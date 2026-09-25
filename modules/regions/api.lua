@@ -28,9 +28,9 @@ local Api = {}
 ---@return { name: string, derived: boolean }[]
 local function namesOf(kind, regions)
 	---@type RegionNamesContext
-	local ctx = { type = kind, regions = regions, bases = {} }
+	local ctx = { type = kind, regions = regions, proposed = {} }
 	ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Regions).Names, ctx)
-	return Names.Of(regions, ctx.bases)
+	return Names.Of(regions, ctx.proposed)
 end
 
 ---@return RegionTypeKey[] order

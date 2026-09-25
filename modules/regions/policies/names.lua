@@ -3,7 +3,7 @@ local Policy = require("modules/policy")
 ---@class RegionNamesContext
 ---@field type RegionType
 ---@field regions Region[]
----@field bases string[]
+---@field proposed string[]
 
 ---@class RegionNamesSteps: PolicySteps<RegionNamesContext, RegionNamesContext>
 ---@field Label string
@@ -19,7 +19,7 @@ local Names = Policy.Fold({
 Policies.On(Names).Apply(Names.Label, function(ctx)
 	local label = ctx.type.label:lower():gsub(" ", "_")
 	for i in ipairs(ctx.regions) do
-		ctx.bases[i] = label
+		ctx.proposed[i] = label
 	end
 end)
 
