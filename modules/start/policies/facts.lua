@@ -24,9 +24,9 @@ local PolicyBuilder = require("modules/policy_builder")
 ---@field source string|nil
 ---@field explicit boolean true when a modoption set the boxes; false when they are the engine's rects
 
----@class StartContext the engine and the game's startbox resolver
+---@class StartContext the engine and the startbox resolver's result
 ---@field springRepo Spring
----@field resolveBoxes fun(): StartBoxes injectable for specs
+---@field boxes StartBoxes resolved by the api before the ask: the game's resolver, or the one a spec hands in
 
 ---@class StartFacts: PolicyFacts<StartContext>
 ---@field Areas string StartArea[] by ally team, in box order; ally teams without a box are absent
@@ -54,7 +54,7 @@ end
 
 Policies.On(Facts)
 	.Default(Facts.Areas, function(ctx)
-		local boxes = ctx.resolveBoxes()
+		local boxes = ctx.boxes
 		local areas = {} ---@type StartArea[]
 		if boxes.explicit and boxes.byAllyTeam then
 			local ids = {}

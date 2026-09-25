@@ -15,7 +15,7 @@ return {
 	---@return { areas: StartArea[], positions: StartPosition[] }
 	Current = function(springRepo, resolveBoxes)
 		---@type StartContext
-		local ctx = { springRepo = springRepo, resolveBoxes = resolveBoxes or resolveWithGame }
+		local ctx = { springRepo = springRepo, boxes = (resolveBoxes or resolveWithGame)() }
 		---@type StartContract
 		local Start = ModuleHandler.Contract(Modules.Start)
 		local Facts = Start.Facts
