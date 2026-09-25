@@ -52,6 +52,7 @@ local GL_ONE = GL.ONE
 local GL_ONE_MINUS_SRC_ALPHA = GL.ONE_MINUS_SRC_ALPHA
 
 -- Commander icons cycled by allyteam index — adds visual variety & "2026" faction flavor
+---@type string[]
 local COMMANDER_ICONS = {
 	"icons/armcom.png",
 	"icons/corcom.png",
@@ -84,6 +85,7 @@ local REGIONS_SAVE_DIR = "Terraform Brush/Regions/"
 local VERTEX_PICK_DIST_SQ = 60 * 60 -- world distance^2 to pick a startbox vertex
 
 -- Team colors matching game_autocolors.lua FFA palette (0-1 float RGBA); extended past 16 for 256-player support
+---@type table<integer, number[]>
 local TEAM_COLORS = {
 	{ 0.000, 0.302, 1.000, 1.0 }, --  1: Blue       #004DFF
 	{ 1.000, 0.063, 0.020, 1.0 }, --  2: Red        #FF1005
@@ -121,21 +123,40 @@ local TEAM_COLORS = {
 
 -- State
 local active = false
-local subMode = "express" -- "express" | "shape" | "startbox"
+local subMode = "express" ---@type "express"|"shape"|"startbox"
 -- The start positions are the start regions' `positions`; `seats()` below is the tool's view over them.
 local nextAllyTeam = 1 -- next allyteam in rotation
 local nextTeamSlot = 1 -- next player slot within that allyteam
 local numAllyTeams = 2 -- configurable count (ally teams)
 local numTeamsPerAlly = 1 -- configurable count (players per ally)
-local placementMode = "roundrobin" -- "roundrobin" = A,B,C,A,B,C... | "sequential" = A,A,B,B,C,C...
+local placementMode = "roundrobin" ---@type "roundrobin"|"sequential" roundrobin: A,B,C,A,B,C; sequential: A,A,B,B,C,C
 
 -- Shape placement state
-local shapeType = "circle" -- "circle"|"square"|"hexagon"|"octagon"|"triangle"
-local shapeRadius = 2000
-local shapeRotation = 0 -- degrees
+local shapeType = "circle" ---@type "circle"|"square"|"hexagon"|"octagon"|"triangle"
+local shapeRadius = 2000 ---@type number
+local shapeRotation = 0 ---@type number degrees
 local shapeCount = 4 -- number of positions to place with shape
 
 -- Startbox state
+---@class RegionsToolState the tool's own state: which type it is on, how it is placing, what is selected
+---@field type RegionTypeKey the region type key the tool is on
+---@field strategy "express"|"shape"
+---@field placing "points"|"area"
+---@field selectedIdx integer|nil index into the area list
+---@field selectedStart integer|nil the selected start's ordinal
+---@field pendingVertex { wx: number, wz: number, mx: number, my: number }|nil
+---@field category string
+---@field drawForTeam integer|nil
+---@field geometry string
+---@field editMode "select"|"create"
+---@field radial { cx: number, cz: number, r: number }|nil
+---@field radialPending table
+---@field radialHistory table
+---@field pending table<string, any> the fields of the region being drawn
+---@field error string
+---@field revision integer
+---@field COLOR number[]
+---@field [string] any
 local R = {
 	type = "start",
 	strategy = "express",
@@ -170,7 +191,7 @@ for _, key in ipairs(R.ORDER) do
 	end
 	R.CATEGORIES[key] = { key = key, label = kind.label, type = key, placing = placesPoints and "points" or "area" }
 end
-local startboxes = {}
+local startboxes = {} ---@type Region[] the area list the tools index, R.list(R.type)
 -- Forward declarations for cached-fill-list helpers defined further down in the drawing section.
 -- Needed because removeLastStartbox / clearAllStartboxes / drag handlers reference them from
 -- this upper part of the file.
@@ -187,13 +208,13 @@ local freeBoxFillList
 -- getScreenMarker further down in the rendering section.
 ---@type fun(wx: number, wz: number, screenPx: number): number
 local worldRadiusForScreenPx
-local startboxMode = "polygon" -- "polygon" | "box" | "freedraw"
+local startboxMode = "polygon" ---@type "polygon"|"box"|"freedraw"|"radial"
 local drawingBox = false
-local currentBoxVerts = {}
-local boxDragIdx = nil -- which vertex is being dragged
-local boxDragBoxIdx = nil -- which box
-local boxEdgeDrag = nil -- { bi = <box index>, edge = "L"/"R"/"T"/"B" } for box-kind edge drag
-local hoverBoxEdge = nil -- { bi, edge } for hover highlight of the edge currently under cursor
+local currentBoxVerts = {} ---@type { x: number, z: number }[]
+local boxDragIdx = nil ---@type integer|nil which vertex is being dragged
+local boxDragBoxIdx = nil ---@type integer|nil which box
+local boxEdgeDrag = nil ---@type { bi: integer, edge: string }|nil a box-kind edge being dragged
+local hoverBoxEdge = nil ---@type { bi: integer, edge: string }|nil the edge under the cursor
 -- Anchor selected for curvature editing. Clicking a handle (press and release without
 -- moving) selects it and raises a gizmo along its outward normal; dragging along that
 -- gizmo sets the anchor strength between 0 and 1.
@@ -202,6 +223,11 @@ local hoverBoxEdge = nil -- { bi, edge } for hover highlight of the edge current
 -- selBox / selVert (the selected anchor: box index, vertex index) are assigned
 -- below rather than listed here: a `= nil` in the constructor makes the
 -- analyzer read them as never set.
+---@class StrengthEdit
+---@field dragging boolean
+---@field GIZMO_LEN number
+---@field scratch table
+---@field [string] any
 local strengthEdit = {
 	dragging = false,
 	GIZMO_LEN = 240, -- world units from anchor to the strength-1 end of the gizmo
@@ -210,36 +236,36 @@ local strengthEdit = {
 -- Whole-box drag (mouse pressed inside a startbox body, not on a handle/edge). Records the
 -- world-space cursor delta between frames and offsets every vertex (and spline control point
 -- when applicable). Separate from vertex-drag so hover hit-tests stay simple.
-local boxBodyDrag = nil -- { bi = <box index>, lastX = <world x>, lastZ = <world z> }
+local boxBodyDrag = nil ---@type { bi: integer, lastX: number, lastZ: number }|nil
 -- Set true whenever a startbox vertex / edge / body drag is in progress. Used by
 -- ensureBoxFillList to defer the expensive fill-list rebuild until MouseRelease.
 local isDraggingBox = false
-local pendingFillRebuildIdx = nil -- box index whose fill needs rebuilding on drag end
+local pendingFillRebuildIdx = nil ---@type integer|nil box index whose fill needs rebuilding on drag end
 -- Box drag-rect (startboxMode == "box"): two corners, live-updated during drag
-local boxRectStartX = nil
-local boxRectStartZ = nil
-local boxRectEndX = nil
-local boxRectEndZ = nil
+local boxRectStartX = nil ---@type number|nil
+local boxRectStartZ = nil ---@type number|nil
+local boxRectEndX = nil ---@type number|nil
+local boxRectEndZ = nil ---@type number|nil
 local boxRectActive = false
 -- Free-draw state (startboxMode == "freedraw"): collect points with minimum spacing
-local freeDrawPts = {}
+local freeDrawPts = {} ---@type { x: number, z: number }[]
 local freeDrawActive = false
 local FREEDRAW_MIN_DIST_SQ = 40 * 40 -- minimum world distance between sample points
 
 -- Drag state
 local dragging = false
-local dragIdx = nil -- which position index is being dragged
-local dragStartX = nil
-local dragStartY = nil -- screen coords at mouse-down
+local dragIdx = nil ---@type integer|nil which seat is being dragged
+local dragStartX = nil ---@type number|nil screen coords at mouse-down
+local dragStartY = nil ---@type number|nil
 
 -- Hover state (drives cursor + marker highlight)
-local hoverPosIdx = nil -- index of position currently hovered (express mode)
-local hoverBoxIdx = nil -- which startbox is being vertex-hovered
-local hoverVertIdx = nil
+local hoverPosIdx = nil ---@type integer|nil the seat under the cursor (express mode)
+local hoverBoxIdx = nil ---@type integer|nil which startbox is being vertex-hovered
+local hoverVertIdx = nil ---@type integer|nil
 -- Polygon edge-midpoint hover: shows a "ghost" handle at the middle of a polygon edge
 -- so the user can click/hold there to insert a new vertex (which immediately becomes a
 -- live drag handle). { bi, edgeIdx, x, z } — edgeIdx is index of the edge's start vertex.
-local hoverPolyEdge = nil
+local hoverPolyEdge = nil ---@type table|nil
 
 -- Undo history: each entry = { count=N, prevNextAllyTeam=M }
 -- Means: the last N entries in `positions` were added in one action;
@@ -310,8 +336,7 @@ end
 ---@return StartRegion|nil the team's start region, whatever its shape
 function R.start(team)
 	for _, region in ipairs(R.api.All("start")) do
-		---@cast region Region
-		---@cast region StartRegion
+		---@cast region +StartRegion
 		if region.team == team then
 			return region
 		end
@@ -337,8 +362,7 @@ local function seats()
 		seatsCacheKey = key
 		seatsCache = {}
 		for _, region in ipairs(R.api.All("start")) do
-			---@cast region Region
-			---@cast region StartRegion
+			---@cast region +StartRegion
 			for i, p in ipairs(region.positions or {}) do
 				seatsCache[#seatsCache + 1] = {
 					region = region,
@@ -357,9 +381,9 @@ local function seats()
 end
 
 -- A point start is where its one position is; an area keeps its shape whatever its positions do.
----@param region StartRegion
+---@param region Region
 local function keepShape(region)
-	local positions = region.positions or {}
+	local positions = (region --[[@as StartRegion]]).positions or {}
 	if region.kind == "point" or (region.vertices ~= nil and #region.vertices == 1) then
 		region.vertices = positions[1] and { { x = positions[1].x, z = positions[1].z } } or {}
 	end
@@ -546,8 +570,8 @@ local function advanceNextPlayer()
 			slot = (slot % numSlot) + 1
 		end
 	end
-	nextAllyTeam = ally
-	nextTeamSlot = slot
+	nextAllyTeam = ally --[[@as integer]]
+	nextTeamSlot = slot --[[@as integer]]
 end
 
 local function removePosition(idx)
@@ -575,7 +599,7 @@ local function removeLastSeat()
 end
 
 local function removeNearestPosition(wx, wz)
-	local bestIdx = nil
+	local bestIdx = nil ---@type integer|nil
 	local bestDist = CLICK_DISTANCE_SQ
 	for i, pos in ipairs(seats()) do
 		local d = distSq(wx, wz, pos.x, pos.z)
@@ -592,7 +616,7 @@ local function removeNearestPosition(wx, wz)
 end
 
 local function findNearestPosition(wx, wz)
-	local bestIdx = nil
+	local bestIdx = nil ---@type integer|nil
 	local bestDist = CLICK_DISTANCE_SQ
 	for i, pos in ipairs(seats()) do
 		local d = distSq(wx, wz, pos.x, pos.z)
@@ -606,8 +630,7 @@ end
 
 local function clearAllPositions()
 	for _, region in ipairs(R.api.All("start")) do
-		---@cast region Region
-		---@cast region StartRegion
+		---@cast region +StartRegion
 		region.positions = nil
 		keepShape(region)
 		if region.id and (region.vertices == nil or #region.vertices < 3) then
@@ -654,7 +677,7 @@ local function addStartboxVertex(x, z)
 	---@type table?
 	local tb = WG.TerraformBrush
 	local stb = tb and tb.getState and tb.getState() or nil
-	if stb and stb.gridSnap and tb.snapWorld then
+	if tb and stb and stb.gridSnap and tb.snapWorld then
 		x, z = tb.snapWorld(x, z, 0)
 	end
 	x, z = clampToMap(x, z)
@@ -673,8 +696,7 @@ local function renumberBoxAllyTeams()
 		box.team = i
 	end
 	for _, region in ipairs(R.api.All("start")) do
-		---@cast region Region
-		---@cast region StartRegion
+		---@cast region +StartRegion
 		if region.vertices == nil or #region.vertices < 3 then
 			local area = areas[region.team or 0]
 			if area and not rawequal(area, region) then
@@ -724,7 +746,7 @@ function R.stampNew(box)
 	box.tags = box.tags or {}
 	if R.type == "start" then
 		local existing = R.start(box.team)
-		if existing and existing ~= box then
+		if existing and existing ~= box and existing.id then
 			freeBoxFillList(existing)
 			R.api.Remove(existing.id)
 		end
@@ -1224,7 +1246,7 @@ end
 -- For "box"-kind startboxes: find the nearest edge (T=top/B=bottom/L=left/R=right) to (wx,wz).
 -- Returns bi, edgeName where edgeName is one of "T","B","L","R" (based on min/max bounds).
 local function findNearestBoxEdge(wx, wz)
-	local EDGE_PICK_DIST = 55 -- world units from edge line
+	local EDGE_PICK_DIST = 55.0 -- world units from edge line
 	for bi, box in ipairs(startboxes) do
 		if box.kind == "box" and #box.vertices == 4 then
 			local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
@@ -1314,7 +1336,7 @@ function strengthEdit.axis(box, vi)
 		return nil
 	end
 
-	local cx, cz = 0, 0
+	local cx, cz = 0.0, 0.0
 	for i = 1, #handles do
 		cx = cx + handles[i].x
 		cz = cz + handles[i].z
@@ -2050,6 +2072,7 @@ end
 function R.starts()
 	local count = 0
 	for _, region in ipairs(R.api.All("start")) do
+		---@cast region +StartRegion
 		count = math_max(count, region.team or 0)
 	end
 	local out = {}
@@ -2069,7 +2092,7 @@ end
 function R.startFacts(allyTeam)
 	local box = R.start(allyTeam)
 	local facts = box and R.facts(box) or {}
-	local count, cx, cz = 0, 0, 0
+	local count, cx, cz = 0, 0.0, 0.0
 	for _, pos in ipairs(box and box.positions or {}) do
 		count = count + 1
 		cx, cz = cx + pos.x, cz + pos.z
@@ -2316,8 +2339,9 @@ function R.problemsState()
 	local byIndex, byTeam = {}, {}
 	for i, region in ipairs(startboxes) do
 		byIndex[i] = validated.byRegion[region]
-		if region.team then
-			byTeam[region.team] = validated.byRegion[region]
+		local team = (region --[[@as table<string, any>]]).team
+		if team then
+			byTeam[team] = validated.byRegion[region]
 		end
 	end
 	return { ofSet = validated.ofSet[R.type] or {}, byIndex = byIndex, byTeam = byTeam }
@@ -2580,7 +2604,7 @@ function widget:MousePress(mx, my, button)
 				local prevNext = nextAllyTeam
 				local prevNextSlot = nextTeamSlot
 				local prevCount = #seats()
-				if stb and stb.symmetryActive and tb.getSymmetricPositions then
+				if tb and stb and stb.symmetryActive and tb.getSymmetricPositions then
 					local copies = tb.getSymmetricPositions(wx, wz, 0)
 					for _, p in ipairs(copies) do
 						addPosition(p.x, p.z, nextAllyTeam, nextTeamSlot)
@@ -2635,13 +2659,13 @@ function widget:MousePress(mx, my, button)
 			local tb = WG.TerraformBrush
 			local stb = tb and tb.getState and tb.getState() or nil
 			local sx, sz = wx, wz
-			if stb and stb.gridSnap and tb.snapWorld then
+			if tb and stb and stb.gridSnap and tb.snapWorld then
 				sx, sz = tb.snapWorld(wx, wz, shapeRotation)
 			end
 			local prevNext = nextAllyTeam
 			local prevNextSlot = nextTeamSlot
 			local prevCount = #seats()
-			if stb and stb.symmetryActive and tb.getSymmetricPositions then
+			if tb and stb and stb.symmetryActive and tb.getSymmetricPositions then
 				local copies = tb.getSymmetricPositions(sx, sz, shapeRotation)
 				if copies and #copies > 0 then
 					for _, p in ipairs(copies) do
@@ -2780,7 +2804,7 @@ function widget:MousePress(mx, my, button)
 				---@type table?
 				local tb = WG.TerraformBrush
 				local stb = tb and tb.getState and tb.getState() or nil
-				if stb and stb.gridSnap and tb.snapWorld then
+				if tb and stb and stb.gridSnap and tb.snapWorld then
 					sx, sz = tb.snapWorld(wx, wz, 0)
 				end
 				boxRectActive = true
@@ -3098,7 +3122,7 @@ function widget:MouseMove(mx, my, dx, dy, button)
 			---@type table?
 			local tb = WG.TerraformBrush
 			local stb = tb and tb.getState and tb.getState() or nil
-			if stb and stb.gridSnap and tb.snapWorld then
+			if tb and stb and stb.gridSnap and tb.snapWorld then
 				wx, wz = tb.snapWorld(wx, wz, 0)
 			end
 			boxRectEndX = wx
@@ -3421,7 +3445,7 @@ local function buildPolygonFillList(verts, lift, cellSize)
 	if n < 3 then
 		return nil
 	end
-	local cx, cz = 0, 0
+	local cx, cz = 0.0, 0.0
 	for i = 1, n do
 		cx = cx + verts[i].x
 		cz = cz + verts[i].z
@@ -3900,7 +3924,7 @@ function widget:DrawWorld()
 			lum = lum * 0.6
 			return { lum, lum, lum }
 		end
-		if stb and stb.symmetryActive and tb.getSymmetricPositions then
+		if tb and stb and stb.symmetryActive and tb.getSymmetricPositions then
 			local copies = tb.getSymmetricPositions(wx, wz, 0)
 			for k, p in ipairs(copies) do
 				local pIdx = ((baseIdx - 1 + (k - 1)) % math_max(1, numAlly * numSlot)) + 1
@@ -4259,6 +4283,7 @@ function widget:DrawWorld()
 end
 
 -- Team name lookup for labels
+---@type table<integer, string>
 local TEAM_NAMES = {
 	"Blue",
 	"Red",
@@ -4428,19 +4453,20 @@ function widget:DrawScreenEffects()
 		for bi, region in ipairs(startboxes) do
 			local verts = region.vertices
 			if #verts >= 3 then
-				local cx, cz = 0, 0
+				local cx, cz = 0.0, 0.0
 				for _, v in ipairs(verts) do
 					cx, cz = cx + v.x, cz + v.z
 				end
 				cx, cz = cx / #verts, cz / #verts
 				local sx, sy, sz = WorldToScreenCoords(cx, GetGroundHeight(cx, cz) or 0, cz)
 				if sz and sz > 0 and sz < 1 then
+					local fields = region --[[@as table<string, any>]]
 					local label = region.name or "?"
-					if region.group then
-						label = label .. " (" .. region.group .. ")"
+					if fields.group then
+						label = label .. " (" .. fields.group .. ")"
 					end
-					if region.team then
-						label = R.teamLabel(region.team) .. " · " .. label
+					if fields.team then
+						label = R.teamLabel(fields.team) .. " · " .. label
 					end
 					local alpha = (bi == R.selectedIdx) and 1.0 or 0.75
 					glColor(1, 1, 1, alpha)
