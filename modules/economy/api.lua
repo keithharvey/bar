@@ -3,7 +3,7 @@ local TeamResourceData = require("modules/economy/lib/team_resource_data")
 
 ---@param springRepo Spring
 ---@param teamID integer
----@param resource string
+---@param resource ResourceName
 ---@param sent number|nil
 ---@param received number|nil
 ---@return number|nil sent
