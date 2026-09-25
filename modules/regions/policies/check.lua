@@ -16,9 +16,6 @@ local PolicyBuilder = require("modules/policy_builder")
 ---@class (partial) RegionsContract
 ---@field Check RegionCheckStages
 
----@class (partial) RegionsPipelines
----@field check AssembledPipeline<RegionCheckContext, RegionCheckContext>
-
 ---@type RegionCheckStages
 local Check = PolicyBuilder.Fold({
 	Shape = "Shape",

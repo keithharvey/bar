@@ -11,9 +11,6 @@ local PolicyBuilder = require("modules/policy_builder")
 ---@class (partial) RegionsContract
 ---@field Names RegionNamesStages
 
----@class (partial) RegionsPipelines
----@field names AssembledPipeline<RegionNamesContext, RegionNamesContext>
-
 ---@type RegionNamesStages
 local Names = PolicyBuilder.Fold({
 	Label = "Label",

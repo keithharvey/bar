@@ -1,12 +1,12 @@
-local ModuleHandler = require("modules/module_handler")
-local Modules = require("modules/enums").Modules
 local AssistTax = require("modules/transfer/lib/assist_tax")
+local ConstructionContract = require("modules/construction/contract")
+local ModuleHandler = require("modules/module_handler")
 local TransferEnums = require("modules/transfer/enums")
 
 describe("transfer's gate on construction's build pipeline", function()
 	it("sits on the pipeline, ahead of the terminal", function()
 		local names = {}
-		for i, stage in ipairs(ModuleHandler.LoadPolicies(Modules.Construction).build) do
+		for i, stage in ipairs(ModuleHandler.Pipeline(ConstructionContract.Build)) do
 			names[i] = stage.name
 		end
 		assert.are.same({ "BuilderDelayed", "UnaffordableAssistTax", "Allowed" }, names)

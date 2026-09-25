@@ -1,14 +1,12 @@
+local Contract = require("modules/tech/contract")
 local ModuleHandler = require("modules/module_handler")
-local Modules = require("modules/enums").Modules
-
-local tech = ModuleHandler.LoadPolicies(Modules.Tech) ---@type TechPipelines
 
 ---@param level integer
 ---@param opts table
 ---@return TechCoreLadder
 local function ladder(level, opts)
 	return ModuleHandler.Evaluate(
-		tech.tech_core,
+		Contract.TechCore,
 		{ level = level, points = 5, opts = opts, t2Threshold = 10, t3Threshold = 20 }
 	)
 end

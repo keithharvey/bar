@@ -16,9 +16,6 @@ local PolicyBuilder = require("modules/policy_builder")
 ---@class (partial) RegionsContract
 ---@field Describe RegionDescribeStages
 
----@class (partial) RegionsPipelines
----@field describe AssembledPipeline<RegionDescribeContext, RegionDescription>
-
 ---@type RegionDescribeStages
 local Describe = PolicyBuilder.Single({
 	Shape = "Shape",

@@ -74,11 +74,6 @@ local UnitDef = {
 	EnemyTransport = "EnemyTransport",
 }
 
----@class TransportPipelines what LoadPolicies("transport") hands back
----@field load AssembledPipeline<TransportLoadContext, boolean>
----@field unload AssembledPipeline<TransportUnloadContext, boolean>
----@field loaded_speed AssembledPipeline<TransportLoadedSpeedContext, number>
-
 ---@class TransportContract
 ---@field Load TransportLoadStages
 ---@field Unload TransportUnloadStages

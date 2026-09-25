@@ -22,10 +22,6 @@ local WeaponDef = {
 	Base = "Base",
 }
 
----@class DefsPipelines what LoadPolicies("defs") hands back
----@field unit_def AssembledPipeline<DefContext, DefContext>
----@field weapon_def AssembledPipeline<DefContext, DefContext>
-
 ---@class DefsContract
 ---@field UnitDef UnitDefStages
 ---@field WeaponDef WeaponDefStages

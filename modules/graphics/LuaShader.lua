@@ -604,47 +604,47 @@ local function CheckShaderUpdates(shadersourcecache, delaytime)
 				local glslvariable = line:match(printfpattern)
 				if glslvariable then
 					-- shaderconfig.stripPrintf is convenience for reused megashaders (e.g. CUS_GL4) to only printf from one draw pass or bin
-					if shadersourcecache.shaderConfig.stripPrintf then 
+					if shadersourcecache.shaderConfig.stripPrintf then
 						Spring.Echo("Stripping printf from fragment shader line", i)
 						fsSrcNewLines[i] = ""
 					else
-					--Spring.Echo("printf in fragment shader",i,  glslvariable, line)
-					-- init our printf table
+						--Spring.Echo("printf in fragment shader",i,  glslvariable, line)
+						-- init our printf table
 
-					-- Replace uncommented printf's with the function stub to set the SSBO data for that field
+						-- Replace uncommented printf's with the function stub to set the SSBO data for that field
 
-					-- Figure out whether the glsl variable is a float, vec2-4
-					local glslvarcount = 1 -- default is 1
-					local dotposition = string.find(glslvariable, "%.")
-					local swizzle = "x"
-					if dotposition then
-						swizzle = string.sub(glslvariable, dotposition + 1)
-						glslvarcount = string.len(swizzle)
-					end
-					if glslvarcount > 4 then
-						glslvarcount = 4
-					end
-					if not printf then
-						printf = {}
-					end
-					printf.vars = printf.vars or {}
-					local vardata = {
-						name = glslvariable,
-						count = glslvarcount,
-						line = i,
-						index = #printf.vars,
-						swizzle = swizzle,
-						shaderstage = "f",
-					}
-					table.insert(printf.vars, vardata)
-					local replacementstring = string.format(
-						"if (all(lessThan(abs(mouseScreenPos.xy- (gl_FragCoord.xy + vec2(0.5, -1.5))),vec2(0.25) ))) {	printfData[%i].%s = %s;}	//printfData[INDEX] = vertexPos.xyzw;",
-						vardata.index,
-						string.sub("xyzw", 1, vardata.count),
-						vardata.name
-					)
-					Spring.Echo(string.format("Replacing f:%d %s", i, line))
-					fsSrcNewLines[i] = replacementstring
+						-- Figure out whether the glsl variable is a float, vec2-4
+						local glslvarcount = 1 -- default is 1
+						local dotposition = string.find(glslvariable, "%.")
+						local swizzle = "x"
+						if dotposition then
+							swizzle = string.sub(glslvariable, dotposition + 1)
+							glslvarcount = string.len(swizzle)
+						end
+						if glslvarcount > 4 then
+							glslvarcount = 4
+						end
+						if not printf then
+							printf = {}
+						end
+						printf.vars = printf.vars or {}
+						local vardata = {
+							name = glslvariable,
+							count = glslvarcount,
+							line = i,
+							index = #printf.vars,
+							swizzle = swizzle,
+							shaderstage = "f",
+						}
+						table.insert(printf.vars, vardata)
+						local replacementstring = string.format(
+							"if (all(lessThan(abs(mouseScreenPos.xy- (gl_FragCoord.xy + vec2(0.5, -1.5))),vec2(0.25) ))) {	printfData[%i].%s = %s;}	//printfData[INDEX] = vertexPos.xyzw;",
+							vardata.index,
+							string.sub("xyzw", 1, vardata.count),
+							vardata.name
+						)
+						Spring.Echo(string.format("Replacing f:%d %s", i, line))
+						fsSrcNewLines[i] = replacementstring
 					end
 				end
 			end
@@ -706,7 +706,9 @@ local function CheckShaderUpdates(shadersourcecache, delaytime)
 				--Spring.Echo(fsSrcNew)
 			end
 
-			if shadersourcecache.shaderConfig.stripPrintf then fsSrcNew = table.concat(fsSrcNewLines, "\n") end
+			if shadersourcecache.shaderConfig.stripPrintf then
+				fsSrcNew = table.concat(fsSrcNewLines, "\n")
+			end
 
 			if vsSrcNew then
 				vsSrcNew = vsSrcNew:gsub("//__ENGINEUNIFORMBUFFERDEFS__", engineUniformBufferDefs)

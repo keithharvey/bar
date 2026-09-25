@@ -169,13 +169,6 @@ local MexSplittingHeir = {
 	FewestGiftedThenNearest = "FewestGiftedThenNearest",
 }
 
----@class TransferPipelines the return value of LoadPolicies("transfer")
----@field take AssembledPipeline<TransferTakeContext, TakePolicy>
----@field unit_transfer AssembledPipeline<TransferPolicyContext, TransferUnitPolicyResult>
----@field resource_transfer AssembledPipeline<TransferPolicyContext, TransferResourcePolicyResult>
----@field mex_splitting AssembledPipeline<MexRegionsDealContext, MexRegionsDeal>
----@field mex_splitting_heir AssembledPipeline<MexRegionsHeirContext, integer|false>
-
 ---@class (partial) TransferContract
 ---@field Take TransferTakeStages
 ---@field UnitTransfer TransferUnitTransferStages

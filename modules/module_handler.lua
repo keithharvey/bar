@@ -1058,11 +1058,32 @@ function ModuleHandler.Enrich(facts, modOptions, ctx, ...)
 	return ModuleHandler.EnrichWith(resolved, ModuleHandler.LiveModulesFor(modOptions), ctx, ...)
 end
 
----@param policies AssembledPipeline
----@param ctx table
+---@generic C, T
+---@param stages PolicyStages<C, T> a pipeline's stage enum, from its owner's contract
+---@param vfsMode string?
+---@return AssembledPipeline<C, T>
+function ModuleHandler.Pipeline(stages, vfsMode)
+	local identity = PolicyBuilder.IdentityOf(stages)
+	assert(
+		identity and not identity.facts,
+		"ModuleHandler.Pipeline(stages): expects a pipeline's stages, from a contract"
+	)
+	local pipeline = ModuleHandler.LoadPolicies(identity.owner, vfsMode)[identity.category]
+	if pipeline == nil then
+		error(identity.owner .. " builds no " .. identity.category .. " pipeline")
+	end
+	return pipeline
+end
+
+---@generic C, T
+---@param policies PolicyStages<C, T>|AssembledPipeline<C, T> the pipeline's stages, or the pipeline the loader assembled from them
+---@param ctx C
 ---@param ... any
----@return any
+---@return T
 function ModuleHandler.Evaluate(policies, ctx, ...)
+	if PolicyBuilder.IdentityOf(policies) ~= nil then
+		policies = ModuleHandler.Pipeline(policies)
+	end
 	if policies.result == "fold" then
 		for _, policy in ipairs(policies) do
 			policy.evaluate(ctx, ...)

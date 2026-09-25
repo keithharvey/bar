@@ -1,5 +1,4 @@
 local ModuleHandler = require("modules/module_handler")
-local Modules = require("modules/enums").Modules
 local Tax = require("modules/transfer/resource/tax")
 local TransferEnums = require("modules/transfer/enums")
 

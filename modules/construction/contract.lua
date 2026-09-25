@@ -124,14 +124,6 @@ local CreationFacts = {
 	Tier = "tier",
 }
 
----@class ConstructionPipelines what LoadPolicies("construction") hands back
----@field assist AssembledPipeline<ConstructionAssistContext, boolean>
----@field reclaim AssembledPipeline<ConstructionReclaimContext, boolean>
----@field resurrect AssembledPipeline<ConstructionResurrectContext, boolean>
----@field build AssembledPipeline<ConstructionBuildContext, boolean>
----@field placement AssembledPipeline<ConstructionPlacementContext, boolean>
----@field creation AssembledPipeline<ConstructionCreationContext, boolean>
-
 ---@class ConstructionContract
 ---@field Assist ConstructionAssistStages
 ---@field Reclaim ConstructionReclaimStages

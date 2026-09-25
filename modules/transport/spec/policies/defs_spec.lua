@@ -1,10 +1,10 @@
-local ModuleHandler = require("modules/module_handler")
-local Modules = require("modules/enums").Modules
 local Contract = require("modules/transport/contract")
+local DefsContract = require("modules/defs/contract")
+local ModuleHandler = require("modules/module_handler")
 local TransportEnums = require("modules/transport/enums")
 
 describe("transport's stage on the unit def fold", function()
-	local pipeline = ModuleHandler.LoadPolicies(Modules.Defs).unit_def ---@type AssembledPipeline<DefContext, DefContext>
+	local pipeline = ModuleHandler.Pipeline(DefsContract.UnitDef)
 
 	local function enemyTransport(which, def)
 		for _, stage in ipairs(pipeline) do

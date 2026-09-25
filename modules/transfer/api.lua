@@ -1,7 +1,8 @@
+local Claims = require("modules/transfer/mex_splitting/claims")
+local Contract = require("modules/transfer/contract")
+local Deal = require("modules/transfer/mex_splitting/deal")
 local ModuleHandler = require("modules/module_handler")
 local Modules = require("modules/enums").Modules
-local Claims = require("modules/transfer/mex_splitting/claims")
-local Deal = require("modules/transfer/mex_splitting/deal")
 local ResourceShared = require("modules/transfer/resource/shared")
 local Sources = require("modules/transfer/mex_splitting/sources")
 local TransferEnums = require("modules/transfer/enums")
@@ -81,11 +82,10 @@ local MexSplitting = {
 	---@param spots { x: number, z: number }[] the map's metal spots
 	---@return MexRegionsDeal
 	Deal = function(teams, springRepo, spots)
-		local pipelines = ModuleHandler.LoadPolicies(Modules.Transfer) ---@type TransferPipelines
 		local regions = state.mexRegions or {}
 		---@type MexRegionsDealContext
 		local ctx = { regions = regions, spots = spots or {}, teams = teams }
-		local deal = ModuleHandler.Evaluate(pipelines.mex_splitting, ctx)
+		local deal = ModuleHandler.Evaluate(Contract.MexSplitting, ctx)
 		state.mexDeal = deal
 		state.mexTeams = teams
 		state.mexGifted = {}
@@ -120,8 +120,7 @@ local MexSplitting = {
 				heirs[#heirs + 1] = { teamID = team.teamID, x = team.x, z = team.z, gifted = gifted[team.teamID] or 0 }
 			end
 		end
-		local pipelines = ModuleHandler.LoadPolicies(Modules.Transfer) ---@type TransferPipelines
-		local heir = ModuleHandler.Evaluate(pipelines.mex_splitting_heir, { departing = departing, heirs = heirs })
+		local heir = ModuleHandler.Evaluate(Contract.MexSplittingHeir, { departing = departing, heirs = heirs })
 		if not heir then
 			return nil
 		end
