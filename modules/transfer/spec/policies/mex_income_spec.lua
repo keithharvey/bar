@@ -3,17 +3,10 @@ local ModuleHandler = require("modules/module_handler")
 local TransferEnums = require("modules/transfer/enums")
 
 ---@param mode string
----@param rates table<integer, number> metal per second by team
-local function spring(mode, rates)
+local function spring(mode)
 	return {
 		GetModOptions = function()
 			return { [TransferEnums.ModOptions.MexSplitting] = mode }
-		end,
-		GetTeamUnitsByDefs = function(teamID)
-			return rates[teamID] and { teamID } or {}
-		end,
-		GetUnitResources = function(unitID)
-			return rates[unitID], 0, 0, 0
 		end,
 	}
 end
@@ -21,39 +14,26 @@ end
 local teams = {
 	[0] = { allyTeam = 0, isDead = false },
 	[1] = { allyTeam = 0, isDead = false },
-	[2] = { allyTeam = 1, isDead = false },
-	[3] = { allyTeam = 0, isDead = true },
 }
+local made = { [0] = { metal = 6, energy = 0 }, [1] = { metal = 2, energy = 0 } }
 
-describe("shared mex income, on economy's tick", function()
-	local resolved = ModuleHandler.LoadEnrichers(EconomyContract.Pooling)
-	setup(function()
-		_G.UnitDefs = _G.UnitDefs or { [7] = { extractsMetal = 1, customParams = {} } }
+describe("what extraction pays, under shared mex splitting", function()
+	local resolved = ModuleHandler.LoadEnrichers(EconomyContract.Extraction)
+
+	it("is the ally team's mex metal, split evenly", function()
+		local ctx = { springRepo = spring(TransferEnums.MexSplitting.Shared), teams = teams, seconds = 2, made = made }
+		local income = ModuleHandler.EnrichWith(resolved, { transfer = true }, ctx)[EconomyContract.Extraction.Income]
+		assert.are.same({ [0] = { metal = 4, energy = 0 }, [1] = { metal = 4, energy = 0 } }, income)
 	end)
 
-	it(
-		"pools each ally team's extraction over the tick and hands it round evenly; the dead and other ally teams apart",
-		function()
-			local ctx = {
-				springRepo = spring(TransferEnums.MexSplitting.Shared, { [0] = 3, [1] = 1, [2] = 9, [3] = 5 }),
-				teams = teams,
-				seconds = 2,
-			}
-			local transfers =
-				ModuleHandler.EnrichWith(resolved, { transfer = true }, ctx)[EconomyContract.Pooling.Transfers]
-			assert.are.same({ { from = 0, to = 1, resourceType = "metal", amount = 2 } }, transfers)
-		end
-	)
-
-	it("is not transfer's to say under any other mex splitting", function()
-		local ctx = {
-			springRepo = spring(TransferEnums.MexSplitting.MapAssigned, { [0] = 3, [1] = 1 }),
-			teams = teams,
-			seconds = 2,
-		}
-		assert.are.same(
-			{},
-			ModuleHandler.EnrichWith(resolved, { transfer = true }, ctx)[EconomyContract.Pooling.Transfers]
+	it("is what the engine paid under any other mex splitting", function()
+		local ctx =
+			{ springRepo = spring(TransferEnums.MexSplitting.MapAssigned), teams = teams, seconds = 2, made = made }
+		assert.is_true(
+			rawequal(
+				made,
+				ModuleHandler.EnrichWith(resolved, { transfer = true }, ctx)[EconomyContract.Extraction.Income]
+			)
 		)
 	end)
 end)

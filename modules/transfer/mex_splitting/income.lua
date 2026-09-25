@@ -1,60 +1,31 @@
----@class MexIncome the metal a team's extractors make, and how a team's pooled extraction splits back evenly
+---@class MexIncome what an ally team's mexes made, paid back evenly
 local Income = {}
 
----@param springRepo Spring
----@param teamID integer
----@param mexDefIDs integer[] the unit defs that extract metal
----@return number metal per second the team's extractors make
-function Income.Extraction(springRepo, teamID, mexDefIDs)
-	local rate = 0.0
-	for _, unitID in ipairs(springRepo.GetTeamUnitsByDefs(teamID, mexDefIDs) or {}) do
-		local metalMake = springRepo.GetUnitResources(unitID)
-		rate = rate + (metalMake or 0)
-	end
-	return rate
-end
-
----@class MexIncomeSeat one team of an ally team, with what its extractors made this tick
----@field teamID integer
----@field made number
-
----@param seats MexIncomeSeat[] the teams of one ally team
----@return EconomyTransfer[] what the teams above the even share hand the teams below it
-function Income.Even(seats)
-	local total = 0.0
-	for _, seat in ipairs(seats) do
-		total = total + seat.made
-	end
-	if #seats < 2 or total <= 0 then
-		return {}
-	end
-	local share = total / #seats
-	local givers = {} ---@type { teamID: integer, surplus: number }[]
-	local takers = {} ---@type { teamID: integer, deficit: number }[]
-	for _, seat in ipairs(seats) do
-		if seat.made > share then
-			givers[#givers + 1] = { teamID = seat.teamID, surplus = seat.made - share }
-		elseif seat.made < share then
-			takers[#takers + 1] = { teamID = seat.teamID, deficit = share - seat.made }
+---@param teams table<integer, EconomyTeamResources> by team id
+---@param made table<integer, table<ResourceName, number>> what each team's extractors made, by team id
+---@return table<integer, table<ResourceName, number>> the same, the metal of each ally team's living members split evenly among them
+function Income.Shared(teams, made)
+	local members = {} ---@type table<integer, integer[]>
+	for teamID, team in pairs(teams) do
+		if not team.isDead and made[teamID] then
+			members[team.allyTeam] = members[team.allyTeam] or {}
+			table.insert(members[team.allyTeam], teamID)
 		end
 	end
-	local transfers = {} ---@type EconomyTransfer[]
-	local t = 1
-	for _, giver in ipairs(givers) do
-		local left = giver.surplus
-		while left > 1e-9 and t <= #takers do
-			local taker = takers[t]
-			local amount = math.min(left, taker.deficit)
-			transfers[#transfers + 1] =
-				{ from = giver.teamID, to = taker.teamID, resourceType = "metal", amount = amount }
-			left = left - amount
-			taker.deficit = taker.deficit - amount
-			if taker.deficit <= 1e-9 then
-				t = t + 1
-			end
+	local income = {}
+	for teamID, paid in pairs(made) do
+		income[teamID] = { metal = paid.metal, energy = paid.energy }
+	end
+	for _, teamIDs in pairs(members) do
+		local total = 0.0
+		for _, teamID in ipairs(teamIDs) do
+			total = total + (made[teamID].metal or 0)
+		end
+		for _, teamID in ipairs(teamIDs) do
+			income[teamID].metal = total / #teamIDs
 		end
 	end
-	return transfers
+	return income
 end
 
 return Income
