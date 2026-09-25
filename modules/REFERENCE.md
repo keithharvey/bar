@@ -68,7 +68,12 @@ Policies.On(UnitDef) -- in a policy: both run, on the same def, in this order
 Not a policy. The facts a decision reads, which other modules may fill before the policy is asked. A fact informs a decision; it is not the decision. One fact, three files:
 ```lua
 -- transfer/contract.lua: the fact, declared and typed by its owner
-TeamTerms = Policy.Facts({ TaxRate = "taxRate" }),
+---@class TransferTeamTermsFacts: PolicyFacts<TransferTermsContext>
+---@field TaxRate "taxRate"
+---@type TransferTeamTermsFacts
+local TeamTerms = { TaxRate = "taxRate" }
+…
+TeamTerms = Policy.Facts(TeamTerms),
 
 -- transfer/policies/terms_defaults.lua: what it means when nobody else answers
 Policies.On(Contract.TeamTerms).Default(Contract.TeamTerms.TaxRate, function(ctx)

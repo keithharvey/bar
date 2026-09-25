@@ -8,8 +8,8 @@ local Modules = require("modules/enums").Modules
 ---@field assistEnabled boolean the allied assist modoption
 
 ---@class ConstructionAssistSteps: PolicySteps<ConstructionAssistContext, boolean>
----@field AlliedAssistDisabled string
----@field Allowed string
+---@field AlliedAssistDisabled "AlliedAssistDisabled"
+---@field Allowed "Allowed"
 
 ---@type ConstructionAssistSteps
 local Assist = {
@@ -24,8 +24,8 @@ local Assist = {
 ---@field reclaimEnabled boolean the allied unit reclaim modoption
 
 ---@class ConstructionReclaimSteps: PolicySteps<ConstructionReclaimContext, boolean>
----@field AlliedReclaimDisabled string
----@field Allowed string
+---@field AlliedReclaimDisabled "AlliedReclaimDisabled"
+---@field Allowed "Allowed"
 
 ---@type ConstructionReclaimSteps
 local Reclaim = {
@@ -37,8 +37,8 @@ local Reclaim = {
 ---@field partialAllowed boolean the partial resurrection modoption
 
 ---@class ConstructionResurrectSteps: PolicySteps<ConstructionResurrectContext, boolean>
----@field PartialResurrectionDisabled string
----@field Allowed string
+---@field PartialResurrectionDisabled "PartialResurrectionDisabled"
+---@field Allowed "Allowed"
 
 ---@type ConstructionResurrectSteps
 local Resurrect = {
@@ -56,8 +56,8 @@ local Resurrect = {
 ---@field part number the step's share of the whole; negative for reclaim
 
 ---@class ConstructionBuildSteps: PolicySteps<ConstructionBuildContext, boolean>
----@field BuilderDelayed string
----@field Allowed string
+---@field BuilderDelayed "BuilderDelayed"
+---@field Allowed "Allowed"
 
 ---@type ConstructionBuildSteps
 local Build = {
@@ -81,9 +81,9 @@ local Build = {
 ---@field spotHolderAllied boolean the holder is another team on the builder's side; an enemy's hold restricts nobody
 
 ---@class ConstructionPlacementSteps: PolicySteps<ConstructionPlacementContext, boolean>
----@field AlliedExtractorOccupied string
+---@field AlliedExtractorOccupied "AlliedExtractorOccupied"
 ---@field SpotHeldByAnAlly string an extractor on a spot an ally holds, unless it goes onto that ally's extractor and utility buildings may change hands
----@field Allowed string
+---@field Allowed "Allowed"
 
 ---@type ConstructionPlacementSteps
 local Placement = {
@@ -109,7 +109,7 @@ local PlacementFacts = {
 ---@field tier integer|nil the team's tech tier, a fact tech provides; nil when no tier system is live
 
 ---@class ConstructionCreationSteps: PolicySteps<ConstructionCreationContext, boolean>
----@field Allowed string
+---@field Allowed "Allowed"
 
 ---@type ConstructionCreationSteps
 local Creation = {

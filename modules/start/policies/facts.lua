@@ -17,17 +17,18 @@ local Policy = require("modules/policy")
 ---@field boxes StartBox[]
 
 ---@class StartFacts: PolicyFacts<StartContext>
----@field Areas string
----@field Positions string
+---@field Areas "areas"
+---@field Positions "positions"
 
 ---@class (partial) StartContract
 ---@field Facts StartFacts
 
 ---@type StartFacts
-local Facts = Policy.Facts({
+local Facts = {
 	Areas = "areas",
 	Positions = "positions",
-})
+}
+Policy.Facts(Facts)
 
 Policies.On(Facts)
 	.Default(Facts.Areas, function(ctx)
