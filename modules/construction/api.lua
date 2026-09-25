@@ -51,4 +51,9 @@ return {
 	IsExtractor = function(unitDefID)
 		return Placement.IsExtractor(unitDefID)
 	end,
+
+	---@return integer[] the unit def ids that extract metal
+	Mexes = function()
+		return Placement.ExtractorDefIDs("mex")
+	end,
 }
