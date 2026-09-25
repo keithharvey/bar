@@ -1334,18 +1334,11 @@ local function stepLabels()
 	return true
 end
 
-local function stepStartPos()
+local function stepStartboxes()
 	local st = WG.RegionsTool
 	if not st then
-		sectionSkip("startpos", "regions tool not loaded")
 		sectionSkip("startboxes", "regions tool not loaded")
 		return true
-	end
-	local posPath = job.dir .. "startpos.lua"
-	if st.saveStartPositions(nil, posPath) then
-		sectionOk("startpos", "startpos.lua", fileSize(posPath))
-	else
-		sectionSkip("startpos", "write failed")
 	end
 	local boxPath = job.dir .. "startboxes.lua"
 	if st.saveStartboxes(nil, boxPath) then
@@ -1674,7 +1667,6 @@ local SECTION_FILES = {
 	features = { "features.lua" },
 	units = { "units.lua" },
 	decals = { "decals.lua" },
-	startpos = { "startpos.lua" },
 	startboxes = { "startboxes.lua" },
 	regions = { "regions.lua" },
 	lights = { "lights.lua" },
@@ -1814,7 +1806,6 @@ local function stepManifest()
 		"features",
 		"units",
 		"decals",
-		"startpos",
 		"startboxes",
 		"regions",
 		"lights",
@@ -1986,7 +1977,7 @@ local STEPS = {
 	{ name = "decals", run = stepDecals },
 	{ name = "lights", run = stepLights },
 	{ name = "labels", run = stepLabels },
-	{ name = "startpos", run = stepStartPos },
+	{ name = "startboxes", run = stepStartboxes },
 	{ name = "regions", run = stepRegions },
 	{ name = "environment", run = stepEnvironment },
 	{ name = "weather", run = stepWeather },
@@ -3572,18 +3563,6 @@ end
 -- validation and patch ground-snap read final heights).
 local function phaseStartposGrass(c)
 	local st = WG.RegionsTool
-	local posPath = sectionFile("startpos")
-	if posPath then
-		if st and st.loadStartPositions then
-			if st.loadStartPositions(nil, posPath) then
-				loadOk("startpos", nil)
-			else
-				loadSkip("startpos", "startpos tool rejected the file")
-			end
-		else
-			loadSkip("startpos", "startpos tool widget not loaded")
-		end
-	end
 	local boxPath = sectionFile("startboxes")
 	if boxPath then
 		if st and st.loadStartboxes then
