@@ -1,6 +1,7 @@
 local Claims = require("modules/transfer/mex_splitting/claims")
 local Contract = require("modules/transfer/contract")
 local Deal = require("modules/transfer/mex_splitting/deal")
+local Hull = require("modules/transfer/mex_splitting/hull")
 local ModuleHandler = require("modules/module_handler")
 local Modules = require("modules/enums").Modules
 local ResourceShared = require("modules/transfer/resource/shared")
@@ -47,6 +48,8 @@ end
 
 ---@class TransferMexSplittingApi Map Assigned: the layout, the deal, and who holds what
 local MexSplitting = {
+	Hull = Hull,
+
 	---@param springRepo Spring
 	---@return MexRegion[]|nil regions
 	---@return string source
