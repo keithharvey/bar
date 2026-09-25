@@ -26,7 +26,7 @@ Policies.On(Regions.Names).Apply(RegionsNames.FromTeam, function(ctx)
 	for i, region in ipairs(ctx.regions) do
 		---@cast region StartRegion
 		if region.team ~= nil then
-			ctx.bases[i] = tostring(region.team)
+			ctx.proposed[i] = tostring(region.team)
 		end
 	end
 end)

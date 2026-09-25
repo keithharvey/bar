@@ -51,7 +51,7 @@ Policies.On(Regions.Names).Apply(MexRegionsNames.FromGroup, function(ctx)
 		---@cast region MexRegion
 		local group = region.group
 		if group ~= nil and group ~= "" then
-			ctx.bases[i] = tostring(group)
+			ctx.proposed[i] = tostring(group)
 		end
 	end
 end)

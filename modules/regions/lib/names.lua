@@ -2,14 +2,14 @@
 local Names = {}
 
 ---@param regions Region[]
----@param bases string[]
+---@param proposed string[]
 ---@return { name: string, derived: boolean }[]
-function Names.Of(regions, bases)
+function Names.Of(regions, proposed)
 	local nameless = {} ---@type table<string, integer>
 	for i, region in ipairs(regions) do
 		if region.name == nil or region.name == "" then
-			local base = tostring(bases[i])
-			nameless[base] = (nameless[base] or 0) + 1
+			local proposal = tostring(proposed[i])
+			nameless[proposal] = (nameless[proposal] or 0) + 1
 		end
 	end
 	local seen = {} ---@type table<string, integer>
@@ -18,9 +18,10 @@ function Names.Of(regions, bases)
 		if region.name ~= nil and region.name ~= "" then
 			out[i] = { name = region.name, derived = false }
 		else
-			local base = tostring(bases[i])
-			seen[base] = (seen[base] or 0) + 1
-			out[i] = { name = nameless[base] > 1 and (base .. "_" .. seen[base]) or base, derived = true }
+			local proposal = tostring(proposed[i])
+			seen[proposal] = (seen[proposal] or 0) + 1
+			out[i] =
+				{ name = nameless[proposal] > 1 and (proposal .. "_" .. seen[proposal]) or proposal, derived = true }
 		end
 	end
 	return out
