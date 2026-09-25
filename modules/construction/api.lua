@@ -56,4 +56,9 @@ return {
 	Mexes = function()
 		return Placement.ExtractorDefIDs("mex")
 	end,
+
+	---@return integer[] the unit def ids that extract energy from the ground
+	Geos = function()
+		return Placement.ExtractorDefIDs("geo")
+	end,
 }

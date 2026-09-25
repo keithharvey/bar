@@ -8,6 +8,6 @@ Policies.On(Contract.Redistribution).Default(Contract.Redistribution.Results, fu
 	return ctx.results
 end)
 
-Policies.On(Contract.Pooling).Default(Contract.Pooling.Transfers, function()
-	return {}
+Policies.On(Contract.Extraction).Default(Contract.Extraction.Income, function(ctx)
+	return ctx.made
 end)

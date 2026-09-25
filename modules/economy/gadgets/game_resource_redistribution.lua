@@ -22,6 +22,7 @@ end
 GG = GG or {}
 
 local Contract = require("modules/economy/contract")
+local Extraction = require("modules/economy/lib/extraction")
 local ModuleHandler = require("modules/module_handler")
 local ResourceTypes = require("gamedata/resource_types")
 local ShareStats = require("modules/economy/lib/share_stats")
@@ -63,20 +64,28 @@ local function amended(results)
 	return amendedResults[Contract.Redistribution.Results] or results
 end
 
--- What allies hand each other before the tick is solved: a module's fact, applied to the snapshot.
+-- What extraction pays each team this tick is economy's question; the engine's answer is the default. Whatever a
+-- mode answers, the team's balance is made to match before the tick is solved.
 ---@param teams table<integer, EconomyTeamResources>
-local function pool(teams)
-	---@type EconomyPoolingContext
-	local ctx = { springRepo = springRepo, teams = teams, seconds = CADENCE / 30 }
-	local transfers =
-		ModuleHandler.Enrich(Contract.Pooling, springRepo.GetModOptions(), ctx)[Contract.Pooling.Transfers]
-	for _, t in ipairs(transfers or {}) do
-		local from = teams[t.from] and teams[t.from][t.resourceType]
-		local to = teams[t.to] and teams[t.to][t.resourceType]
-		if from and to and t.amount > 0 then
-			local amount = math.min(t.amount, from.current)
-			from.current = from.current - amount
-			to.current = math.min(to.storage, to.current + amount)
+local function payExtraction(teams)
+	local teamIDs = {}
+	for teamID in pairs(teams) do
+		teamIDs[#teamIDs + 1] = teamID
+	end
+	table.sort(teamIDs)
+	local seconds = CADENCE / 30
+	local made = Extraction.Made(springRepo, teamIDs, seconds)
+	---@type EconomyExtractionContext
+	local ctx = { springRepo = springRepo, teams = teams, seconds = seconds, made = made }
+	local income = ModuleHandler.Enrich(Contract.Extraction, springRepo.GetModOptions(), ctx)[Contract.Extraction.Income]
+		or made
+	for teamID, paid in pairs(income) do
+		for resourceType, amount in pairs(paid) do
+			local res = teams[teamID] and teams[teamID][resourceType]
+			local delta = amount - ((made[teamID] or {})[resourceType] or 0)
+			if res and delta ~= 0 then
+				res.current = math.max(0, math.min(res.storage, res.current + delta))
+			end
 		end
 	end
 end
@@ -151,7 +160,7 @@ local function redistribute(frame)
 	end
 
 	local teams = buildSnapshot()
-	pool(teams)
+	payExtraction(teams)
 	local results = amended(WaterfillSolver.SolveToResults(springRepo, teams, taxRateFor))
 
 	for i = 1, #results do

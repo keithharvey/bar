@@ -8,12 +8,11 @@ describe("economy's own answers, when no module provides", function()
 		assert.are.equal(0, facts[Contract.Distribution.TaxRate])
 	end)
 
-	it("pools nothing", function()
-		local resolved = ModuleHandler.LoadEnrichers(Contract.Pooling)
-		assert.are.same(
-			{},
-			ModuleHandler.EnrichWith(resolved, {}, { teams = {}, seconds = 1 })[Contract.Pooling.Transfers]
-		)
+	it("pays extraction as the engine did", function()
+		local resolved = ModuleHandler.LoadEnrichers(Contract.Extraction)
+		local made = { [1] = { metal = 3, energy = 0 } }
+		local ctx = { teams = {}, seconds = 1, made = made }
+		assert.is_true(rawequal(made, ModuleHandler.EnrichWith(resolved, {}, ctx)[Contract.Extraction.Income]))
 	end)
 
 	it("redistributes the results as they are", function()
