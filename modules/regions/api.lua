@@ -52,7 +52,6 @@ function Api.Create(typeKey, fields)
 	local region = fields or {} ---@type Region
 	region.type = typeKey
 	region.id = region.id or mintId()
-	region.tags = region.tags or {}
 	region.vertices = region.vertices or {}
 	return region --[[@as StoredRegion]]
 end
@@ -226,39 +225,6 @@ function Api.Set(id, key, value)
 	region[key] = value
 	store().revision = store().revision + 1
 	return true, nil
-end
-
----@param id string
----@param tag string
----@return boolean
-function Api.Tag(id, tag)
-	local region = store().byId[id]
-	tag = tag and tag:match("^%s*(.-)%s*$") or ""
-	if not region or tag == "" then
-		return false
-	end
-	region.tags = region.tags or {}
-	for _, existing in ipairs(region.tags) do
-		if existing == tag then
-			return false
-		end
-	end
-	region.tags[#region.tags + 1] = tag
-	store().revision = store().revision + 1
-	return true
-end
-
----@param id string
----@param index integer
----@return boolean
-function Api.Untag(id, index)
-	local region = store().byId[id]
-	if region and region.tags and region.tags[index] then
-		table.remove(region.tags, index)
-		store().revision = store().revision + 1
-		return true
-	end
-	return false
 end
 
 ---@param typeKey RegionTypeKey

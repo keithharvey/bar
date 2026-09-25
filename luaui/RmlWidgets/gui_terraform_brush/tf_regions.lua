@@ -179,15 +179,6 @@ function M.sync(doc, ctx, rgState, setSummary)
 	setRg("rgSubMode", rgState.subMode or "")
 	setRg("rgStartboxMode", rgState.startboxMode or "polygon")
 
-	if doc and widgetState.wireTextInput then
-		widgetState.rgWiredInputs = widgetState.rgWiredInputs or setmetatable({}, { __mode = "k" })
-		local el = doc:GetElementById("rg-tag-input")
-		if el and not widgetState.rgWiredInputs[el] then
-			widgetState.rgWiredInputs[el] = true
-			widgetState.wireTextInput(el)
-		end
-	end
-
 	local labels = rgState.regionTypeLabels or {}
 	local typeLabel = labels[rgState.regionType] and labels[rgState.regionType].label or "Region"
 	setRg("rgRegionType", rgState.regionType or "start")
@@ -332,20 +323,6 @@ function M.sync(doc, ctx, rgState, setSummary)
 				end
 				factsEl.inner_rml = table.concat(html) .. problemLines(selected and selected.problems)
 			end
-
-			local tags = selected and selected.tags or {}
-			local tagOptions = {}
-			for i, tag in ipairs(tags) do
-				tagOptions[i] = { label = tag .. " ×", value = i }
-			end
-			fillChips(doc, "rg-tag-list", tagOptions, function()
-				return false
-			end, function(option)
-				if st and st.removeTag then
-					st.removeTag(option.value)
-				end
-			end)
-
 		end)
 		safely(widgetState, "list", function()
 			local problems = rgState.problems or {}
@@ -430,7 +407,6 @@ function M.sync(doc, ctx, rgState, setSummary)
 							.. '</div><div class="ll-preset-desc">'
 							.. #(region.vertices or {})
 							.. " pts"
-							.. ((region.tags and #region.tags > 0) and (" · " .. #region.tags .. " tags") or "")
 							.. "</div>"
 							.. problemLines(problems.byIndex and problems.byIndex[i])
 							.. "</div>"

@@ -7254,18 +7254,6 @@ local initialModel = {
 			WG.RegionsTool.setRegionType(typeKey)
 		end
 	end,
-	onRgRegionAddTag = function(_event)
-		local st = WG.RegionsTool
-		local doc = widgetState.document
-		if not (st and st.addTag and doc) then
-			return
-		end
-		local el = doc:GetElementById("rg-tag-input")
-		if el and st.addTag(el:GetAttribute("value") or "") then
-			el:SetAttribute("value", "")
-			playSound("apply")
-		end
-	end,
 	onRgDrawArea = function(_event)
 		local st = WG.RegionsTool
 		if st and st.drawArea and st.getState then

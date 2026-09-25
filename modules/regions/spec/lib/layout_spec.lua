@@ -59,21 +59,19 @@ describe("a region layout", function()
 				team = 2,
 				name = "",
 				stray = "dropped",
-				tags = { "x" },
 				vertices = { { x = 0, z = 0 }, { x = 200, z = 0 }, { x = 0, z = 200 } },
 			},
 			{ type = "start", team = 1, vertices = { { x = 100, z = 50 } } },
 			{ type = "nobody_knows", vertices = {} },
 		}, byKey, 200, 200)
 		assert.are.same(
-			{ team = 2, tags = { "x" }, poly = { { x = 0, y = 0 }, { x = 200, y = 0 }, { x = 0, y = 200 } } },
+			{ team = 2, poly = { { x = 0, y = 0 }, { x = 200, y = 0 }, { x = 0, y = 200 } } },
 			layout.regions.start[1]
 		)
 		assert.are.same({ team = 1, x = 100, y = 50 }, layout.regions.start[2])
 		assert.is_nil(layout.regions.nobody_knows)
 		local back = assert(Layout.Parse(layout, byKey.start, 200, 200))
 		assert.are.equal(2, back[1].team)
-		assert.are.same({ "x" }, back[1].tags)
 	end)
 
 	it("keeps a curve's anchors and a rect's corners, and derives the outline and the kind on the way back", function()

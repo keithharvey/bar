@@ -12,11 +12,10 @@ local function start(team, name)
 end
 
 describe("a new region", function()
-	it("is given its type, its tags and an id by Create, and keeps an id it already has", function()
+	it("is given its type and an id by Create, and keeps an id it already has", function()
 		local a = Regions.Create(Enums.Types.Start, { team = 1 })
 		local b = Regions.Create(Enums.Types.Start, { team = 2 })
 		assert.are.equal("start", a.type)
-		assert.are.same({}, a.tags)
 		assert.is_string(a.id)
 		assert.are_not.equal(a.id, b.id)
 		assert.are.equal("kept", Regions.Create(Enums.Types.Start, { id = "kept" }).id)
@@ -77,17 +76,6 @@ describe("the region store", function()
 		assert.is_false((Regions.Set("nobody", "name", "x")))
 	end)
 
-	it("tags and untags, trimming and refusing duplicates", function()
-		local a = Regions.Put(start(1))
-		assert.is_true(Regions.Tag(a.id, "  north  "))
-		assert.is_false(Regions.Tag(a.id, "north"))
-		assert.is_false(Regions.Tag(a.id, "   "))
-		assert.are.same({ "north" }, a.tags)
-		assert.is_true(Regions.Untag(a.id, 1))
-		assert.is_false(Regions.Untag(a.id, 1))
-		assert.are.same({}, a.tags)
-	end)
-
 	it("answers the set check and the names over what it holds", function()
 		Regions.Put(start(1))
 		local b = Regions.Put(start(1, "twin"))
@@ -114,10 +102,9 @@ describe("the layout as a file", function()
 	end)
 
 	it(
-		"serializes the store as Lua that returns the layout, and reads it back with ids, fields, tags and curvature",
+		"serializes the store as Lua that returns the layout, and reads it back with ids, fields and curvature",
 		function()
 			local flat = Regions.Put(start(1, "north"))
-			Regions.Tag(flat.id, "cold")
 			local curved = Regions.Put({
 				type = Enums.Types.Start,
 				team = 2,
@@ -138,7 +125,6 @@ describe("the layout as a file", function()
 			local first, second = assert(back[1]), assert(back[2])
 			assert.are.equal(flat.id, first.id)
 			assert.are.equal("north", first.name)
-			assert.are.same({ "cold" }, first.tags)
 			assert.are.equal("polygon", first.kind)
 			assert.are.same(square, first.vertices)
 			assert.are.equal(curved.id, second.id)
