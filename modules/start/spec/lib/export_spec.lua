@@ -5,8 +5,9 @@ local square = { { x = 0, z = 0 }, { x = 500, z = 0 }, { x = 500, z = 500 }, { x
 describe("the startbox arrangement export", function()
 	it("normalises anchors to 0..200, ships a rect as two corners, and snaps strength", function()
 		local out = Export.Arrangement({
-			{ team = 1, kind = "box", vertices = square },
+			{ type = "start", team = 1, kind = "box", vertices = square },
 			{
+				type = "start",
 				team = 2,
 				kind = "spline",
 				controls = {
@@ -16,17 +17,18 @@ describe("the startbox arrangement export", function()
 				},
 			},
 		}, 1000, 1000)
-		assert.are.same({ { x = 0, y = 0 }, { x = 100, y = 100 } }, out[1].poly)
-		assert.are.same({ x = 200, y = 200, strength = 0.5 }, out[2].poly[1])
-		assert.is_nil(out[2].poly[2].strength, "a strength that rounds to zero is omitted")
+		local first, second = assert(out[1]), assert(out[2])
+		assert.are.same({ { x = 0, y = 0 }, { x = 100, y = 100 } }, first.poly)
+		assert.are.same({ x = 200, y = 200, strength = 0.5 }, second.poly[1])
+		assert.is_nil(assert(second.poly[2]).strength, "a strength that rounds to zero is omitted")
 	end)
 end)
 
 describe("the start script", function()
 	it("gives each team its areas' bounding rect, one AI per team past the first, and the mod options", function()
 		local script = assert(Export.StartScript({
-			{ team = 1, vertices = square },
-			{ team = 2, vertices = { { x = 500, z = 500 }, { x = 1000, z = 1000 } } },
+			{ type = "start", team = 1, vertices = square },
+			{ type = "start", team = 2, vertices = { { x = 500, z = 500 }, { x = 1000, z = 1000 } } },
 		}, 1000, 1000, { mapName = "Some Map", modOptions = { deathmode = "neverend" } }))
 		assert.matches("startrectright = 0.50000000;", script)
 		assert.matches("%[allyTeam1%]", script)

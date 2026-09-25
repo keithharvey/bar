@@ -40,14 +40,11 @@ describe("the mex region type", function()
 			mex({ team = 1, group = "tech", name = "given" }),
 			mex({ team = 1 }),
 		})
-		assert.are.same({ "anti", "tech_1", "tech_2", "tech_3", "given", "mex_region" }, {
-			names[1].name,
-			names[2].name,
-			names[3].name,
-			names[4].name,
-			names[5].name,
-			names[6].name,
-		})
+		local given = {}
+		for i, named in ipairs(names) do
+			given[i] = named.name
+		end
+		assert.are.same({ "anti", "tech_1", "tech_2", "tech_3", "given", "mex_region" }, given)
 		assert.is_false(names[5].derived)
 	end)
 

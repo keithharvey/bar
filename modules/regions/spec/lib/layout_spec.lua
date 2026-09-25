@@ -42,14 +42,14 @@ describe("a region layout", function()
 			200,
 			200
 		)
-		assert.matches("a needs a poly", reason)
+		assert.matches("a needs a poly", assert(reason))
 		_, reason = Layout.Parse({ regions = { start = { { team = 1 } } } }, byKey.start, 200, 200)
-		assert.matches("start 1 has no shape", reason)
+		assert.matches("start 1 has no shape", assert(reason))
 		_, reason = Layout.Parse({ regions = { other = {} } }, byKey.start, 200, 200)
-		assert.matches("lists no start", reason)
+		assert.matches("lists no start", assert(reason))
 		---@diagnostic disable-next-line: param-type-mismatch
 		_, reason = Layout.Parse("nonsense", byKey.start, 200, 200)
-		assert.matches("a layout is", reason)
+		assert.matches("a layout is", assert(reason))
 	end)
 
 	it("exports every type under its key with the fields its type declares, and reads them back", function()
