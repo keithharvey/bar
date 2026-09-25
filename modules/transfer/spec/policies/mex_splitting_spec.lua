@@ -294,3 +294,40 @@ describe("the spot holder fact", function()
 		assert.is_nil(Deal.Decode("not json", 200, 200))
 	end)
 end)
+
+---@return MexRegion
+local function mexA()
+	return {
+		type = RegionEnums.Types.MexRegion,
+		name = "a",
+		team = 1,
+		group = "g",
+		vertices = { { x = 0, z = 0 }, { x = 100, z = 0 }, { x = 100, z = 100 }, { x = 0, z = 100 } },
+	}
+end
+
+describe("what mex splitting says about a region", function()
+	it(
+		"is the region's team and group, the metal spots inside and their worth when the map's spots are given",
+		function()
+			local d = Regions.Describe(mexA(), {
+				spots = {
+					{ x = 10, z = 10, worth = 2000 },
+					{ x = 20, z = 20, worth = 1500 },
+					{ x = 500, z = 500, worth = 9 },
+				},
+			})
+			assert.are.equal(1, d.team)
+			assert.are.equal("g", d.group)
+			assert.are.equal(2, d.spots)
+			assert.are.equal(3.5, d.worth)
+			assert.are.equal(10000, d.area)
+		end
+	)
+
+	it("knows no spots when the map's are not given", function()
+		local d = Regions.Describe(mexA(), {})
+		assert.is_nil(d.spots)
+		assert.are.equal("g", d.group)
+	end)
+end)
