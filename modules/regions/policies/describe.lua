@@ -1,35 +1,31 @@
-local Geometry = require("modules/regions/lib/geometry")
 local PolicyBuilder = require("modules/policy_builder")
 
----@class RegionDescribeContext the context for building the label/value lines shown for one region
+---@class RegionDescription what is known of any region: its shape. The module that owns a type answers with its own record extending this
+---@field area number elmos squared; 0 for a point
+---@field centre { x: number, z: number } the vertex centroid, or the point itself
+
+---@class RegionDescribeContext the context for describing one region
 ---@field type RegionType
 ---@field region Region
+---@field shape RegionDescription the shape's facts, computed by the api before the ask
 ---@field map RegionMap what the caller knows of the map, passed through untouched
----@field lines { [1]: string, [2]: string }[] { label, value } pairs, in the order the stages add them
 
----@class RegionDescribeStages: PolicyStages<RegionDescribeContext, RegionDescribeContext> the lines shown for a region. The module that owns a type adds the lines only it can compute
----@field Shape string the area (elmos squared, 0 for a point) and the centre (vertex centroid, or the point itself)
+---@class RegionDescribeStages: PolicyStages<RegionDescribeContext, RegionDescription> one answer per region: the module that owns the type answers for its own type, placed before Shape; the shape alone answers for a type nobody describes
+---@field Shape string the shape's facts alone
 
 ---@class (partial) RegionsContract
 ---@field Describe RegionDescribeStages
 
 ---@class (partial) RegionsPipelines
----@field describe AssembledPipeline<RegionDescribeContext, RegionDescribeContext>
+---@field describe AssembledPipeline<RegionDescribeContext, RegionDescription>
 
 ---@type RegionDescribeStages
-local Describe = PolicyBuilder.Fold({
+local Describe = PolicyBuilder.Single({
 	Shape = "Shape",
 })
 
-Policies.On(Describe).Apply(Describe.Shape, function(ctx)
-	local vertices = ctx.region.vertices or {}
-	local area = Geometry.Area(vertices)
-	if area > 0 then
-		ctx.lines[#ctx.lines + 1] =
-			{ "Area", string.format("%.0f x %.0f elmos equivalent", math.sqrt(area), math.sqrt(area)) }
-	end
-	local x, z = Geometry.Centroid(vertices)
-	ctx.lines[#ctx.lines + 1] = { "Centre", string.format("%d, %d", x, z) }
+Policies.On(Describe).Answer(Describe.Shape, function(ctx)
+	return ctx.shape
 end)
 
 return { Describe = Describe }

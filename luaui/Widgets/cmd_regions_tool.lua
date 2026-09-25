@@ -2175,9 +2175,26 @@ function R.facts(box)
 	local candidate = R.fieldValues(box)
 	candidate.type = box.type or R.type
 	candidate.vertices = verts
+	local d = R.api.Describe(candidate, { spots = spots })
 	local lines = { { "Vertices", tostring(#verts) } }
-	for _, line in ipairs(R.api.Describe(candidate, { spots = spots })) do
-		lines[#lines + 1] = line
+	if d.area > 0 then
+		lines[#lines + 1] =
+			{ "Area", string.format("%.0f x %.0f elmos equivalent", math_sqrt(d.area), math_sqrt(d.area)) }
+	end
+	lines[#lines + 1] = { "Centre", string.format("%d, %d", d.centre.x, d.centre.z) }
+	if candidate.type == "start" then
+		local s = d --[[@as StartDescription]]
+		lines[#lines + 1] = { "Start", tostring(s.team) }
+		lines[#lines + 1] = { "Positions", tostring(#s.positions) }
+	elseif candidate.type == "mex_region" then
+		local m = d --[[@as MexRegionDescription]]
+		lines[#lines + 1] = { "Group", tostring(m.group) }
+		if m.spots then
+			lines[#lines + 1] = {
+				"Metal spots",
+				m.spots .. (m.spots > 0 and string.format(" (%.1f metal/s with T1 mexes)", m.worth or 0) or ""),
+			}
+		end
 	end
 	return lines
 end

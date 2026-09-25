@@ -367,18 +367,22 @@ end
 Api.Tessellate = Layout.Tessellate
 
 ---@param region Region
----@param map RegionMap|nil what the caller knows of the map, for the type owners' lines
----@return { [1]: string, [2]: string }[] lines { label, value } pairs: the shape's lines first, then the type owner's
+---@param map RegionMap|nil what the caller knows of the map, for the type owner's answer
+---@return RegionDescription description the type owner's record for its own type, extending the shape's facts; the shape's facts alone otherwise
 function Api.Describe(region, map)
+	local vertices = region.vertices or {}
+	local x, z = Geometry.Centroid(vertices)
+	---@type RegionDescription
+	local shape = { area = Geometry.Area(vertices), centre = { x = x, z = z } }
 	local kind = Types.byKey[region.type]
 	if not kind then
-		return {}
+		return shape
 	end
-	local pipelines = ModuleHandler.LoadPolicies(Modules.Regions) ---@type RegionsPipelines
+	---@type RegionsPipelines
+	local pipelines = ModuleHandler.LoadPolicies(Modules.Regions)
 	---@type RegionDescribeContext
-	local ctx = { type = kind, region = region, map = map or {}, lines = {} }
-	ModuleHandler.Evaluate(pipelines.describe, ctx)
-	return ctx.lines
+	local ctx = { type = kind, region = region, shape = shape, map = map or {} }
+	return ModuleHandler.Evaluate(pipelines.describe, ctx) or shape
 end
 
 Api.Overlaps = Geometry.Overlaps
