@@ -27,6 +27,10 @@ Policies = {}
 ---@overload fun(facts: PolicyFacts<C>): PolicyEnrichment<C>
 function Policies.On(stages) end
 
+---@param moduleName string a Modules entry
+---@return table that module's contract: what its contract.lua declares and what its policy files return; annotate with the module's contract class
+function Policies.Contract(moduleName) end
+
 ---@class PolicyDescriptor
 ---@field name string
 ---@field kind "if"|"unless"|"answer"|"factor"|"apply"

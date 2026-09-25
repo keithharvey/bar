@@ -292,7 +292,18 @@ end
 local policiesCache = {}
 local enrichersCache = {}
 local presetsCache = nil
-local policyFiles = nil ---@type { chains: table, enrichments: table }|nil every module's policy chains and enrichments, read once
+---@class PolicyLoad every module's policies, read once
+---@field chains table<string, table<string, LoadedChain[]>> by the target's owner and category
+---@field enrichments table<string, table<string, LoadedEnrichment[]>> by the facts' owner and category
+---@field facts table<string, table<string, string[]>> facts[owner][category] = declared names
+---@field contributions table<string, table<string, { module: string, names: string[] }[]>> by the TARGET's owner and category
+---@field contracts table<string, table|nil> each module's contract: what its contract.lua declares and what its policy files return, one table
+---@field manifests table<string, ModuleManifest>
+---@field vfsMode string|nil
+---@field stack string[] the modules being loaded, innermost last
+
+local policyFiles = nil ---@type PolicyLoad|nil
+local policyLoad = nil ---@type PolicyLoad|nil the load in progress, so a policy file can ask for another module's contract
 
 ---@param map table<string, table<string, table[]>>
 ---@param owner string
@@ -342,17 +353,20 @@ end
 ---@field ops PolicyProvision[]
 ---@field file string
 
+local loadModulePolicies ---@type fun(load: PolicyLoad, name: string): table
+
+---@param load PolicyLoad
 ---@param name string module name
 ---@param source string the file, for messages
 ---@param run fun(facade: table): any hands the registrar to the source
+---@param onReturned fun(returned: table)|nil what to do with a table the source returns; without it a returned value is an error
 ---@return LoadedChain[] chains, LoadedEnrichment[] enrichments
-local function collectPolicies(name, source, run)
+local function collectPolicies(load, name, source, run, onReturned)
 	local filePath = source
 	local built = {} ---@type { kind: "pipeline"|"enrichment", chain: table }[]
 	local facade = {
 		On = function(target)
-			local identity = PolicyBuilder.IdentityOf(target)
-			if identity and identity.facts then
+			if PolicyBuilder.IsFacts(target) then
 				local chain = PolicyBuilder.Enrichment(target)
 				built[#built + 1] = { kind = "enrichment", chain = chain }
 				return chain
@@ -361,15 +375,23 @@ local function collectPolicies(name, source, run)
 			built[#built + 1] = { kind = "pipeline", chain = chain }
 			return chain
 		end,
+		Contract = function(moduleName)
+			return loadModulePolicies(load, moduleName)
+		end,
 	}
 	local returned = run(facade)
 	if returned ~= nil then
-		error(
-			filePath
-				.. ": policy files build pipelines and return nothing; a returned value would be cached and the registration lost"
-		)
+		if onReturned == nil or type(returned) ~= "table" then
+			error(
+				filePath
+					.. ": returns "
+					.. type(returned)
+					.. "; a policy file returns the stages it declares, or nothing"
+			)
+		end
+		onReturned(returned)
 	end
-	if #built == 0 then
+	if #built == 0 and returned == nil then
 		error(filePath .. ": builds no pipeline and no enrichment")
 	end
 	local chains, enrichments = {}, {}
@@ -380,7 +402,7 @@ local function collectPolicies(name, source, run)
 			if identity == nil then
 				error(
 					filePath
-						.. ": Policies.On needs a pipeline's stages or a contract's facts, a table from a module's contract.lua"
+						.. ": Policies.On needs a pipeline's stages or a contract's facts: declared by this file and returned, or another module's through Policies.Contract"
 				)
 			end
 			if identity.facts then
@@ -397,7 +419,7 @@ local function collectPolicies(name, source, run)
 			if identity == nil or not identity.facts then
 				error(
 					filePath
-						.. ": Policies.On needs a pipeline's stages or a contract's facts, a table from a module's contract.lua"
+						.. ": Policies.On needs a pipeline's stages or a contract's facts: declared by this file and returned, or another module's through Policies.Contract"
 				)
 			end
 			local ops = chain.Build()
@@ -410,31 +432,90 @@ local function collectPolicies(name, source, run)
 	return chains, enrichments
 end
 
----@param name string module name
----@param filePath string
----@param vfsMode string?
----@return LoadedChain[] chains, LoadedEnrichment[] enrichments
-local function loadPolicyFile(name, filePath, vfsMode)
-	return collectPolicies(name, filePath, function(facade)
-		return includeRegistrationFile(filePath, { Policies = facade }, vfsMode)
-	end)
+---@param load PolicyLoad
+---@param chains LoadedChain[]
+---@param enrichments LoadedEnrichment[]
+local function keepPolicies(load, chains, enrichments)
+	for _, chain in ipairs(chains) do
+		local list = bucket(load.chains, chain.identity.owner, chain.identity.category)
+		list[#list + 1] = chain
+	end
+	for _, enrichment in ipairs(enrichments) do
+		local list = bucket(load.enrichments, enrichment.identity.owner, enrichment.identity.category)
+		list[#list + 1] = enrichment
+	end
 end
 
+---@param load PolicyLoad
 ---@param name string module name
----@param contractPath string
----@param inline fun(Policies: table)
----@return LoadedChain[] chains, LoadedEnrichment[] enrichments
-local function loadInlinePolicies(name, contractPath, inline)
-	return collectPolicies(name, contractPath, function(facade)
-		return inline(facade)
-	end)
+---@return table contract
+function loadModulePolicies(load, name)
+	if load.contracts[name] then
+		return load.contracts[name]
+	end
+	local manifest = load.manifests[name]
+	if not manifest then
+		error("Policies.Contract: no module named " .. tostring(name))
+	end
+	for depth, loading in ipairs(load.stack) do
+		if loading == name then
+			if depth == #load.stack then
+				error(name .. ": a policy file asks for its own module's contract; declare the stages it needs")
+			end
+			error(table.concat(load.stack, " -> ", depth) .. " -> " .. name .. ": contracts that need each other")
+		end
+	end
+	load.stack[#load.stack + 1] = name
+	local contract = setmetatable({}, { __owner = name })
+	local vfsMode = load.vfsMode
+
+	---@param members table
+	---@param file string
+	local function declare(members, file)
+		for member, declared in pairs(members) do
+			if contract[member] ~= nil then
+				error(file .. ": " .. name .. " already declares " .. tostring(member))
+			end
+			contract[member] = declared
+		end
+		indexContract(name, members, load.facts, load.contributions)
+	end
+
+	local contractPath = manifest.dir .. LAYOUT.contract
+	if VFS.FileExists(contractPath, vfsMode) then
+		local declared = VFS.Include(contractPath, nil, vfsMode)
+		if type(declared) == "table" then
+			declare(declared, contractPath)
+			local inline = PolicyBuilder.InlinePolicies(declared)
+			if inline then
+				keepPolicies(load, collectPolicies(load, name, contractPath, inline))
+			end
+		end
+	end
+	local files = VFS.DirList(manifest.dir .. LAYOUT.policies, "*.lua", vfsMode)
+	table.sort(files)
+	for _, filePath in ipairs(files) do
+		local chains, enrichments = collectPolicies(load, name, filePath, function(facade)
+			return includeRegistrationFile(filePath, { Policies = facade }, vfsMode)
+		end, function(returned)
+			PolicyBuilder.Declare(name, returned, filePath)
+			declare(returned, filePath)
+		end)
+		keepPolicies(load, chains, enrichments)
+	end
+	load.stack[#load.stack] = nil
+	load.contracts[name] = contract
+	return contract
 end
 
 ---@param vfsMode string?
----@return { chains: table<string, table<string, LoadedChain[]>>, enrichments: table<string, table<string, LoadedEnrichment[]>>, contributions: table, facts: table }
+---@return PolicyLoad
 local function loadPolicyFiles(vfsMode)
 	if policyFiles then
 		return policyFiles
+	end
+	if policyLoad then
+		return policyLoad
 	end
 	local manifests = ModuleHandler.Manifests(vfsMode)
 	local names = {}
@@ -442,45 +523,42 @@ local function loadPolicyFiles(vfsMode)
 		names[#names + 1] = name
 	end
 	table.sort(names)
-
-	local chains, enrichments = {}, {}
-	local function keep(fileChains, fileEnrichments)
-		for _, chain in ipairs(fileChains) do
-			local list = bucket(chains, chain.identity.owner, chain.identity.category)
-			list[#list + 1] = chain
+	local load = {
+		chains = {},
+		enrichments = {},
+		facts = {},
+		contributions = {},
+		contracts = {},
+		manifests = manifests,
+		vfsMode = vfsMode,
+		stack = {},
+	}
+	policyLoad = load
+	local ok, err = pcall(function()
+		for _, name in ipairs(names) do
+			loadModulePolicies(load, name)
 		end
-		for _, enrichment in ipairs(fileEnrichments) do
-			local list = bucket(enrichments, enrichment.identity.owner, enrichment.identity.category)
-			list[#list + 1] = enrichment
-		end
+	end)
+	policyLoad = nil
+	if not ok then
+		error(err, 0)
 	end
-
-	local facts, contributions = {}, {}
-	local inlines = {} ---@type { name: string, path: string, run: fun(Policies: table) }[]
-	for _, name in ipairs(names) do
-		local contractPath = manifests[name].dir .. LAYOUT.contract
-		if VFS.FileExists(contractPath, vfsMode) then
-			local contract = VFS.Include(contractPath, nil, vfsMode)
-			indexContract(name, type(contract) == "table" and contract or {}, facts, contributions)
-			local inline = PolicyBuilder.InlinePolicies(contract)
-			if inline then
-				inlines[#inlines + 1] = { name = name, path = contractPath, run = inline }
-			end
-		end
-	end
-
-	for _, entry in ipairs(inlines) do
-		keep(loadInlinePolicies(entry.name, entry.path, entry.run))
-	end
-	for _, name in ipairs(names) do
-		local files = VFS.DirList(manifests[name].dir .. LAYOUT.policies, "*.lua", vfsMode)
-		table.sort(files)
-		for _, filePath in ipairs(files) do
-			keep(loadPolicyFile(name, filePath, vfsMode))
-		end
-	end
-	policyFiles = { chains = chains, enrichments = enrichments, contributions = contributions, facts = facts }
+	policyFiles = load
 	return policyFiles
+end
+
+---@param name string a Modules entry (modules/enums.lua)
+---@param vfsMode string?
+---@return table the module's contract: what its contract.lua declares and what its policy files return, one table
+function ModuleHandler.Contract(name, vfsMode)
+	if policyLoad then
+		return loadModulePolicies(policyLoad, name)
+	end
+	local contract = loadPolicyFiles(vfsMode).contracts[name]
+	if not contract then
+		error("ModuleHandler.Contract: no module named " .. tostring(name))
+	end
+	return contract
 end
 
 ---@param ops PolicyOp[]

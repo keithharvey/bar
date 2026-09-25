@@ -251,7 +251,7 @@ return PolicyBuilder.Contract(Modules.Transfer, {
 
 A contract belongs to a module. Name the owner with the enum, not a string, so a typo is a load error and not a module that silently never loads. Single means one question, one answer: the first stage that answers ends it. The real contract has three pipelines and four facts tables in this list; the shape is the same for each.
 
-A module small enough to fit in one file can hand the policy to `Contract` as a third argument instead of a `policies/` directory; `defs` does, and it is the only one that should.
+A module need not declare everything here. A policy file may declare the stages it builds and return them, and the loader stamps those the same way; the module's contract is then the union of `contract.lua` and what its policy files return. Regions does that: each file under `modules/regions/policies/` is one pipeline, its context, its stages and its rules read top to bottom, and there is no `contract.lua` at all. Another module reaches that union with `Policies.Contract(Modules.Regions)`. A module small enough to fit in one file can instead hand the policy to `Contract` as a third argument; `defs` does.
 
 ### What flows through it
 
@@ -436,13 +436,13 @@ return { name = "transport", description = "What a carrier may pick up, and how 
 
 **`contract.lua`**
 
-The one file to read to know what a module decides, which of those decisions others may change, and which facts it takes from them. Declares each pipeline's stage names, how its stages combine, and the context it reads. See [In contract.lua](REFERENCE.md#in-contractlua).
+What a module decides, which of those decisions others may change, and which facts it takes from them: each pipeline's stage names, how its stages combine, and the context it reads. Optional, because a policy file may declare and return the stages it builds; the module's contract is `contract.lua` and those returns together, and `ModuleHandler.Contract(Modules.X)` is that union. See [In contract.lua](REFERENCE.md#in-contractlua).
 <sub>Example: [`modules/transfer/contract.lua`](https://github.com/beyond-all-reason/Beyond-All-Reason/blob/transfer/modules/transfer/contract.lua)</sub>
 
 **`policies/`**
 
-The rules. Each file builds pipelines against a contract, its own or another module's, with `Policies.On(...)`. Any file here is found; there is nothing to register. A module whose whole policy is a few lines may carry it inline in `contract.lua` instead, as a third argument the loader runs the same way.
-<sub>Example: [`modules/transport/policies/transport.lua`](https://github.com/beyond-all-reason/Beyond-All-Reason/blob/transport/modules/transport/policies/transport.lua)</sub>
+The rules. Each file builds pipelines against a contract, its own or another module's, with `Policies.On(...)`. Any file here is found; there is nothing to register. A file may declare the stages it builds and return them (`return { Check = Check }`); the loader stamps them with the module and they join its contract, so one file can be a pipeline's whole story. Another module's contract comes from `Policies.Contract(Modules.X)`, loaded on demand. A module whose whole policy is a few lines may carry it inline in `contract.lua` instead, as a third argument the loader runs the same way.
+<sub>Examples: [`modules/transport/policies/transport.lua`](https://github.com/beyond-all-reason/Beyond-All-Reason/blob/transport/modules/transport/policies/transport.lua) against its contract; [`modules/regions/policies/check.lua`](https://github.com/beyond-all-reason/Beyond-All-Reason/blob/mex-splitting/modules/regions/policies/check.lua) declaring its own</sub>
 
 **`actions/`**
 

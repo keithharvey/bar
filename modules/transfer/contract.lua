@@ -1,7 +1,6 @@
 local PolicyBuilder = require("modules/policy_builder")
 local Modules = require("modules/enums").Modules
 local ConstructionContract = require("modules/construction/contract")
-local RegionsContract = require("modules/regions/contract")
 
 ---@class TransferTakeContext
 ---@field modOptions table<string, string|number|boolean>|nil
@@ -145,33 +144,6 @@ local MexSplittingHeir = {
 	FewestGiftedThenNearest = "FewestGiftedThenNearest",
 }
 
----@class MexRegionEnv the keys the mex region stages read from the caller-supplied env (see RegionSetContext.env)
----@field spots { x: number, z: number, worth: number|nil }[]|nil the map's metal spots, when the caller has them. worth is the metal map's sum for the spot; a T1 mex yields worth/1000 metal per second
-
----@class TransferMexRegionsSetStages transfer's stages on the regions module's set check, for the mex region type
----@field MexesCovered string every metal spot in env.spots lies inside some mex region
-
----@type TransferMexRegionsSetStages
-local MexRegionsSet = {
-	MexesCovered = "MexesCovered",
-}
-
----@class TransferMexRegionsNamesStages transfer's stages on the regions module's naming, for the mex region type
----@field FromGroup string an unnamed mex region is named after its group
-
----@type TransferMexRegionsNamesStages
-local MexRegionsNames = {
-	FromGroup = "FromGroup",
-}
-
----@class TransferMexRegionsDescribeStages transfer's stages on the regions module's description, for regions of any type
----@field MetalSpots string the number of metal spots inside the region and their total worth; adds nothing when env.spots is nil
-
----@type TransferMexRegionsDescribeStages
-local MexRegionsDescribe = {
-	MetalSpots = "MetalSpots",
-}
-
 ---@class TransferPipelines the return value of LoadPolicies("transfer")
 ---@field take AssembledPipeline<TransferTakeContext, TakePolicy>
 ---@field unit_transfer AssembledPipeline<TransferPolicyContext, UnitPolicyResult>
@@ -179,7 +151,7 @@ local MexRegionsDescribe = {
 ---@field mex_splitting AssembledPipeline<MexRegionsDealContext, MexRegionsDeal>
 ---@field mex_splitting_heir AssembledPipeline<MexRegionsHeirContext, integer|false>
 
----@class TransferContract
+---@class (partial) TransferContract
 ---@field Take TransferTakeStages
 ---@field UnitTransfer TransferUnitTransferStages
 ---@field ResourceTransfer TransferResourceTransferStages
@@ -189,9 +161,6 @@ local MexRegionsDescribe = {
 ---@field ResourceTermsNotes TransferResourceNotesFacts
 ---@field MexSplitting TransferMexSplittingStages
 ---@field MexSplittingHeir TransferMexSplittingHeirStages
----@field MexRegionsSet TransferMexRegionsSetStages
----@field MexRegionsNames TransferMexRegionsNamesStages
----@field MexRegionsDescribe TransferMexRegionsDescribeStages
 
 ---@class TransferBuildStages the stages transfer adds to construction's build pipeline
 ---@field UnaffordableAssistTax string a build step the assisting team cannot pay the tax on
@@ -212,7 +181,4 @@ return PolicyBuilder.Contract(Modules.Transfer, {
 	ResourceTermsNotes = PolicyBuilder.Facts(ResourceNotes),
 	MexSplitting = PolicyBuilder.Single(MexSplitting),
 	MexSplittingHeir = PolicyBuilder.Single(MexSplittingHeir),
-	MexRegionsSet = PolicyBuilder.Contributes(RegionsContract.CheckSet, MexRegionsSet),
-	MexRegionsNames = PolicyBuilder.Contributes(RegionsContract.Names, MexRegionsNames),
-	MexRegionsDescribe = PolicyBuilder.Contributes(RegionsContract.Describe, MexRegionsDescribe),
 })

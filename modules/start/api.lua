@@ -1,5 +1,5 @@
-local Contract = require("modules/start/contract")
 local ModuleHandler = require("modules/module_handler")
+local Modules = require("modules/enums").Modules
 
 ---@return StartBoxes
 local function resolveWithGame()
@@ -16,8 +16,10 @@ return {
 	Current = function(springRepo, resolveBoxes)
 		---@type StartContext
 		local ctx = { springRepo = springRepo, resolveBoxes = resolveBoxes or resolveWithGame }
-		local facts =
-			ModuleHandler.Enrich(Contract.Facts, springRepo.GetModOptions and springRepo.GetModOptions() or {}, ctx)
-		return { areas = facts[Contract.Facts.Areas] or {}, positions = facts[Contract.Facts.Positions] or {} }
+		---@type StartContract
+		local Start = ModuleHandler.Contract(Modules.Start)
+		local Facts = Start.Facts
+		local facts = ModuleHandler.Enrich(Facts, springRepo.GetModOptions and springRepo.GetModOptions() or {}, ctx)
+		return { areas = facts[Facts.Areas] or {}, positions = facts[Facts.Positions] or {} }
 	end,
 }

@@ -1,5 +1,12 @@
 local ModuleHandler = require("modules/module_handler")
 
+---@class Region a contained area of the map. Holds only the shape; the module that owns a type extends this record with the type's fields
+---@field type RegionTypeKey
+---@field id string|nil identity. Assigned by RegionsApi.Create and carried through the layout codec and the editor's files; nil only for regions that came from the startbox shim
+---@field vertices { x: number, z: number }[]|nil in elmos. One vertex is a point, three or more a polygon (see RegionGeometry.Of). nil while the region is still being drawn
+---@field tags string[]|nil free-form tags not claimed by any type
+---@field name string|nil display name. When nil, derived by the type's owner (see RegionsApi.Names)
+
 ---@class RegionField
 ---@field key string
 ---@field label string
@@ -19,7 +26,7 @@ local ModuleHandler = require("modules/module_handler")
 local FRAGMENT = "region_types.lua"
 
 local byKey = {} ---@type table<string, RegionType>
-local claimedBy = {} ---@type table<string, string>
+local claimedBy = {} ---@type table<string, string|nil>
 local manifests = ModuleHandler.Manifests()
 local names = {}
 for name in pairs(manifests) do

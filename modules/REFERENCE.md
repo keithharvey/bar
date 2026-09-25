@@ -10,7 +10,7 @@ A contract declares pipelines and facts. It is a lexical scope that reads top to
 
 <sub>Type: `(Modules, table) → Contract`</sub>
 
-Stamps every member with its owner and category, so a pipeline's identity travels with its stage enum wherever it is included. An optional third argument, `function(Policies)`, is the module's policy inline; the loader runs it like a file under `policies/`.
+Stamps every member with its owner and category, so a pipeline's identity travels with its stage enum wherever it is included. An optional third argument, `function(Policies)`, is the module's policy inline; the loader runs it like a file under `policies/`. A policy file that returns its own stages gets the same stamp from the loader, so `contract.lua` holds only what the module declares away from its rules, and may be absent.
 ```lua
 return PolicyBuilder.Contract(Modules.Defs, { UnitDef = PolicyBuilder.Fold(UnitDef) })
 ```
@@ -109,7 +109,7 @@ The [context](README.md#what-flows-through-it) as a type, declared beside the st
 
 ## In a policy file
 
-A policy file runs with one extra name in scope, `Policies`, bound to a registrar for that load. It builds pipelines and returns nothing.
+A policy file runs with one extra name in scope, `Policies`, bound to a registrar for that load. It builds pipelines, and returns either nothing or the stages it declared itself (`return { Check = Check }`), which the loader stamps with the module as `Contract` would and adds to the module's contract. Two files of one module declaring the same member is a load error.
 
 **`Policies.On(stages)`**
 
@@ -118,6 +118,17 @@ A policy file runs with one extra name in scope, `Policies`, bound to a registra
 Opens a chain against a contract's stage enum, the owner's or another module's.
 ```lua
 Policies.On(Contract.Load)
+```
+
+**`Policies.Contract(Modules.X)`**
+
+<sub>Type: `Modules → Contract`</sub>
+
+Another module's contract: what its `contract.lua` declares and what its policy files return, one table, loaded on demand. Two modules whose policy files ask for each other is a load error naming both. Annotate the local with the module's contract class, which the declaring files build up with `---@class (partial)`.
+```lua
+---@type RegionsContract
+local Regions = Policies.Contract(Modules.Regions)
+Policies.On(Regions.CheckSet).Apply(RegionsSet.AreasDisjoint, function(ctx) ... end)
 ```
 
 **`.Unless(stage, fn)`**
@@ -257,6 +268,16 @@ What a module's `api.lua` is written with. You call these when you are writing a
 A module by name, from [`modules/enums.lua`](https://github.com/beyond-all-reason/Beyond-All-Reason/blob/transport/modules/enums.lua). Code never names a module by string.
 ```lua
 local Modules = require("modules/enums").Modules
+```
+
+**`ModuleHandler.Contract(Modules.X)`**
+
+<sub>Type: `Modules → Contract`</sub>
+
+The module's contract as the loader assembled it: what `contract.lua` declares and what its policy files return. For api code that needs a facts table or a stage enum the module declared in a policy file; a policy file uses `Policies.Contract` instead.
+```lua
+---@type StartContract
+local Start = ModuleHandler.Contract(Modules.Start)
 ```
 
 **`ModuleHandler.LoadPolicies(Modules.X)`**
