@@ -2,120 +2,14 @@ local Claims = require("modules/transfer/mex_splitting/claims")
 local ConstructionContract = require("modules/construction/contract")
 local Contract = require("modules/transfer/contract")
 local Holders = require("modules/transfer/mex_splitting/holders")
-local Modules = require("modules/enums").Modules
-local PolicyBuilder = require("modules/policy_builder")
 local RegionsApi = require("modules/regions/api")
 local TransferEnums = require("modules/transfer/enums")
-
----@type RegionsContract
-local Regions = Policies.Contract(Modules.Regions)
-
----@class (partial) TransferContract
----@field MexRegionsSet TransferMexRegionsSetStages
----@field MexRegionsNames TransferMexRegionsNamesStages
----@field MexRegionsDescribe TransferMexRegionsDescribeStages
-
----@class (partial) RegionMap
----@field spots { x: number, z: number, worth: number|nil }[]|nil
-
----@class TransferMexRegionsSetStages
----@field MexesCovered string
-
----@type TransferMexRegionsSetStages
-local MexRegionsSet = PolicyBuilder.Contributes(Regions.CheckSet, {
-	MexesCovered = "MexesCovered",
-})
-
----@class TransferMexRegionsNamesStages
----@field FromGroup string
-
----@type TransferMexRegionsNamesStages
-local MexRegionsNames = PolicyBuilder.Contributes(Regions.Names, {
-	FromGroup = "FromGroup",
-})
-
----@class MexRegionDescription: RegionDescription
----@field team integer
----@field group string
----@field spots integer|nil
----@field worth number|nil
-
----@class TransferMexRegionsDescribeStages
----@field MexRegion string
-
----@type TransferMexRegionsDescribeStages
-local MexRegionsDescribe = PolicyBuilder.Contributes(Regions.Describe, {
-	MexRegion = "MexRegion",
-})
 
 ---@param problems string[]
 ---@return MexRegionsDeal
 local function noDeal(problems)
 	return { regions = {}, spots = {}, problems = problems }
 end
-
-Policies.On(Regions.Names).Apply(MexRegionsNames.FromGroup, function(ctx)
-	if ctx.type.key ~= RegionsApi.Enums.Types.MexRegion then
-		return
-	end
-	for i, region in ipairs(ctx.regions) do
-		---@cast region MexRegion
-		local group = region.group
-		if group ~= nil and group ~= "" then
-			ctx.bases[i] = tostring(group)
-		end
-	end
-end)
-
-Policies.On(Regions.CheckSet).Apply(MexRegionsSet.MexesCovered, function(ctx)
-	local spots = ctx.map.spots
-	if ctx.type.key ~= RegionsApi.Enums.Types.MexRegion or spots == nil then
-		return
-	end
-	local uncovered, first = 0, nil
-	for _, spot in ipairs(spots) do
-		local covered = false
-		for _, region in ipairs(ctx.regions) do
-			covered = covered or (region.vertices ~= nil and RegionsApi.Contains(spot.x, spot.z, region.vertices))
-		end
-		if not covered then
-			uncovered = uncovered + 1
-			first = first or { x = spot.x, z = spot.z }
-		end
-	end
-	if uncovered > 0 then
-		RegionsApi.ProblemAt(
-			ctx,
-			uncovered .. " metal spot" .. (uncovered == 1 and "" or "s") .. " in no mex region",
-			first
-		)
-	end
-end)
-
-Policies.On(Regions.Describe)
-	.Answer(MexRegionsDescribe.MexRegion, function(ctx)
-		if ctx.type.key ~= RegionsApi.Enums.Types.MexRegion then
-			return nil
-		end
-		local region = ctx.region --[[@as MexRegion]]
-		---@type MexRegionDescription
-		local description =
-			{ area = ctx.shape.area, centre = ctx.shape.centre, team = region.team, group = region.group }
-		local spots = ctx.map.spots
-		if spots and region.vertices then
-			local count, worth = 0, 0.0
-			for _, spot in ipairs(spots) do
-				if RegionsApi.Contains(spot.x, spot.z, region.vertices) then
-					count = count + 1
-					worth = worth + (spot.worth or 0)
-				end
-			end
-			-- a thousandth of the metal map's sum is what the game floats over a spot: a T1 mex's income
-			description.spots, description.worth = count, worth / 1000
-		end
-		return description
-	end)
-	.Before(Regions.Describe.Shape)
 
 Policies.On(Contract.MexSplitting)
 	.Refusal(function(ctx)
@@ -132,92 +26,21 @@ Policies.On(Contract.MexSplitting)
 		return #ctx.spots > 0
 	end)
 	.Answer(Contract.MexSplitting.NearestRoundRobin, function(ctx)
-		local views = Claims.Rank(ctx.teams, ctx.regions)
+		local teams = Claims.Rank(ctx.teams, ctx.regions)
+		local starts = Claims.Seat(teams)
 		local held = {} ---@type table<string, integer>
-
-		---@param seated MexRegionsTeamView[]
-		---@param takes fun(region: MexRegion): boolean
-		local function goRound(seated, takes)
-			---@param view MexRegionsTeamView
-			---@return MexRegion|nil
-			local function nearestFree(view)
-				for _, ranked in ipairs(view.regions) do
-					if held[ranked.region.id] == nil and takes(ranked.region) then
-						return ranked.region
-					end
-				end
-				return nil
-			end
-
-			---@return boolean
-			local function round()
-				local took = false
-				for _, view in ipairs(seated) do
-					local pick = nearestFree(view)
-					if pick then
-						held[pick.id] = view.team.teamID
-						took = true
-					end
-				end
-				return took
-			end
-
-			for _ = 1, #ctx.regions do
-				if not round() then
-					return
-				end
-			end
+		for _, start in ipairs(starts) do
+			Claims.Round(start.teams, held, Claims.OwnedBy(start.ordinal))
 		end
-
-		local seated = {} ---@type table<integer, MexRegionsTeamView[]>
-		local ordinals = {} ---@type integer[]
-		for _, view in ipairs(views) do
-			local ordinal = view.team.allyTeamID + 1 -- the layout counts starts from 1
-			if seated[ordinal] == nil then
-				seated[ordinal] = {}
-				ordinals[#ordinals + 1] = ordinal
-			end
-			table.insert(seated[ordinal], view)
-		end
-		table.sort(ordinals)
-		for _, ordinal in ipairs(ordinals) do
-			goRound(seated[ordinal], function(region)
-				return region.team == ordinal
-			end)
-		end
-		goRound(views, function(region)
-			return seated[region.team] == nil
-		end)
-
-		local holding = {} ---@type table<integer, boolean>
-		for _, teamID in pairs(held) do
-			holding[teamID] = true
-		end
-		local without = 0
-		for _, team in ipairs(ctx.teams) do
-			without = without + (holding[team.teamID] and 0 or 1)
-		end
-		if without > 0 then
+		Claims.Round(teams, held, Claims.Not(Claims.OfStart(starts)))
+		local emptyHanded = Claims.EmptyHanded(ctx.teams, held)
+		if #emptyHanded > 0 then
+			local n = #emptyHanded
 			return noDeal({
-				without
-					.. " team"
-					.. (without == 1 and "" or "s")
-					.. " would hold no mex region: the layout has too few",
+				n .. " team" .. (n == 1 and "" or "s") .. " would hold no mex region: the layout has too few",
 			})
 		end
-
-		local byRegion = Claims.SpotsIn(ctx.regions, ctx.spots)
-		local spots = {} ---@type table<string, integer[]>
-		for _, region in ipairs(ctx.regions) do
-			local teamID = held[region.id]
-			for _, key in ipairs(teamID and byRegion[region.id] or {}) do
-				spots[key] = spots[key] or {}
-				if not table.contains(spots[key], teamID) then
-					table.insert(spots[key], teamID)
-				end
-			end
-		end
-		return { regions = held, spots = spots, problems = {} }
+		return { regions = held, spots = Claims.SpotHolders(ctx.regions, ctx.spots, held), problems = {} }
 	end)
 
 Policies.On(Contract.MexSplittingHeir).Answer(Contract.MexSplittingHeir.FewestGiftedThenNearest, function(ctx)
@@ -252,5 +75,3 @@ Policies.On(ConstructionContract.PlacementFacts)
 		end
 		return holders[1]
 	end)
-
-return { MexRegionsSet = MexRegionsSet, MexRegionsNames = MexRegionsNames, MexRegionsDescribe = MexRegionsDescribe }
