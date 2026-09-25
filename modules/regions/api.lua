@@ -1,6 +1,5 @@
 local ModuleHandler = require("modules/module_handler")
 local Modules = require("modules/enums").Modules
-local Contract = require("modules/regions/contract")
 local Geometry = require("modules/regions/lib/geometry")
 local Layout = require("modules/regions/lib/layout")
 local Names = require("modules/regions/lib/names")

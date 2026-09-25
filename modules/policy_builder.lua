@@ -73,6 +73,41 @@ function PolicyBuilder.KeyOf(member)
 		:sub(2))
 end
 
+---@param owner string the module's name
+---@param members table PascalCase name -> a pipeline's stage enum (Single, Product or Fold), Contributes or Facts
+---@param source string|nil where they were declared, for messages
+function PolicyBuilder.Declare(owner, members, source)
+	local where = source and (source .. ": ") or "PolicyBuilder.Declare: "
+	for member, stages in pairs(members) do
+		local meta = type(stages) == "table" and getmetatable(stages) or nil
+		assert(
+			meta ~= nil and (meta.__result ~= nil or meta.__facts or meta.__contributes),
+			where
+				.. tostring(member)
+				.. " must declare itself: Single(...), Product(...), Fold(...), Contributes(...) or Facts(...)"
+		)
+		assert(
+			meta.__policy == nil,
+			where .. tostring(member) .. " is already " .. tostring(meta.__policy and meta.__policy.owner) .. "'s"
+		)
+		local category = PolicyBuilder.KeyOf(member)
+		if meta.__contributes then
+			meta.__policy = { owner = owner, category = category, contributes = meta.__contributes }
+		elseif meta.__facts then
+			meta.__policy = { owner = owner, category = category, facts = true }
+		else
+			meta.__policy = { owner = owner, category = category, result = meta.__result }
+		end
+	end
+end
+
+---@param target table
+---@return boolean
+function PolicyBuilder.IsFacts(target)
+	local meta = type(target) == "table" and getmetatable(target) or nil
+	return meta ~= nil and meta.__facts == true
+end
+
 ---@generic T: table
 ---@param owner string the module's name
 ---@param categories T PascalCase name -> a pipeline's stage enum (Single, Product or Fold) or Facts
@@ -86,23 +121,7 @@ function PolicyBuilder.Contract(owner, categories, policies)
 		policies == nil or type(policies) == "function",
 		"PolicyBuilder.Contract(owner, categories, policies?): the inline policy is a function(Policies)"
 	)
-	for member, stages in pairs(categories) do
-		local meta = type(stages) == "table" and getmetatable(stages) or nil
-		assert(
-			meta ~= nil and (meta.__result ~= nil or meta.__facts or meta.__contributes),
-			"PolicyBuilder.Contract: "
-				.. tostring(member)
-				.. " must declare itself: Single(...), Product(...), Fold(...), Contributes(...) or Facts(...)"
-		)
-		local category = PolicyBuilder.KeyOf(member)
-		if meta.__contributes then
-			meta.__policy = { owner = owner, category = category, contributes = meta.__contributes }
-		elseif meta.__facts then
-			meta.__policy = { owner = owner, category = category, facts = true }
-		else
-			meta.__policy = { owner = owner, category = category, result = meta.__result }
-		end
-	end
+	PolicyBuilder.Declare(owner, categories, "PolicyBuilder.Contract")
 	return setmetatable(categories, { __owner = owner, __policies = policies })
 end
 

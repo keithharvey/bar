@@ -3,10 +3,46 @@ local ConstructionContract = require("modules/construction/contract")
 local Contract = require("modules/transfer/contract")
 local Geometry = require("modules/regions/lib/geometry")
 local Holders = require("modules/transfer/mex_splitting/holders")
+local Modules = require("modules/enums").Modules
+local PolicyBuilder = require("modules/policy_builder")
 local RegionEnums = require("modules/regions/enums")
 local RegionProblems = require("modules/regions/lib/problems")
-local RegionsContract = require("modules/regions/contract")
 local TransferEnums = require("modules/transfer/enums")
+
+---@type RegionsContract
+local Regions = Policies.Contract(Modules.Regions)
+
+---@class (partial) TransferContract
+---@field MexRegionsSet TransferMexRegionsSetStages
+---@field MexRegionsNames TransferMexRegionsNamesStages
+---@field MexRegionsDescribe TransferMexRegionsDescribeStages
+
+---@class MexRegionEnv the keys the mex region stages read from the caller-supplied env (see RegionSetContext.env)
+---@field spots { x: number, z: number, worth: number|nil }[]|nil the map's metal spots, when the caller has them. worth is the metal map's sum for the spot; a T1 mex yields worth/1000 metal per second
+
+---@class TransferMexRegionsSetStages transfer's stages on the regions module's set check, for the mex region type
+---@field MexesCovered string every metal spot in env.spots lies inside some mex region
+
+---@type TransferMexRegionsSetStages
+local MexRegionsSet = PolicyBuilder.Contributes(Regions.CheckSet, {
+	MexesCovered = "MexesCovered",
+})
+
+---@class TransferMexRegionsNamesStages transfer's stages on the regions module's naming, for the mex region type
+---@field FromGroup string an unnamed mex region is named after its group
+
+---@type TransferMexRegionsNamesStages
+local MexRegionsNames = PolicyBuilder.Contributes(Regions.Names, {
+	FromGroup = "FromGroup",
+})
+
+---@class TransferMexRegionsDescribeStages transfer's stages on the regions module's description, for regions of any type
+---@field MetalSpots string the number of metal spots inside the region and their total worth; adds nothing when env.spots is nil
+
+---@type TransferMexRegionsDescribeStages
+local MexRegionsDescribe = PolicyBuilder.Contributes(Regions.Describe, {
+	MetalSpots = "MetalSpots",
+})
 
 ---@param problems string[]
 ---@return MexRegionsDeal
@@ -14,7 +50,7 @@ local function noDeal(problems)
 	return { regions = {}, spots = {}, problems = problems }
 end
 
-Policies.On(RegionsContract.Names).Apply(Contract.MexRegionsNames.FromGroup, function(ctx)
+Policies.On(Regions.Names).Apply(MexRegionsNames.FromGroup, function(ctx)
 	if ctx.type.key ~= RegionEnums.Types.MexRegion then
 		return
 	end
@@ -27,7 +63,7 @@ Policies.On(RegionsContract.Names).Apply(Contract.MexRegionsNames.FromGroup, fun
 	end
 end)
 
-Policies.On(RegionsContract.CheckSet).Apply(Contract.MexRegionsSet.MexesCovered, function(ctx)
+Policies.On(Regions.CheckSet).Apply(MexRegionsSet.MexesCovered, function(ctx)
 	local spots = (ctx.env --[[@as MexRegionEnv]]).spots
 	if ctx.type.key ~= RegionEnums.Types.MexRegion or spots == nil then
 		return
@@ -52,7 +88,7 @@ Policies.On(RegionsContract.CheckSet).Apply(Contract.MexRegionsSet.MexesCovered,
 	end
 end)
 
-Policies.On(RegionsContract.Describe).Apply(Contract.MexRegionsDescribe.MetalSpots, function(ctx)
+Policies.On(Regions.Describe).Apply(MexRegionsDescribe.MetalSpots, function(ctx)
 	local spots = (ctx.env --[[@as MexRegionEnv]]).spots
 	if not spots or not ctx.region.vertices then
 		return
@@ -206,3 +242,5 @@ Policies.On(ConstructionContract.PlacementFacts)
 		end
 		return holders[1]
 	end)
+
+return { MexRegionsSet = MexRegionsSet, MexRegionsNames = MexRegionsNames, MexRegionsDescribe = MexRegionsDescribe }
