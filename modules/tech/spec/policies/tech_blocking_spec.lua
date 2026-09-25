@@ -44,4 +44,27 @@ describe("what tech tells transfer about a team", function()
 		assert.are.equal(3, blocking.points)
 		assert.are.equal(10, blocking.nextThreshold)
 	end)
+
+	it("the notes on a terms record say what the next tier unlocks, from the modoptions handed in", function()
+		local blocking =
+			{ level = 1, points = 3, t2Threshold = 10, t3Threshold = 20, nextLevel = 2, nextThreshold = 10 }
+		local unit = ModuleHandler.EnrichWith(
+			ModuleHandler.LoadEnrichers(Contract.UnitTermsNotes),
+			{ tech = true },
+			{ techBlocking = blocking },
+			opts
+		)
+		assert.is_true(unit[Contract.UnitTermsNotes.FutureUnlock])
+		assert.are.equal("resource", unit[Contract.UnitTermsNotes.TechData].nextUnitSharingMode)
+		local resource = ModuleHandler.EnrichWith(
+			ModuleHandler.LoadEnrichers(Contract.ResourceTermsNotes),
+			{ tech = true },
+			{ techBlocking = blocking },
+			opts
+		)
+		assert.are.same(
+			{ unlockLevel = 2, unlockThreshold = 10, unlockValue = 0.25 },
+			resource[Contract.ResourceTermsNotes.TaxUnlock]
+		)
+	end)
 end)
