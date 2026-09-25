@@ -7,3 +7,7 @@ end)
 Policies.On(Contract.Redistribution).Default(Contract.Redistribution.Results, function(ctx)
 	return ctx.results
 end)
+
+Policies.On(Contract.Pooling).Default(Contract.Pooling.Transfers, function()
+	return {}
+end)

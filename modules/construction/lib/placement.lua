@@ -105,4 +105,17 @@ function Placement.IsExtractor(unitDefID)
 	return extractorKinds()[unitDefID] ~= nil
 end
 
+---@param kind "mex"|"geo"
+---@return integer[] the unit def ids that extract that way
+function Placement.ExtractorDefIDs(kind)
+	local out = {}
+	for unitDefID, k in pairs(extractorKinds()) do
+		if k == kind then
+			out[#out + 1] = unitDefID
+		end
+	end
+	table.sort(out)
+	return out
+end
+
 return Placement

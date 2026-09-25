@@ -32,11 +32,32 @@ local Redistribution = {
 	Results = "results",
 }
 
+---@class EconomyTransfer metal or energy one team hands another before the tick is solved
+---@field from integer
+---@field to integer
+---@field resourceType ResourceName
+---@field amount number
+
+---@class EconomyPoolingContext one cadence tick's snapshot, before it is solved
+---@field springRepo Spring
+---@field teams table<integer, EconomyTeamResources> by team id
+---@field seconds number since the last tick
+
+---@class EconomyPoolingFacts: PolicyFacts<EconomyPoolingContext>
+---@field Transfers "transfers"
+
+---@type EconomyPoolingFacts
+local Pooling = {
+	Transfers = "transfers",
+}
+
 ---@class EconomyContract
 ---@field Distribution EconomyDistributionFacts
 ---@field Redistribution EconomyRedistributionFacts
+---@field Pooling EconomyPoolingFacts
 
 return Policy.Contract(Modules.Economy, {
 	Distribution = Policy.Facts(Distribution),
 	Redistribution = Policy.Facts(Redistribution),
+	Pooling = Policy.Facts(Pooling),
 })

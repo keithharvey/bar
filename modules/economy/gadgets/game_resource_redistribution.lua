@@ -63,6 +63,24 @@ local function amended(results)
 	return amendedResults[Contract.Redistribution.Results] or results
 end
 
+-- What allies hand each other before the tick is solved: a module's fact, applied to the snapshot.
+---@param teams table<integer, EconomyTeamResources>
+local function pool(teams)
+	---@type EconomyPoolingContext
+	local ctx = { springRepo = springRepo, teams = teams, seconds = CADENCE / 30 }
+	local transfers =
+		ModuleHandler.Enrich(Contract.Pooling, springRepo.GetModOptions(), ctx)[Contract.Pooling.Transfers]
+	for _, t in ipairs(transfers or {}) do
+		local from = teams[t.from] and teams[t.from][t.resourceType]
+		local to = teams[t.to] and teams[t.to][t.resourceType]
+		if from and to and t.amount > 0 then
+			local amount = math.min(t.amount, from.current)
+			from.current = from.current - amount
+			to.current = math.min(to.storage, to.current + amount)
+		end
+	end
+end
+
 local overflowAccum = {} ---@type table<integer, [number, number]>
 
 local snapshotPool = {} ---@type table<integer, EconomyTeamResources>
@@ -133,6 +151,7 @@ local function redistribute(frame)
 	end
 
 	local teams = buildSnapshot()
+	pool(teams)
 	local results = amended(WaterfillSolver.SolveToResults(springRepo, teams, taxRateFor))
 
 	for i = 1, #results do
