@@ -172,7 +172,7 @@ function Api.Get(id)
 end
 
 ---@param typeKey RegionTypeKey|nil every type when nil
----@return Region[] in insertion order; a new table
+---@return Region[] regions insertion order; a new table
 function Api.All(typeKey)
 	return Store.All(store(), typeKey)
 end
@@ -196,7 +196,7 @@ end
 function Api.Set(id, key, value)
 	local region = store().byId[id]
 	local kind = region and Types.byKey[region.type]
-	if not kind then
+	if not region or not kind then
 		return false, "no such region"
 	end
 	local declared = nil
@@ -268,7 +268,10 @@ function Api.NamesById(typeKey)
 	local regions = Api.All(typeKey)
 	local out = {}
 	for i, named in ipairs(Api.Names(typeKey, regions)) do
-		out[regions[i].id] = named.name
+		local region = regions[i]
+		if region and region.id then
+			out[region.id] = named.name
+		end
 	end
 	return out
 end

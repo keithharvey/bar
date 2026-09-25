@@ -4,6 +4,8 @@ local ModuleHandler = require("modules/module_handler")
 ---@field type RegionTypeKey
 ---@field id string|nil identity. Assigned by RegionsApi.Create and carried through the layout codec and the editor's files; nil only for regions that came from the startbox shim
 ---@field vertices { x: number, z: number }[]|nil elmos. One vertex is a point, three or more a polygon (see RegionGeometry.Of). nil while the region is still being drawn
+---@field kind "point"|"polygon"|"box"|"spline"|nil how the shape was drawn; derived by the layout codec when read
+---@field controls { x: number, z: number, strength: number|nil }[]|nil a spline's anchors; vertices is then the outline
 ---@field tags string[]|nil free-form tags not claimed by any type
 ---@field name string|nil display name. When nil, derived by the type's owner (see RegionsApi.Names)
 
@@ -76,12 +78,12 @@ local function depth(name)
 	return depths[name]
 end
 
-local order = {} ---@type string[]
-for key in pairs(byKey) do
-	order[#order + 1] = key
+local order = {} ---@type RegionTypeKey[]
+for _, kind in pairs(byKey) do
+	order[#order + 1] = kind.key
 end
 table.sort(order, function(a, b)
-	local ma, mb = byKey[a].module, byKey[b].module
+	local ma, mb = byKey[a].module or "", byKey[b].module or ""
 	if depth(ma) ~= depth(mb) then
 		return depth(ma) < depth(mb)
 	end

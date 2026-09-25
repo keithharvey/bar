@@ -18,7 +18,7 @@ Deal.PARAM = "mex_splitting_deal"
 ---@param mapSizeZ number
 ---@return string
 function Deal.Encode(regions, holders, mapSizeX, mapSizeZ)
-	return Json.encode({ layout = Regions.ExportLayout(regions, mapSizeX, mapSizeZ), holders = holders })
+	return Json.encode({ layout = Regions.ExportLayout(regions, mapSizeX, mapSizeZ), holders = holders }) --[[@as string]]
 end
 
 ---@param raw string

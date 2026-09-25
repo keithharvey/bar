@@ -5,7 +5,7 @@ local Hull = {}
 ---@return number cx
 ---@return number cz
 local function centroid(points)
-	local cx, cz = 0, 0
+	local cx, cz = 0.0, 0.0
 	for _, p in ipairs(points) do
 		cx, cz = cx + p.x, cz + p.z
 	end
@@ -18,6 +18,13 @@ end
 ---@return number
 local function cross(o, a, b)
 	return (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x)
+end
+
+---@param ring { x: number, z: number }[]
+---@param i integer any integer; wraps around the ring
+---@return { x: number, z: number }
+local function around(ring, i)
+	return ring[((i - 1) % #ring) + 1] --[[@as { x: number, z: number }]]
 end
 
 ---@param points { x: number, z: number }[] three or more
@@ -33,17 +40,17 @@ local function convexHull(points)
 		end
 		return a.z < b.z
 	end)
-	local lower = {}
+	local lower = {} ---@type { x: number, z: number }[]
 	for _, p in ipairs(sorted) do
-		while #lower >= 2 and cross(lower[#lower - 1], lower[#lower], p) <= 0 do
+		while #lower >= 2 and cross(around(lower, #lower - 1), around(lower, #lower), p) <= 0 do
 			lower[#lower] = nil
 		end
 		lower[#lower + 1] = p
 	end
-	local upper = {}
+	local upper = {} ---@type { x: number, z: number }[]
 	for i = #sorted, 1, -1 do
-		local p = sorted[i]
-		while #upper >= 2 and cross(upper[#upper - 1], upper[#upper], p) <= 0 do
+		local p = around(sorted, i)
+		while #upper >= 2 and cross(around(upper, #upper - 1), around(upper, #upper), p) <= 0 do
 			upper[#upper] = nil
 		end
 		upper[#upper + 1] = p
@@ -80,7 +87,7 @@ local function pruned(hull)
 	while #hull > 3 do
 		local dropped = false
 		for i = 1, #hull do
-			if bend(hull[((i - 2) % #hull) + 1], hull[i], hull[(i % #hull) + 1]) < 0.35 then
+			if bend(around(hull, i - 1), around(hull, i), around(hull, i + 1)) < 0.35 then
 				table.remove(hull, i)
 				dropped = true
 				break
