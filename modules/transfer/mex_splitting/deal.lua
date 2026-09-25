@@ -1,5 +1,4 @@
 
-local Records = require("modules/transfer/mex_splitting/records")
 local Regions = require("modules/regions/api")
 
 ---@class MexRegionsDealLib the deal on the wire: a game rules param carrying the regions as a layout, the one serialized form, and their holders by id; the widgets read both back
@@ -36,7 +35,10 @@ function Deal.Decode(raw, mapSizeX, mapSizeZ)
 	if not regions then
 		return nil
 	end
-	return { regions = Records.From(regions), holders = deal.holders }
+	return {
+		regions = regions --[[@as MexRegion[] ]],
+		holders = deal.holders,
+	}
 end
 
 ---@param mapSizeX number

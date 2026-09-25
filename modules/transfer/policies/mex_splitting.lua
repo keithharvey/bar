@@ -119,14 +119,14 @@ Policies.On(Regions.Describe)
 
 Policies.On(Contract.MexSplitting)
 	.Refusal(function(ctx)
-		local problems = Claims.Problems(ctx.regions, ctx.spots)
+		local problems = RegionsApi.ProblemLines(RegionsApi.Enums.Types.MexRegion, ctx.regions, { spots = ctx.spots })
 		if #problems == 0 and #ctx.spots == 0 then
 			problems[1] = "the map has no metal spots to deal"
 		end
 		return noDeal(problems)
 	end)
 	.If(Contract.MexSplitting.LayoutChecksOut, function(ctx)
-		return #Claims.Problems(ctx.regions, ctx.spots) == 0
+		return #RegionsApi.ProblemLines(RegionsApi.Enums.Types.MexRegion, ctx.regions, { spots = ctx.spots }) == 0
 	end)
 	.If(Contract.MexSplitting.SpotsKnown, function(ctx)
 		return #ctx.spots > 0

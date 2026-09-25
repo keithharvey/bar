@@ -12,17 +12,6 @@ local Claims = {}
 ---@field team MexRegionsTeamStart
 ---@field regions MexRegionsRanked[] nearest first
 
----@param regions MexRegion[]
----@param spots { x: number, z: number }[] the map's metal spots, for the rule that every one is covered
----@return string[] problems # what the regions module's set check finds wrong with the layout
-function Claims.Problems(regions, spots)
-	local lines = {} ---@type string[]
-	for i, problem in ipairs(Regions.CheckSet(Regions.Enums.Types.MexRegion, regions, { spots = spots })) do
-		lines[i] = Regions.ProblemLine(problem)
-	end
-	return lines
-end
-
 ---@param teams MexRegionsTeamStart[]
 ---@param regions MexRegion[]
 ---@return MexRegionsTeamView[] views # in the teams' order

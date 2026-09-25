@@ -3,7 +3,7 @@ local ModuleHandler = require("modules/module_handler")
 ---@class Region a contained area of the map. Holds only the shape; the module that owns a type extends this record with the type's fields
 ---@field type RegionTypeKey
 ---@field id string|nil identity. Assigned by RegionsApi.Create and carried through the layout codec and the editor's files; nil only for regions that came from the startbox shim
----@field vertices { x: number, z: number }[]|nil elmos. One vertex is a point, three or more a polygon (see RegionGeometry.Of). nil while the region is still being drawn
+---@field vertices { x: number, z: number }[] elmos. One vertex is a point, three or more a polygon (see RegionGeometry.Of); empty while the region is still being drawn
 ---@field kind "point"|"polygon"|"box"|"spline"|nil how the shape was drawn; derived by the layout codec when read
 ---@field controls { x: number, z: number, strength: number|nil }[]|nil a spline's anchors; vertices is then the outline
 ---@field tags string[]|nil free-form tags not claimed by any type
