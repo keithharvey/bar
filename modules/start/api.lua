@@ -1,7 +1,8 @@
+local Boxes = require("modules/start/lib/boxes")
 local ModuleHandler = require("modules/module_handler")
 local Modules = require("modules/enums").Modules
 
----@return StartBoxes
+---@return StartboxConfig
 local function resolveWithGame()
 	local StartboxLib = require("luarules/gadgets/include/startbox_utilities")
 	local config, source, explicit = StartboxLib.GetConfig()
@@ -11,11 +12,11 @@ end
 ---@class StartApi
 return {
 	---@param springRepo Spring
-	---@param resolveBoxes (fun(): StartBoxes)|nil the resolver; the game's when absent
+	---@param resolveBoxes (fun(): StartboxConfig)|nil the startbox parser; the game's when absent
 	---@return { areas: StartArea[], positions: StartPosition[] }
 	Current = function(springRepo, resolveBoxes)
 		---@type StartContext
-		local ctx = { springRepo = springRepo, boxes = (resolveBoxes or resolveWithGame)() }
+		local ctx = { springRepo = springRepo, boxes = Boxes.Resolve(springRepo, (resolveBoxes or resolveWithGame)()) }
 		---@type StartContract
 		local Start = ModuleHandler.Contract(Modules.Start)
 		local Facts = Start.Facts
