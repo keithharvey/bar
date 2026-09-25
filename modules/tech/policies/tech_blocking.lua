@@ -36,12 +36,11 @@ Policies.On(teamPairing)
 
 local NONE_MODE = ConstructionEnums.UnitFilterCategory.None
 
-Policies.On(unitTermsNotes).Provide(unitTermsNotes.FutureUnlock, unitTermsNotes.TechData, function(policy)
+Policies.On(unitTermsNotes).Provide(unitTermsNotes.FutureUnlock, unitTermsNotes.TechData, function(policy, opts)
 	local tb = policy.techBlocking
 	if not tb then
 		return false, nil
 	end
-	local opts = Spring.GetModOptions()
 	local nextMode, nextLevel, nextThreshold
 	for scanLevel = tb.level + 1, 3 do
 		local mode = opts["unit_sharing_mode_at_t" .. scanLevel] ---@type string? sparse modoption
@@ -60,12 +59,11 @@ Policies.On(unitTermsNotes).Provide(unitTermsNotes.FutureUnlock, unitTermsNotes.
 		}
 end)
 
-Policies.On(resourceTermsNotes).Provide(resourceTermsNotes.TaxUnlock, function(policyResult)
+Policies.On(resourceTermsNotes).Provide(resourceTermsNotes.TaxUnlock, function(policyResult, opts)
 	local tb = policyResult.techBlocking
 	if not tb then
 		return nil
 	end
-	local opts = Spring.GetModOptions()
 	for scanLevel = tb.level + 1, 3 do
 		local raw = opts["tax_resource_sharing_amount_at_t" .. scanLevel]
 		local rate = tonumber(raw)

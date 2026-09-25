@@ -31,7 +31,7 @@ local ConstructionContract = require("modules/construction/contract")
 ---@field techBlocking? TechBlockingContext
 
 ---@class TransferTakeContext
----@field modOptions table<string, string|number|boolean>|nil
+---@field modOptions table<string, string|number|boolean>
 
 ---@class TransferPolicyContext
 ---@field senderTeamId integer
@@ -58,7 +58,7 @@ local TeamTerms = {
 	TaxRate = "taxRate",
 }
 
----@class TransferUnitNotesFacts: PolicyFacts<TransferUnitPolicyResult> display notes other modules attach to a unit-terms record
+---@class TransferUnitNotesFacts: PolicyFacts<TransferUnitPolicyResult> display notes other modules attach to a unit-terms record; providers get the modoptions as their extra argument
 ---@field FutureUnlock string
 ---@field TechData string
 
@@ -68,7 +68,7 @@ local UnitNotes = {
 	TechData = "techData",
 }
 
----@class TransferResourceNotesFacts: PolicyFacts<TransferResourcePolicyResult> display notes other modules attach to a resource-terms record
+---@class TransferResourceNotesFacts: PolicyFacts<TransferResourcePolicyResult> display notes other modules attach to a resource-terms record; providers get the modoptions as their extra argument
 ---@field TaxUnlock string
 
 ---@type TransferResourceNotesFacts

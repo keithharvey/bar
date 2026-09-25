@@ -40,7 +40,7 @@ function Comms.TooltipText(policyResult)
 	local resBase = policyResult.resourceType == TransferEnums.ResourceType.METAL and "ui.playersList.shareMetal"
 		or "ui.playersList.shareEnergy"
 	local pascalResourceType = policyResult.resourceType:gsub("^%l", string.upper)
-	local notes = Notes.For(Contract.ResourceTermsNotes, policyResult)
+	local notes = Notes.For(Contract.ResourceTermsNotes, policyResult, Spring.GetModOptions())
 	local taxUnlock, tb = notes.taxUnlock, policyResult.techBlocking
 	local tree = taxUnlock and "tech" or "base"
 	local r = resBase .. "." .. tree
