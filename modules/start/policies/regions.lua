@@ -1,8 +1,6 @@
-local Geometry = require("modules/regions/lib/geometry")
 local Modules = require("modules/enums").Modules
 local PolicyBuilder = require("modules/policy_builder")
-local Problems = require("modules/regions/lib/problems")
-local RegionEnums = require("modules/regions/enums")
+local RegionsApi = require("modules/regions/api")
 
 ---@type RegionsContract
 local Regions = Policies.Contract(Modules.Regions)
@@ -22,7 +20,7 @@ local RegionsNames = PolicyBuilder.Contributes(Regions.Names, {
 })
 
 Policies.On(Regions.Names).Apply(RegionsNames.FromTeam, function(ctx)
-	if ctx.type.key ~= RegionEnums.Types.Start then
+	if ctx.type.key ~= RegionsApi.Enums.Types.Start then
 		return
 	end
 	for i, region in ipairs(ctx.regions) do
@@ -42,14 +40,14 @@ local RegionsSet = PolicyBuilder.Contributes(Regions.CheckSet, {
 })
 
 Policies.On(Regions.CheckSet).Apply(RegionsSet.AreasDisjoint, function(ctx)
-	if ctx.type.key ~= RegionEnums.Types.Start then
+	if ctx.type.key ~= RegionsApi.Enums.Types.Start then
 		return
 	end
 	local label = ctx.type.label:lower()
 	for i, a in ipairs(ctx.regions) do
 		for j, b in ipairs(ctx.regions) do
-			if i ~= j and a.vertices and b.vertices and Geometry.Overlaps(a.vertices, b.vertices) then
-				Problems.OfRegion(ctx, i, "overlaps " .. label .. " " .. ctx.names[j])
+			if i ~= j and a.vertices and b.vertices and RegionsApi.Overlaps(a.vertices, b.vertices) then
+				RegionsApi.ProblemWith(ctx, i, "overlaps " .. label .. " " .. ctx.names[j])
 			end
 		end
 	end
@@ -69,7 +67,7 @@ local RegionsDescribe = PolicyBuilder.Contributes(Regions.Describe, {
 
 Policies.On(Regions.Describe)
 	.Answer(RegionsDescribe.Start, function(ctx)
-		if ctx.type.key ~= RegionEnums.Types.Start then
+		if ctx.type.key ~= RegionsApi.Enums.Types.Start then
 			return nil
 		end
 		local region = ctx.region --[[@as StartRegion]]

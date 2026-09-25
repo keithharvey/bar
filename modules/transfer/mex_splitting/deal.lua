@@ -1,5 +1,4 @@
 
-local Enums = require("modules/regions/enums")
 local Records = require("modules/transfer/mex_splitting/records")
 local Regions = require("modules/regions/api")
 
@@ -33,7 +32,7 @@ function Deal.Decode(raw, mapSizeX, mapSizeZ)
 	if not ok or type(deal) ~= "table" or type(deal.layout) ~= "table" or type(deal.holders) ~= "table" then
 		return nil
 	end
-	local regions = Regions.ParseLayout(deal.layout, Enums.Types.MexRegion, mapSizeX, mapSizeZ)
+	local regions = Regions.ParseLayout(deal.layout, Regions.Enums.Types.MexRegion, mapSizeX, mapSizeZ)
 	if not regions then
 		return nil
 	end

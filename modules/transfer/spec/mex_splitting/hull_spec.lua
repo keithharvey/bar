@@ -1,14 +1,14 @@
-local Geometry = require("modules/regions/lib/geometry")
 local Hull = require("modules/transfer/mex_splitting/hull")
+local Regions = require("modules/regions/api")
 
 describe("the ring around picked metal spots", function()
 	it("is nothing for no spots, and a square around one or two", function()
 		assert.is_nil(Hull.Around({}, 50))
 		local ring = assert(Hull.Around({ { x = 100, z = 100 } }, 50))
 		assert.are.equal(4, #ring)
-		assert.is_true(Geometry.Contains(100, 100, ring))
+		assert.is_true(Regions.Contains(100, 100, ring))
 		local two = assert(Hull.Around({ { x = 100, z = 100 }, { x = 300, z = 100 } }, 50))
-		assert.is_true(Geometry.Contains(100, 100, two) and Geometry.Contains(300, 100, two))
+		assert.is_true(Regions.Contains(100, 100, two) and Regions.Contains(300, 100, two))
 	end)
 
 	it("is the padded hull of three or more, containing every spot, with straight corners pruned", function()
@@ -23,7 +23,7 @@ describe("the ring around picked metal spots", function()
 		local ring = Hull.Around(spots, 30)
 		assert.are.equal(4, #ring, "the midpoint of an edge and the interior spot are not corners")
 		for _, s in ipairs(spots) do
-			assert.is_true(Geometry.Contains(s.x, s.z, ring))
+			assert.is_true(Regions.Contains(s.x, s.z, ring))
 		end
 	end)
 end)

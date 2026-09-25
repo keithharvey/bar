@@ -1,12 +1,10 @@
 local Claims = require("modules/transfer/mex_splitting/claims")
 local ConstructionContract = require("modules/construction/contract")
 local Contract = require("modules/transfer/contract")
-local Geometry = require("modules/regions/lib/geometry")
 local Holders = require("modules/transfer/mex_splitting/holders")
 local Modules = require("modules/enums").Modules
 local PolicyBuilder = require("modules/policy_builder")
-local RegionEnums = require("modules/regions/enums")
-local RegionProblems = require("modules/regions/lib/problems")
+local RegionsApi = require("modules/regions/api")
 local TransferEnums = require("modules/transfer/enums")
 
 ---@type RegionsContract
@@ -57,7 +55,7 @@ local function noDeal(problems)
 end
 
 Policies.On(Regions.Names).Apply(MexRegionsNames.FromGroup, function(ctx)
-	if ctx.type.key ~= RegionEnums.Types.MexRegion then
+	if ctx.type.key ~= RegionsApi.Enums.Types.MexRegion then
 		return
 	end
 	for i, region in ipairs(ctx.regions) do
@@ -71,14 +69,14 @@ end)
 
 Policies.On(Regions.CheckSet).Apply(MexRegionsSet.MexesCovered, function(ctx)
 	local spots = ctx.map.spots
-	if ctx.type.key ~= RegionEnums.Types.MexRegion or spots == nil then
+	if ctx.type.key ~= RegionsApi.Enums.Types.MexRegion or spots == nil then
 		return
 	end
 	local uncovered, first = 0, nil
 	for _, spot in ipairs(spots) do
 		local covered = false
 		for _, region in ipairs(ctx.regions) do
-			covered = covered or (region.vertices ~= nil and Geometry.Contains(spot.x, spot.z, region.vertices))
+			covered = covered or (region.vertices ~= nil and RegionsApi.Contains(spot.x, spot.z, region.vertices))
 		end
 		if not covered then
 			uncovered = uncovered + 1
@@ -86,7 +84,7 @@ Policies.On(Regions.CheckSet).Apply(MexRegionsSet.MexesCovered, function(ctx)
 		end
 	end
 	if uncovered > 0 then
-		RegionProblems.OfSet(
+		RegionsApi.ProblemAt(
 			ctx,
 			uncovered .. " metal spot" .. (uncovered == 1 and "" or "s") .. " in no mex region",
 			first
@@ -96,7 +94,7 @@ end)
 
 Policies.On(Regions.Describe)
 	.Answer(MexRegionsDescribe.MexRegion, function(ctx)
-		if ctx.type.key ~= RegionEnums.Types.MexRegion then
+		if ctx.type.key ~= RegionsApi.Enums.Types.MexRegion then
 			return nil
 		end
 		local region = ctx.region --[[@as MexRegion]]
@@ -107,7 +105,7 @@ Policies.On(Regions.Describe)
 		if spots and region.vertices then
 			local count, worth = 0, 0.0
 			for _, spot in ipairs(spots) do
-				if Geometry.Contains(spot.x, spot.z, region.vertices) then
+				if RegionsApi.Contains(spot.x, spot.z, region.vertices) then
 					count = count + 1
 					worth = worth + (spot.worth or 0)
 				end
@@ -226,7 +224,7 @@ Policies.On(Contract.MexSplittingHeir).Answer(Contract.MexSplittingHeir.FewestGi
 	local from = ctx.departing
 	local best, bestGifted, bestDistance = nil, math.huge, math.huge
 	for _, heir in ipairs(ctx.heirs) do
-		local distance = Geometry.Distance(from.x, from.z, heir.x, heir.z)
+		local distance = RegionsApi.Geometry.Distance(from.x, from.z, heir.x, heir.z)
 		if heir.gifted < bestGifted or (heir.gifted == bestGifted and distance < bestDistance) then
 			best, bestGifted, bestDistance = heir.teamID, heir.gifted, distance
 		end

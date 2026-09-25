@@ -1,5 +1,5 @@
 local Deal = require("modules/transfer/mex_splitting/deal")
-local Geometry = require("modules/regions/lib/geometry")
+local Regions = require("modules/regions/api")
 
 ---@class MexRegionsHolders who holds a place on the map, read from the deal the gadget publishes for everyone: the same answer in a gadget, a policy and a widget
 local Holders = {}
@@ -18,7 +18,7 @@ function Holders.At(springRepo, x, z)
 	end
 	for _, region in ipairs(deal.regions) do
 		local holder = deal.holders[region.id]
-		if holder ~= nil and not table.contains(out, holder) and Geometry.Contains(x, z, region.vertices) then
+		if holder ~= nil and not table.contains(out, holder) and Regions.Contains(x, z, region.vertices) then
 			out[#out + 1] = holder
 		end
 	end

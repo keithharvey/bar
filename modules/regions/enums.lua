@@ -1,3 +1,6 @@
+---@class RegionEnums the keys a region carries: its type, and the geometry a type allows
+---@field Geometry RegionGeometryFields
+---@field Types RegionTypeFields
 local M = {}
 
 ---@alias RegionGeometryKey "point"|"polygon"
