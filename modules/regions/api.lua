@@ -27,10 +27,9 @@ local Api = {}
 ---@param regions Region[]
 ---@return { name: string, derived: boolean }[]
 local function namesOf(kind, regions)
-	local pipelines = ModuleHandler.LoadPolicies(Modules.Regions) ---@type RegionsPipelines
 	---@type RegionNamesContext
 	local ctx = { type = kind, regions = regions, bases = {} }
-	ModuleHandler.Evaluate(pipelines.names, ctx)
+	ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Regions).Names, ctx)
 	return Names.Of(regions, ctx.bases)
 end
 
@@ -66,7 +65,6 @@ function Api.Check(typeKey, region, siblings, fieldsOnly)
 	if not kind then
 		return { "unknown region type " .. tostring(typeKey) }
 	end
-	local pipelines = ModuleHandler.LoadPolicies(Modules.Regions) ---@type RegionsPipelines
 	local all = { region }
 	for _, other in ipairs(siblings or {}) do
 		if other ~= region then
@@ -86,7 +84,7 @@ function Api.Check(typeKey, region, siblings, fieldsOnly)
 		fieldsOnly = fieldsOnly,
 		problems = {},
 	}
-	ModuleHandler.Evaluate(pipelines.check, ctx)
+	ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Regions).Check, ctx)
 	return ctx.problems
 end
 
@@ -99,14 +97,13 @@ function Api.CheckSet(typeKey, regions, map)
 	if not kind then
 		return { { message = "unknown region type " .. tostring(typeKey) } }
 	end
-	local pipelines = ModuleHandler.LoadPolicies(Modules.Regions) ---@type RegionsPipelines
 	local names = {} ---@type string[]
 	for i, named in ipairs(namesOf(kind, regions)) do
 		names[i] = named.name
 	end
 	---@type RegionSetContext
 	local ctx = { type = kind, regions = regions, names = names, map = map or {}, problems = {} }
-	ModuleHandler.Evaluate(pipelines.check_set, ctx)
+	ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Regions).CheckSet, ctx)
 	return ctx.problems
 end
 
@@ -351,11 +348,9 @@ function Api.Describe(region, map)
 	if not kind then
 		return shape
 	end
-	---@type RegionsPipelines
-	local pipelines = ModuleHandler.LoadPolicies(Modules.Regions)
 	---@type RegionDescribeContext
 	local ctx = { type = kind, region = region, shape = shape, map = map or {} }
-	return ModuleHandler.Evaluate(pipelines.describe, ctx) or shape
+	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Regions).Describe, ctx) or shape
 end
 
 Api.Enums = Enums

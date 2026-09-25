@@ -1,14 +1,11 @@
-local ModuleHandler = require("modules/module_handler")
-local Modules = require("modules/enums").Modules
 local Contract = require("modules/defs/contract")
+local ModuleHandler = require("modules/module_handler")
 local PolicyBuilder = require("modules/policy_builder")
 
 describe("defs pipelines", function()
-	local pipelines = ModuleHandler.LoadPolicies(Modules.Defs) ---@type DefsPipelines
-
 	it("are folds over one def, with the base game's post as a named stage", function()
-		for _, category in ipairs({ "unit_def", "weapon_def" }) do
-			local pipeline = pipelines[category]
+		for category, stages in pairs({ unit_def = Contract.UnitDef, weapon_def = Contract.WeaponDef }) do
+			local pipeline = ModuleHandler.Pipeline(stages)
 			assert.are.equal("fold", pipeline.result, category)
 			local named = {}
 			for _, stage in ipairs(pipeline) do

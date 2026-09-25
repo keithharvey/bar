@@ -25,9 +25,6 @@ local TechCore = {
 	TechCoreLadder = "TechCoreLadder",
 }
 
----@class TechPipelines what LoadPolicies("tech") hands back
----@field tech_core AssembledPipeline<TechTierRequest, TechCoreLadder>
-
 ---@class TechContract
 ---@field TechCore TechCoreStages
 ---@field Creation TechCreationStages

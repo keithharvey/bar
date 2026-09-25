@@ -1,12 +1,10 @@
+local Contract = require("modules/transfer/contract")
 local ModuleHandler = require("modules/module_handler")
-local Modules = require("modules/enums").Modules
 local TransferEnums = require("modules/transfer/enums")
-
-local transfer = ModuleHandler.LoadPolicies(Modules.Transfer) ---@type TransferPipelines
 
 describe("the take terms", function()
 	it("are the modoptions' mode, delay and category", function()
-		local terms = ModuleHandler.Evaluate(transfer.take, {
+		local terms = ModuleHandler.Evaluate(Contract.Take, {
 			modOptions = {
 				[TransferEnums.ModOptions.TakeMode] = TransferEnums.TakeMode.Disabled,
 				[TransferEnums.ModOptions.TakeDelaySeconds] = "45",
@@ -19,7 +17,7 @@ describe("the take terms", function()
 	end)
 
 	it("are enabled, thirty seconds and resource units when the modoptions say nothing", function()
-		local terms = ModuleHandler.Evaluate(transfer.take, { modOptions = {} })
+		local terms = ModuleHandler.Evaluate(Contract.Take, { modOptions = {} })
 		assert.are.equal(TransferEnums.TakeMode.Enabled, terms.mode)
 		assert.are.equal(30, terms.delaySeconds)
 		assert.are.equal("resource", terms.delayCategory)

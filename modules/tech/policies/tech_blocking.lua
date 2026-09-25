@@ -1,7 +1,7 @@
-local ModuleHandler = require("modules/module_handler")
-local Modules = require("modules/enums").Modules
 local ConstructionEnums = require("modules/construction/enums")
 local Contract = require("modules/transfer/contract")
+local ModuleHandler = require("modules/module_handler")
+local TechContract = require("modules/tech/contract")
 local TechTier = require("modules/tech/tier")
 local teamTerms = Contract.TeamTerms
 local teamPairing = Contract.TeamPairing
@@ -28,8 +28,7 @@ Policies.On(teamPairing)
 			t2Threshold = tonumber(rawT2 or 0) or 0,
 			t3Threshold = tonumber(rawT3 or 0) or 0,
 		}
-		local pipelines = ModuleHandler.LoadPolicies(Modules.Tech) ---@type TechPipelines
-		local tier = ModuleHandler.Evaluate(pipelines.tech_core, request)
+		local tier = ModuleHandler.Evaluate(TechContract.TechCore, request)
 		local taxRate = (tier.taxRate ~= nil and tier.taxRate >= 0) and tier.taxRate or nil
 		return tier.blocking, tier.modes, taxRate
 	end)

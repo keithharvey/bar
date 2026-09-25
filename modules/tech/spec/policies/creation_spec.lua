@@ -1,7 +1,5 @@
+local ConstructionContract = require("modules/construction/contract")
 local ModuleHandler = require("modules/module_handler")
-local Modules = require("modules/enums").Modules
-
-local construction = ModuleHandler.LoadPolicies(Modules.Construction) ---@type ConstructionPipelines
 
 local function lab(tier)
 	return { isFactory = true, customParams = { techlevel = tostring(tier) } }
@@ -10,7 +8,7 @@ end
 describe("tech's guard on construction's creation decision", function()
 	local function may(unitDef, tier)
 		return ModuleHandler.Evaluate(
-			construction.creation,
+			ConstructionContract.Creation,
 			{ unitDefID = 1, teamID = 0, tier = tier, unitDef = unitDef }
 		)
 	end

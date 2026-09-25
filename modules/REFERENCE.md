@@ -280,28 +280,27 @@ The module's contract as the loader assembled it: what `contract.lua` declares a
 local Start = ModuleHandler.Contract(Modules.Start)
 ```
 
-**`ModuleHandler.LoadPolicies(Modules.X)`**
+**`ModuleHandler.Evaluate(stages, ctx, ...)`**
 
-<sub>Type: `Modules → { [category]: AssembledPipeline<C, T> }`</sub>
+<sub>Type: `(PolicyStages<C, T>, C) → T | false`</sub>
 
-The module's assembled pipelines, keyed by data-case category, every contributor's stages applied. Read once at file scope.
-```lua
-local pipelines = ModuleHandler.LoadPolicies(Modules.Transport) ---@type TransportPipelines
-```
-
-**`ModuleHandler.Evaluate(pipeline, ctx, ...)`**
-
-<sub>Type: `(AssembledPipeline<C, T>, C) → T | false`</sub>
-
-Asks. Runs the stages in order under the contract's strategy and returns the result, or the refusal. The result is whatever `T` the contract declared: a boolean for transport's load, the `UnitPolicyResult` record for transfer's unit transfer. A refusal has the same shape, so the caller reads one set of fields either way.
+Asks. The stage enum from the contract names the pipeline; the loader finds what it assembled for that identity, every contributor's stages placed, and runs it under the contract's strategy. Returns the result, or the refusal. The result is the `T` the enum declared: a boolean for transport's load, the `TransferUnitPolicyResult` record for transfer's unit transfer. A refusal has the same shape, so the caller reads one set of fields either way. `ctx` and the return are typed from the enum; no annotation at the call.
 ```lua
 -- modules/transfer/unit/synced.lua
----@type TransferPipelines
-local pipelines = ModuleHandler.LoadPolicies(Modules.Transfer)
----@type UnitPolicyResult
-local grant = ModuleHandler.Evaluate(pipelines.unit_transfer, ctx)
+local grant = ModuleHandler.Evaluate(Contract.UnitTransfer, ctx)
 if grant.canShare then
 	applyStun(unitID, grant.stunSeconds)
+end
+```
+
+**`ModuleHandler.Pipeline(stages)`**
+
+<sub>Type: `PolicyStages<C, T> → AssembledPipeline<C, T>`</sub>
+
+The assembled pipeline itself, for a caller that reads its stages rather than running it: a spec asserting the order, a tool listing them. `Evaluate` takes this too.
+```lua
+for _, stage in ipairs(ModuleHandler.Pipeline(ConstructionContract.Build)) do
+	names[#names + 1] = stage.name
 end
 ```
 

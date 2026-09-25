@@ -1,10 +1,8 @@
 local ConstructionContract = require("modules/construction/contract")
+local Contract = require("modules/transfer/contract")
 local ModuleHandler = require("modules/module_handler")
-local Modules = require("modules/enums").Modules
 local Regions = require("modules/regions/api")
 local Shared = require("modules/transfer/mex_splitting/shared")
-
-local pipelines = ModuleHandler.LoadPolicies(Modules.Transfer) ---@type TransferPipelines
 
 local function rect(name, team, x1, y1, x2, y2)
 	return {
@@ -59,7 +57,7 @@ local spots = {
 
 ---@return MexRegionsDeal
 local function deal(teams, regions, metal)
-	return ModuleHandler.Evaluate(pipelines.mex_splitting, { regions = regions, spots = metal or spots, teams = teams })
+	return ModuleHandler.Evaluate(Contract.MexSplitting, { regions = regions, spots = metal or spots, teams = teams })
 end
 
 local function count(t)
