@@ -1,4 +1,4 @@
-local PolicyBuilder = require("modules/policy_builder")
+local Policy = require("modules/policy")
 local Modules = require("modules/enums").Modules
 
 ---@class ConstructionAssistContext a builder's command that would help an ally's unit along
@@ -7,11 +7,11 @@ local Modules = require("modules/enums").Modules
 ---@field targetIsBuilder boolean a factory, or a builder that can build or assist
 ---@field assistEnabled boolean the allied assist modoption
 
----@class ConstructionAssistStages: PolicyStages<ConstructionAssistContext, boolean>
+---@class ConstructionAssistSteps: PolicySteps<ConstructionAssistContext, boolean>
 ---@field AlliedAssistDisabled string
 ---@field Allowed string
 
----@type ConstructionAssistStages
+---@type ConstructionAssistSteps
 local Assist = {
 	AlliedAssistDisabled = "AlliedAssistDisabled",
 	Allowed = "Allowed",
@@ -23,11 +23,11 @@ local Assist = {
 ---@field targetCanReclaim boolean
 ---@field reclaimEnabled boolean the allied unit reclaim modoption
 
----@class ConstructionReclaimStages: PolicyStages<ConstructionReclaimContext, boolean>
+---@class ConstructionReclaimSteps: PolicySteps<ConstructionReclaimContext, boolean>
 ---@field AlliedReclaimDisabled string
 ---@field Allowed string
 
----@type ConstructionReclaimStages
+---@type ConstructionReclaimSteps
 local Reclaim = {
 	AlliedReclaimDisabled = "AlliedReclaimDisabled",
 	Allowed = "Allowed",
@@ -36,11 +36,11 @@ local Reclaim = {
 ---@class ConstructionResurrectContext may a partly reclaimed wreck still be resurrected
 ---@field partialAllowed boolean the partial resurrection modoption
 
----@class ConstructionResurrectStages: PolicyStages<ConstructionResurrectContext, boolean>
+---@class ConstructionResurrectSteps: PolicySteps<ConstructionResurrectContext, boolean>
 ---@field PartialResurrectionDisabled string
 ---@field Allowed string
 
----@type ConstructionResurrectStages
+---@type ConstructionResurrectSteps
 local Resurrect = {
 	PartialResurrectionDisabled = "PartialResurrectionDisabled",
 	Allowed = "Allowed",
@@ -55,11 +55,11 @@ local Resurrect = {
 ---@field featureID integer|nil the feature being worked, for a feature step
 ---@field part number the step's share of the whole; negative for reclaim
 
----@class ConstructionBuildStages: PolicyStages<ConstructionBuildContext, boolean>
+---@class ConstructionBuildSteps: PolicySteps<ConstructionBuildContext, boolean>
 ---@field BuilderDelayed string
 ---@field Allowed string
 
----@type ConstructionBuildStages
+---@type ConstructionBuildSteps
 local Build = {
 	BuilderDelayed = "BuilderDelayed",
 	Allowed = "Allowed",
@@ -80,12 +80,12 @@ local Build = {
 ---@field spotHolder integer the team that holds this spot, a fact any module that deals out spots may provide, for whatever kind of extractor it deals; the builder itself when nobody else does, or when the builder is one of several who hold it
 ---@field spotHolderAllied boolean the holder is another team on the builder's side; an enemy's hold restricts nobody
 
----@class ConstructionPlacementStages: PolicyStages<ConstructionPlacementContext, boolean>
+---@class ConstructionPlacementSteps: PolicySteps<ConstructionPlacementContext, boolean>
 ---@field AlliedExtractorOccupied string
 ---@field SpotHeldByAnAlly string an extractor on a spot an ally holds, unless it goes onto that ally's extractor and utility buildings may change hands
 ---@field Allowed string
 
----@type ConstructionPlacementStages
+---@type ConstructionPlacementSteps
 local Placement = {
 	AlliedExtractorOccupied = "AlliedExtractorOccupied",
 	SpotHeldByAnAlly = "SpotHeldByAnAlly",
@@ -108,10 +108,10 @@ local PlacementFacts = {
 ---@field teamID integer
 ---@field tier integer|nil the team's tech tier, a fact tech provides; nil when no tier system is live
 
----@class ConstructionCreationStages: PolicyStages<ConstructionCreationContext, boolean>
+---@class ConstructionCreationSteps: PolicySteps<ConstructionCreationContext, boolean>
 ---@field Allowed string
 
----@type ConstructionCreationStages
+---@type ConstructionCreationSteps
 local Creation = {
 	Allowed = "Allowed",
 }
@@ -125,22 +125,22 @@ local CreationFacts = {
 }
 
 ---@class ConstructionContract
----@field Assist ConstructionAssistStages
----@field Reclaim ConstructionReclaimStages
----@field Resurrect ConstructionResurrectStages
----@field Build ConstructionBuildStages
----@field Placement ConstructionPlacementStages
+---@field Assist ConstructionAssistSteps
+---@field Reclaim ConstructionReclaimSteps
+---@field Resurrect ConstructionResurrectSteps
+---@field Build ConstructionBuildSteps
+---@field Placement ConstructionPlacementSteps
 ---@field PlacementFacts ConstructionPlacementFacts
----@field Creation ConstructionCreationStages
+---@field Creation ConstructionCreationSteps
 ---@field CreationFacts ConstructionCreationFacts
 
-return PolicyBuilder.Contract(Modules.Construction, {
-	Assist = PolicyBuilder.Single(Assist),
-	Reclaim = PolicyBuilder.Single(Reclaim),
-	Resurrect = PolicyBuilder.Single(Resurrect),
-	Build = PolicyBuilder.Single(Build),
-	Placement = PolicyBuilder.Single(Placement),
-	PlacementFacts = PolicyBuilder.Facts(PlacementFacts),
-	Creation = PolicyBuilder.Single(Creation),
-	CreationFacts = PolicyBuilder.Facts(CreationFacts),
+return Policy.Contract(Modules.Construction, {
+	Assist = Policy.Single(Assist),
+	Reclaim = Policy.Single(Reclaim),
+	Resurrect = Policy.Single(Resurrect),
+	Build = Policy.Single(Build),
+	Placement = Policy.Single(Placement),
+	PlacementFacts = Policy.Facts(PlacementFacts),
+	Creation = Policy.Single(Creation),
+	CreationFacts = Policy.Facts(CreationFacts),
 })

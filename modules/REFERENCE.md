@@ -4,28 +4,28 @@ Every word the builder gives you, grouped by the file you write it in. [README.m
 
 ## In contract.lua
 
-A contract declares pipelines and facts. It is a lexical scope that reads top to bottom, with each member typed and named explicitly: the context, the result, each pipeline, and each stage on it. [The contract](README.md#the-contract) in the README walks a complete one line by line. The stage enum is the contract's promise: a name in it is a stage on the pipeline, or load fails. That holds for the owner's own stages and for anything declared with `Contributes`.
+A contract declares policies and facts. It is a lexical scope that reads top to bottom, with each member typed and named explicitly: the context, the result, each policy, and each step on it. [The contract](README.md#the-contract) in the README walks a complete one line by line. The step enum is the contract's promise: a name in it is a step on the policy, or load fails. That holds for the owner's own steps and for anything declared with `Contributes`.
 
-**`PolicyBuilder.Contract(Modules.X, { ... })`**
+**`Policy.Contract(Modules.X, { ... })`**
 
 <sub>Type: `(Modules, table) → Contract`</sub>
 
-Stamps every member with its owner and category, so a pipeline's identity travels with its stage enum wherever it is included. An optional third argument, `function(Policies)`, is the module's policy inline; the loader runs it like a file under `policies/`. A policy file that returns its own stages gets the same stamp from the loader, so `contract.lua` holds only what the module declares away from its rules, and may be absent.
+Stamps every member with its owner and category, so a policy's identity travels with its step enum wherever it is included. An optional third argument, `function(Policies)`, is the module's policy inline; the loader runs it like a file under `policies/`. A policy file that returns its own steps gets the same stamp from the loader, so `contract.lua` holds only what the module declares away from its rules, and may be absent.
 ```lua
-return PolicyBuilder.Contract(Modules.Defs, { UnitDef = PolicyBuilder.Fold(UnitDef) })
+return Policy.Contract(Modules.Defs, { UnitDef = Policy.Fold(UnitDef) })
 ```
 
-**`Single(stages)`**
+**`Single(steps)`**
 
-<sub>Type: `stages → PolicyStages<C, T>`</sub>
+<sub>Type: `steps → PolicySteps<C, T>`</sub>
 
-A single pipeline answers one question once. Most pipelines are this.
+A single policy answers one question once. Most policies are this.
 * Guards (If/Unless) come first and can only refuse.
 * Then Answers, in order; the first one that returns a value is the result, and one that returns nil passes to the next. 
 * A guard refusal, or every Answer declining to provide a value, returns the Refusal if the owner declared one and `false` if not.
 
 ```lua
-Load = PolicyBuilder.Single(Load) -- in the contract
+Load = Policy.Single(Load) -- in the contract
 
 Policies.On(Load) -- in a policy
 	.Refusal(function() return false end)
@@ -34,13 +34,13 @@ Policies.On(Load) -- in a policy
 	.Answer(Load.Allowed, function() return true end) -- the first non-nil Answer is the result
 ```
 
-**`Product(stages)`**
+**`Product(steps)`**
 
-<sub>Type: `stages → PolicyStages<C, number>`</sub>
+<sub>Type: `steps → PolicySteps<C, number>`</sub>
 
-A product pipeline multiplies each Factor's return value together and that is the result. Any module can add a stage, and they stack. A Factor can return nil to contribute nothing. Only Factors are allowed; the loader refuses a guard or an Answer by name. If no stage returns a number at all, the pipeline has nothing to return and throws at runtime.
+A product policy multiplies each Factor's return value together and that is the result. Any module can add a step, and they stack. A Factor can return nil to contribute nothing. Only Factors are allowed; the loader refuses a guard or an Answer by name. If no step returns a number at all, the policy has nothing to return and throws at runtime.
 ```lua
-Speed = PolicyBuilder.Product(Speed) -- in the contract
+Speed = Policy.Product(Speed) -- in the contract
 
 Policies.On(Speed) -- in a policy: 0.5 × 0.75 × 1.25
 	.Factor(Speed.Base, function() return 0.5 end)
@@ -48,13 +48,13 @@ Policies.On(Speed) -- in a policy: 0.5 × 0.75 × 1.25
 	.Factor(Speed.Boost, function() return 1.25 end)
 ```
 
-**`Fold(stages)`**
+**`Fold(steps)`**
 
-<sub>Type: `stages → PolicyStages<C, C>`</sub>
+<sub>Type: `steps → PolicySteps<C, C>`</sub>
 
-A fold pipeline runs every Apply, in order, on the same context, and returns that context. An Apply edits it in place and returns nothing. Only Applies are allowed; the loader refuses a guard or an Answer by name. Nothing refuses and nothing ends early. Use it for post-processing, where every unit def goes through every stage.
+A fold policy runs every Apply, in order, on the same context, and returns that context. An Apply edits it in place and returns nothing. Only Applies are allowed; the loader refuses a guard or an Answer by name. Nothing refuses and nothing ends early. Use it for post-processing, where every unit def goes through every step.
 ```lua
-UnitDef = PolicyBuilder.Fold(UnitDef) -- in the contract
+UnitDef = Policy.Fold(UnitDef) -- in the contract
 
 Policies.On(UnitDef) -- in a policy: both run, on the same def, in this order
 	.Apply(UnitDef.Base, function(ctx) ctx.def.health = ctx.def.health * 1.1 end)
@@ -65,10 +65,10 @@ Policies.On(UnitDef) -- in a policy: both run, on the same def, in this order
 
 <sub>Type: `names → PolicyFacts<C>`</sub>
 
-Not a pipeline. The facts a decision reads, which other modules may fill before the pipeline is asked. A fact informs a decision; it is not the decision. One fact, three files:
+Not a policy. The facts a decision reads, which other modules may fill before the policy is asked. A fact informs a decision; it is not the decision. One fact, three files:
 ```lua
 -- transfer/contract.lua: the fact, declared and typed by its owner
-TeamTerms = PolicyBuilder.Facts({ TaxRate = "taxRate" }),
+TeamTerms = Policy.Facts({ TaxRate = "taxRate" }),
 
 -- transfer/policies/terms_defaults.lua: what it means when nobody else answers
 Policies.On(Contract.TeamTerms).Default(Contract.TeamTerms.TaxRate, function(ctx)
@@ -85,15 +85,15 @@ Transfer never learns that tech exists. The mode says whose answer is live.
 
 **`Contributes(target, names)`**
 
-<sub>Type: `(PolicyStages, names) → names`</sub>
+<sub>Type: `(PolicySteps, names) → names`</sub>
 
-The stages this module adds to another module's pipeline, named here so a third module can place a rule against them by reference. A declared name that never lands is a load error.
+The steps this module adds to another module's policy, named here so a third module can place a rule against them by reference. A declared name that never lands is a load error.
 ```lua
 local Defs = require("modules/defs/contract")
 
-return PolicyBuilder.Contract(Modules.Transport, {
-	Load = PolicyBuilder.Single(Load),
-	UnitDef = PolicyBuilder.Contributes(Defs.UnitDef, { EnemyTransport = "EnemyTransport" }),
+return Policy.Contract(Modules.Transport, {
+	Load = Policy.Single(Load),
+	UnitDef = Policy.Contributes(Defs.UnitDef, { EnemyTransport = "EnemyTransport" }),
 })
 ```
 
@@ -101,7 +101,7 @@ return PolicyBuilder.Contract(Modules.Transport, {
 
 <sub>Type: `C`</sub>
 
-The [context](README.md#what-flows-through-it) as a type, declared beside the stages, so `ctx` is typed inside every predicate without an annotation on the predicate.
+The [context](README.md#what-flows-through-it) as a type, declared beside the steps, so `ctx` is typed inside every predicate without an annotation on the predicate.
 ```lua
 ---@class DefContext
 ---@field def table
@@ -109,13 +109,13 @@ The [context](README.md#what-flows-through-it) as a type, declared beside the st
 
 ## In a policy file
 
-A policy file runs with one extra name in scope, `Policies`, bound to a registrar for that load. It builds pipelines, and returns either nothing or the stages it declared itself (`return { Check = Check }`), which the loader stamps with the module as `Contract` would and adds to the module's contract. Two files of one module declaring the same member is a load error.
+A policy file runs with one extra name in scope, `Policies`, bound to a registrar for that load. It builds policies, and returns either nothing or the steps it declared itself (`return { Check = Check }`), which the loader stamps with the module as `Contract` would and adds to the module's contract. Two files of one module declaring the same member is a load error.
 
-**`Policies.On(stages)`**
+**`Policies.On(steps)`**
 
-<sub>Type: `PolicyStages<C, T> → PolicyPipeline<C, T>` · `PolicyFacts<C> → PolicyEnrichment<C>`</sub>
+<sub>Type: `PolicySteps<C, T> → PolicyChain<C, T>` · `PolicyFacts<C> → PolicyEnrichment<C>`</sub>
 
-Opens a chain against a contract's stage enum, the owner's or another module's.
+Opens a chain against a contract's step enum, the owner's or another module's.
 ```lua
 Policies.On(Contract.Load)
 ```
@@ -131,29 +131,29 @@ local Regions = Policies.Contract(Modules.Regions)
 Policies.On(Regions.CheckSet).Apply(RegionsSet.AreasDisjoint, function(ctx) ... end)
 ```
 
-**`.Unless(stage, fn)`**
+**`.Unless(step, fn)`**
 
-<sub>Type: `(stage, C → bool) → Stage<C, T>`</sub>
+<sub>Type: `(step, C → bool) → Step<C, T>`</sub>
 
-A guard that can only refuse. True refuses, false passes. It never says yes, so a mod adding one can only tighten. The predicate answers the stage's name: unless submerged.
+A guard that can only refuse. True refuses, false passes. It never says yes, so a mod adding one can only tighten. The predicate answers the step's name: unless submerged.
 ```lua
 .Unless(load.Submerged, function(ctx) return ctx.goalY + ctx.height < 0 end)
 ```
 
-**`.If(stage, fn)`**
+**`.If(step, fn)`**
 
-<sub>Type: `(stage, C → bool) → Stage<C, T>`</sub>
+<sub>Type: `(step, C → bool) → Step<C, T>`</sub>
 
 The same guard inverted: false refuses, true passes. If within reach.
 ```lua
 .If(load.WithinReach, function(ctx) return ctx.distance <= ctx.reach end)
 ```
 
-**`.Answer(stage, fn)`**
+**`.Answer(step, fn)`**
 
-<sub>Type: `(stage, C → T?) → Stage<C, T>`</sub>
+<sub>Type: `(step, C → T?) → Step<C, T>`</sub>
 
-Single only. The only stage that can answer: returns the pipeline's result, or nil to pass to the next stage. If every Answer declines, the pipeline refuses: nothing said yes is a no. A Single pipeline always ends in one.
+Single only. The only step that can answer: returns the policy's result, or nil to pass to the next step. If every Answer declines, the policy refuses: nothing said yes is a no. A Single policy always ends in one.
 ```lua
 .Answer(load.Allowed, function() return true end)
 
@@ -169,20 +169,20 @@ end
 end)
 ```
 
-**`.Factor(stage, fn)`**
+**`.Factor(step, fn)`**
 
-<sub>Type: `(stage, C → number?) → Stage<C, number>`</sub>
+<sub>Type: `(step, C → number?) → Step<C, number>`</sub>
 
-Product only. Returns a multiplier, or nil to contribute nothing. The loader refuses it on any other kind of pipeline, by stage name.
+Product only. Returns a multiplier, or nil to contribute nothing. The loader refuses it on any other kind of policy, by step name.
 ```lua
 .Factor(loadedSpeed.CommanderDrag, function(ctx) return ctx.carriesCommander and 0.5 or nil end)
 ```
 
-**`.Apply(stage, fn)`**
+**`.Apply(step, fn)`**
 
-<sub>Type: `(stage, C → ()) → Stage<C, C>`</sub>
+<sub>Type: `(step, C → ()) → Step<C, C>`</sub>
 
-Fold only. Runs on the context, edits it in place, returns nothing. The loader refuses it on any other kind of pipeline, by stage name.
+Fold only. Runs on the context, edits it in place, returns nothing. The loader refuses it on any other kind of policy, by step name.
 ```lua
 .Apply(UnitDef.Base, function(ctx) base().UnitDef_Post(ctx.name, ctx.def) end)
 ```
@@ -196,39 +196,39 @@ What a no looks like, declared once by the owner, wherever the no happens: a gua
 .Refusal(function(ctx) return terms(ctx, false) end) -- the record a grant gets, with canShare flipped
 ```
 
-**`.Before(stage)`, `.After(stage)`**
+**`.Before(step)`, `.After(step)`**
 
-<sub>Type: `Stage → Stage`</sub>
+<sub>Type: `Step → Step`</sub>
 
-Where the stage just added goes. Without either, a new stage joins the end of the checks, just before the answer.
+Where the step just added goes. Without either, a new step joins the end of the checks, just before the answer.
 ```lua
 -- the mod from above: tanks are refused before transport even looks at the water
 .Unless(Contract.Load.TanksStayOnTheGround, isTank).Before(Transport.Load.Submerged)
 ```
 
-**`.Replace(stage, fn)`**
+**`.Replace(step, fn)`**
 
-<sub>Type: `(stage, C → T?) → Stage<C, T>`</sub>
+<sub>Type: `(step, C → T?) → Step<C, T>`</sub>
 
 Swap the closure under an existing name, keeping its position.
 ```lua
 .Replace(load.MovingEnemy, function() return false end) -- a mod that lets you nap a moving enemy
 ```
 
-**`.Remove(stage)`**
+**`.Remove(step)`**
 
-<sub>Type: `Stage → ∅`</sub>
+<sub>Type: `Step → ∅`</sub>
 
-Drop an existing stage.
+Drop an existing step.
 ```lua
 .Remove(load.AlliedNano) -- allied nano turrets may be carried after all
 ```
 
-Every stage is a name in a contract: the owner's from its own stages, anyone else's from what its contract declares with `Contributes`. A string typed inline is refused at load, naming the file and the contract it should have gone in.
+Every step is a name in a contract: the owner's from its own steps, anyone else's from what its contract declares with `Contributes`. A string typed inline is refused at load, naming the file and the contract it should have gone in.
 
 ## On a facts chain
 
-Facts are filled before a pipeline is asked, not decided inside it. Anyone may provide one; the owner must default every one it declares.
+Facts are filled before a policy is asked, not decided inside it. Anyone may provide one; the owner must default every one it declares.
 
 **`Policies.On(facts)`**
 
@@ -274,17 +274,17 @@ local Modules = require("modules/enums").Modules
 
 <sub>Type: `Modules → Contract`</sub>
 
-The module's contract as the loader assembled it: what `contract.lua` declares and what its policy files return. For api code that needs a facts table or a stage enum the module declared in a policy file; a policy file uses `Policies.Contract` instead.
+The module's contract as the loader assembled it: what `contract.lua` declares and what its policy files return. For api code that needs a facts table or a step enum the module declared in a policy file; a policy file uses `Policies.Contract` instead.
 ```lua
 ---@type StartContract
 local Start = ModuleHandler.Contract(Modules.Start)
 ```
 
-**`ModuleHandler.Evaluate(stages, ctx, ...)`**
+**`ModuleHandler.Evaluate(steps, ctx, ...)`**
 
-<sub>Type: `(PolicyStages<C, T>, C) → T | false`</sub>
+<sub>Type: `(PolicySteps<C, T>, C) → T | false`</sub>
 
-Asks. The stage enum from the contract names the pipeline; the loader finds what it assembled for that identity, every contributor's stages placed, and runs it under the contract's strategy. Returns the result, or the refusal. The result is the `T` the enum declared: a boolean for transport's load, the `TransferUnitPolicyResult` record for transfer's unit transfer. A refusal has the same shape, so the caller reads one set of fields either way. `ctx` and the return are typed from the enum; no annotation at the call.
+Asks. The step enum from the contract names the policy; the loader finds what it assembled for that identity, every contributor's steps placed, and runs it under the contract's strategy. Returns the result, or the refusal. The result is the `T` the enum declared: a boolean for transport's load, the `TransferUnitPolicyResult` record for transfer's unit transfer. A refusal has the same shape, so the caller reads one set of fields either way. `ctx` and the return are typed from the enum; no annotation at the call.
 ```lua
 -- modules/transfer/unit/synced.lua
 local grant = ModuleHandler.Evaluate(Contract.UnitTransfer, ctx)
@@ -293,14 +293,14 @@ if grant.canShare then
 end
 ```
 
-**`ModuleHandler.Pipeline(stages)`**
+**`ModuleHandler.Steps(steps)`**
 
-<sub>Type: `PolicyStages<C, T> → AssembledPipeline<C, T>`</sub>
+<sub>Type: `PolicySteps<C, T> → AssembledPolicy<C, T>`</sub>
 
-The assembled pipeline itself, for a caller that reads its stages rather than running it: a spec asserting the order, a tool listing them. `Evaluate` takes this too.
+The assembled policy itself, for a caller that reads its steps rather than running it: a spec asserting the order, a tool listing them. `Evaluate` takes this too.
 ```lua
-for _, stage in ipairs(ModuleHandler.Pipeline(ConstructionContract.Build)) do
-	names[#names + 1] = stage.name
+for _, step in ipairs(ModuleHandler.Steps(ConstructionContract.Build)) do
+	names[#names + 1] = step.name
 end
 ```
 

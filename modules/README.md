@@ -4,10 +4,10 @@
 
 **It decides with policies.**
 
-* A **[policy](#how-a-decision-flows)** is a file under `policies/` holding the pipelines a module builds, each opened with `Policies.On(...)`.
-* A **[pipeline](#why-this-is-easier-for-every-layer)** is one rule: a pure function that answers one question, written as an ordered list of stages, each of which can refuse, pass, or answer. Pipeline in the middleware sense: a request passes through handlers in order, and any handler may stop it.
-* A **[context](#what-flows-through-it)** is the plain table of facts the gadget hands the pipeline when it asks: who, where, what the engine and the modoptions say.
-* A **[contract](REFERENCE.md#in-contractlua)** names every stage and every fact, and the shape going in and coming out, so another module or a mod can say "put my stage after this one" or "replace that one."
+* A **[policy](#why-this-is-easier-for-every-layer)** is one named decision: a pure function of its context, written as named steps, each of which can refuse, pass, or answer. Policy in the middleware sense: a request passes through handlers in order, and any handler may stop it.
+* A **[policy file](#how-a-decision-flows)** is a file under `policies/` declaring policies and their rules, each opened with `Policies.On(...)`.
+* A **[context](#what-flows-through-it)** is the plain table of facts the gadget hands the policy when it asks: who, where, what the engine and the modoptions say.
+* A **[contract](REFERENCE.md#in-contractlua)** names every step and every fact, and the shape going in and coming out, so another module or a mod can say "put my step after this one" or "replace that one."
 
 **It acts through [actions](#what-flows-through-it).** An action is the only effectful code in a module: a pure validate over a request, then one execute.
 
@@ -23,18 +23,18 @@ You already do all of this. Here is what each thing is called now.
 
 | You do this today | In a module |
 |---|---|
-| An `Allow*` callin with a stack of `if`s | A pipeline. The api gathers the context and asks it. |
+| An `Allow*` callin with a stack of `if`s | A policy. The api gathers the context and asks it. |
 | An `if` that returns false | A guard: `Unless` refuses on true, `If` refuses on false. |
 | The branch that returns true | An Answer. The first one that returns wins. |
 | `return false` | The Refusal, one shape declared once by the owner. |
 | A modoption read inside the rule | A fact with a Default. |
-| Another gadget reaching into yours through `GG` | A fact it provides, or a stage it contributes, from its own directory. |
+| Another gadget reaching into yours through `GG` | A fact it provides, or a step it contributes, from its own directory. |
 | A copy of the rule in a widget, for the tooltip | The same result, read back. One rule. |
 | `GG.Foo = function` cross calls | `api.lua`, typed at the call site. |
 | Upvalue tables in a gadget | `state.lua`, one table per module. |
 | `Spring.TransferUnit` inside the callin | An action: validate, then execute. |
 | `if modOptions.x == ...` scattered across gadgets | A mode preset. |
-| An edit in `alldefs_post.lua` | A stage on defs' unit def fold. |
+| An edit in `alldefs_post.lua` | A step on defs' unit def fold. |
 
 ## The modules
 
@@ -42,9 +42,9 @@ Each module owns one concern:
 
 | Module | Owns | Requires |
 |---|---|---|
-| `regions` | Contained space on the map, drawn as a point or a polygon: the shape, the rules every region type shares on one region and on the set, the name a region gets when it carries none, what is said about a region, and the layout codec, one table keyed by type. Regions knows shapes and nothing else: types are contributed by the modules that own them through a `region_types.lua`, each with its own record extending `Region` and its own stages on the set check, the naming and the description, reading what it needs off an `env` the asker passes through. The terraformer draws them through this api alone. | the runtime |
+| `regions` | Contained space on the map, drawn as a point or a polygon: the shape, the rules every region type shares on one region and on the set, the name a region gets when it carries none, what is said about a region, and the layout codec, one table keyed by type. Regions knows shapes and nothing else: types are contributed by the modules that own them through a `region_types.lua`, each with its own record extending `Region` and its own steps on the set check, the naming and the description, reading what it needs off an `env` the asker passes through. The terraformer draws them through this api alone. | the runtime |
 | `start` | A team's start as a region: its positions and the area they sit in, with its rule that no two areas share ground. Its facts default to the match's own startboxes and start positions, so an editor opens on what the map plays with. | regions |
-| `defs` | Def post-processing as a pipeline every unit and weapon def pass, and where a module adds its own stage. | the runtime |
+| `defs` | Def post-processing as a policy every unit and weapon def pass, and where a module adds its own step. | the runtime |
 | `game` | Which game this is: the game axis, one selector, the presets, the export the lobby reads. | the runtime |
 | `transport` | Who may load and unload what, and how fast a loaded transport flies. The first module with real rules; the air transport rework builds on it. | defs |
 | `construction` | What may be built, and by whom: assist, reclaim, resurrect, build delay, geo and mex upgrades. | the runtime |
@@ -59,13 +59,13 @@ Modules land one at a time, each with its own contract, policies and specs; a pr
 
 ## How a decision flows
 
-A module answers questions. "May this team hand that unit to this one?" is one. The rule that answers it is a pipeline: a list of stages, run in order, where each stage can refuse, pass the question on, or answer it. No stage is the rule. The list is.
+A module answers questions. "May this team hand that unit to this one?" is one. The rule that answers it is a policy: a list of steps, run in order, where each step can refuse, pass the question on, or answer it. No step is the rule. The list is.
 
-The contract is the module saying that out loud. It names each question the module answers, names every stage in the order they run, and says what goes in and what comes out. It is not the rules; it is the table of contents for them. That is what lets another module, or a mod, say "put my stage after that one" or "replace this one" without reading or touching the file the rules live in, and it is what lets the loader [refuse a wiring mistake at load](#what-the-loader-refuses), by name, rather than let it become a silent no in game.
+The contract is the module saying that out loud. It names each question the module answers, names every step in the order they run, and says what goes in and what comes out. It is not the rules; it is the table of contents for them. That is what lets another module, or a mod, say "put my step after that one" or "replace this one" without reading or touching the file the rules live in, and it is what lets the loader [refuse a wiring mistake at load](#what-the-loader-refuses), by name, rather than let it become a silent no in game.
 
 So a module is two files: a contract that names the question, and a policy that answers it. We'll walk the policy first, because it is the part you read as a rule, and then the contract that makes it explicit.
 
-The module's api gathers facts and asks. The pipeline decides. The module's actions act. Here is transfer asking whether one team may hand a unit to another, trimmed from `context_factory.lua`:
+The module's api gathers facts and asks. The policy decides. The module's actions act. Here is transfer asking whether one team may hand a unit to another, trimmed from `context_factory.lua`:
 
 ```lua
 local ctx = {
@@ -75,12 +75,12 @@ local ctx = {
 	areAlliedTeams = springRepo.AreTeamsAllied(senderTeamID, receiverTeamID) == true,
 	isCheatingEnabled = springRepo.IsCheatingEnabled(),
 }
-return ModuleHandler.Evaluate(pipelines.unit_transfer, ctx)
+return ModuleHandler.Evaluate(Contract.UnitTransfer, ctx)
 ```
 
 ### The policy
 
-The real file, trimmed to one pipeline and three stages.
+The real file, trimmed to one policy and three steps.
 
 ```lua
 -- modules/transfer/policies/unit_transfer.lua
@@ -123,7 +123,7 @@ local Contract = require("modules/transfer/contract")
 local unitTransfer = Contract.UnitTransfer
 ```
 
-The policy reads the stage names from the contract; it cannot invent one. Including it runs no rules, which is why a gadget, a widget, a spec and a mod can all include it.
+The policy reads the step names from the contract; it cannot invent one. Including it runs no rules, which is why a gadget, a widget, a spec and a mod can all include it.
 
 ```lua
 local function terms(ctx, canShare)
@@ -135,7 +135,7 @@ A plain local function. Both the yes and the no below are built by it, so a refu
 Policies.On(unitTransfer)
 ```
 
-Start a new decision pipeline. Explicitly name what that's about: transferring a unit. That lets other modules add their own rules to this decision if they want to. `Policies` is not included from anywhere: the loader sets it for the duration of this file, then takes it away.
+Open the policy. Explicitly name what that's about: transferring a unit. That lets other modules add their own rules to this decision if they want to. `Policies` is not included from anywhere: the loader sets it for the duration of this file, then takes it away.
 
 ```lua
 	.Refusal(function(ctx)
@@ -143,7 +143,7 @@ Start a new decision pipeline. Explicitly name what that's about: transferring a
 	end)
 ```
 
-What a no looks like. Declared once, by the owner. Every guard below that refuses hands back this, and so does falling off the end with nobody having said yes. Without it a no is `false`, which is fine for a boolean pipeline and useless for a table one.
+What a no looks like. Declared once, by the owner. Every guard below that refuses hands back this, and so does falling off the end with nobody having said yes. Without it a no is `false`, which is fine for a boolean policy and useless for a table one.
 
 ```lua
 	.If(unitTransfer.Allied, function(ctx)
@@ -151,9 +151,9 @@ What a no looks like. Declared once, by the owner. Every guard below that refuse
 	end)
 ```
 
-A **guard**. It reads the context and returns a boolean. `If` refuses on false, so if our teams are allied, this one moves on to the next stage. Guards cannot say "yes" for our pipeline.
+A **guard**. It reads the context and returns a boolean. `If` refuses on false, so if our teams are allied, this one moves on to the next step. Guards cannot say "yes" for our policy.
 
-`unitTransfer.Allied` is our stage name: `Allied`, in this case. Remember that is done so that someone else can contribute their own stage `.Before` it, `.Replace` it.
+`unitTransfer.Allied` is our step name: `Allied`, in this case. Remember that is done so that someone else can contribute their own step `.Before` it, `.Replace` it.
 
 ```lua
 	.Unless(unitTransfer.ReceiverHasNoPlayers, function(ctx)
@@ -173,11 +173,11 @@ Same shape, a few more lines. Order is precedence: this only runs if `Allied` pa
 	end)
 ```
 
-**Answer** is the only kind of stage that can say yes. It returns the result, the same shape the Refusal returns. Return nil instead and it passes, and the next Answer gets a go. Run out of Answers and nothing said yes, which is a no.
+**Answer** is the only kind of step that can say yes. It returns the result, the same shape the Refusal returns. Return nil instead and it passes, and the next Answer gets a go. Run out of Answers and nothing said yes, which is a no.
 
 ### Why this is easier for every layer
 
-A Single pipeline is a function from a context to a result, `C → T`, built out of stages that are each a smaller function. What makes it a pipeline and not a list of functions is the rule for what happens *between* the stages: a guard that refuses stops everything and hands back the Refusal; an Answer that returns nil hands on; an Answer that returns a value stops everything and hands that back. That rule lives in `Evaluate`, once. No stage checks what the previous stage said. No stage knows whether it is first, last, or the only one.
+A Single policy is a function from a context to a result, `C → T`, built out of steps that are each a smaller function. What makes it a policy and not a list of functions is the rule for what happens *between* the steps: a guard that refuses stops everything and hands back the Refusal; an Answer that returns nil hands on; an Answer that returns a value stops everything and hands that back. That rule lives in `Evaluate`, once. No step checks what the previous step said. No step knows whether it is first, last, or the only one.
 
 That is the whole of what a monad is, TLDR: a type, plus one rule for chaining functions over it, so the functions themselves never do the chaining. Here the type is "maybe a `T`" and the rule is "first value wins, a refusal on the way stops it". You do not need the word. You need what it buys:
 
@@ -185,7 +185,7 @@ That is the whole of what a monad is, TLDR: a type, plus one rule for chaining f
 - The action reads its grant as a `T`. Same table, no second ask.
 - The widget draws a `T`. Same table, so the tooltip and the rule cannot disagree.
 - The spec passes a context literal and asserts on a `T`. No engine, no gadget, no globals.
-- A mod adds one stage and never touches control flow, because there is no control flow in the stages to touch.
+- A mod adds one step and never touches control flow, because there is no control flow in the steps to touch.
 
 Every layer sees one shape going in and one shape coming out, and the only place the "what if it refused" question is answered is the one line that declares what a refusal is.
 
@@ -195,7 +195,7 @@ Everything the policy just used by name, declared.
 
 ```lua
 -- modules/transfer/contract.lua
-local PolicyBuilder = require("modules/policy_builder")
+local Policy = require("modules/policy")
 local Modules = require("modules/enums").Modules
 
 ---@class TransferPolicyContext
@@ -209,7 +209,7 @@ local Modules = require("modules/enums").Modules
 ---@field canShare boolean
 ---@field stunSeconds number
 
----@class TransferUnitTransferStages: PolicyStages<TransferPolicyContext, UnitPolicyResult>
+---@class TransferUnitTransferSteps: PolicySteps<TransferPolicyContext, UnitPolicyResult>
 local UnitTransfer = {
 	Allied = "Allied",
 	ReceiverHasNoPlayers = "ReceiverHasNoPlayers",
@@ -217,10 +217,10 @@ local UnitTransfer = {
 }
 
 ---@class TransferContract
----@field UnitTransfer TransferUnitTransferStages
+---@field UnitTransfer TransferUnitTransferSteps
 
-return PolicyBuilder.Contract(Modules.Transfer, {
-	UnitTransfer = PolicyBuilder.Single(UnitTransfer),
+return Policy.Contract(Modules.Transfer, {
+	UnitTransfer = Policy.Single(UnitTransfer),
 })
 ```
 
@@ -231,7 +231,7 @@ Same again, line by line.
 ---@class UnitPolicyResult
 ```
 
-The two types every pipeline has, written `<C, T>` everywhere else in this doc. `C` is what the gadget gathered up top. `T` is what `terms` built. `T` is a table here, not a boolean, because the gadget that stuns the unit and the widget that explains the stun in a tooltip both need the seconds, and they need them on a refusal too.
+The two types every policy has, written `<C, T>` everywhere else in this doc. `C` is what the gadget gathered up top. `T` is what `terms` built. `T` is a table here, not a boolean, because the gadget that stuns the unit and the widget that explains the stun in a tooltip both need the seconds, and they need them on a refusal too.
 
 ```lua
 local UnitTransfer = {
@@ -241,21 +241,21 @@ local UnitTransfer = {
 }
 ```
 
-The three names the policy hung its stages on. A stage added under a name not in this table is refused at load. A name in this table that never lands on the pipeline is refused at load too. The contract is a promise in both directions, and it is the only thing a mod needs to read to put its own stage `.Before` yours.
+The three names the policy hung its steps on. A step added under a name not in this table is refused at load. A name in this table that never lands on the policy is refused at load too. The contract is a promise in both directions, and it is the only thing a mod needs to read to put its own step `.Before` yours.
 
 ```lua
-return PolicyBuilder.Contract(Modules.Transfer, {
-	UnitTransfer = PolicyBuilder.Single(UnitTransfer),
+return Policy.Contract(Modules.Transfer, {
+	UnitTransfer = Policy.Single(UnitTransfer),
 })
 ```
 
-A contract belongs to a module. Name the owner with the enum, not a string, so a typo is a load error and not a module that silently never loads. Single means one question, one answer: the first stage that answers ends it. The real contract has three pipelines and four facts tables in this list; the shape is the same for each.
+A contract belongs to a module. Name the owner with the enum, not a string, so a typo is a load error and not a module that silently never loads. Single means one question, one answer: the first step that answers ends it. The real contract has three policies and four facts tables in this list; the shape is the same for each.
 
-A module need not declare everything here. A policy file may declare the stages it builds and return them, and the loader stamps those the same way; the module's contract is then the union of `contract.lua` and what its policy files return. Regions does that: each file under `modules/regions/policies/` is one pipeline, its context, its stages and its rules read top to bottom, and there is no `contract.lua` at all. Another module reaches that union with `Policies.Contract(Modules.Regions)`. A module small enough to fit in one file can instead hand the policy to `Contract` as a third argument; `defs` does.
+A module need not declare everything here. A policy file may declare the steps it builds and return them, and the loader stamps those the same way; the module's contract is then the union of `contract.lua` and what its policy files return. Regions does that: each file under `modules/regions/policies/` is one policy, its context, its steps and its rules read top to bottom, and there is no `contract.lua` at all. Another module reaches that union with `Policies.Contract(Modules.Regions)`. A module small enough to fit in one file can instead hand the policy to `Contract` as a third argument; `defs` does.
 
 ### What flows through it
 
-**The context** is the `C` the contract declared: the one table the api gathers for this ask, read from the engine or cached on a cadence. It is the pipeline's only input, which is the purity the section above leans on: a spec hands in a table literal, and a widget reads the same fields the gadget acted on.
+**The context** is the `C` the contract declared: the one table the api gathers for this ask, read from the engine or cached on a cadence. It is the policy's only input, which is the purity the section above leans on: a spec hands in a table literal, and a widget reads the same fields the gadget acted on.
 
 **Order is precedence.** A guard can only refuse, so "yes, regardless of the rest" is a matter of placement, not a verb. An Answer above `Allied` that grants when cheating is enabled reads: cheaters share with anyone; everyone else must be allied and sharing with a live team. As boolean logic, `cheating or (allied and receiverHasPlayers)`.
 
@@ -283,18 +283,18 @@ Actions.RegisterExecute(function(request)
 end)
 ```
 
-If you have built this before as blockers, modifiers and listeners around an `AllowX` call, the mapping is exact. Blockers are `Unless` and `If`. Modifiers are facts, filled once, up front, with no "modify and re-query" loop. Listeners are not in the pipeline at all: they are whoever consumes the result.
+If you have built this before as blockers, modifiers and listeners around an `AllowX` call, the mapping is exact. Blockers are `Unless` and `If`. Modifiers are facts, filled once, up front, with no "modify and re-query" loop. Listeners are not in the policy at all: they are whoever consumes the result.
 
 ### A mod
 
 A mod, or another module, changes a decision by aiming the same builder at the owner's contract. This is the whole of a mod that stops tanks being transported. Transport's own file is untouched:
 
 ```lua
--- modules/notanks/contract.lua: the stage this mod adds, named where others can find it
+-- modules/notanks/contract.lua: the step this mod adds, named where others can find it
 local Transport = require("modules/transport/contract")
 
-return PolicyBuilder.Contract(Modules.NoTanks, {
-	Load = PolicyBuilder.Contributes(Transport.Load, { TanksStayOnTheGround = "TanksStayOnTheGround" }),
+return Policy.Contract(Modules.NoTanks, {
+	Load = Policy.Contributes(Transport.Load, { TanksStayOnTheGround = "TanksStayOnTheGround" }),
 })
 ```
 
@@ -309,7 +309,7 @@ Policies.On(Transport.Load).Unless(Contract.Load.TanksStayOnTheGround, function(
 end)
 ```
 
-The owner's stages run first, other modules' follow in module-name order, and a new stage joins just before the answer unless `.Before` or `.After` says otherwise. Guards compose with AND: anyone can add one, and adding can only tighten. Loosening a rule you do not own touches that rule, by name: `Remove` it, `Replace` it, or exempt from all of them with an Answer above. That asymmetry is deliberate. Tightening is safe to let anyone do blind; loosening is not.
+The owner's steps run first, other modules' follow in module-name order, and a new step joins just before the answer unless `.Before` or `.After` says otherwise. Guards compose with AND: anyone can add one, and adding can only tighten. Loosening a rule you do not own touches that rule, by name: `Remove` it, `Replace` it, or exempt from all of them with an Answer above. That asymmetry is deliberate. Tightening is safe to let anyone do blind; loosening is not.
 
 ### A fact
 
@@ -317,7 +317,7 @@ Where an owner expects loosening, it puts the knob on the context as a fact, so 
 
 ```lua
 -- transfer's contract
-TeamPairing = PolicyBuilder.Facts({ TechBlocking = "techBlocking", TaxRate = "taxRate" }),
+TeamPairing = Policy.Facts({ TechBlocking = "techBlocking", TaxRate = "taxRate" }),
 ```
 
 ```lua
@@ -347,10 +347,10 @@ Modes say which module's provider is live. The loader refuses a preset combinati
 Everything that can go wrong in wiring is a load error that names the file:
 
 - a directory under `modules/` with no `manifest.lua`, or a manifest whose name does not match its directory
-- a stage added under a name no contract declares
-- a name in a contract that never lands on the pipeline, the owner's or a contributor's
-- two modules adding the same stage name
-- a Single pipeline that does not end in an Answer
+- a step added under a name no contract declares
+- a name in a contract that never lands on the policy, the owner's or a contributor's
+- two modules adding the same step name
+- a Single policy that does not end in an Answer
 - a declared fact with no Default from its owner
 - a preset combination that leaves two providers live for one fact
 - a policy or action file that returns a value, which the include shim would cache and the registration would be lost
@@ -359,7 +359,7 @@ There is no registry to add yourself to and no global to poke. Contracts, polici
 
 ### How a gadget asks
 
-A gadget does not ask a pipeline. It calls the module's `api.lua`, which gathers the context, asks, and runs the action. The pipeline runs once, in synced. Transfer's unit controller, the two places it touches the module:
+A gadget does not ask a policy. It calls the module's `api.lua`, which gathers the context, asks, and runs the action. The policy runs once, in synced. Transfer's unit controller, the two places it touches the module:
 
 ```lua
 -- modules/transfer/gadgets/game_unit_transfer_controller.lua
@@ -436,17 +436,17 @@ return { name = "transport", description = "What a carrier may pick up, and how 
 
 **`contract.lua`**
 
-What a module decides, which of those decisions others may change, and which facts it takes from them: each pipeline's stage names, how its stages combine, and the context it reads. Optional, because a policy file may declare and return the stages it builds; the module's contract is `contract.lua` and those returns together, and `ModuleHandler.Contract(Modules.X)` is that union. See [In contract.lua](REFERENCE.md#in-contractlua).
+What a module decides, which of those decisions others may change, and which facts it takes from them: each policy's step names, how its steps combine, and the context it reads. Optional, because a policy file may declare and return the steps it builds; the module's contract is `contract.lua` and those returns together, and `ModuleHandler.Contract(Modules.X)` is that union. See [In contract.lua](REFERENCE.md#in-contractlua).
 <sub>Example: [`modules/transfer/contract.lua`](https://github.com/beyond-all-reason/Beyond-All-Reason/blob/transfer/modules/transfer/contract.lua)</sub>
 
 **`policies/`**
 
-The rules. Each file builds pipelines against a contract, its own or another module's, with `Policies.On(...)`. Any file here is found; there is nothing to register. A file may declare the stages it builds and return them (`return { Check = Check }`); the loader stamps them with the module and they join its contract, so one file can be a pipeline's whole story. Another module's contract comes from `Policies.Contract(Modules.X)`, loaded on demand. A module whose whole policy is a few lines may carry it inline in `contract.lua` instead, as a third argument the loader runs the same way.
+The rules. Each file builds policies against a contract, its own or another module's, with `Policies.On(...)`. Any file here is found; there is nothing to register. A file may declare the steps it builds and return them (`return { Check = Check }`); the loader stamps them with the module and they join its contract, so one file can be a policy's whole story. Another module's contract comes from `Policies.Contract(Modules.X)`, loaded on demand. A module whose whole policy is a few lines may carry it inline in `contract.lua` instead, as a third argument the loader runs the same way.
 <sub>Examples: [`modules/transport/policies/transport.lua`](https://github.com/beyond-all-reason/Beyond-All-Reason/blob/transport/modules/transport/policies/transport.lua) against its contract; [`modules/regions/policies/check.lua`](https://github.com/beyond-all-reason/Beyond-All-Reason/blob/mex-splitting/modules/regions/policies/check.lua) declaring its own</sub>
 
 **`actions/`**
 
-The only effectful code. One file per action, registering a pure `validate` and one `execute`. A pipeline decides, an action does.
+The only effectful code. One file per action, registering a pure `validate` and one `execute`. A policy decides, an action does.
 <sub>Example: [`modules/transfer/actions/units.lua`](https://github.com/beyond-all-reason/Beyond-All-Reason/blob/transfer/modules/transfer/actions/units.lua)</sub>
 
 **`state.lua`**
@@ -503,12 +503,12 @@ Every file under `modules/` is loaded by the game's own handlers, in the same Lu
 ## What to keep
 
 - A module is an opinionated directory that encapsulates game behavior.
-- A policy is a file that contains many decisions, each one a pipeline.
-- A pipeline is one statement chain of stages, each a guard or an Answer, with one Refusal saying what a no looks like. On a Product the stages are Factors; on a Fold, Applies.
-- Read a pipeline top to bottom, and place your stage where the precedence says. No stage is the rule; the chain is.
+- A policy file declares decisions, each one a policy.
+- A policy is one chain of named steps, each a guard or an Answer, with one Refusal saying what a no looks like. On a Product the steps are Factors; on a Fold, Applies.
+- Read a policy top to bottom, and place your step where the precedence says. No step is the rule; the chain is.
 - A guard can only refuse, and only an Answer can answer. Loosening touches the rule by name; tightening never does.
 - Facts inform a decision and are filled before it runs; an Answer makes the decision. The mode decides whose fact is live.
-- The contract is the map: every stage and every fact is a name there, and every wiring mistake is a load error that points at it.
+- The contract is the map: every step and every fact is a name there, and every wiring mistake is a load error that points at it.
 - A gadget is the engine's callin and nothing more: it hands the ids to the api, which gathers, asks and acts. State a module must keep lives in `state.lua`, once per Lua state.
 
 ## Game

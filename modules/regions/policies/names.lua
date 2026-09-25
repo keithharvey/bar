@@ -1,18 +1,18 @@
-local PolicyBuilder = require("modules/policy_builder")
+local Policy = require("modules/policy")
 
 ---@class RegionNamesContext
 ---@field type RegionType
 ---@field regions Region[]
 ---@field bases string[]
 
----@class RegionNamesStages: PolicyStages<RegionNamesContext, RegionNamesContext>
+---@class RegionNamesSteps: PolicySteps<RegionNamesContext, RegionNamesContext>
 ---@field Label string
 
 ---@class (partial) RegionsContract
----@field Names RegionNamesStages
+---@field Names RegionNamesSteps
 
----@type RegionNamesStages
-local Names = PolicyBuilder.Fold({
+---@type RegionNamesSteps
+local Names = Policy.Fold({
 	Label = "Label",
 })
 

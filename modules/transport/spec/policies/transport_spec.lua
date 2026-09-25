@@ -1,25 +1,25 @@
 local Contract = require("modules/transport/contract")
 local ModuleHandler = require("modules/module_handler")
-local PolicyBuilder = require("modules/policy_builder")
+local Policy = require("modules/policy")
 
-local function decide(pipeline, ctx)
-	return ModuleHandler.Evaluate(pipeline, ctx)
+local function decide(policy, ctx)
+	return ModuleHandler.Evaluate(policy, ctx)
 end
 
 describe("transport policies", function()
-	it("publishes every stage name, keyed as its pipelines are, for the owner and for whoever contributes", function()
-		for _, stages in pairs(Contract) do
-			local identity = PolicyBuilder.IdentityOf(stages)
+	it("publishes every step name, keyed as its policies are, for the owner and for whoever contributes", function()
+		for _, steps in pairs(Contract) do
+			local identity = Policy.IdentityOf(steps)
 			local owner = identity.contributes and identity.contributes.owner or "transport"
 			local category = identity.contributes and identity.contributes.category or identity.category
 			local named = {}
-			for _, stage in ipairs(ModuleHandler.LoadPolicies(owner)[category]) do
-				named[stage.name] = true
+			for _, step in ipairs(ModuleHandler.LoadPolicies(owner)[category]) do
+				named[step.name] = true
 			end
-			for key, name in pairs(stages) do
+			for key, name in pairs(steps) do
 				assert.is_true(
 					named[name],
-					owner .. "." .. category .. " has no stage " .. name .. " (Contract." .. key .. ")"
+					owner .. "." .. category .. " has no step " .. name .. " (Contract." .. key .. ")"
 				)
 			end
 		end

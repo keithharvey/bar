@@ -1,4 +1,4 @@
-local PolicyBuilder = require("modules/policy_builder")
+local Policy = require("modules/policy")
 
 ---@class StartArea
 ---@field allyTeamID integer
@@ -24,7 +24,7 @@ local PolicyBuilder = require("modules/policy_builder")
 ---@field Facts StartFacts
 
 ---@type StartFacts
-local Facts = PolicyBuilder.Facts({
+local Facts = Policy.Facts({
 	Areas = "areas",
 	Positions = "positions",
 })

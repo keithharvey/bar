@@ -1,4 +1,4 @@
-local PolicyBuilder = require("modules/policy_builder")
+local Policy = require("modules/policy")
 local Modules = require("modules/enums").Modules
 local ConstructionContract = require("modules/construction/contract")
 
@@ -88,21 +88,21 @@ local TeamPairing = {
 	TaxRate = "taxRate",
 }
 
----@class TransferTakeStages: PolicyStages<TransferTakeContext, TakePolicy>
+---@class TransferTakeSteps: PolicySteps<TransferTakeContext, TakePolicy>
 ---@field TakeTerms string
 
----@type TransferTakeStages
+---@type TransferTakeSteps
 local Take = {
 	TakeTerms = "TakeTerms",
 }
 
----@class TransferUnitTransferStages: PolicyStages<TransferPolicyContext, TransferUnitPolicyResult>
+---@class TransferUnitTransferSteps: PolicySteps<TransferPolicyContext, TransferUnitPolicyResult>
 ---@field SharingDisabled string
 ---@field Allied string
 ---@field ReceiverHasNoPlayers string
 ---@field TransferTerms string
 
----@type TransferUnitTransferStages
+---@type TransferUnitTransferSteps
 local UnitTransfer = {
 	SharingDisabled = "SharingDisabled",
 	Allied = "Allied",
@@ -110,13 +110,13 @@ local UnitTransfer = {
 	TransferTerms = "TransferTerms",
 }
 
----@class TransferResourceTransferStages: PolicyStages<TransferPolicyContext, TransferResourcePolicyResult>
+---@class TransferResourceTransferSteps: PolicySteps<TransferPolicyContext, TransferResourcePolicyResult>
 ---@field SharingDisabled string
 ---@field Allied string
 ---@field ReceiverHasNoPlayers string
 ---@field RateAndCapacity string
 
----@type TransferResourceTransferStages
+---@type TransferResourceTransferSteps
 local ResourceTransfer = {
 	SharingDisabled = "SharingDisabled",
 	Allied = "Allied",
@@ -145,12 +145,12 @@ local ResourceTransfer = {
 ---@field spots table<string, integer[]> the teams holding each metal spot, by spot key; this is what a mex placement is checked against. A spot covered by two regions is held by both teams
 ---@field problems string[] why no deal was made; empty when one was
 
----@class TransferMexSplittingStages: PolicyStages<MexRegionsDealContext, MexRegionsDeal>
+---@class TransferMexSplittingSteps: PolicySteps<MexRegionsDealContext, MexRegionsDeal>
 ---@field LayoutChecksOut string the layout passes the regions module's set check for mex regions: every region well-formed with its fields set, and every spot covered
 ---@field SpotsKnown string the map has metal spots; a metal map has none to deal
 ---@field NearestRoundRobin string a region goes round the teams seated at its start, nearest first; one whose start is empty this match goes round every team. A team left holding nothing means the layout has too few regions, and there is no deal
 
----@type TransferMexSplittingStages
+---@type TransferMexSplittingSteps
 local MexSplitting = {
 	LayoutChecksOut = "LayoutChecksOut",
 	SpotsKnown = "SpotsKnown",
@@ -161,42 +161,42 @@ local MexSplitting = {
 ---@field departing MexRegionsTeamStart
 ---@field heirs { teamID: integer, x: number, z: number, gifted: integer }[] the departing team's living allies in the deal; gifted is how many regions each has already inherited
 
----@class TransferMexSplittingHeirStages: PolicyStages<MexRegionsHeirContext, integer|false>
+---@class TransferMexSplittingHeirSteps: PolicySteps<MexRegionsHeirContext, integer|false>
 ---@field FewestGiftedThenNearest string the ally that has inherited the fewest regions; ties go to the one starting nearest the departing team
 
----@type TransferMexSplittingHeirStages
+---@type TransferMexSplittingHeirSteps
 local MexSplittingHeir = {
 	FewestGiftedThenNearest = "FewestGiftedThenNearest",
 }
 
 ---@class (partial) TransferContract
----@field Take TransferTakeStages
----@field UnitTransfer TransferUnitTransferStages
----@field ResourceTransfer TransferResourceTransferStages
+---@field Take TransferTakeSteps
+---@field UnitTransfer TransferUnitTransferSteps
+---@field ResourceTransfer TransferResourceTransferSteps
 ---@field TeamPairing TransferTeamPairingFacts
 ---@field TeamTerms TransferTeamTermsFacts
 ---@field UnitTermsNotes TransferUnitNotesFacts
 ---@field ResourceTermsNotes TransferResourceNotesFacts
----@field MexSplitting TransferMexSplittingStages
----@field MexSplittingHeir TransferMexSplittingHeirStages
+---@field MexSplitting TransferMexSplittingSteps
+---@field MexSplittingHeir TransferMexSplittingHeirSteps
 
----@class TransferBuildStages the stages transfer adds to construction's build pipeline
+---@class TransferBuildSteps the steps transfer adds to construction's build policy
 ---@field UnaffordableAssistTax string a build step the assisting team cannot pay the tax on
 
----@type TransferBuildStages
+---@type TransferBuildSteps
 local Build = {
 	UnaffordableAssistTax = "UnaffordableAssistTax",
 }
 
-return PolicyBuilder.Contract(Modules.Transfer, {
-	Build = PolicyBuilder.Contributes(ConstructionContract.Build, Build),
-	Take = PolicyBuilder.Single(Take),
-	UnitTransfer = PolicyBuilder.Single(UnitTransfer),
-	ResourceTransfer = PolicyBuilder.Single(ResourceTransfer),
-	TeamPairing = PolicyBuilder.Facts(TeamPairing),
-	TeamTerms = PolicyBuilder.Facts(TeamTerms),
-	UnitTermsNotes = PolicyBuilder.Facts(UnitNotes),
-	ResourceTermsNotes = PolicyBuilder.Facts(ResourceNotes),
-	MexSplitting = PolicyBuilder.Single(MexSplitting),
-	MexSplittingHeir = PolicyBuilder.Single(MexSplittingHeir),
+return Policy.Contract(Modules.Transfer, {
+	Build = Policy.Contributes(ConstructionContract.Build, Build),
+	Take = Policy.Single(Take),
+	UnitTransfer = Policy.Single(UnitTransfer),
+	ResourceTransfer = Policy.Single(ResourceTransfer),
+	TeamPairing = Policy.Facts(TeamPairing),
+	TeamTerms = Policy.Facts(TeamTerms),
+	UnitTermsNotes = Policy.Facts(UnitNotes),
+	ResourceTermsNotes = Policy.Facts(ResourceNotes),
+	MexSplitting = Policy.Single(MexSplitting),
+	MexSplittingHeir = Policy.Single(MexSplittingHeir),
 })

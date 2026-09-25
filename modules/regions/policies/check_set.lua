@@ -1,6 +1,6 @@
 local ModuleHandler = require("modules/module_handler")
 local Modules = require("modules/enums").Modules
-local PolicyBuilder = require("modules/policy_builder")
+local Policy = require("modules/policy")
 local Problems = require("modules/regions/lib/problems")
 
 ---@class RegionProblem
@@ -18,14 +18,14 @@ local Problems = require("modules/regions/lib/problems")
 
 ---@class (partial) RegionMap
 
----@class RegionSetStages: PolicyStages<RegionSetContext, RegionSetContext>
+---@class RegionSetSteps: PolicySteps<RegionSetContext, RegionSetContext>
 ---@field Each string
 
 ---@class (partial) RegionsContract
----@field CheckSet RegionSetStages
+---@field CheckSet RegionSetSteps
 
----@type RegionSetStages
-local CheckSet = PolicyBuilder.Fold({
+---@type RegionSetSteps
+local CheckSet = Policy.Fold({
 	Each = "Each",
 })
 

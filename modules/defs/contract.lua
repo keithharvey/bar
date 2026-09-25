@@ -1,4 +1,4 @@
-local PolicyBuilder = require("modules/policy_builder")
+local Policy = require("modules/policy")
 local Modules = require("modules/enums").Modules
 
 ---@class DefContext one def, on its way through post-processing
@@ -6,29 +6,29 @@ local Modules = require("modules/enums").Modules
 ---@field def table the def table, edited in place
 ---@field modOptions table
 
----@class UnitDefStages: PolicyStages<DefContext, DefContext>
+---@class UnitDefSteps: PolicySteps<DefContext, DefContext>
 ---@field Base string the base game's post-processing, gamedata/alldefs_post.lua
 
----@type UnitDefStages
+---@type UnitDefSteps
 local UnitDef = {
 	Base = "Base",
 }
 
----@class WeaponDefStages: PolicyStages<DefContext, DefContext>
+---@class WeaponDefSteps: PolicySteps<DefContext, DefContext>
 ---@field Base string
 
----@type WeaponDefStages
+---@type WeaponDefSteps
 local WeaponDef = {
 	Base = "Base",
 }
 
 ---@class DefsContract
----@field UnitDef UnitDefStages
----@field WeaponDef WeaponDefStages
+---@field UnitDef UnitDefSteps
+---@field WeaponDef WeaponDefSteps
 
-return PolicyBuilder.Contract(Modules.Defs, {
-	UnitDef = PolicyBuilder.Fold(UnitDef),
-	WeaponDef = PolicyBuilder.Fold(WeaponDef),
+return Policy.Contract(Modules.Defs, {
+	UnitDef = Policy.Fold(UnitDef),
+	WeaponDef = Policy.Fold(WeaponDef),
 }, function(Policies)
 	local base = require("modules/defs/lib/base").Base
 

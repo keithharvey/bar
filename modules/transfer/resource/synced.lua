@@ -79,8 +79,8 @@ function Gadgets.CalcResourcePolicy(ctx, resourceType)
 		result = {} --[[@as TransferResourcePolicyResult]]
 		policyResultPool[resourceType] = result
 	end
-	local pipeline = Contract.ResourceTransfer
-	return ModuleHandler.Evaluate(pipeline, ctx, resourceType, resolveEffectiveRate(ctx, resourceType), result)
+	local policy = Contract.ResourceTransfer
+	return ModuleHandler.Evaluate(policy, ctx, resourceType, resolveEffectiveRate(ctx, resourceType), result)
 end
 
 ---@param springRepo Spring

@@ -1,8 +1,8 @@
 local Contract = require("modules/construction/contract")
 local ModuleHandler = require("modules/module_handler")
 
-local function decide(pipeline, ctx)
-	return ModuleHandler.Evaluate(pipeline, ctx)
+local function decide(policy, ctx)
+	return ModuleHandler.Evaluate(policy, ctx)
 end
 
 describe("construction policies", function()
