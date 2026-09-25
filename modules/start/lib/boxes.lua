@@ -15,7 +15,7 @@ local Boxes = {}
 
 ---@class StartBox one ally team's start box
 ---@field allyTeamID integer 0-based
----@field ring { x: number, z: number, strength: number|nil }[] in elmos; strength is set on curved anchors
+---@field ring { x: number, z: number, strength: number|nil }[] elmos; strength is set on curved anchors
 ---@field name string|nil the modoption's short name; a compass name for an engine rect
 ---@field source string the modoption that set it, or "engine"
 ---@field wholeMap boolean a box covering the map restricts nothing

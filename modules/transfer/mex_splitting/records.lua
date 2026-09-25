@@ -9,8 +9,11 @@ local Records = {}
 function Records.From(regions)
 	local names = Regions.Names(Enums.Types.MexRegion, regions)
 	---@cast regions MexRegion[]
-	for i, region in ipairs(regions) do
-		region.name = names[i].name
+	for i, named in ipairs(names) do
+		local region = regions[i]
+		if region then
+			region.name = named.name
+		end
 	end
 	return regions
 end

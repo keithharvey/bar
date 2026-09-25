@@ -44,15 +44,15 @@ local refused ---@type string[]|nil the deal's problems, when it was refused
 
 ---@param message string
 local function tellEveryone(message)
-	for _, playerID in ipairs(Spring.GetPlayerList()) do
+	for _, playerID in ipairs(Spring.GetPlayerList() or {}) do
 		Spring.SendMessageToPlayer(playerID, message)
 	end
 end
 
----@return MexRegionsTeamStart[]
 local chosen = {} ---@type table<integer, { x: number, z: number }> where a team has asked to start, before the engine has it
 
 -- Where each team starts from: the position it chose, else the one the engine holds, else its start area's centre.
+---@return MexRegionsTeamStart[]
 local function teamStarts()
 	local centres = {} ---@type { [integer]: { x: number, z: number } }
 	for _, area in ipairs(Start.Current(Spring).areas) do
@@ -64,18 +64,18 @@ local function teamStarts()
 		centres[area.allyTeamID] = { x = cx, z = cz }
 	end
 	local teams = {} ---@type MexRegionsTeamStart[]
-	for _, teamID in ipairs(Spring.GetTeamList()) do
+	for _, teamID in ipairs(Spring.GetTeamList() or {}) do
 		if not ignoredTeams[teamID] then
 			local allyTeamID = Spring.GetTeamAllyTeamID(teamID) or 0
-			local at = chosen[teamID]
+			local at = chosen[teamID] ---@type { x: number, z: number }|nil
 			if at == nil then
 				local x, _, z = Spring.GetTeamStartPosition(teamID)
 				if x and z and x > 0 and z > 0 then
 					at = { x = x, z = z }
 				end
 			end
-			at = at or centres[allyTeamID] or { x = Game.mapSizeX * 0.5, z = Game.mapSizeZ * 0.5 }
-			teams[#teams + 1] = { teamID = teamID, allyTeamID = allyTeamID, x = at.x, z = at.z }
+			local from = at or centres[allyTeamID] or { x = Game.mapSizeX * 0.5, z = Game.mapSizeZ * 0.5 }
+			teams[#teams + 1] = { teamID = teamID, allyTeamID = allyTeamID, x = from.x, z = from.z }
 		end
 	end
 	return teams
@@ -117,7 +117,7 @@ local function tellHoldings(teamID)
 	end
 	toldHoldings[teamID] = held
 	local line = held ~= "" and ("your mex regions: " .. held:gsub("@%d+", "")) or "you hold no mex regions"
-	for _, playerID in ipairs(Spring.GetPlayerList(teamID)) do
+	for _, playerID in ipairs(Spring.GetPlayerList(teamID) or {}) do
 		Spring.SendMessageToPlayer(playerID, TAG .. ": " .. line)
 	end
 end
@@ -138,7 +138,7 @@ function gadget:GameStart()
 		chosen = {}
 		deal()
 		if not refused then
-			for _, teamID in ipairs(Spring.GetTeamList()) do
+			for _, teamID in ipairs(Spring.GetTeamList() or {}) do
 				if not ignoredTeams[teamID] then
 					tellHoldings(teamID)
 				end
@@ -149,6 +149,7 @@ end
 
 -- A map maker trying out what they just drew: with no layout from the lobby or the map, before the start, the only
 -- human in the match may hand over their terraformer save. Nobody can do that to a match other people are in.
+---@return boolean|nil consumed: true keeps the message from the gadgets after this one
 function gadget:RecvLuaMsg(msg)
 	if msg:sub(1, #Shared.LAYOUT_MSG) ~= Shared.LAYOUT_MSG then
 		return
@@ -158,7 +159,7 @@ function gadget:RecvLuaMsg(msg)
 		return true
 	end
 	local humans = 0
-	for _, playerID in ipairs(Spring.GetPlayerList()) do
+	for _, playerID in ipairs(Spring.GetPlayerList() or {}) do
 		-- not "active": nobody is, before the start. Every seated player counts, connected yet or not.
 		local _, _, spectator = Spring.GetPlayerInfo(playerID, false)
 		if not spectator then

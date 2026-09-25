@@ -17,7 +17,7 @@ Layout.SPACE = 200
 ---@field strength number|nil 0..1; absent or 0 is a sharp corner
 
 ---@param poly table
----@return RegionLayoutAnchor[]|nil anchors, a rect expanded to its four corners; nil when malformed
+---@return RegionLayoutAnchor[]|nil anchors a rect expanded to its four corners; nil when malformed
 ---@return boolean curved any anchor carries strength
 local function readPoly(poly)
 	if type(poly) ~= "table" then
@@ -43,8 +43,8 @@ local function readPoly(poly)
 	return anchors, curved
 end
 
----@param controls { x: number, z: number, strength: number|nil }[] in elmos
----@return { x: number, z: number }[] the outline
+---@param controls { x: number, z: number, strength: number|nil }[] elmos
+---@return { x: number, z: number }[] outline
 function Layout.Tessellate(controls)
 	local ring = {}
 	for i, a in ipairs(controls) do
@@ -64,7 +64,7 @@ local function round(v)
 end
 
 ---@param regions Region[] of any types; one the registry does not know is left out
----@param byKey table<string, RegionType> the registry
+---@param byKey table<string, RegionType|nil> the registry
 ---@param mapSizeX number
 ---@param mapSizeZ number
 ---@return table layout { regions = { [typeKey] = entry[] } }
@@ -90,8 +90,9 @@ function Layout.Export(regions, byKey, mapSizeX, mapSizeZ)
 			end
 			-- the anchors, never the outline: a curve cannot be recovered from its outline
 			local anchors = region.kind == "spline" and region.controls or region.vertices or {}
-			if #anchors == 1 then
-				entry.x, entry.y = round(anchors[1].x * sx), round(anchors[1].z * sz)
+			local only = anchors[1]
+			if #anchors == 1 and only then
+				entry.x, entry.y = round(only.x * sx), round(only.z * sz)
 			elseif region.kind == "box" and #anchors >= 3 then
 				local minX, minZ, maxX, maxZ = math.huge, math.huge, -math.huge, -math.huge
 				for _, a in ipairs(anchors) do
@@ -202,7 +203,7 @@ end
 
 ---@param layout table
 ---@param order RegionTypeKey[] the types, in the order to write them
----@param byKey table<string, RegionType>
+---@param byKey table<string, RegionType|nil>
 ---@param header string|nil a first comment line
 ---@return string lua source that returns the layout: one entry per line block, fields in declared order, for readable diffs
 function Layout.Serialize(layout, order, byKey, header)
@@ -214,7 +215,7 @@ function Layout.Serialize(layout, order, byKey, header)
 			for _, entry in ipairs(entries) do
 				lines[#lines + 1] = "      {"
 				lines[#lines + 1] = "        id = " .. literal(entry.id) .. ","
-				for _, field in ipairs(byKey[typeKey].fields) do
+				for _, field in ipairs((byKey[typeKey] or {}).fields or {}) do
 					if entry[field.key] ~= nil then
 						lines[#lines + 1] = "        " .. field.key .. " = " .. literal(entry[field.key]) .. ","
 					end

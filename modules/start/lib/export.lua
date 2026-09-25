@@ -10,7 +10,7 @@ local function toNorm(v, size)
 	return math.max(0, math.min(SPACE, math.floor(v * SPACE / math.max(1, size) + 0.5)))
 end
 
----@param areas StartRegion[] in team order; each with vertices, or controls and kind "spline" when curved, or kind "box" for an axis-aligned rect
+---@param areas StartRegion[] team order; each with vertices, or controls and kind "spline" when curved, or kind "box" for an axis-aligned rect
 ---@param mapSizeX number
 ---@param mapSizeZ number
 ---@return { poly: { x: integer, y: integer, strength: number|nil }[] }[] one entry per area, the anchors normalised to 0..200; a rect as its two corners; strength snapped to 0.025 and omitted at zero, as maps-metadata reads it

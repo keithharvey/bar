@@ -48,10 +48,10 @@ local function onPolygon(cx, cz, radius, sides, count, rotation)
 	local level = 1
 	while #points < count and level <= 6 do
 		local finer = {}
-		for i = 1, #points do
-			local j = (i % #points) + 1
-			finer[#finer + 1] = points[i]
-			finer[#finer + 1] = { x = (points[i].x + points[j].x) * 0.5, z = (points[i].z + points[j].z) * 0.5 }
+		for i, p in ipairs(points) do
+			local q = points[(i % #points) + 1] or p
+			finer[#finer + 1] = p
+			finer[#finer + 1] = { x = (p.x + q.x) * 0.5, z = (p.z + q.z) * 0.5 }
 		end
 		points = finer
 		level = level + 1

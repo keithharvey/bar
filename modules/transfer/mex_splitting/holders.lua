@@ -11,9 +11,12 @@ local read = Deal.Reader(Game.mapSizeX, Game.mapSizeZ)
 ---@param z number
 ---@return integer[] the teams holding a region that covers x, z, in layout order; none when there is no deal
 function Holders.At(springRepo, x, z)
-	local deal = read(springRepo)
 	local out = {} ---@type integer[]
-	for _, region in ipairs(deal and deal.regions or {}) do
+	local deal = read(springRepo)
+	if not deal then
+		return out
+	end
+	for _, region in ipairs(deal.regions) do
 		local holder = deal.holders[region.id]
 		if holder ~= nil and not table.contains(out, holder) and Geometry.Contains(x, z, region.vertices) then
 			out[#out + 1] = holder

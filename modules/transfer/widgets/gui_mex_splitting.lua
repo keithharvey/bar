@@ -44,7 +44,11 @@ end
 
 local function placingAMex()
 	local _, cmdID = Spring.GetActiveCommand()
-	return cmdID ~= nil and (cmdID == GameCMD.AREA_MEX or (cmdID < 0 and isMex[-cmdID] == true))
+	if cmdID == nil then
+		return false
+	end
+	local unitDefID = -cmdID
+	return cmdID == GameCMD.AREA_MEX or (cmdID < 0 and isMex[unitDefID] == true)
 end
 
 ---@param teamID integer

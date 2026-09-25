@@ -1,8 +1,9 @@
----@class RegionStore the regions of this Lua state: one insertion-ordered list, keyed by id. The editor edits it; the game reads it
----@field list Region[] in insertion order
----@field byId table<string, Region>
----@field revision integer bumped on every change, so a reader can cache against it
 local Store = {}
+
+---@class RegionStore the regions of this Lua state: one insertion-ordered list, keyed by id. The editor edits it; the game reads it
+---@field list Region[] insertion order
+---@field byId table<string, Region|nil>
+---@field revision integer bumped on every change, so a reader can cache against it
 
 ---@param state RegionStore
 ---@param region Region with an id
@@ -46,13 +47,14 @@ end
 ---@param beforeId string|nil
 ---@return Region
 function Store.Put(state, region, beforeId)
-	local held = state.byId[region.id]
-	if held == region then
+	local id = assert(region.id, "Store.Put: a region needs an id")
+	local held = state.byId[id]
+	if rawequal(held, region) then
 		state.revision = state.revision + 1
 		return region
 	end
-	if held then
-		remove(state, region.id)
+	if held ~= nil then
+		remove(state, id)
 	end
 	insert(state, region, beforeId)
 	return region
@@ -62,7 +64,7 @@ Store.Remove = remove
 
 ---@param state RegionStore
 ---@param typeKey RegionTypeKey|nil
----@return Region[] in insertion order; a new table
+---@return Region[] regions insertion order; a new table
 function Store.All(state, typeKey)
 	local out = {}
 	for _, region in ipairs(state.list) do
