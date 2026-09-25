@@ -1,5 +1,5 @@
 local Geometry = require("modules/regions/lib/geometry")
-local PolicyBuilder = require("modules/policy_builder")
+local Policy = require("modules/policy")
 
 ---@class RegionCheckContext
 ---@field type RegionType
@@ -9,15 +9,15 @@ local PolicyBuilder = require("modules/policy_builder")
 ---@field fieldsOnly boolean|nil
 ---@field problems string[]
 
----@class RegionCheckStages: PolicyStages<RegionCheckContext, RegionCheckContext>
+---@class RegionCheckSteps: PolicySteps<RegionCheckContext, RegionCheckContext>
 ---@field Shape string
 ---@field Fields string
 
 ---@class (partial) RegionsContract
----@field Check RegionCheckStages
+---@field Check RegionCheckSteps
 
----@type RegionCheckStages
-local Check = PolicyBuilder.Fold({
+---@type RegionCheckSteps
+local Check = Policy.Fold({
 	Shape = "Shape",
 	Fields = "Fields",
 })

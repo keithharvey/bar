@@ -5,7 +5,7 @@ end
 
 local LOG_TAG = "module_handler.lua"
 
-local PolicyBuilder = require("modules/policy_builder")
+local Policy = require("modules/policy")
 
 local MODULES_DIR = "modules/"
 
@@ -322,7 +322,7 @@ end
 ---@param contributions table<string, table<string, { module: string, names: string[] }[]>> keyed by the TARGET's owner and category
 local function indexContract(name, contract, facts, contributions)
 	for _, declared in pairs(contract) do
-		local identity = PolicyBuilder.IdentityOf(declared)
+		local identity = Policy.IdentityOf(declared)
 		if identity then
 			local names = {}
 			for _, field in pairs(declared) do
@@ -342,8 +342,8 @@ end
 
 ---@class LoadedChain
 ---@field module string the module whose file built it
----@field identity PolicyIdentity the pipeline it builds against
----@field stages table the target's stage enum
+---@field identity PolicyIdentity the policy it builds against
+---@field steps table the target's step enum
 ---@field ops PolicyOp[]
 ---@field file string
 
@@ -363,16 +363,16 @@ local loadModulePolicies ---@type fun(load: PolicyLoad, name: string): table
 ---@return LoadedChain[] chains, LoadedEnrichment[] enrichments
 local function collectPolicies(load, name, source, run, onReturned)
 	local filePath = source
-	local built = {} ---@type { kind: "pipeline"|"enrichment", chain: table }[]
+	local built = {} ---@type { kind: "policy"|"enrichment", chain: table }[]
 	local facade = {
 		On = function(target)
-			if PolicyBuilder.IsFacts(target) then
-				local chain = PolicyBuilder.Enrichment(target)
+			if Policy.IsFacts(target) then
+				local chain = Policy.Enrichment(target)
 				built[#built + 1] = { kind = "enrichment", chain = chain }
 				return chain
 			end
-			local chain = PolicyBuilder.Pipeline(target)
-			built[#built + 1] = { kind = "pipeline", chain = chain }
+			local chain = Policy.Chain(target)
+			built[#built + 1] = { kind = "policy", chain = chain }
 			return chain
 		end,
 		Contract = function(moduleName)
@@ -386,40 +386,40 @@ local function collectPolicies(load, name, source, run, onReturned)
 				filePath
 					.. ": returns "
 					.. type(returned)
-					.. "; a policy file returns the stages it declares, or nothing"
+					.. "; a policy file returns the steps it declares, or nothing"
 			)
 		end
 		onReturned(returned)
 	end
 	if #built == 0 and returned == nil then
-		error(filePath .. ": builds no pipeline and no enrichment")
+		error(filePath .. ": builds no policy and no enrichment")
 	end
 	local chains, enrichments = {}, {}
 	for _, entry in ipairs(built) do
 		local chain = entry.chain
-		if entry.kind == "pipeline" then
-			local identity = PolicyBuilder.IdentityOf(chain.stages)
+		if entry.kind == "policy" then
+			local identity = Policy.IdentityOf(chain.steps)
 			if identity == nil then
 				error(
 					filePath
-						.. ": Policies.On needs a pipeline's stages or a contract's facts: declared by this file and returned, or another module's through Policies.Contract"
+						.. ": Policies.On needs a policy's steps or a contract's facts: declared by this file and returned, or another module's through Policies.Contract"
 				)
 			end
 			if identity.facts then
-				error(filePath .. ": " .. identity.category .. " is facts, not a pipeline")
+				error(filePath .. ": " .. identity.category .. " is facts, not a policy")
 			end
 			local ops = chain.Build()
 			if #ops == 0 then
 				error(filePath .. ": an empty chain")
 			end
 			chains[#chains + 1] =
-				{ module = name, identity = identity, stages = chain.stages, ops = ops, file = filePath }
+				{ module = name, identity = identity, steps = chain.steps, ops = ops, file = filePath }
 		else
-			local identity = PolicyBuilder.IdentityOf(chain.facts)
+			local identity = Policy.IdentityOf(chain.facts)
 			if identity == nil or not identity.facts then
 				error(
 					filePath
-						.. ": Policies.On needs a pipeline's stages or a contract's facts: declared by this file and returned, or another module's through Policies.Contract"
+						.. ": Policies.On needs a policy's steps or a contract's facts: declared by this file and returned, or another module's through Policies.Contract"
 				)
 			end
 			local ops = chain.Build()
@@ -460,7 +460,7 @@ function loadModulePolicies(load, name)
 	for depth, loading in ipairs(load.stack) do
 		if loading == name then
 			if depth == #load.stack then
-				error(name .. ": a policy file asks for its own module's contract; declare the stages it needs")
+				error(name .. ": a policy file asks for its own module's contract; declare the steps it needs")
 			end
 			error(table.concat(load.stack, " -> ", depth) .. " -> " .. name .. ": contracts that need each other")
 		end
@@ -486,7 +486,7 @@ function loadModulePolicies(load, name)
 		local declared = VFS.Include(contractPath, nil, vfsMode)
 		if type(declared) == "table" then
 			declare(declared, contractPath)
-			local inline = PolicyBuilder.InlinePolicies(declared)
+			local inline = Policy.InlinePolicies(declared)
 			if inline then
 				keepPolicies(load, collectPolicies(load, name, contractPath, inline))
 			end
@@ -498,7 +498,7 @@ function loadModulePolicies(load, name)
 		local chains, enrichments = collectPolicies(load, name, filePath, function(facade)
 			return includeRegistrationFile(filePath, { Policies = facade }, vfsMode)
 		end, function(returned)
-			PolicyBuilder.Declare(name, returned, filePath)
+			Policy.Declare(name, returned, filePath)
 			declare(returned, filePath)
 		end)
 		keepPolicies(load, chains, enrichments)
@@ -573,8 +573,8 @@ function ModuleHandler.UndeclaredStep(ops, declared)
 	return nil
 end
 
----@param names table<any, string> a contract's stage enum, or a contribution's names
----@param landed table<string, boolean> the names on the assembled pipeline
+---@param names table<any, string> a contract's step enum, or a contribution's names
+---@param landed table<string, boolean> the names on the assembled policy
 ---@return string|nil
 function ModuleHandler.UnbuiltStage(names, landed)
 	local missing = nil
@@ -588,7 +588,7 @@ end
 
 ---@param name string a Modules entry (modules/enums.lua)
 ---@param vfsMode string?
----@return table<string, PolicyDescriptor[]> pipelines keyed by category, contributions applied
+---@return table<string, PolicyStep[]> policies keyed by category, contributions applied
 function ModuleHandler.LoadPolicies(name, vfsMode)
 	if policiesCache[name] then
 		return policiesCache[name]
@@ -602,7 +602,7 @@ function ModuleHandler.LoadPolicies(name, vfsMode)
 			end
 		end
 		if #ordered == 0 then
-			error(list[1].file .. ": " .. name .. " has no " .. category .. " pipeline of its own")
+			error(list[1].file .. ": " .. name .. " has no " .. category .. " policy of its own")
 		end
 		local others = {}
 		for _, chain in ipairs(list) do
@@ -617,11 +617,11 @@ function ModuleHandler.LoadPolicies(name, vfsMode)
 			ordered[#ordered + 1] = chain
 		end
 		local contributions = (loadPolicyFiles(vfsMode).contributions[name] or {})[category] or {}
-		local pipeline = { result = list[1].identity.result }
+		local policy = { result = list[1].identity.result }
 		for _, chain in ipairs(ordered) do
 			local declared = {}
 			if chain.module == name then
-				for _, stageName in pairs(chain.stages) do
+				for _, stageName in pairs(chain.steps) do
 					declared[stageName] = true
 				end
 			else
@@ -639,28 +639,28 @@ function ModuleHandler.LoadPolicies(name, vfsMode)
 					chain.file
 						.. ": adds a "
 						.. undeclared
-						.. " stage to "
+						.. " step to "
 						.. name
 						.. "."
 						.. category
 						.. " that no contract declares; "
 						.. (
-							chain.module == name and "name it in the pipeline's stages in contract.lua"
-							or "declare it with PolicyBuilder.Contributes in " .. chain.module .. "'s contract.lua"
+							chain.module == name and "name it in the policy's steps in contract.lua"
+							or "declare it with Policy.Contributes in " .. chain.module .. "'s contract.lua"
 						)
 				)
 			end
-			PolicyBuilder.Assemble(pipeline, chain.ops, chain.file)
+			Policy.Assemble(policy, chain.ops, chain.file)
 		end
-		for _, stage in ipairs(pipeline) do
-			stage.category = category
+		for _, step in ipairs(policy) do
+			step.category = category
 		end
-		PolicyBuilder.Validate(pipeline, pipeline.result, name .. "." .. category)
+		Policy.Validate(policy, policy.result, name .. "." .. category)
 		local landed = {}
-		for _, stage in ipairs(pipeline) do
-			landed[stage.name] = true
+		for _, step in ipairs(policy) do
+			landed[step.name] = true
 		end
-		local unbuilt = ModuleHandler.UnbuiltStage(ordered[1].stages, landed)
+		local unbuilt = ModuleHandler.UnbuiltStage(ordered[1].steps, landed)
 		if unbuilt then
 			error(
 				ordered[1].file
@@ -668,7 +668,7 @@ function ModuleHandler.LoadPolicies(name, vfsMode)
 					.. name
 					.. "'s contract declares a "
 					.. unbuilt
-					.. " stage on "
+					.. " step on "
 					.. category
 					.. " but never builds it"
 			)
@@ -680,7 +680,7 @@ function ModuleHandler.LoadPolicies(name, vfsMode)
 					declared.module
 						.. " declares a "
 						.. missing
-						.. " stage on "
+						.. " step on "
 						.. name
 						.. "."
 						.. category
@@ -688,7 +688,7 @@ function ModuleHandler.LoadPolicies(name, vfsMode)
 				)
 			end
 		end
-		byCategory[category] = pipeline
+		byCategory[category] = policy
 	end
 	policiesCache[name] = byCategory
 	return byCategory
@@ -795,7 +795,7 @@ function ModuleHandler.Presets(vfsMode)
 end
 
 -- The default selection reads every module's modoptions fragment off the VFS, and the live set
--- is asked for on every enrichment, from every gadget and widget that asks a pipeline: the
+-- is asked for on every enrichment, from every gadget and widget that asks a policy: the
 -- fragments and presets are fixed for the life of the Lua state, so both are computed once.
 local defaultSelectionCache = nil ---@type table<string, string>|nil
 local liveSetCache = {} ---@type table<string, table<string, boolean>>
@@ -982,7 +982,7 @@ end
 ---@param vfsMode string?
 ---@return ResolvedProvisions
 function ModuleHandler.LoadEnrichers(facts, vfsMode)
-	local identity = PolicyBuilder.IdentityOf(facts)
+	local identity = Policy.IdentityOf(facts)
 	assert(identity and identity.facts, "LoadEnrichers(facts): expects a Facts table from a module's contract.lua")
 	local owner, category = identity.owner, identity.category
 	local key = owner .. "." .. category
@@ -1059,30 +1059,27 @@ function ModuleHandler.Enrich(facts, modOptions, ctx, ...)
 end
 
 ---@generic C, T
----@param stages PolicyStages<C, T> a pipeline's stage enum, from its owner's contract
+---@param steps PolicySteps<C, T> a policy's step enum, from its owner's contract
 ---@param vfsMode string?
----@return AssembledPipeline<C, T>
-function ModuleHandler.Pipeline(stages, vfsMode)
-	local identity = PolicyBuilder.IdentityOf(stages)
-	assert(
-		identity and not identity.facts,
-		"ModuleHandler.Pipeline(stages): expects a pipeline's stages, from a contract"
-	)
-	local pipeline = ModuleHandler.LoadPolicies(identity.owner, vfsMode)[identity.category]
-	if pipeline == nil then
-		error(identity.owner .. " builds no " .. identity.category .. " pipeline")
+---@return AssembledPolicy<C, T>
+function ModuleHandler.Steps(steps, vfsMode)
+	local identity = Policy.IdentityOf(steps)
+	assert(identity and not identity.facts, "ModuleHandler.Steps(steps): expects a policy's steps, from a contract")
+	local policy = ModuleHandler.LoadPolicies(identity.owner, vfsMode)[identity.category]
+	if policy == nil then
+		error(identity.owner .. " builds no " .. identity.category .. " policy")
 	end
-	return pipeline
+	return policy
 end
 
 ---@generic C, T
----@param policies PolicyStages<C, T>|AssembledPipeline<C, T> the pipeline's stages, or the pipeline the loader assembled from them
+---@param policies PolicySteps<C, T>|AssembledPolicy<C, T> the policy's steps, or the policy the loader assembled from them
 ---@param ctx C
 ---@param ... any
 ---@return T
 function ModuleHandler.Evaluate(policies, ctx, ...)
-	if PolicyBuilder.IdentityOf(policies) ~= nil then
-		policies = ModuleHandler.Pipeline(policies)
+	if Policy.IdentityOf(policies) ~= nil then
+		policies = ModuleHandler.Steps(policies)
 	end
 	if policies.result == "fold" then
 		for _, policy in ipairs(policies) do
@@ -1102,7 +1099,7 @@ function ModuleHandler.Evaluate(policies, ctx, ...)
 			local last = policies[#policies]
 			error(
 				(last and last.category or "?")
-					.. ": no stage gave a factor; the owner's "
+					.. ": no step gave a factor; the owner's "
 					.. (last and last.name or "?")
 					.. " must"
 			)

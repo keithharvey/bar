@@ -13,8 +13,8 @@ local glUniformArray = gl.UniformArray
 
 local gldebugannotations = (Spring.GetConfigInt("gldebugannotations") == 1)
 
--- OpenGL 3.2 took the geometry shader stage into the standard, and came with this shading language
--- version. Drivers newer than that mostly no longer name the extensions the stage arrived through.
+-- OpenGL 3.2 took the geometry shader step into the standard, and came with this shading language
+-- version. Drivers newer than that mostly no longer name the extensions the step arrived through.
 local GLSL_VERSION_WITH_GEOMETRY_SHADERS = 150
 
 -- [Some] Mesa versions prior to this stalled for several seconds the first time a geometry shader
@@ -49,7 +49,7 @@ local function HasGeometryShaderStage()
 		or gl.HasExtension("GL_EXT_geometry_shader4")
 		or gl.HasExtension("GL_OES_geometry_shader")
 
-	-- an engine that can build a shader with a geometry stage lets a widget set that stage up
+	-- an engine that can build a shader with a geometry step lets a widget set that step up
 	return hasStage and (gl.SetShaderParameter ~= nil or gl.SetGeometryShaderParameter ~= nil)
 end
 
@@ -67,7 +67,7 @@ local function MesaVersion()
 end
 
 --- Whether to take a geometry shader where there is a path with one and a path without.
---- Older Mesa is left out although it has the stage, since it incurs long delays for
+--- Older Mesa is left out although it has the step, since it incurs long delays for
 --- shader compilation.
 local function IsGeometryShaderSupported()
 	local mesaVersion = MesaVersion()

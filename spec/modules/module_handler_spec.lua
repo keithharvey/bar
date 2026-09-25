@@ -146,9 +146,9 @@ describe("ModuleHandler", function()
 	end)
 
 	describe("a module's contract", function()
-		local PolicyBuilder = require("modules/policy_builder")
-		-- Three modules on a fake VFS. owner declares its Check pipeline in the policy file that
-		-- builds it and its facts in contract.lua; friend contributes a stage to owner's Check
+		local Policy = require("modules/policy")
+		-- Three modules on a fake VFS. owner declares its Check policy in the policy file that
+		-- builds it and its facts in contract.lua; friend contributes a step to owner's Check
 		-- through Policies.Contract; loner's two policy files each claim the same category.
 		local FILES
 		local real = {}
@@ -207,10 +207,10 @@ describe("ModuleHandler", function()
 					return { name = "loner" }
 				end,
 				["modules/owner/contract.lua"] = function()
-					return PolicyBuilder.Contract("owner", { Terms = PolicyBuilder.Facts({ Rate = "rate" }) })
+					return Policy.Contract("owner", { Terms = Policy.Facts({ Rate = "rate" }) })
 				end,
 				["modules/owner/policies/check.lua"] = function(env)
-					local Check = PolicyBuilder.Fold({ Shape = "Shape" })
+					local Check = Policy.Fold({ Shape = "Shape" })
 					env.Policies.On(Check).Apply(Check.Shape, function(ctx)
 						ctx.seen[#ctx.seen + 1] = "owner"
 					end)
@@ -218,7 +218,7 @@ describe("ModuleHandler", function()
 				end,
 				["modules/friend/policies/owner.lua"] = function(env)
 					local Owner = env.Policies.Contract("owner")
-					local Extra = PolicyBuilder.Contributes(Owner.Check, { Friendly = "Friendly" })
+					local Extra = Policy.Contributes(Owner.Check, { Friendly = "Friendly" })
 					env.Policies.On(Owner.Check).Apply(Extra.Friendly, function(ctx)
 						ctx.seen[#ctx.seen + 1] = "friend"
 					end)
@@ -233,13 +233,10 @@ describe("ModuleHandler", function()
 				local owner = ModuleHandler.Contract("owner")
 				assert.are.same(
 					{ owner = "owner", category = "check", result = "fold" },
-					PolicyBuilder.IdentityOf(owner.Check)
+					Policy.IdentityOf(owner.Check)
 				)
-				assert.are.same(
-					{ owner = "owner", category = "terms", facts = true },
-					PolicyBuilder.IdentityOf(owner.Terms)
-				)
-				assert.are.equal("owner", PolicyBuilder.OwnerOf(owner))
+				assert.are.same({ owner = "owner", category = "terms", facts = true }, Policy.IdentityOf(owner.Terms))
+				assert.are.equal("owner", Policy.OwnerOf(owner))
 				assert.is_true(rawequal(owner, ModuleHandler.Contract("owner")))
 			end
 		)
@@ -250,19 +247,19 @@ describe("ModuleHandler", function()
 			assert.are.same({ "owner", "friend" }, ctx.seen)
 			local friend = ModuleHandler.Contract("friend")
 			assert.are.same({ "check", "owner" }, {
-				PolicyBuilder.IdentityOf(friend.Extra).contributes.category,
-				PolicyBuilder.IdentityOf(friend.Extra).contributes.owner,
+				Policy.IdentityOf(friend.Extra).contributes.category,
+				Policy.IdentityOf(friend.Extra).contributes.owner,
 			})
 		end)
 
-		it("refuses a category declared twice, and a policy file returning anything but its stages", function()
+		it("refuses a category declared twice, and a policy file returning anything but its steps", function()
 			FILES["modules/loner/policies/a.lua"] = function(env)
-				local Check = PolicyBuilder.Fold({ A = "A" })
+				local Check = Policy.Fold({ A = "A" })
 				env.Policies.On(Check).Apply(Check.A, function() end)
 				return { Check = Check }
 			end
 			FILES["modules/loner/policies/b.lua"] = function(env)
-				local Check = PolicyBuilder.Fold({ B = "B" })
+				local Check = Policy.Fold({ B = "B" })
 				env.Policies.On(Check).Apply(Check.B, function() end)
 				return { Check = Check }
 			end

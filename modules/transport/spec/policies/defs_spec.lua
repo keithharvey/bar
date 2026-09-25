@@ -3,13 +3,13 @@ local DefsContract = require("modules/defs/contract")
 local ModuleHandler = require("modules/module_handler")
 local TransportEnums = require("modules/transport/enums")
 
-describe("transport's stage on the unit def fold", function()
-	local pipeline = ModuleHandler.Pipeline(DefsContract.UnitDef)
+describe("transport's step on the unit def fold", function()
+	local policy = ModuleHandler.Steps(DefsContract.UnitDef)
 
 	local function enemyTransport(which, def)
-		for _, stage in ipairs(pipeline) do
-			if stage.name == Contract.UnitDef.EnemyTransport then
-				stage.evaluate({
+		for _, step in ipairs(policy) do
+			if step.name == Contract.UnitDef.EnemyTransport then
+				step.evaluate({
 					name = "spec",
 					def = def,
 					modOptions = { [TransportEnums.ModOptions.TransportEnemy] = which },
@@ -17,13 +17,13 @@ describe("transport's stage on the unit def fold", function()
 				return def
 			end
 		end
-		error("no EnemyTransport stage")
+		error("no EnemyTransport step")
 	end
 
 	it("follows the base game's post", function()
 		local order = {}
-		for i, stage in ipairs(pipeline) do
-			order[stage.name] = i
+		for i, step in ipairs(policy) do
+			order[step.name] = i
 		end
 		assert.is_true(order.Base < order[Contract.UnitDef.EnemyTransport])
 	end)

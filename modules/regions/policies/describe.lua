@@ -1,4 +1,4 @@
-local PolicyBuilder = require("modules/policy_builder")
+local Policy = require("modules/policy")
 
 ---@class RegionDescription
 ---@field area number
@@ -10,14 +10,14 @@ local PolicyBuilder = require("modules/policy_builder")
 ---@field shape RegionDescription
 ---@field map RegionMap
 
----@class RegionDescribeStages: PolicyStages<RegionDescribeContext, RegionDescription>
+---@class RegionDescribeSteps: PolicySteps<RegionDescribeContext, RegionDescription>
 ---@field Shape string
 
 ---@class (partial) RegionsContract
----@field Describe RegionDescribeStages
+---@field Describe RegionDescribeSteps
 
----@type RegionDescribeStages
-local Describe = PolicyBuilder.Single({
+---@type RegionDescribeSteps
+local Describe = Policy.Single({
 	Shape = "Shape",
 })
 

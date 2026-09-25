@@ -1,5 +1,5 @@
 local Modules = require("modules/enums").Modules
-local PolicyBuilder = require("modules/policy_builder")
+local Policy = require("modules/policy")
 local RegionsApi = require("modules/regions/api")
 
 ---@type RegionsContract
@@ -11,11 +11,11 @@ local Regions = Policies.Contract(Modules.Regions)
 ---@field name string|nil
 ---@field positions { x: number, z: number }[]|nil
 
----@class StartRegionsNamesStages
+---@class StartRegionsNamesSteps
 ---@field FromTeam string
 
----@type StartRegionsNamesStages
-local RegionsNames = PolicyBuilder.Contributes(Regions.Names, {
+---@type StartRegionsNamesSteps
+local RegionsNames = Policy.Contributes(Regions.Names, {
 	FromTeam = "FromTeam",
 })
 
@@ -31,11 +31,11 @@ Policies.On(Regions.Names).Apply(RegionsNames.FromTeam, function(ctx)
 	end
 end)
 
----@class StartRegionsSetStages
+---@class StartRegionsSetSteps
 ---@field AreasDisjoint string
 
----@type StartRegionsSetStages
-local RegionsSet = PolicyBuilder.Contributes(Regions.CheckSet, {
+---@type StartRegionsSetSteps
+local RegionsSet = Policy.Contributes(Regions.CheckSet, {
 	AreasDisjoint = "AreasDisjoint",
 })
 
@@ -57,11 +57,11 @@ end)
 ---@field team integer
 ---@field positions { x: number, z: number }[]
 
----@class StartRegionsDescribeStages
+---@class StartRegionsDescribeSteps
 ---@field Start string
 
----@type StartRegionsDescribeStages
-local RegionsDescribe = PolicyBuilder.Contributes(Regions.Describe, {
+---@type StartRegionsDescribeSteps
+local RegionsDescribe = Policy.Contributes(Regions.Describe, {
 	Start = "Start",
 })
 

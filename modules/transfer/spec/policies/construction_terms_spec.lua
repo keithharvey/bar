@@ -3,11 +3,11 @@ local ConstructionContract = require("modules/construction/contract")
 local ModuleHandler = require("modules/module_handler")
 local TransferEnums = require("modules/transfer/enums")
 
-describe("transfer's gate on construction's build pipeline", function()
-	it("sits on the pipeline, ahead of the terminal", function()
+describe("transfer's gate on construction's build policy", function()
+	it("sits on the policy, ahead of the terminal", function()
 		local names = {}
-		for i, stage in ipairs(ModuleHandler.Pipeline(ConstructionContract.Build)) do
-			names[i] = stage.name
+		for i, step in ipairs(ModuleHandler.Steps(ConstructionContract.Build)) do
+			names[i] = step.name
 		end
 		assert.are.same({ "BuilderDelayed", "UnaffordableAssistTax", "Allowed" }, names)
 	end)

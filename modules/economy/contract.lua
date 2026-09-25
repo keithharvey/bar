@@ -1,4 +1,4 @@
-local PolicyBuilder = require("modules/policy_builder")
+local Policy = require("modules/policy")
 local Modules = require("modules/enums").Modules
 
 ---@class EconomyTeamResult
@@ -36,7 +36,7 @@ local Redistribution = {
 ---@field Distribution EconomyDistributionFacts
 ---@field Redistribution EconomyRedistributionFacts
 
-return PolicyBuilder.Contract(Modules.Economy, {
-	Distribution = PolicyBuilder.Facts(Distribution),
-	Redistribution = PolicyBuilder.Facts(Redistribution),
+return Policy.Contract(Modules.Economy, {
+	Distribution = Policy.Facts(Distribution),
+	Redistribution = Policy.Facts(Redistribution),
 })

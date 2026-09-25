@@ -2,9 +2,9 @@
 local system = VFS.Include("gamedata/system.lua")
 local savedefs = require("gamedata/post_save_to_customparams")
 
-local ModuleHandler = require("modules/module_handler")
-local Modules = require("modules/enums").Modules
 local Defs = require("modules/defs/api")
+local DefsContract = require("modules/defs/contract")
+local ModuleHandler = require("modules/module_handler")
 local saveDefToCustomParams = savedefs.SaveDefToCustomParams
 
 local scavengersEnabled = false
@@ -375,9 +375,8 @@ local function preProcessTweakOptions()
 end
 
 local function postProcessAllUnitDefs()
-	local pipeline = ModuleHandler.LoadPolicies(Modules.Defs).unit_def ---@type AssembledPipeline<DefContext, DefContext>
 	for name, unitDef in pairs(UnitDefs) do
-		ModuleHandler.Evaluate(pipeline, { name = name, def = unitDef, modOptions = modOptions })
+		ModuleHandler.Evaluate(DefsContract.UnitDef, { name = name, def = unitDef, modOptions = modOptions })
 	end
 end
 

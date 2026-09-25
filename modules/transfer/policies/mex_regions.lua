@@ -1,31 +1,31 @@
 local Modules = require("modules/enums").Modules
-local PolicyBuilder = require("modules/policy_builder")
+local Policy = require("modules/policy")
 local RegionsApi = require("modules/regions/api")
 
 ---@type RegionsContract
 local Regions = Policies.Contract(Modules.Regions)
 
 ---@class (partial) TransferContract
----@field MexRegionsSet TransferMexRegionsSetStages
----@field MexRegionsNames TransferMexRegionsNamesStages
----@field MexRegionsDescribe TransferMexRegionsDescribeStages
+---@field MexRegionsSet TransferMexRegionsSetSteps
+---@field MexRegionsNames TransferMexRegionsNamesSteps
+---@field MexRegionsDescribe TransferMexRegionsDescribeSteps
 
 ---@class (partial) RegionMap
 ---@field spots { x: number, z: number, worth: number|nil }[]|nil
 
----@class TransferMexRegionsSetStages
+---@class TransferMexRegionsSetSteps
 ---@field MexesCovered string
 
----@type TransferMexRegionsSetStages
-local MexRegionsSet = PolicyBuilder.Contributes(Regions.CheckSet, {
+---@type TransferMexRegionsSetSteps
+local MexRegionsSet = Policy.Contributes(Regions.CheckSet, {
 	MexesCovered = "MexesCovered",
 })
 
----@class TransferMexRegionsNamesStages
+---@class TransferMexRegionsNamesSteps
 ---@field FromGroup string
 
----@type TransferMexRegionsNamesStages
-local MexRegionsNames = PolicyBuilder.Contributes(Regions.Names, {
+---@type TransferMexRegionsNamesSteps
+local MexRegionsNames = Policy.Contributes(Regions.Names, {
 	FromGroup = "FromGroup",
 })
 
@@ -35,11 +35,11 @@ local MexRegionsNames = PolicyBuilder.Contributes(Regions.Names, {
 ---@field spots integer|nil
 ---@field worth number|nil
 
----@class TransferMexRegionsDescribeStages
+---@class TransferMexRegionsDescribeSteps
 ---@field MexRegion string
 
----@type TransferMexRegionsDescribeStages
-local MexRegionsDescribe = PolicyBuilder.Contributes(Regions.Describe, {
+---@type TransferMexRegionsDescribeSteps
+local MexRegionsDescribe = Policy.Contributes(Regions.Describe, {
 	MexRegion = "MexRegion",
 })
 
