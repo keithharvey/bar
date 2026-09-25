@@ -54,11 +54,8 @@ Policies.On(Regions.CheckSet).Apply(RegionsSet.AreasDisjoint, function(ctx)
 	end
 end)
 
----@class (partial) RegionMap
----@field starts { allyTeam: integer, x: number, z: number }[]|nil the map's start positions, when the caller has them
-
 ---@class StartRegionsDescribeStages start's stages on the regions module's description, for regions of any type
----@field NearestStart string the start inside the region, or else the nearest to its centre; adds nothing when env.starts is nil
+---@field NearestStart string the start whose region holds this one's centre, else the nearest start to it; adds nothing when the map has no starts
 
 ---@type StartRegionsDescribeStages
 local RegionsDescribe = PolicyBuilder.Contributes(Regions.Describe, {
@@ -66,27 +63,34 @@ local RegionsDescribe = PolicyBuilder.Contributes(Regions.Describe, {
 })
 
 Policies.On(Regions.Describe).Apply(RegionsDescribe.NearestStart, function(ctx)
-	local starts = ctx.map.starts
-	if not starts or #starts == 0 then
+	if ctx.type.key == RegionEnums.Types.Start then
 		return
 	end
-	local vertices = ctx.region.vertices or {}
-	for _, start in ipairs(starts) do
-		if Geometry.Contains(start.x, start.z, vertices) then
-			ctx.lines[#ctx.lines + 1] = { "Start", string.format("ally team %d starts inside", start.allyTeam) }
-			return
+	local Api = require("modules/regions/api")
+	local cx, cz = Geometry.Centroid(ctx.region.vertices or {})
+	local best = nil ---@type StartRegion|nil
+	local bestD, inside = math.huge, false
+	for _, start in ipairs(Api.All(RegionEnums.Types.Start)) do
+		---@cast start StartRegion
+		local vertices = start.vertices or {}
+		if #vertices >= 3 and Geometry.Contains(cx, cz, vertices) then
+			best, bestD, inside = start, 0, true
+			break
 		end
-	end
-	local cx, cz = Geometry.Centroid(vertices)
-	local best, bestD = starts[1], math.huge
-	for _, start in ipairs(starts) do
-		local d = Geometry.Distance(cx, cz, start.x, start.z)
+		local sx, sz = Geometry.Centroid(vertices)
+		local d = Geometry.Distance(cx, cz, sx, sz)
 		if d < bestD then
 			best, bestD = start, d
 		end
 	end
-	ctx.lines[#ctx.lines + 1] =
-		{ "Nearest start", string.format("ally team %d, %.0f elmos from the centre", best.allyTeam, bestD) }
+	if best == nil then
+		return
+	end
+	ctx.lines[#ctx.lines + 1] = {
+		"Nearest start",
+		inside and string.format("start %d holds the centre", best.team)
+			or string.format("start %d, %.0f elmos from the centre", best.team, bestD),
+	}
 end)
 
 return { RegionsNames = RegionsNames, RegionsSet = RegionsSet, RegionsDescribe = RegionsDescribe }
