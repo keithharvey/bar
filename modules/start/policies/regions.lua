@@ -54,43 +54,40 @@ Policies.On(Regions.CheckSet).Apply(RegionsSet.AreasDisjoint, function(ctx)
 	end
 end)
 
----@class StartRegionsDescribeStages start's stages on the regions module's description, for regions of any type
----@field NearestStart string the start whose region holds this one's centre, else the nearest start to it; adds nothing when the map has no starts
+---@class StartDescription: RegionDescription what start says of one of its regions
+---@field team integer the start ordinal
+---@field positions StartRegion[] the start positions drawn for that team, the point regions carrying the same team, in the order they were put
+
+---@class StartRegionsDescribeStages start's answer on the regions module's description, for its own type
+---@field Start string the start's ordinal and its positions, with the shape
 
 ---@type StartRegionsDescribeStages
 local RegionsDescribe = PolicyBuilder.Contributes(Regions.Describe, {
-	NearestStart = "NearestStart",
+	Start = "Start",
 })
 
-Policies.On(Regions.Describe).Apply(RegionsDescribe.NearestStart, function(ctx)
-	if ctx.type.key == RegionEnums.Types.Start then
-		return
-	end
-	local Api = require("modules/regions/api")
-	local cx, cz = Geometry.Centroid(ctx.region.vertices or {})
-	local best = nil ---@type StartRegion|nil
-	local bestD, inside = math.huge, false
-	for _, start in ipairs(Api.All(RegionEnums.Types.Start)) do
-		---@cast start StartRegion
-		local vertices = start.vertices or {}
-		if #vertices >= 3 and Geometry.Contains(cx, cz, vertices) then
-			best, bestD, inside = start, 0, true
-			break
+Policies.On(Regions.Describe)
+	.Answer(RegionsDescribe.Start, function(ctx)
+		if ctx.type.key ~= RegionEnums.Types.Start then
+			return nil
 		end
-		local sx, sz = Geometry.Centroid(vertices)
-		local d = Geometry.Distance(cx, cz, sx, sz)
-		if d < bestD then
-			best, bestD = start, d
+		local region = ctx.region --[[@as StartRegion]]
+		local positions = {} ---@type StartRegion[]
+		for _, other in ipairs(require("modules/regions/api").All(RegionEnums.Types.Start)) do
+			---@cast other Region
+			---@cast other StartRegion
+			if
+				other.team == region.team
+				and other.vertices ~= nil
+				and #other.vertices == 1
+				and not rawequal(other, region)
+			then
+				positions[#positions + 1] = other
+			end
 		end
-	end
-	if best == nil then
-		return
-	end
-	ctx.lines[#ctx.lines + 1] = {
-		"Nearest start",
-		inside and string.format("start %d holds the centre", best.team)
-			or string.format("start %d, %.0f elmos from the centre", best.team, bestD),
-	}
-end)
+		---@type StartDescription
+		return { area = ctx.shape.area, centre = ctx.shape.centre, team = region.team, positions = positions }
+	end)
+	.Before(Regions.Describe.Shape)
 
 return { RegionsNames = RegionsNames, RegionsSet = RegionsSet, RegionsDescribe = RegionsDescribe }

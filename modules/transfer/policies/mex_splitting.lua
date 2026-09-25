@@ -36,12 +36,18 @@ local MexRegionsNames = PolicyBuilder.Contributes(Regions.Names, {
 	FromGroup = "FromGroup",
 })
 
----@class TransferMexRegionsDescribeStages transfer's stages on the regions module's description, for regions of any type
----@field MetalSpots string the number of metal spots inside the region and their total worth; adds nothing when env.spots is nil
+---@class MexRegionDescription: RegionDescription what mex splitting says of one of its regions
+---@field team integer the start ordinal the region belongs to
+---@field group string the region's role on this map
+---@field spots integer|nil the metal spots inside; nil when the map's spots are not known
+---@field worth number|nil metal per second the spots yield with T1 mexes; nil with the spots
+
+---@class TransferMexRegionsDescribeStages transfer's answer on the regions module's description, for its own type
+---@field MexRegion string the region's team, group and metal, with the shape
 
 ---@type TransferMexRegionsDescribeStages
 local MexRegionsDescribe = PolicyBuilder.Contributes(Regions.Describe, {
-	MetalSpots = "MetalSpots",
+	MexRegion = "MexRegion",
 })
 
 ---@param problems string[]
@@ -88,24 +94,30 @@ Policies.On(Regions.CheckSet).Apply(MexRegionsSet.MexesCovered, function(ctx)
 	end
 end)
 
-Policies.On(Regions.Describe).Apply(MexRegionsDescribe.MetalSpots, function(ctx)
-	local spots = ctx.map.spots
-	if not spots or not ctx.region.vertices then
-		return
-	end
-	local count, worth = 0, 0.0
-	for _, spot in ipairs(spots) do
-		if Geometry.Contains(spot.x, spot.z, ctx.region.vertices) then
-			count = count + 1
-			worth = worth + (spot.worth or 0)
+Policies.On(Regions.Describe)
+	.Answer(MexRegionsDescribe.MexRegion, function(ctx)
+		if ctx.type.key ~= RegionEnums.Types.MexRegion then
+			return nil
 		end
-	end
-	ctx.lines[#ctx.lines + 1] = {
-		"Metal spots",
-		-- a thousandth of the metal map's sum is what the game floats over a spot: a T1 mex's income
-		count .. (count > 0 and string.format(" (%.1f metal/s with T1 mexes)", worth / 1000) or ""),
-	}
-end)
+		local region = ctx.region --[[@as MexRegion]]
+		---@type MexRegionDescription
+		local description =
+			{ area = ctx.shape.area, centre = ctx.shape.centre, team = region.team, group = region.group }
+		local spots = ctx.map.spots
+		if spots and region.vertices then
+			local count, worth = 0, 0.0
+			for _, spot in ipairs(spots) do
+				if Geometry.Contains(spot.x, spot.z, region.vertices) then
+					count = count + 1
+					worth = worth + (spot.worth or 0)
+				end
+			end
+			-- a thousandth of the metal map's sum is what the game floats over a spot: a T1 mex's income
+			description.spots, description.worth = count, worth / 1000
+		end
+		return description
+	end)
+	.Before(Regions.Describe.Shape)
 
 Policies.On(Contract.MexSplitting)
 	.Refusal(function(ctx)
