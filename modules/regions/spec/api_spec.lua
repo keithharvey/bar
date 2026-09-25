@@ -11,6 +11,18 @@ local function start(team, name)
 	return { type = Enums.Types.Start, team = team, name = name, vertices = square }
 end
 
+describe("a new region", function()
+	it("is given its type, its tags and an id by Create, and keeps an id it already has", function()
+		local a = Regions.Create(Enums.Types.Start, { team = 1 })
+		local b = Regions.Create(Enums.Types.Start, { team = 2 })
+		assert.are.equal("start", a.type)
+		assert.are.same({}, a.tags)
+		assert.is_string(a.id)
+		assert.are_not.equal(a.id, b.id)
+		assert.are.equal("kept", Regions.Create(Enums.Types.Start, { id = "kept" }).id)
+	end)
+end)
+
 describe("the region store", function()
 	before_each(function()
 		Regions.Clear()
