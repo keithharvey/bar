@@ -1,7 +1,6 @@
 local ConstructionContract = require("modules/construction/contract")
 local ModuleHandler = require("modules/module_handler")
 local Modules = require("modules/enums").Modules
-local Records = require("modules/transfer/mex_splitting/records")
 local Regions = require("modules/regions/api")
 local Shared = require("modules/transfer/mex_splitting/shared")
 
@@ -26,7 +25,7 @@ local function parse(entries)
 		200
 	)
 	assert(regions, reason)
-	return Records.From(regions)
+	return regions --[[@as MexRegion[] ]]
 end
 
 -- four starts in the corners; n, s and c belong to a fifth start nobody sits at this match

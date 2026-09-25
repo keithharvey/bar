@@ -1,4 +1,3 @@
-local Records = require("modules/transfer/mex_splitting/records")
 local Regions = require("modules/regions/api")
 local TransferEnums = require("modules/transfer/enums")
 
@@ -45,7 +44,9 @@ function Sources.Load(modOptions, mapName, mapSizeX, mapSizeZ)
 	if regions == nil then
 		return nil, source, reason
 	end
-	return Records.From(regions), source, nil
+	return regions, --[[@as MexRegion[] ]]
+		source,
+		nil
 end
 
 ---@param raw string a layout as the modoption carries it
@@ -62,7 +63,8 @@ function Sources.FromBlob(raw, mapSizeX, mapSizeZ)
 	if regions == nil then
 		return nil, reason
 	end
-	return Records.From(regions), nil
+	return regions, --[[@as MexRegion[] ]]
+		nil
 end
 
 ---The terraformer's save for this map, as a layout blob. Unsynced only: the raw filesystem is closed to synced code,

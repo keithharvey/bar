@@ -159,6 +159,7 @@ function Layout.Parse(layout, kind, mapSizeX, mapSizeZ)
 			type = kind.key,
 			id = type(entry.id) == "string" and entry.id or nil,
 			tags = type(entry.tags) == "table" and entry.tags or nil,
+			vertices = {},
 		}
 		for _, field in ipairs(kind.fields) do
 			local value = entry[field.key]

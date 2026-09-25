@@ -96,13 +96,10 @@ local ResourceTransfer = {
 	RateAndCapacity = "RateAndCapacity",
 }
 
----@class MexRegion: Region an area of the layout, in elmos, whose metal is dealt to the teams seated at one start
+---@class MexRegion: Region an area of the layout, in elmos, whose metal is dealt to the teams seated at one start. The deal is keyed by its id; a name is the map's to give, Regions.Names derives one from the group otherwise
 ---@field type "mex_region"
----@field id string identity, from RegionsApi.Create via the layout; the deal is keyed by it
----@field name string display name: set by the map, or derived from the group at load
 ---@field team integer the start ordinal the region belongs to; start 1 is team 1
 ---@field group string the region's role on this map, e.g. "anti", "tech"
----@field vertices { x: number, z: number }[]
 
 ---@class MexRegionsTeamStart a team, seated at a start
 ---@field teamID integer

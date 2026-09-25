@@ -1,5 +1,4 @@
 local Claims = require("modules/transfer/mex_splitting/claims")
-local Records = require("modules/transfer/mex_splitting/records")
 local Regions = require("modules/regions/api")
 local Shared = require("modules/transfer/mex_splitting/shared")
 
@@ -23,26 +22,23 @@ local function parse(entries)
 		200
 	)
 	assert(regions, reason)
-	return Records.From(regions)
+	return regions --[[@as MexRegion[] ]]
 end
 
-describe("a mex region record", function()
-	it("is named by the map or after its group, and keeps the id the layout carries", function()
+describe("a mex region as the layout reads it", function()
+	it("keeps the id the layout carries and no name of its own; the name is derived on request", function()
 		local regions = parse({
 			rect(1, "anti", 0, 0, 20, 20),
 			rect(1, "tech", 20, 0, 40, 20, nil, "t1"),
-			rect(1, "tech", 40, 0, 60, 20, nil, "t2"),
 			rect(2, "tech", 180, 180, 200, 200, "far"),
 		})
+		assert.are.same({ "anti@1", "t1", "far@2" }, { regions[1].id, regions[2].id, regions[3].id })
+		assert.is_nil(regions[1].name)
 		local names = {}
-		for i, region in ipairs(regions) do
-			names[i] = region.name
+		for i, named in ipairs(Regions.Names(Regions.Enums.Types.MexRegion, regions)) do
+			names[i] = named.name
 		end
-		assert.are.same({ "anti", "tech_1", "tech_2", "far" }, names)
-		assert.are.same(
-			{ "anti@1", "t1", "t2", "far@2" },
-			{ regions[1].id, regions[2].id, regions[3].id, regions[4].id }
-		)
+		assert.are.same({ "anti", "tech", "far" }, names)
 	end)
 end)
 
@@ -85,12 +81,16 @@ describe("the deal's steps", function()
 	end)
 
 	it("find nothing wrong with a layout its type accepts, and name what the set check refuses", function()
-		assert.are.same({}, Claims.Problems(regions, { { x = 5, z = 5 } }))
-		assert.are.same({ "1 metal spot in no mex region" }, Claims.Problems(regions, { { x = 150, z = 150 } }))
+		local mex = Regions.Enums.Types.MexRegion
+		assert.are.same({}, Regions.ProblemLines(mex, regions, { spots = { { x = 5, z = 5 } } }))
+		assert.are.same(
+			{ "1 metal spot in no mex region" },
+			Regions.ProblemLines(mex, regions, { spots = { { x = 150, z = 150 } } })
+		)
 		local unteamed = parse({
 			rect(1, "a", 0, 0, 40, 40),
 			{ id = "b", group = "b", poly = { { x = 60, y = 60 }, { x = 80, y = 80 } } },
 		})
-		assert.are.same({ "b: a mex region needs a team" }, Claims.Problems(unteamed, {}))
+		assert.are.same({ "b: a mex region needs a team" }, Regions.ProblemLines(mex, unteamed, { spots = {} }))
 	end)
 end)

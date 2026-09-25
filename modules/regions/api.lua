@@ -12,6 +12,7 @@ local Types = require("modules/regions/types")
 ---@field Overlaps fun(a: { x: number, z: number }[], b: { x: number, z: number }[]): boolean
 ---@field Contains fun(x: number, z: number, vertices: { x: number, z: number }[]): boolean
 ---@field ProblemLine fun(problem: RegionProblem): string the message, prefixed with the region's name when it concerns one
+---@field ProblemLines fun(typeKey: RegionTypeKey, regions: Region[], map: RegionMap|nil): string[] the set check's problems as lines, each led by its region's name
 ---@field ProblemWith fun(ctx: RegionSetContext, index: integer, message: string) a set-check stage records a problem with one region of the set
 ---@field ProblemAt fun(ctx: RegionSetContext, message: string, at: { x: number, z: number }|nil) a set-check stage records a problem with the set, and where to look
 ---@field Enums RegionEnums the type and geometry keys
@@ -52,6 +53,7 @@ function Api.Create(typeKey, fields)
 	region.type = typeKey
 	region.id = region.id or mintId()
 	region.tags = region.tags or {}
+	region.vertices = region.vertices or {}
 	return region --[[@as StoredRegion]]
 end
 
@@ -396,6 +398,18 @@ Api.Overlaps = Geometry.Overlaps
 Api.Contains = Geometry.Contains
 Api.GeometryOf = Geometry.Of
 Api.ProblemLine = Problems.Line
+
+---@param typeKey RegionTypeKey
+---@param regions Region[] every region of the type
+---@param map RegionMap|nil
+---@return string[] lines the set check's problems, each led by its region's name when it is about one
+function Api.ProblemLines(typeKey, regions, map)
+	local lines = {} ---@type string[]
+	for i, problem in ipairs(Api.CheckSet(typeKey, regions, map)) do
+		lines[i] = Problems.Line(problem)
+	end
+	return lines
+end
 Api.ProblemWith = Problems.OfRegion
 Api.ProblemAt = Problems.OfSet
 
