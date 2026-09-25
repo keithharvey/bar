@@ -42,10 +42,10 @@ local sevenRegions = parse({
 })
 
 local fourTeams = {
-	{ teamID = 0, allyTeam = 1, x = 10, z = 10 },
-	{ teamID = 1, allyTeam = 2, x = 190, z = 10 },
-	{ teamID = 2, allyTeam = 3, x = 190, z = 190 },
-	{ teamID = 3, allyTeam = 4, x = 10, z = 190 },
+	{ teamID = 0, allyTeamID = 0, x = 10, z = 10 },
+	{ teamID = 1, allyTeamID = 1, x = 190, z = 10 },
+	{ teamID = 2, allyTeamID = 2, x = 190, z = 190 },
+	{ teamID = 3, allyTeamID = 3, x = 10, z = 190 },
 }
 
 -- one spot in each region
@@ -104,9 +104,9 @@ describe("the deal", function()
 			rect("theirs", 2, 160, 160, 200, 200),
 		})
 		local allies = {
-			{ teamID = 0, allyTeam = 1, x = 10, z = 10 },
-			{ teamID = 5, allyTeam = 1, x = 100, z = 10 },
-			{ teamID = 1, allyTeam = 2, x = 190, z = 190 },
+			{ teamID = 0, allyTeamID = 0, x = 10, z = 10 },
+			{ teamID = 5, allyTeamID = 0, x = 100, z = 10 },
+			{ teamID = 1, allyTeamID = 1, x = 190, z = 190 },
 		}
 		local d = deal(allies, regions, { { x = 20, z = 20 }, { x = 60, z = 20 }, { x = 100, z = 20 } })
 		assert.are.same({}, d.problems, "neighbours may share an edge")

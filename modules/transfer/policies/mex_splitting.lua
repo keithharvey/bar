@@ -162,7 +162,7 @@ Policies.On(Contract.MexSplitting)
 		local seated = {} ---@type table<integer, MexRegionsTeamView[]>
 		local ordinals = {} ---@type integer[]
 		for _, view in ipairs(views) do
-			local ordinal = view.team.allyTeam
+			local ordinal = view.team.allyTeamID + 1 -- the layout counts starts from 1
 			if seated[ordinal] == nil then
 				seated[ordinal] = {}
 				ordinals[#ordinals + 1] = ordinal

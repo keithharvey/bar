@@ -1,13 +1,13 @@
 local PolicyBuilder = require("modules/policy_builder")
 
 ---@class StartArea one ally team's start area, as resolved for the match
----@field allyTeam integer 1-based, in box order
+---@field allyTeamID integer the engine's
 ---@field name string|nil the box's label; a compass name assigned by the resolver
 ---@field anchors { x: number, z: number, strength: number|nil }[] the ring in elmos; strength is set on curved anchors
 ---@field source string origin: the modoption, the host's override, or the engine
 
 ---@class StartPosition one team's start position for the match
----@field allyTeam integer 1-based
+---@field allyTeamID integer the engine's
 ---@field teamID integer
 ---@field x number
 ---@field z number
@@ -35,7 +35,7 @@ Policies.On(Facts)
 		for _, box in ipairs(ctx.boxes) do
 			if not box.wholeMap then
 				areas[#areas + 1] = {
-					allyTeam = box.allyTeamID + 1 --[[@as integer]],
+					allyTeamID = box.allyTeamID,
 					name = box.name,
 					anchors = box.ring,
 					source = box.source,
@@ -53,7 +53,7 @@ Policies.On(Facts)
 				local x, _, z = spring.GetTeamStartPosition(teamID)
 				if x and z and (x > 0 or z > 0) then
 					local allyTeamID = spring.GetTeamAllyTeamID(teamID) or 0
-					out[#out + 1] = { allyTeam = allyTeamID + 1, teamID = teamID, x = x, z = z }
+					out[#out + 1] = { allyTeamID = allyTeamID, teamID = teamID, x = x, z = z }
 				end
 			end
 		end
