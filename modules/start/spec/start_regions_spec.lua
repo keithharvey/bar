@@ -37,23 +37,27 @@ describe("a map's starts, as a set", function()
 end)
 
 describe("what start says about a region", function()
-	it("names the start inside the region, or else the nearest to its centre, when env.starts is given", function()
-		local region = area(1, 0, 0, 100)
-		assert.are.same(
-			{ "Start", "ally team 2 starts inside" },
-			Regions.Describe(region, {
-				starts = { { allyTeam = 1, x = 1000, z = 1000 }, { allyTeam = 2, x = 60, z = 60 } },
-			})[3]
-		)
-		assert.are.same(
-			{ "Nearest start", "ally team 2, 250 elmos from the centre" },
-			Regions.Describe(region, {
-				starts = { { allyTeam = 1, x = 1000, z = 1000 }, { allyTeam = 2, x = 50, z = 300 } },
-			})[3]
-		)
+	before_each(function()
+		Regions.Clear()
 	end)
 
-	it("adds nothing when env.starts is nil", function()
-		assert.are.equal(2, #Regions.Describe(area(1, 0, 0, 100), {}))
+	it(
+		"names the start whose region holds the centre, else the nearest start to it, from the starts on the map",
+		function()
+			local region = { type = "mex_region", vertices = area(0, 0, 0, 100).vertices }
+			Regions.Put(area(1, 1000, 1000, 100))
+			Regions.Put(area(2, 0, 0, 100))
+			assert.are.same({ "Nearest start", "start 2 holds the centre" }, Regions.Describe(region)[3])
+			Regions.Clear()
+			Regions.Put(area(1, 1000, 1000, 100))
+			Regions.Put(area(2, 0, 200, 100))
+			assert.are.same({ "Nearest start", "start 2, 200 elmos from the centre" }, Regions.Describe(region)[3])
+		end
+	)
+
+	it("adds nothing when the map has no starts, and nothing about a start itself", function()
+		assert.are.equal(2, #Regions.Describe({ type = "mex_region", vertices = area(0, 0, 0, 100).vertices }))
+		Regions.Put(area(1, 0, 0, 100))
+		assert.are.equal(2, #Regions.Describe(area(2, 0, 0, 100)))
 	end)
 end)

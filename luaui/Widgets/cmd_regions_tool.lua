@@ -2161,14 +2161,6 @@ function R.factsFor(key, compute)
 	return R.factsValue
 end
 
-function R.startPositions()
-	local starts = {}
-	for _, pos in ipairs(positions) do
-		starts[#starts + 1] = { allyTeam = pos.allyTeam, x = pos.x, z = pos.z }
-	end
-	return starts
-end
-
 function R.names()
 	return R.api.Names(R.type, startboxes)
 end
@@ -2180,12 +2172,11 @@ function R.facts(box)
 	end
 	local finder = WG.resource_spot_finder
 	local spots = finder and not finder.isMetalMap and finder.metalSpotsList or nil
-	local starts = R.startPositions()
 	local candidate = R.fieldValues(box)
 	candidate.type = box.type or R.type
 	candidate.vertices = verts
 	local lines = { { "Vertices", tostring(#verts) } }
-	for _, line in ipairs(R.api.Describe(candidate, { spots = spots, starts = starts })) do
+	for _, line in ipairs(R.api.Describe(candidate, { spots = spots })) do
 		lines[#lines + 1] = line
 	end
 	return lines
@@ -2222,10 +2213,7 @@ function R.validate()
 	end
 	local finder = WG.resource_spot_finder
 	---@type RegionMap
-	local map = {
-		spots = finder and not finder.isMetalMap and finder.metalSpotsList or nil,
-		starts = R.startPositions(),
-	}
+	local map = { spots = finder and not finder.isMetalMap and finder.metalSpotsList or nil }
 	local lines, byRegion, ofSet = {}, {}, {}
 	for _, typeKey in ipairs(R.ORDER) do
 		local regions = R.list(typeKey)
