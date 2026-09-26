@@ -392,7 +392,7 @@ describe("unit policy cache (per-team factors) #policy", function()
 
 	it("reconstructs an allied pair identically to a direct GetPolicy", function()
 		local springApi, contextFactory = populate()
-		local cached = UnitShared.GetCachedPolicyResult(sender.id, receiver.id, springApi)
+		local cached = UnitShared.GetCachedTerms(sender.id, receiver.id, springApi)
 		local direct = UnitTransfer.GetPolicy(contextFactory.policy(sender.id, receiver.id))
 		assert.equal(direct.canShare, cached.canShare)
 		assert.same(direct.sharingModes, cached.sharingModes)
@@ -400,24 +400,24 @@ describe("unit policy cache (per-team factors) #policy", function()
 
 	it("allows an allied pair under a shareable mode", function()
 		local springApi = populate()
-		assert.equal(true, UnitShared.GetCachedPolicyResult(sender.id, receiver.id, springApi).canShare)
+		assert.equal(true, UnitShared.GetCachedTerms(sender.id, receiver.id, springApi).canShare)
 	end)
 
 	it("denies a cross-alliance pair", function()
 		local springApi = populate()
-		assert.equal(false, UnitShared.GetCachedPolicyResult(sender.id, enemy.id, springApi).canShare)
+		assert.equal(false, UnitShared.GetCachedTerms(sender.id, enemy.id, springApi).canShare)
 	end)
 
 	it("denies when the sharing mode is None", function()
 		spring:WithModOption(TransferEnums.ModOptions.UnitSharingMode, NONE)
 		local springApi = populate()
-		assert.equal(false, UnitShared.GetCachedPolicyResult(sender.id, receiver.id, springApi).canShare)
+		assert.equal(false, UnitShared.GetCachedTerms(sender.id, receiver.id, springApi).canShare)
 	end)
 
 	it("denies when the receiver has no active players", function()
 		spring:WithTeamRulesParam(receiver.id, "numActivePlayers", 0)
 		local springApi = populate()
-		assert.equal(false, UnitShared.GetCachedPolicyResult(sender.id, receiver.id, springApi).canShare)
+		assert.equal(false, UnitShared.GetCachedTerms(sender.id, receiver.id, springApi).canShare)
 	end)
 
 	it("cheating bypasses the inactive-receiver gate", function()
@@ -426,7 +426,7 @@ describe("unit policy cache (per-team factors) #policy", function()
 		springApi.IsCheatingEnabled = function()
 			return true
 		end
-		assert.equal(true, UnitShared.GetCachedPolicyResult(sender.id, receiver.id, springApi).canShare)
+		assert.equal(true, UnitShared.GetCachedTerms(sender.id, receiver.id, springApi).canShare)
 	end)
 
 	it("cheating does NOT bypass the alliance gate (units, unlike resources)", function()
@@ -434,12 +434,12 @@ describe("unit policy cache (per-team factors) #policy", function()
 		springApi.IsCheatingEnabled = function()
 			return true
 		end
-		assert.equal(false, UnitShared.GetCachedPolicyResult(sender.id, enemy.id, springApi).canShare)
+		assert.equal(false, UnitShared.GetCachedTerms(sender.id, enemy.id, springApi).canShare)
 	end)
 
 	it("falls back to the global mode + alliance when factors are absent", function()
 		local springApi = spring:Build()
-		assert.equal(true, UnitShared.GetCachedPolicyResult(sender.id, receiver.id, springApi).canShare)
-		assert.equal(false, UnitShared.GetCachedPolicyResult(sender.id, enemy.id, springApi).canShare)
+		assert.equal(true, UnitShared.GetCachedTerms(sender.id, receiver.id, springApi).canShare)
+		assert.equal(false, UnitShared.GetCachedTerms(sender.id, enemy.id, springApi).canShare)
 	end)
 end)

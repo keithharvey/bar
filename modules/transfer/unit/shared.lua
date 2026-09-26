@@ -41,7 +41,7 @@ local function resetArray(arr)
 	end
 end
 
----@param policyResult TransferUnitPolicyResult
+---@param policyResult UnitTransferTerms
 ---@param unitIds integer[]
 ---@param springApi Spring?
 ---@param unitDefs table?
@@ -136,8 +136,8 @@ end
 ---@param senderTeamId integer
 ---@param receiverTeamId integer
 ---@param springApi Spring?
----@return TransferUnitPolicyResult
-function Shared.GetCachedPolicyResult(senderTeamId, receiverTeamId, springApi)
+---@return UnitTransferTerms
+function Shared.GetCachedTerms(senderTeamId, receiverTeamId, springApi)
 	local spring = springApi or Spring
 	local modOptions = spring.GetModOptions()
 	local stunSeconds = tonumber(modOptions[TransferEnums.ModOptions.UnitShareStunSeconds]) or 0
@@ -152,7 +152,7 @@ function Shared.GetCachedPolicyResult(senderTeamId, receiverTeamId, springApi)
 
 	if senderFactor == nil or receiverFactor == nil then
 		local category = modOptions.unit_sharing_mode or ConstructionEnums.UnitFilterCategory.None
-		---@type TransferUnitPolicyResult
+		---@type UnitTransferTerms
 		return {
 			senderTeamId = senderTeamId,
 			receiverTeamId = receiverTeamId,
@@ -174,7 +174,7 @@ function Shared.GetCachedPolicyResult(senderTeamId, receiverTeamId, springApi)
 		end
 	end
 
-	---@type TransferUnitPolicyResult
+	---@type UnitTransferTerms
 	return {
 		senderTeamId = senderTeamId,
 		receiverTeamId = receiverTeamId,

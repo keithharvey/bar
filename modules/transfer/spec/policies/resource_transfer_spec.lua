@@ -30,7 +30,7 @@ describe("sending an ally metal", function()
 
 	---@param fields table
 	---@param rate number
-	---@return TransferResourcePolicyResult
+	---@return ResourceTransferTerms
 	local function terms(fields, rate)
 		local ctx = {
 			senderTeamId = 1,
@@ -97,9 +97,9 @@ describe("what the tax takes, and what the receiver's storage caps", function()
 	local taxRate = 0.5
 
 	describe("simple taxation", function()
-		---@type TransferResourcePolicyResult
+		---@type ResourceTransferTerms
 		local metalResult
-		---@type TransferResourcePolicyResult
+		---@type ResourceTransferTerms
 		local energyResult
 
 		before_each(function()
@@ -134,9 +134,9 @@ describe("what the tax takes, and what the receiver's storage caps", function()
 	end)
 
 	describe("when receiver is full", function()
-		---@type TransferResourcePolicyResult
+		---@type ResourceTransferTerms
 		local metalResult
-		---@type TransferResourcePolicyResult
+		---@type ResourceTransferTerms
 		local energyResult
 
 		before_each(function()
@@ -168,7 +168,7 @@ describe("what the tax takes, and what the receiver's storage caps", function()
 	end)
 
 	describe("rate = 0.7, receiver capacity 300, sender 1000", function()
-		---@type TransferResourcePolicyResult
+		---@type ResourceTransferTerms
 		local energyResult
 		local testTaxRate = 0.7
 
@@ -187,7 +187,7 @@ describe("what the tax takes, and what the receiver's storage caps", function()
 	end)
 
 	describe("sender 1000, rate = 0.7, receiver capacity 300", function()
-		---@type TransferResourcePolicyResult
+		---@type ResourceTransferTerms
 		local energyResult
 		local testTaxRate = 0.7
 
@@ -210,9 +210,9 @@ describe("what the tax takes, and what the receiver's storage caps", function()
 	end)
 
 	describe("when taxation is disabled", function()
-		---@type TransferResourcePolicyResult
+		---@type ResourceTransferTerms
 		local metalResult
-		---@type TransferResourcePolicyResult
+		---@type ResourceTransferTerms
 		local energyResult
 
 		before_each(function()

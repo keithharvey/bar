@@ -169,7 +169,7 @@ return {
 	---@param fromTeamID integer the team being asked to give them up
 	---@return TransferUnitResult
 	Units = function(unitIDs, toTeamID, fromTeamID)
-		local grant = UnitShared.GetCachedPolicyResult(fromTeamID, toTeamID, Spring)
+		local grant = UnitShared.GetCachedTerms(fromTeamID, toTeamID, Spring)
 		return perform("units", {
 			from = fromTeamID,
 			to = toTeamID,
@@ -190,7 +190,7 @@ return {
 			to = toTeamID,
 			resource = resource,
 			amount = amount,
-			grant = ResourceShared.GetCachedPolicyResult(fromTeamID, toTeamID, resource, Spring),
+			grant = ResourceShared.GetCachedTerms(fromTeamID, toTeamID, resource, Spring),
 		})
 	end,
 
@@ -209,7 +209,7 @@ return {
 		if Spring.GetGameRulesParam("isGiveInProgress") == 1 then
 			return true
 		end
-		local policyResult = UnitShared.GetCachedPolicyResult(fromTeamID, toTeamID, Spring)
+		local policyResult = UnitShared.GetCachedTerms(fromTeamID, toTeamID, Spring)
 		mayUnitScratch[1] = unitID
 		local validation = UnitShared.ValidateUnits(policyResult, mayUnitScratch, Spring, nil, mayValidationScratch)
 		return validation.status ~= TransferEnums.UnitValidationOutcome.Failure

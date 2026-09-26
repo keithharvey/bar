@@ -11,7 +11,7 @@ local TransferEnums = require("modules/transfer/enums")
 ---@field received number
 ---@field senderTeamId integer
 ---@field receiverTeamId integer
----@field policyResult TransferResourcePolicyResult? absent when the transfer was denied before a policy resolved
+---@field policyResult ResourceTransferTerms? absent when the transfer was denied before a policy resolved
 
 local ResourceType = TransferEnums.ResourceType
 local METAL = ResourceType.METAL
@@ -59,9 +59,9 @@ function Gadgets.ResourceTransfer(ctx)
 	return result
 end
 
-local policyResultPool = {} ---@type table<ResourceName, TransferResourcePolicyResult>
+local policyResultPool = {} ---@type table<ResourceName, ResourceTransferTerms>
 
----@param ctx TransferPolicyContext
+---@param ctx TransferContext
 ---@param resourceType ResourceName
 ---@return number
 local function resolveEffectiveRate(ctx, resourceType)
@@ -70,13 +70,13 @@ local function resolveEffectiveRate(ctx, resourceType)
 	return math.min(taxRate, 1)
 end
 
----@param ctx TransferPolicyContext
+---@param ctx TransferContext
 ---@param resourceType ResourceName
----@return TransferResourcePolicyResult
+---@return ResourceTransferTerms
 function Gadgets.CalcResourcePolicy(ctx, resourceType)
 	local result = policyResultPool[resourceType]
 	if not result then
-		result = {} --[[@as TransferResourcePolicyResult]]
+		result = {} --[[@as ResourceTransferTerms]]
 		policyResultPool[resourceType] = result
 	end
 	local policy = ModuleHandler.Contract(Modules.Transfer).ResourceTransfer
@@ -97,7 +97,7 @@ end
 ---@param springRepo Spring
 ---@param teamId integer
 ---@param resourceType ResourceName
----@param ctx TransferPolicyContext self-context (sender==receiver==teamId) so the enricher resolves the team's tax
+---@param ctx TransferContext self-context (sender==receiver==teamId) so the enricher resolves the team's tax
 function Gadgets.CacheTeamFactor(springRepo, teamId, resourceType, ctx)
 	local data = (resourceType == METAL) and ctx.sender.metal or ctx.sender.energy
 	local effectiveRate = resolveEffectiveRate(ctx, resourceType)

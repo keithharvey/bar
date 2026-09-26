@@ -29,7 +29,7 @@ describe("giving an ally a unit", function()
 	}
 
 	---@param fields table
-	---@return TransferUnitPolicyResult
+	---@return UnitTransferTerms
 	local function terms(fields)
 		local ctx = { senderTeamId = 1, receiverTeamId = 2, areAlliedTeams = true, isCheatingEnabled = false }
 		ctx.springRepo = repo(lobby, 1)
@@ -150,7 +150,7 @@ describe("what each sharing mode lets through, unit by unit", function()
 	for modeKey, config in pairs(testConfigs) do
 		describe("WHEN unit sharing mode is set to " .. config.mode, function()
 			spring:WithModOption(TransferEnums.ModOptions.UnitSharingMode, config.mode)
-			local result ---@type TransferUnitPolicyResult
+			local result ---@type UnitTransferTerms
 			local unitIds = {} ---@type table<string, integer>
 			local api ---@type SpringSyncedMock
 

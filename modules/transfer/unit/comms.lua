@@ -16,7 +16,7 @@ local function displayModes(modes)
 	return table.concat(names, " + ")
 end
 
----@param policy TransferUnitPolicyResult
+---@param policy UnitTransferTerms
 ---@param validationResult TransferUnitValidation?
 ---@return number TransferEnums.UnitCommunicationCase
 function Comms.DecideCommunicationCase(policy, validationResult)
@@ -40,7 +40,7 @@ function Comms.DecideCommunicationCase(policy, validationResult)
 end
 
 ---@param text string
----@param policy TransferUnitPolicyResult
+---@param policy UnitTransferTerms
 ---@param validationResult TransferUnitValidation?
 ---@return string
 local function withPolicyEffects(text, policy, validationResult)
@@ -74,7 +74,7 @@ local function withPolicyEffects(text, policy, validationResult)
 	return text
 end
 
----@param policy TransferUnitPolicyResult
+---@param policy UnitTransferTerms
 ---@param validationResult TransferUnitValidation?
 function Comms.TooltipText(policy, validationResult)
 	local notes = Notes.For(ModuleHandler.Contract(Modules.Transfer).UnitTermsNotes, policy, Spring.GetModOptions())

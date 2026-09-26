@@ -5,7 +5,7 @@ local UnitSharingCategories = require("modules/transfer/unit/categories")
 
 ---@param unitID integer
 ---@param unitDefID integer
----@param policyResult TransferUnitPolicyResult
+---@param policyResult UnitTransferTerms
 local function applyStun(unitID, unitDefID, policyResult)
 	local buildDelaySeconds = tonumber(policyResult.buildDelaySeconds) or 0
 	if buildDelaySeconds > 0 and UnitSharingCategories.isMobileBuilderDef(UnitDefs[unitDefID]) then
@@ -32,13 +32,13 @@ end
 ---@field senderTeamId integer
 ---@field receiverTeamId integer
 ---@field validationResult TransferUnitValidation
----@field policyResult TransferUnitPolicyResult
+---@field policyResult UnitTransferTerms
 
 ---@class TransferUnitsRequest
 ---@field from integer giving team
 ---@field to integer receiving team
 ---@field unitIDs integer[]
----@field grant TransferUnitPolicyResult the pair's policy result, as the api resolved it
+---@field grant UnitTransferTerms the pair's policy result, as the api resolved it
 ---@field validation TransferUnitValidation the grant applied to each unit
 
 ---@param request table unvalidated; validate is what makes it a TransferUnitsRequest

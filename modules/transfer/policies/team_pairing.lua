@@ -9,7 +9,7 @@ local TransferEnums = require("modules/transfer/enums")
 ---@field metal EconomyResource
 ---@field energy EconomyResource
 
----@class TransferPolicyContext
+---@class TransferContext
 ---@field senderTeamId integer
 ---@field receiverTeamId integer
 ---@field sender TransferTeamResources
@@ -21,10 +21,10 @@ local TransferEnums = require("modules/transfer/enums")
 ---@field unitSharingModes? string[]
 ---@field taxRate? number
 
----@class TransferRequest: TransferPolicyContext
+---@class TransferRequest: TransferContext
 ---@field policyType string TransferEnums.PolicyType
 
----@class TransferTeamPairingFacts: PolicyFacts<TransferPolicyContext> providers get the spring repo, the sender and the receiver as their extra arguments
+---@class TransferTeamPairingFacts: PolicyFacts<TransferContext> providers get the spring repo, the sender and the receiver as their extra arguments
 ---@field TechBlocking "techBlocking"
 ---@field UnitSharingModes "unitSharingModes"
 ---@field TaxRate "taxRate"

@@ -5,7 +5,7 @@ local TransferEnums = require("modules/transfer/enums")
 
 -- May this team send that one a resource, how much, and what the tax takes
 --
----@class TransferResourcePolicyResult: TransferPolicyResult
+---@class ResourceTransferTerms: TransferTerms
 ---@field canShare boolean
 ---@field amountSendable number
 ---@field amountReceivable number
@@ -14,7 +14,7 @@ local TransferEnums = require("modules/transfer/enums")
 ---@field resourceType ResourceName
 ---@field techBlocking? TechBlockingContext
 
----@class TransferResourceTransferPolicy: PolicySteps<TransferPolicyContext, TransferResourcePolicyResult>
+---@class TransferResourceTransferPolicy: PolicySteps<TransferContext, ResourceTransferTerms>
 ---@field SharingDisabled "SharingDisabled"
 ---@field Allied "Allied"
 ---@field ReceiverHasNoPlayers "ReceiverHasNoPlayers"
@@ -34,9 +34,9 @@ Policy.Single(ResourceTransfer)
 
 local METAL = TransferEnums.ResourceType.METAL
 
----@param ctx TransferPolicyContext
+---@param ctx TransferContext
 ---@param resourceType ResourceName
----@return TransferResourcePolicyResult
+---@return ResourceTransferTerms
 local function deny(ctx, resourceType)
 	return Shared.CreateDenyPolicy(ctx.senderTeamId, ctx.receiverTeamId, resourceType, ctx.springRepo)
 end
@@ -87,7 +87,7 @@ Policies.On(ResourceTransfer)
 
 -- The notes other modules attach to a resource-terms record for the player to read; providers get the modoptions
 --
----@class TransferResourceNotesFacts: PolicyFacts<TransferResourcePolicyResult>
+---@class TransferResourceNotesFacts: PolicyFacts<ResourceTransferTerms>
 ---@field TaxUnlock "taxUnlock"
 
 ---@class (partial) TransferContract

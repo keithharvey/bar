@@ -309,7 +309,7 @@ local Start = ModuleHandler.Contract(Modules.Start)
 
 <sub>Type: `(PolicySteps<C, T>, C) → T | false`</sub>
 
-Asks. The step enum from the contract names the policy; the loader finds what it assembled for that identity, every contributor's steps placed, and runs it under the contract's strategy. Returns the result, or the refusal. The result is the `T` the enum declared: a boolean for transport's load, the `TransferUnitPolicyResult` record for transfer's unit transfer. A refusal has the same shape, so the caller reads one set of fields either way. `ctx` and the return are typed from the enum; no annotation at the call.
+Asks. The step enum from the contract names the policy; the loader finds what it assembled for that identity, every contributor's steps placed, and runs it under the contract's strategy. Returns the result, or the refusal. The result is the `T` the enum declared: a boolean for transport's load, the `UnitTransferTerms` record for transfer's unit transfer. A refusal has the same shape, so the caller reads one set of fields either way. `ctx` and the return are typed from the enum; no annotation at the call.
 ```lua
 -- modules/transfer/unit/synced.lua
 local grant = ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transfer).UnitTransfer, ctx)

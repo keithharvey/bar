@@ -7,7 +7,12 @@ local TransferEnums = require("modules/transfer/enums")
 ---@class TransferTakeContext
 ---@field modOptions table<string, string|number|boolean>
 
----@class TransferTakePolicy: PolicySteps<TransferTakeContext, TakePolicy>
+---@class TakeTerms
+---@field mode string
+---@field delaySeconds number
+---@field delayCategory string
+
+---@class TransferTakePolicy: PolicySteps<TransferTakeContext, TakeTerms>
 ---@field TakeTerms "TakeTerms"
 
 ---@class (partial) TransferContract

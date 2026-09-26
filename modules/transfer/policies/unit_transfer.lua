@@ -4,11 +4,11 @@ local TransferEnums = require("modules/transfer/enums")
 
 -- May this team give that one a unit, and on what terms
 --
----@class TransferPolicyResult
+---@class TransferTerms
 ---@field senderTeamId integer
 ---@field receiverTeamId integer
 
----@class TransferUnitPolicyResult: TransferPolicyResult
+---@class UnitTransferTerms: TransferTerms
 ---@field canShare boolean
 ---@field sharingModes string[]
 ---@field stunSeconds number?
@@ -16,7 +16,7 @@ local TransferEnums = require("modules/transfer/enums")
 ---@field buildDelaySeconds number?
 ---@field techBlocking? TechBlockingContext
 
----@class TransferUnitTransferPolicy: PolicySteps<TransferPolicyContext, TransferUnitPolicyResult>
+---@class TransferUnitTransferPolicy: PolicySteps<TransferContext, UnitTransferTerms>
 ---@field SharingDisabled "SharingDisabled"
 ---@field Allied "Allied"
 ---@field ReceiverHasNoPlayers "ReceiverHasNoPlayers"
@@ -36,15 +36,15 @@ Policy.Single(UnitTransfer)
 
 local NONE = ConstructionEnums.UnitFilterCategory.None
 
----@param ctx TransferPolicyContext
+---@param ctx TransferContext
 ---@return string[]
 local function modesOf(ctx)
 	return ctx.unitSharingModes or { ctx.springRepo.GetModOptions().unit_sharing_mode or NONE }
 end
 
----@param ctx TransferPolicyContext
+---@param ctx TransferContext
 ---@param canShare boolean
----@return TransferUnitPolicyResult
+---@return UnitTransferTerms
 local function terms(ctx, canShare)
 	local modOptions = ctx.springRepo.GetModOptions()
 	return {
@@ -84,7 +84,7 @@ Policies.On(UnitTransfer)
 
 -- The notes other modules attach to a unit-terms record for the player to read; providers get the modoptions
 --
----@class TransferUnitNotesFacts: PolicyFacts<TransferUnitPolicyResult>
+---@class TransferUnitNotesFacts: PolicyFacts<UnitTransferTerms>
 ---@field FutureUnlock "futureUnlock"
 ---@field TechData "techData"
 

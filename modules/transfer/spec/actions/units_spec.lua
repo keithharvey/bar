@@ -80,7 +80,7 @@ describe("transfer.units", function()
 		---@param mock table
 		---@return table request
 		local function requestOn(mock)
-			local grant = UnitShared.GetCachedPolicyResult(sender.id, receiver.id, mock)
+			local grant = UnitShared.GetCachedTerms(sender.id, receiver.id, mock)
 			return {
 				from = sender.id,
 				to = receiver.id,

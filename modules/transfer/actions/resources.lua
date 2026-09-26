@@ -8,7 +8,7 @@ local ResourceTransfer = require("modules/transfer/resource/synced")
 ---@field to integer receiving team
 ---@field resource "metal"|"energy"
 ---@field amount number
----@field grant TransferResourcePolicyResult the pair's policy result for this resource, as the api resolved it
+---@field grant ResourceTransferTerms the pair's policy result for this resource, as the api resolved it
 
 ---@param request table unvalidated; validate is what makes it a TransferResourcesRequest
 ---@return boolean allowed, string? reason

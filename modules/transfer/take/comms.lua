@@ -18,13 +18,8 @@ function Comms.CategoryDisplayName(category)
 	return categoryDisplayNames[category] or category
 end
 
----@class TakePolicy
----@field mode string TakeMode enum value
----@field delaySeconds number
----@field delayCategory string UnitCategory enum value
-
 ---@param modOptions table
----@return TakePolicy
+---@return TakeTerms
 function Comms.GetPolicy(modOptions)
 	---@type TransferTakeContext
 	local ctx = { modOptions = modOptions }

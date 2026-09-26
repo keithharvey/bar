@@ -84,9 +84,9 @@ The real file, trimmed to one policy and three steps.
 
 ```lua
 -- modules/transfer/policies/unit_transfer.lua, the rules
----@param ctx TransferPolicyContext
+---@param ctx TransferContext
 ---@param canShare boolean
----@return UnitPolicyResult
+---@return UnitTransferTerms
 local function terms(ctx, canShare)
 	return {
 		canShare = canShare,
@@ -197,18 +197,18 @@ local Policy = require("modules/policy")
 
 -- May this team give that one a unit, and on what terms
 --
----@class TransferPolicyContext
+---@class TransferContext
 ---@field senderTeamId integer
 ---@field receiverTeamId integer
 ---@field springRepo Spring
 ---@field areAlliedTeams boolean
 ---@field isCheatingEnabled boolean
 
----@class UnitPolicyResult
+---@class UnitTransferTerms
 ---@field canShare boolean
 ---@field stunSeconds number
 
----@class TransferUnitTransferPolicy: PolicySteps<TransferPolicyContext, UnitPolicyResult>
+---@class TransferUnitTransferPolicy: PolicySteps<TransferContext, UnitTransferTerms>
 ---@field Allied "Allied"
 ---@field ReceiverHasNoPlayers "ReceiverHasNoPlayers"
 ---@field TransferTerms "TransferTerms"
@@ -235,14 +235,14 @@ Same again, line by line.
 The question, in one line, as the player would ask it. The empty `--` under it is the seam: a file with two policies in it puts a header like this over each, so the eye finds where one ends.
 
 ```lua
----@class TransferPolicyContext
----@class UnitPolicyResult
+---@class TransferContext
+---@class UnitTransferTerms
 ```
 
 The two types every policy has, written `<C, T>` everywhere else in this doc. `C` is what the gadget gathered up top. `T` is what `terms` built. `T` is a table here, not a boolean, because the gadget that stuns the unit and the widget that explains the stun in a tooltip both need the seconds, and they need them on a refusal too.
 
 ```lua
----@class TransferUnitTransferPolicy: PolicySteps<TransferPolicyContext, UnitPolicyResult>
+---@class TransferUnitTransferPolicy: PolicySteps<TransferContext, UnitTransferTerms>
 ---@field Allied "Allied"
 ---@field ReceiverHasNoPlayers "ReceiverHasNoPlayers"
 ---@field TransferTerms "TransferTerms"
@@ -421,7 +421,7 @@ end
 
 Units = function(unitIDs, toTeamID, fromTeamID)
 	-- the api gathers; the action only reads its request
-	local grant = UnitShared.GetCachedPolicyResult(fromTeamID, toTeamID, Spring)
+	local grant = UnitShared.GetCachedTerms(fromTeamID, toTeamID, Spring)
 	return perform("units", {
 		from = fromTeamID,
 		to = toTeamID,
@@ -439,7 +439,7 @@ A widget never asks either. It has no synced state to gather from, so the synced
 -- what a widget includes
 local Transfer = require("modules/transfer/unsynced")
 
-local terms = Transfer.Units.GetCachedPolicyResult(myTeamID, theirTeamID) -- read back, same UnitPolicyResult shape
+local terms = Transfer.Units.GetCachedTerms(myTeamID, theirTeamID) -- read back, same UnitTransferTerms shape
 Transfer.Units.ShareUnits(theirTeamID) -- the player's selection, as a message
 ```
 

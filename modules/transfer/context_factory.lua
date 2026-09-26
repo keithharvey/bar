@@ -6,13 +6,13 @@ local TransferEnums = require("modules/transfer/enums")
 ---@class TransferResourceRequest : TransferRequest
 ---@field resourceType ResourceName
 ---@field desiredAmount number
----@field policyResult TransferResourcePolicyResult
+---@field policyResult ResourceTransferTerms
 
 ---@class ContextFactory
 ---@field create fun(springRepo: Spring): ContextFactory
----@field policy fun(senderTeamID: integer, receiverTeamID: integer): TransferPolicyContext
+---@field policy fun(senderTeamID: integer, receiverTeamID: integer): TransferContext
 ---@field request fun(senderTeamId: integer, receiverTeamId: integer, policyType: string): TransferRequest
----@field resourceTransfer fun(senderTeamId: integer, receiverTeamId: integer, resourceType: ResourceName, desiredAmount: number, policyResult: TransferResourcePolicyResult): TransferResourceRequest
+---@field resourceTransfer fun(senderTeamId: integer, receiverTeamId: integer, resourceType: ResourceName, desiredAmount: number, policyResult: ResourceTransferTerms): TransferResourceRequest
 local ContextFactory = {}
 
 ---@param springRepo Spring
@@ -42,7 +42,7 @@ function ContextFactory.create(springRepo, enrichers)
 	---@param senderTeamID integer
 	---@param receiverTeamID integer
 	---@param extensions? table
-	---@return TransferPolicyContext
+	---@return TransferContext
 	local function buildContext(senderTeamID, receiverTeamID, extensions)
 		---@type TransferTeamResources
 		local senderResources = {
@@ -56,7 +56,7 @@ function ContextFactory.create(springRepo, enrichers)
 			energy = getResource(receiverTeamID, TransferEnums.ResourceType.ENERGY),
 		}
 
-		---@type TransferPolicyContext
+		---@type TransferContext
 		local ctx = {
 			senderTeamId = senderTeamID,
 			receiverTeamId = receiverTeamID,
@@ -90,7 +90,7 @@ function ContextFactory.create(springRepo, enrichers)
 	---@param senderTeamID integer
 	---@param receiverTeamID integer
 	---@param commandType? string
-	---@return TransferPolicyContext
+	---@return TransferContext
 	local function policy(senderTeamID, receiverTeamID, commandType)
 		return buildContext(senderTeamID, receiverTeamID, {
 			commandType = commandType,
@@ -111,7 +111,7 @@ function ContextFactory.create(springRepo, enrichers)
 	---@param receiverTeamId integer
 	---@param resourceType ResourceName
 	---@param desiredAmount number
-	---@param policyResult TransferResourcePolicyResult
+	---@param policyResult ResourceTransferTerms
 	---@return TransferResourceRequest
 	local function resourceTransfer(senderTeamId, receiverTeamId, resourceType, desiredAmount, policyResult)
 		local policyType = resourceType == TransferEnums.ResourceType.METAL and TransferEnums.PolicyType.MetalTransfer
