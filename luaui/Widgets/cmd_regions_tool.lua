@@ -1874,23 +1874,8 @@ function R.seedFromMatch()
 	end
 	R.seeded = true
 	local current = Start.Current(Spring)
-	for _, area in ipairs(current.areas) do
-		local curved = false
-		for _, a in ipairs(area.anchors) do
-			curved = curved or (a.strength ~= nil and a.strength > 0)
-		end
-		local ordinal = area.allyTeamID + 1 -- the editor counts starts from 1
-		local box = { type = "start", allyTeam = ordinal, team = ordinal, name = area.name }
-		if curved then
-			box.kind = "spline"
-			box.controls = area.anchors
-			box.vertices = {}
-			retessellateSpline(box)
-		else
-			box.kind = "polygon"
-			box.vertices = area.anchors
-		end
-		R.add(box)
+	for _, start in ipairs(current.areas) do
+		R.add(start)
 	end
 	renumberBoxAllyTeams()
 	local slots = {}

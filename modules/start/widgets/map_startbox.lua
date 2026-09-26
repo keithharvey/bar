@@ -944,10 +944,10 @@ local function InitStartPolygons()
 		end
 	end
 	for _, area in ipairs(current.areas) do
-		local allyTeamID = area.allyTeam - 1
-		if allyTeamID ~= gaiaAllyTeamID and activeAllyTeams[allyTeamID] then
+		local allyTeamID = area.allyTeamID
+		if allyTeamID and allyTeamID ~= gaiaAllyTeamID and activeAllyTeams[allyTeamID] then
 			local polygon = {}
-			for i, a in ipairs(area.anchors) do
+			for i, a in ipairs(area.vertices) do
 				polygon[i] = { a.x, a.z }
 			end
 			StartPolygons[#StartPolygons + 1] = { team = allyTeamID, poly = polygon }

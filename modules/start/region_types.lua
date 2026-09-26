@@ -7,6 +7,8 @@ local Fields = require("modules/start/fields")
 ---@field type "start"
 ---@field team integer
 ---@field positions { x: number, z: number }[]|nil
+---@field allyTeamID integer|nil the ally team seated here, once the match has resolved it
+---@field source string|nil where the match's shape came from: the modoption that set it, or "engine"
 
 return {
 	[Enums.Types.Start] = {

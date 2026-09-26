@@ -4,7 +4,7 @@ local Policy = require("modules/policy")
 -- mode that knows better provides it.
 ---@class StartContext
 ---@field springRepo Spring
----@field areas StartArea[]
+---@field areas StartRegion[]
 ---@field positions StartPosition[]
 
 ---@class StartFacts: PolicyFacts<StartContext>
