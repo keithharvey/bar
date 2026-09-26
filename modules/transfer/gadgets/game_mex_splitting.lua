@@ -55,13 +55,10 @@ local chosen = {} ---@type table<integer, { x: number, z: number }>
 ---@return MexRegionsTeamStart[]
 local function teamStarts()
 	local centres = {} ---@type { [integer]: { x: number, z: number } }
-	for _, area in ipairs(Start.Current(Spring).areas) do
-		local ring = {}
-		for i, a in ipairs(area.anchors) do
-			ring[i] = { x = a.x, z = a.z }
+	for _, start in ipairs(Start.Current(Spring).areas) do
+		if start.allyTeamID then
+			centres[start.allyTeamID] = Regions.Shape(start).centre
 		end
-		local cx, cz = Regions.Geometry.Centroid(ring)
-		centres[area.allyTeamID] = { x = cx, z = cz }
 	end
 	local teams = {} ---@type MexRegionsTeamStart[]
 	for _, teamID in ipairs(Spring.GetTeamList() or {}) do

@@ -19,7 +19,7 @@ return {
 
 	---@param springRepo Spring
 	---@param resolveBoxes (fun(): StartboxConfig)|nil
-	---@return { areas: StartArea[], positions: StartPosition[] }
+	---@return { areas: StartRegion[], positions: StartPosition[] }
 	Current = function(springRepo, resolveBoxes)
 		---@type StartContext
 		local ctx = {
