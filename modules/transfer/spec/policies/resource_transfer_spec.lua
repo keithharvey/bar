@@ -1,7 +1,67 @@
 ---@type Builders
 local Builders = VFS.Include("spec/builders/index.lua")
 local ContextFactoryModule = require("modules/transfer/context_factory")
+local Modules = require("modules/enums").Modules
+local ModuleHandler = require("modules/module_handler")
 local TransferEnums = require("modules/transfer/enums")
+
+describe("sending an ally metal", function()
+	local Contract = ModuleHandler.Contract(Modules.Transfer)
+	local METAL = TransferEnums.ResourceType.METAL
+
+	---@param opts table
+	---@param activePlayers integer|nil
+	local function repo(opts, activePlayers)
+		return {
+			GetModOptions = function()
+				return opts
+			end,
+			GetTeamRulesParam = function(_, key)
+				return key == "numActivePlayers" and activePlayers or nil
+			end,
+			GetGaiaTeamID = function()
+				return 99
+			end,
+			GetTeamInfo = function()
+				return "", true, false, false
+			end,
+		}
+	end
+
+	---@param fields table
+	---@param rate number
+	---@return TransferResourcePolicyResult
+	local function terms(fields, rate)
+		local ctx = {
+			senderTeamId = 1,
+			receiverTeamId = 2,
+			areAlliedTeams = true,
+			isCheatingEnabled = false,
+			springRepo = repo({}, 1),
+			sender = { metal = { current = 1000, storage = 2000 }, energy = { current = 0, storage = 0 } },
+			receiver = { metal = { current = 900, storage = 1000 }, energy = { current = 0, storage = 0 } },
+		}
+		for k, v in pairs(fields) do
+			ctx[k] = v
+		end
+		return ModuleHandler.Evaluate(Contract.ResourceTransfer, ctx, METAL, rate, {})
+	end
+
+	it("goes through taxed at the lobby's rate, and only as much as the receiver can hold", function()
+		local granted = terms({}, 0.5)
+		assert.is_true(granted.canShare)
+		assert.are.equal(0.5, granted.taxRate)
+		assert.are.equal(100, granted.amountSendable)
+	end)
+
+	it("is refused, on the same terms to read, when the teams are enemies or nobody is home", function()
+		assert.is_false(terms({ areAlliedTeams = false }, 0).canShare)
+		local refused = terms({ springRepo = repo({}, 0) }, 0)
+		assert.is_false(refused.canShare)
+		assert.are.equal(METAL, refused.resourceType)
+		assert.is_true(terms({ springRepo = repo({}, 0), isCheatingEnabled = true }, 0).canShare)
+	end)
+end)
 local ResourceTransfer, ResourceShared, SharedConfig
 local function reloadTransfer()
 	SharedConfig = require("modules/transfer/economy/shared_config")
@@ -33,7 +93,7 @@ local spring = Builders.Spring
 	:WithTeamRulesParam(receiver.id, "numActivePlayers", 1)
 	:WithTeamRulesParam(sender.id, "numActivePlayers", 1)
 
-describe(TransferEnums.ModOptions.TaxResourceSharingAmount .. " #policy", function()
+describe("what the tax takes, and what the receiver's storage caps", function()
 	local taxRate = 0.5
 
 	describe("simple taxation", function()

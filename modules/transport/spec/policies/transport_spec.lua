@@ -6,28 +6,10 @@ local function decide(policy, ctx)
 	return ModuleHandler.Evaluate(policy, ctx)
 end
 
-describe("transport policies", function()
+describe("a transport picking a unit up, setting it down, and flying loaded", function()
 	local Contract = ModuleHandler.Contract(Modules.Transport)
 
-	it("publishes every step name, keyed as its policies are, for the owner and for whoever contributes", function()
-		for _, steps in pairs(Contract) do
-			local identity = Policy.IdentityOf(steps)
-			local owner = identity.contributes and identity.contributes.owner or "transport"
-			local category = identity.contributes and identity.contributes.category or identity.category
-			local named = {}
-			for _, step in ipairs(ModuleHandler.LoadPolicies(owner)[category]) do
-				named[step.name] = true
-			end
-			for key, name in pairs(steps) do
-				assert.is_true(
-					named[name],
-					owner .. "." .. category .. " has no step " .. name .. " (Contract." .. key .. ")"
-				)
-			end
-		end
-	end)
-
-	describe("load", function()
+	describe("picks up what it can reach on dry ground, and refuses the rest for a reason it can name", function()
 		local ok = { goalY = 10, height = 20, distance = 5, reach = 20, allied = true, passengerSpeed = 0 }
 
 		it("allows an allied unit in reach on dry ground", function()
@@ -74,7 +56,7 @@ describe("transport policies", function()
 		end)
 	end)
 
-	describe("unload", function()
+	describe("sets its passenger down only where it can stand", function()
 		it("sets a nano down only on dry, level ground", function()
 			assert.is_true(decide(Contract.Unload, { goalY = 10, height = 0, nano = true, groundNormalY = 0.95 }))
 			assert.is_false(decide(Contract.Unload, { goalY = 10, height = 0, nano = true, groundNormalY = 0.5 }))
@@ -86,7 +68,7 @@ describe("transport policies", function()
 		end)
 	end)
 
-	describe("loaded speed", function()
+	describe("flies at its own speed, dragged by a commander aboard when the lobby says so", function()
 		it("is the carrier's own unless a commander drags it and the rule is on", function()
 			assert.is.near(
 				9,
@@ -105,5 +87,23 @@ describe("transport policies", function()
 				1e-9
 			)
 		end)
+	end)
+
+	it("publishes every step name, keyed as its policies are, for the owner and for whoever contributes", function()
+		for _, steps in pairs(Contract) do
+			local identity = Policy.IdentityOf(steps)
+			local owner = identity.contributes and identity.contributes.owner or "transport"
+			local category = identity.contributes and identity.contributes.category or identity.category
+			local named = {}
+			for _, step in ipairs(ModuleHandler.LoadPolicies(owner)[category]) do
+				named[step.name] = true
+			end
+			for key, name in pairs(steps) do
+				assert.is_true(
+					named[name],
+					owner .. "." .. category .. " has no step " .. name .. " (Contract." .. key .. ")"
+				)
+			end
+		end
 	end)
 end)

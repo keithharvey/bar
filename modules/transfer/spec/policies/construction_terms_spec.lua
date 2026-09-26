@@ -3,8 +3,8 @@ local ModuleHandler = require("modules/module_handler")
 local Modules = require("modules/enums").Modules
 local TransferEnums = require("modules/transfer/enums")
 
-describe("transfer's gate on construction's build policy", function()
-	it("sits on the policy, ahead of the terminal", function()
+describe("a build step an ally helps with", function()
+	it("is refused by a step of transfer's on construction's build policy, ahead of its answer", function()
 		local names = {}
 		for i, step in ipairs(ModuleHandler.Steps(ModuleHandler.Contract(Modules.Construction).Build)) do
 			names[i] = step.name
