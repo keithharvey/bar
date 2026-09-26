@@ -124,11 +124,6 @@ local ResourceTransfer = {
 	RateAndCapacity = "RateAndCapacity",
 }
 
----@class MexRegion: Region an area of the layout, in elmos, whose metal is dealt to the teams seated at one start. The deal is keyed by its id; a name is the map's to give, Regions.Names derives one from the group otherwise
----@field type "mex_region"
----@field team integer the start ordinal the region belongs to; start 1 is team 1
----@field group string the region's role on this map, e.g. "anti", "tech"
-
 ---@class MexRegionsTeamStart a team, seated at a start
 ---@field teamID integer
 ---@field allyTeamID integer the engine's; the layout seats it at start allyTeamID + 1
@@ -138,7 +133,7 @@ local ResourceTransfer = {
 ---@class MexRegionsDealContext the inputs to the deal: the layout, the map's metal spots, and the seated teams
 ---@field regions MexRegion[] the layout's regions
 ---@field spots { x: number, z: number }[] the map's metal spots; a mex is attributed to the spot it mines
----@field teams MexRegionsTeamStart[] in deal order
+---@field teams MexRegionsTeamStart[] deal order
 
 ---@class MexRegionsDeal the outcome: who holds what. Empty, with problems set, when no deal could be made
 ---@field regions table<string, integer> the team holding each region, by region id
