@@ -7,7 +7,7 @@ local ModuleHandler = require("modules/module_handler")
 local function ladder(level, opts)
 	return ModuleHandler.Evaluate(
 		ModuleHandler.Contract(Modules.Tech).TechCore,
-		{ level = level, points = 5, opts = opts, t2Threshold = 10, t3Threshold = 20 }
+		{ level = level, points = 5, modOptions = opts, t2Threshold = 10, t3Threshold = 20 }
 	)
 end
 

@@ -13,10 +13,10 @@ function Creation.Refresh(teamID, springRepo)
 	if not blocking then
 		return
 	end
+	local modOptions = springRepo.GetModOptions()
 	local facts = ModuleHandler.Enrich(
 		ModuleHandler.Contract(Modules.Construction).CreationFacts,
-		springRepo.GetModOptions(),
-		{ teamID = teamID },
+		{ teamID = teamID, modOptions = modOptions },
 		springRepo
 	)
 	local blocked = state.creationBlocked[teamID] or {}
@@ -24,6 +24,7 @@ function Creation.Refresh(teamID, springRepo)
 	for unitDefID, unitDef in pairs(UnitDefs) do
 		---@type ConstructionCreationContext
 		local ctx = {
+			modOptions = modOptions,
 			unitDefID = unitDefID,
 			unitDef = unitDef,
 			teamID = teamID,

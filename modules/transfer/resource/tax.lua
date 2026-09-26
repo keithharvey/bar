@@ -29,8 +29,8 @@ function Tax.GetTaxRate(teamId, opts, springRepo)
 	opts = opts or springRepo.GetModOptions()
 	---@cast opts table<string, string|number|boolean>
 	---@type TransferTeamContext
-	local ctx = { teamId = teamId, opts = opts, springRepo = springRepo }
-	local terms = ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Transfer).TeamTerms, opts, ctx)
+	local ctx = { teamId = teamId, modOptions = opts, springRepo = springRepo }
+	local terms = ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Transfer).TeamTerms, ctx)
 	local rate = tonumber(terms[ModuleHandler.Contract(Modules.Transfer).TeamTerms.TaxRate]) ---@type number?
 	if not rate or rate < 0 then
 		rate = tonumber(opts[TAX_KEY]) or 0

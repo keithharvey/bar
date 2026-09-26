@@ -10,7 +10,7 @@ local Policy = require("modules/policy")
 ---@field received number
 ---@field excess number wasted overflow this tick
 
----@class EconomyRedistributionContext
+---@class EconomyRedistributionContext: PolicyContext
 ---@field results EconomyTeamResult[]
 
 ---@class EconomyRedistributionFacts: PolicyFacts<EconomyRedistributionContext>

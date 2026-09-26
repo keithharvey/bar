@@ -28,7 +28,7 @@ describe("what tech tells transfer about a team", function()
 		local facts = ModuleHandler.EnrichWith(
 			resolved,
 			{ tech = true },
-			{ teamId = 1, opts = opts, springRepo = repo({ tech_level = "2" }, opts) }
+			{ teamId = 1, modOptions = opts, springRepo = repo({ tech_level = "2" }, opts) }
 		)
 		assert.are.equal(0.25, facts[Contract.TeamTerms.TaxRate])
 	end)

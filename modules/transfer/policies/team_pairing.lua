@@ -9,13 +9,12 @@ local TransferEnums = require("modules/transfer/enums")
 ---@field metal EconomyResource
 ---@field energy EconomyResource
 
----@class TransferContext
+---@class TransferContext: PolicyContext
 ---@field senderTeamId integer
 ---@field receiverTeamId integer
 ---@field sender TransferTeamResources
 ---@field receiver TransferTeamResources
 ---@field springRepo Spring
----@field modOptions table<string, string|number|boolean>
 ---@field areAlliedTeams boolean
 ---@field isCheatingEnabled boolean
 ---@field techBlocking? TechBlockingContext

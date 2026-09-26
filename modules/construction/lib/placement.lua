@@ -69,8 +69,7 @@ function Placement.Decide(unitDefID, builderTeam, x, y, z, springRepo)
 		spotHolder = builderTeam,
 		spotHolderAllied = false,
 	}
-	local facts =
-		ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Construction).PlacementFacts, opts, ctx, springRepo)
+	local facts = ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Construction).PlacementFacts, ctx, springRepo)
 	ctx.spotHolder = facts[ModuleHandler.Contract(Modules.Construction).PlacementFacts.SpotHolder]
 	ctx.utilitySharing = facts[ModuleHandler.Contract(Modules.Construction).PlacementFacts.UtilitySharing] == true
 	ctx.spotHolderAllied = ctx.spotHolder ~= builderTeam

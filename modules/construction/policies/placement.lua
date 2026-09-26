@@ -2,8 +2,7 @@ local Policy = require("modules/policy")
 
 -- May a builder put a new unit here
 --
----@class ConstructionPlacementContext
----@field modOptions table<string, any>
+---@class ConstructionPlacementContext: PolicyContext
 ---@field unitDefID integer
 ---@field builderTeam integer
 ---@field x number

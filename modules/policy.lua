@@ -1,5 +1,8 @@
 local Policy = {}
 
+---@class PolicyContext a context that carries the match's modoptions: every Facts context, since the live set is read off them, and a policy's when its steps read them
+---@field modOptions table<string, string|number|boolean>
+
 ---@class PolicySteps<C, T>: { [string]: string } step names for one policy; C is the context its evaluates receive, T the result it produces
 
 ---@class PolicyFacts<C>: { [string]: string } the facts a decision reads, named; C is the context providers receive

@@ -24,13 +24,14 @@ return {
 		---@type StartContext
 		local ctx = {
 			springRepo = springRepo,
+			modOptions = springRepo.GetModOptions(),
 			areas = Boxes.Resolve(springRepo, (resolveBoxes or resolveWithGame)()),
 			positions = Positions.Read(springRepo),
 		}
 		---@type StartContract
 		local Start = ModuleHandler.Contract(Modules.Start)
 		local Facts = Start.Facts
-		local facts = ModuleHandler.Enrich(Facts, springRepo.GetModOptions and springRepo.GetModOptions() or {}, ctx)
+		local facts = ModuleHandler.Enrich(Facts, ctx)
 		return { areas = facts[Facts.Areas] or {}, positions = facts[Facts.Positions] or {} }
 	end,
 }

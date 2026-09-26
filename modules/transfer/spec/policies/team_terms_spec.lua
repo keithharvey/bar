@@ -10,7 +10,7 @@ describe("one team's terms", function()
 			return ModuleHandler.EnrichWith(
 				resolved,
 				{},
-				{ opts = { [TransferEnums.ModOptions.TaxResourceSharingAmount] = raw } }
+				{ modOptions = { [TransferEnums.ModOptions.TaxResourceSharingAmount] = raw } }
 			)[Contract.TeamTerms.TaxRate]
 		end
 		assert.are.equal(0.3, tax("0.3"))

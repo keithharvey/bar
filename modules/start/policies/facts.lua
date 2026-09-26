@@ -2,7 +2,7 @@ local Policy = require("modules/policy")
 
 -- What the match's starts are. The api gathers the engine's answer into the context under each fact's name; a
 -- mode that knows better provides it.
----@class StartContext
+---@class StartContext: PolicyContext
 ---@field springRepo Spring
 ---@field areas StartRegion[]
 ---@field positions StartPosition[]

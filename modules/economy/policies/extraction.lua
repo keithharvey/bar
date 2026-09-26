@@ -2,9 +2,8 @@ local Policy = require("modules/policy")
 
 -- What extraction pays each team this tick: what its extractors made, unless a mode answers otherwise
 --
----@class EconomyExtractionContext
+---@class EconomyExtractionContext: PolicyContext
 ---@field springRepo Spring
----@field modOptions table<string, string|number|boolean>
 ---@field teams table<integer, EconomyTeamResources>
 ---@field seconds number
 ---@field income table<integer, table<ResourceName, number>> what each team's extractors made over the tick

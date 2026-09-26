@@ -4,8 +4,7 @@ local TransferEnums = require("modules/transfer/enums")
 
 -- The terms a team may take a leaver's units on
 --
----@class TransferTakeContext
----@field modOptions table<string, string|number|boolean>
+---@class TransferTakeContext: PolicyContext
 
 ---@class TakeTerms
 ---@field mode string

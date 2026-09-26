@@ -79,7 +79,7 @@ Policy.Facts(TeamTerms)
 
 -- the same file: what it means when nobody else answers
 Policies.On(TeamTerms).Default(TeamTerms.TaxRate, function(ctx)
-	return Tax.ModOption(ctx.opts)
+	return Tax.ModOption(ctx.modOptions)
 end)
 
 -- tech/policies/tech_blocking.lua: live under Tech Core, and the rate follows the team's tier
@@ -279,7 +279,7 @@ Answers a fact, per ask, from the context. Nil declines and the next live provid
 
 The owner's answer when no live module provides, for a fact that has to be computed. A fact with no Default is the context's field of its name: the api gathered the engine's answer under that name, and nobody knowing better, that is the fact. Most facts are that; a Default is for the rest.
 ```lua
-.Default(TeamTerms.TaxRate, function(ctx) return Tax.ModOption(ctx.opts) end)
+.Default(TeamTerms.TaxRate, function(ctx) return Tax.ModOption(ctx.modOptions) end)
 ```
 
 ## In a gadget, widget or lib
@@ -329,16 +329,16 @@ for _, step in ipairs(ModuleHandler.Steps(ModuleHandler.Contract(Modules.Constru
 end
 ```
 
-**`ModuleHandler.Enrich(facts, modOptions, ctx, ...)`**
+**`ModuleHandler.Enrich(facts, ctx, ...)`**
 
-<sub>Type: `(PolicyFacts<C>, modOptions, C) → { [fact]: V }`</sub>
+<sub>Type: `(PolicyFacts<C>, C) → { [fact]: V }`</sub>
 
-Fills a contract's facts for one ask: the live providers answer, nil declines, the Default fills the rest.
+Fills a module's facts for one ask: the live providers answer, nil declines, the Default fills the rest. Every facts context is a `PolicyContext`: it carries the match's `modOptions`, read once by whoever builds it, and the live set is read off them.
 ```lua
 -- modules/transfer/resource/tax.lua: whose rate this is, tech's or the modoption's, is the mode's business
-local ctx = { teamId = teamId, opts = opts, springRepo = springRepo }
+local ctx = { teamId = teamId, modOptions = opts, springRepo = springRepo }
 local TeamTerms = ModuleHandler.Contract(Modules.Transfer).TeamTerms
-local terms = ModuleHandler.Enrich(TeamTerms, opts, ctx)
+local terms = ModuleHandler.Enrich(TeamTerms, ctx)
 local rate = tonumber(terms[TeamTerms.TaxRate])
 ```
 

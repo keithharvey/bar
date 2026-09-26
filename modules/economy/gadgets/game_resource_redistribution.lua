@@ -51,8 +51,8 @@ local CADENCE = 30
 ---@return number
 local function taxRateFor(_, teamId)
 	---@type EconomyTeamContext
-	local ctx = { teamId = teamId, springRepo = springRepo }
-	local terms = ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Economy).Distribution, modOptions, ctx)
+	local ctx = { teamId = teamId, springRepo = springRepo, modOptions = modOptions }
+	local terms = ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Economy).Distribution, ctx)
 	return tonumber(terms[ModuleHandler.Contract(Modules.Economy).Distribution.TaxRate]) or 0
 end
 
@@ -60,8 +60,8 @@ end
 ---@return EconomyTeamResult[]
 local function amended(results)
 	---@type EconomyRedistributionContext
-	local ctx = { results = results }
-	local amendedResults = ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Economy).Redistribution, modOptions, ctx)
+	local ctx = { results = results, modOptions = modOptions }
+	local amendedResults = ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Economy).Redistribution, ctx)
 	return amendedResults[ModuleHandler.Contract(Modules.Economy).Redistribution.Results] or results
 end
 
@@ -78,7 +78,7 @@ local function payExtraction(teams)
 	local made = Extraction.Made(springRepo, teamIDs, seconds)
 	---@type EconomyExtractionContext
 	local ctx = { springRepo = springRepo, modOptions = modOptions, teams = teams, seconds = seconds, income = made }
-	local income = ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Economy).Extraction, modOptions, ctx)[ModuleHandler.Contract(
+	local income = ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Economy).Extraction, ctx)[ModuleHandler.Contract(
 		Modules.Economy
 	).Extraction.Income] or made
 	for teamID, paid in pairs(income) do

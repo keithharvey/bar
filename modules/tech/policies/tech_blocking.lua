@@ -15,7 +15,7 @@ local resourceTermsNotes = Transfer.ResourceTermsNotes
 
 Policies.On(teamTerms).Provide(teamTerms.TaxRate, function(ctx)
 	local level = tonumber(ctx.springRepo.GetTeamRulesParam(ctx.teamId, "tech_level") or 1) or 1
-	local rate = tonumber(TechTier.resolveByTechLevel(ctx.opts, "tax_resource_sharing_amount", level))
+	local rate = tonumber(TechTier.resolveByTechLevel(ctx.modOptions, "tax_resource_sharing_amount", level))
 	return (rate ~= nil and rate >= 0) and rate or nil
 end)
 
@@ -31,7 +31,7 @@ Policies.On(teamPairing)
 			local rawT3 = springRepo.GetTeamRulesParam(senderTeamID, "tech_t3_threshold")
 			---@type TechTierRequest
 			local request = {
-				opts = ctx.modOptions,
+				modOptions = ctx.modOptions,
 				level = tonumber(rawLevel or 1) or 1,
 				points = tonumber(rawPoints or 0) or 0,
 				t2Threshold = tonumber(rawT2 or 0) or 0,

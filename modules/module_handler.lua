@@ -1029,13 +1029,12 @@ function ModuleHandler.EnrichWith(resolved, live, ctx, ...)
 end
 
 ---@param facts table the owner's Facts
----@param modOptions table<string, any>
----@param ctx table
+---@param ctx PolicyContext the live set is read off its modOptions
 ---@param ... any extra producer arguments
 ---@return table<string, any>
-function ModuleHandler.Enrich(facts, modOptions, ctx, ...)
+function ModuleHandler.Enrich(facts, ctx, ...)
 	local resolved = ModuleHandler.LoadEnrichers(facts)
-	return ModuleHandler.EnrichWith(resolved, ModuleHandler.LiveModulesFor(modOptions), ctx, ...)
+	return ModuleHandler.EnrichWith(resolved, ModuleHandler.LiveModulesFor(ctx.modOptions), ctx, ...)
 end
 
 ---@generic C, T

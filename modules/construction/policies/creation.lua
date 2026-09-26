@@ -2,7 +2,7 @@ local Policy = require("modules/policy")
 
 -- May this team build this def at all: the build option, not one step of it
 --
----@class ConstructionCreationContext
+---@class ConstructionCreationContext: PolicyContext
 ---@field unitDefID integer
 ---@field unitDef table
 ---@field teamID integer

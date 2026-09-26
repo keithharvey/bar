@@ -2,7 +2,7 @@ local Policy = require("modules/policy")
 
 -- What redistribution costs one team: nothing, unless a module taxes it
 --
----@class EconomyTeamContext
+---@class EconomyTeamContext: PolicyContext
 ---@field teamId integer
 ---@field springRepo Spring
 

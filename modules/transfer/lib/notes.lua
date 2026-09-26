@@ -7,7 +7,8 @@ local Notes = {}
 ---@param modOptions table<string, any>
 ---@return table<string, any>
 function Notes.For(facts, record, modOptions)
-	return ModuleHandler.Enrich(facts, modOptions, record, modOptions)
+	local resolved = ModuleHandler.LoadEnrichers(facts)
+	return ModuleHandler.EnrichWith(resolved, ModuleHandler.LiveModulesFor(modOptions), record, modOptions)
 end
 
 return Notes

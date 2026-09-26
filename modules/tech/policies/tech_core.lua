@@ -4,10 +4,9 @@ local TechTier = require("modules/tech/tier")
 
 -- The ladder a team stands on: what its tech level unlocks now, and what the next level would
 --
----@class TechTierRequest
+---@class TechTierRequest: PolicyContext
 ---@field level integer the team's current tech level
 ---@field points number keystone points the team holds
----@field opts table<string, string|number|boolean>
 ---@field t2Threshold number keystones per player for tech 2
 ---@field t3Threshold number keystones per player for tech 3
 
@@ -53,7 +52,7 @@ local NONE = ConstructionEnums.UnitFilterCategory.None
 ---@return TechUnlock|nil
 local function nextProgression(request, baseKey, currentValue, normalize)
 	for scanLevel = request.level + 1, 3 do
-		local futureValue = TechTier.resolveByTechLevel(request.opts, baseKey, scanLevel)
+		local futureValue = TechTier.resolveByTechLevel(request.modOptions, baseKey, scanLevel)
 		if futureValue ~= nil and futureValue ~= "" and normalize(futureValue) ~= currentValue then
 			local threshold = scanLevel == 2 and request.t2Threshold or request.t3Threshold
 			return { unlockLevel = scanLevel, unlockThreshold = threshold, unlockValue = futureValue }
@@ -65,7 +64,7 @@ end
 ---@param request TechTierRequest
 ---@return string[]
 local function activeUnitSharingModes(request)
-	local opts, modes = request.opts, {}
+	local opts, modes = request.modOptions, {}
 	local base = opts.unit_sharing_mode
 	if base and base ~= "" and base ~= NONE then
 		modes[#modes + 1] = base
@@ -83,11 +82,12 @@ local function activeUnitSharingModes(request)
 end
 
 Policies.On(TechCore).Answer(TechCore.TechCoreLadder, function(request)
-	local currentTax = tonumber(TechTier.resolveByTechLevel(request.opts, "tax_resource_sharing_amount", request.level))
+	local currentTax =
+		tonumber(TechTier.resolveByTechLevel(request.modOptions, "tax_resource_sharing_amount", request.level))
 	local taxUnlock = nextProgression(request, "tax_resource_sharing_amount", currentTax, tonumber)
 	local unitUnlock = nil
 	for scanLevel = request.level + 1, 3 do
-		local nextMode = request.opts["unit_sharing_mode_at_t" .. scanLevel]
+		local nextMode = request.modOptions["unit_sharing_mode_at_t" .. scanLevel]
 		if nextMode and nextMode ~= "" then
 			local threshold = scanLevel == 2 and request.t2Threshold or request.t3Threshold
 			unitUnlock = { unlockLevel = scanLevel, unlockThreshold = threshold, unlockValue = nextMode }

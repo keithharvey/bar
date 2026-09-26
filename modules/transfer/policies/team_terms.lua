@@ -3,10 +3,9 @@ local Tax = require("modules/transfer/resource/tax")
 
 -- One team's terms, no pairing: what it pays in tax, from the modoption unless a module says otherwise
 --
----@class TransferTeamContext
+---@class TransferTeamContext: PolicyContext
 ---@field teamId integer
 ---@field springRepo Spring
----@field opts table<string, string|number|boolean>
 
 ---@class TransferTeamTermsFacts: PolicyFacts<TransferTeamContext>
 ---@field TaxRate "taxRate"
@@ -21,7 +20,7 @@ local TeamTerms = {
 Policy.Facts(TeamTerms)
 
 Policies.On(TeamTerms).Default(TeamTerms.TaxRate, function(ctx)
-	return Tax.ModOption(ctx.opts)
+	return Tax.ModOption(ctx.modOptions)
 end)
 
 return { TeamTerms = TeamTerms }
