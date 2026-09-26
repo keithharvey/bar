@@ -5,12 +5,31 @@ local RegionsApi = require("modules/regions/api")
 ---@type RegionsContract
 local Regions = Policies.Contract(Modules.Regions)
 
----@class StartRegion: Region
----@field type "start"
+-- Start regions describe what makes them special at run-time
+--
+---@class StartDescription: RegionDescription
 ---@field team integer
----@field name string|nil
----@field positions { x: number, z: number }[]|nil
+---@field positions { x: number, z: number }[]
 
+---@class StartRegionsDescribeSteps: PolicySteps<RegionDescribeContext<StartRegion>, StartDescription>
+---@field Start "Start"
+
+---@type StartRegionsDescribeSteps
+local RegionsDescribe = {
+	Start = "Start",
+}
+Policy.Contributes(Regions.Describe, RegionsDescribe)
+
+Policies.On(RegionsDescribe)
+	.Answer(RegionsDescribe.Start, function(ctx)
+		return { team = ctx.region.team, positions = ctx.region.positions or {} }
+	end)
+	.When(RegionsApi.OfType(RegionsApi.Enums.Types.Start))
+	.Before(Regions.Describe.Nobody)
+
+-- Start regions are named by team, if present
+--   (if a map maker hasn't defined the start region.name via terraformer e.g. "canyon", "carry", etc.)
+--
 ---@class StartRegionsNamesSteps: PolicySteps<RegionNamesContext<StartRegion>, RegionNamesContext<StartRegion>>
 ---@field FromTeam "FromTeam"
 
@@ -30,6 +49,8 @@ Policies.On(RegionsNames)
 	end)
 	.When(RegionsApi.OfType(RegionsApi.Enums.Types.Start))
 
+-- Start regions do not overlap (validation used by map editor)
+--
 ---@class StartRegionsSetSteps: PolicySteps<RegionSetContext<StartRegion>, RegionSetContext<StartRegion>>
 ---@field AreasDisjoint "AreasDisjoint"
 
@@ -51,25 +72,5 @@ Policies.On(RegionsSet)
 		end
 	end)
 	.When(RegionsApi.OfType(RegionsApi.Enums.Types.Start))
-
----@class StartDescription: RegionDescription
----@field team integer
----@field positions { x: number, z: number }[]
-
----@class StartRegionsDescribeSteps: PolicySteps<RegionDescribeContext<StartRegion>, StartDescription>
----@field Start "Start"
-
----@type StartRegionsDescribeSteps
-local RegionsDescribe = {
-	Start = "Start",
-}
-Policy.Contributes(Regions.Describe, RegionsDescribe)
-
-Policies.On(RegionsDescribe)
-	.Answer(RegionsDescribe.Start, function(ctx)
-		return { team = ctx.region.team, positions = ctx.region.positions or {} }
-	end)
-	.When(RegionsApi.OfType(RegionsApi.Enums.Types.Start))
-	.Before(Regions.Describe.Nobody)
 
 return { RegionsNames = RegionsNames, RegionsSet = RegionsSet, RegionsDescribe = RegionsDescribe }
