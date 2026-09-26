@@ -4,13 +4,13 @@ local Policy = require("modules/policy")
 ---@field area number
 ---@field centre { x: number, z: number }
 
----@class RegionDescribeContext
+---@class RegionDescribeContext<R>
 ---@field type RegionType
----@field region Region
+---@field region R
 ---@field shape RegionDescription
 ---@field map RegionMap
 
----@class RegionDescribeSteps: PolicySteps<RegionDescribeContext, RegionDescription>
+---@class RegionDescribeSteps: PolicySteps<RegionDescribeContext<Region>, RegionDescription>
 ---@field Shape "Shape"
 
 ---@class (partial) RegionsContract

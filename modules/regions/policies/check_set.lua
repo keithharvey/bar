@@ -9,16 +9,16 @@ local Problems = require("modules/regions/lib/problems")
 ---@field name string|nil
 ---@field at { x: number, z: number }|nil
 
----@class RegionSetContext
+---@class RegionSetContext<R>
 ---@field type RegionType
----@field regions Region[]
+---@field regions R[]
 ---@field names string[]
 ---@field map RegionMap
 ---@field problems RegionProblem[]
 
 ---@class (partial) RegionMap
 
----@class RegionSetSteps: PolicySteps<RegionSetContext, RegionSetContext>
+---@class RegionSetSteps: PolicySteps<RegionSetContext<Region>, RegionSetContext<Region>>
 ---@field Each "Each"
 
 ---@class (partial) RegionsContract
@@ -36,7 +36,7 @@ Policies.On(CheckSet).Apply(CheckSet.Each, function(ctx)
 		names[region] = ctx.names[i]
 	end
 	for i, region in ipairs(ctx.regions) do
-		---@type RegionCheckContext
+		---@type RegionCheckContext<Region>
 		local one = { type = ctx.type, region = region, siblings = ctx.regions, names = names, problems = {} }
 		ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Regions).Check, one)
 		for _, problem in ipairs(one.problems) do

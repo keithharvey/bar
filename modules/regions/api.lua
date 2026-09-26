@@ -12,9 +12,10 @@ local Types = require("modules/regions/types")
 ---@field Overlaps fun(a: { x: number, z: number }[], b: { x: number, z: number }[]): boolean
 ---@field Contains fun(x: number, z: number, vertices: { x: number, z: number }[]): boolean
 ---@field ProblemLine fun(problem: RegionProblem): string
+---@field OfType fun(key: RegionTypeKey): fun(ctx: any): boolean the precondition for a step that is one type's: the context is about that type
 ---@field ProblemLines fun(typeKey: RegionTypeKey, regions: Region[], map: RegionMap|nil): string[]
----@field ProblemWith fun(ctx: RegionSetContext, index: integer, message: string)
----@field ProblemAt fun(ctx: RegionSetContext, message: string, at: { x: number, z: number }|nil)
+---@field ProblemWith fun(ctx: RegionSetContext<Region>, index: integer, message: string)
+---@field ProblemAt fun(ctx: RegionSetContext<Region>, message: string, at: { x: number, z: number }|nil)
 ---@field Enums RegionEnums
 ---@field Geometry RegionGeometry
 ---@field GeometryOf fun(vertices: { x: number, z: number }[]): RegionGeometryKey|nil
@@ -27,7 +28,7 @@ local Api = {}
 ---@param regions Region[]
 ---@return { name: string, derived: boolean }[]
 local function namesOf(kind, regions)
-	---@type RegionNamesContext
+	---@type RegionNamesContext<Region>
 	local ctx = { type = kind, regions = regions, proposed = {} }
 	ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Regions).Names, ctx)
 	return Names.Of(regions, ctx.proposed)
@@ -75,7 +76,7 @@ function Api.Check(typeKey, region, siblings, fieldsOnly)
 	for i, named in ipairs(namesOf(kind, all)) do
 		names[all[i]] = named.name
 	end
-	---@type RegionCheckContext
+	---@type RegionCheckContext<Region>
 	local ctx = {
 		type = kind,
 		region = region,
@@ -101,7 +102,7 @@ function Api.CheckSet(typeKey, regions, map)
 	for i, named in ipairs(namesOf(kind, regions)) do
 		names[i] = named.name
 	end
-	---@type RegionSetContext
+	---@type RegionSetContext<Region>
 	local ctx = { type = kind, regions = regions, names = names, map = map or {}, problems = {} }
 	ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Regions).CheckSet, ctx)
 	return ctx.problems
@@ -348,7 +349,7 @@ function Api.Describe(region, map)
 	if not kind then
 		return shape
 	end
-	---@type RegionDescribeContext
+	---@type RegionDescribeContext<Region>
 	local ctx = { type = kind, region = region, shape = shape, map = map or {} }
 	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Regions).Describe, ctx) or shape
 end
@@ -359,6 +360,14 @@ Api.Overlaps = Geometry.Overlaps
 Api.Contains = Geometry.Contains
 Api.GeometryOf = Geometry.Of
 Api.ProblemLine = Problems.Line
+
+---@param key RegionTypeKey
+---@return fun(ctx: any): boolean the precondition a step that is one type's is When'd with: the context is about that type
+function Api.OfType(key)
+	return function(ctx)
+		return ctx.type.key == key
+	end
+end
 
 ---@param typeKey RegionTypeKey
 ---@param regions Region[]

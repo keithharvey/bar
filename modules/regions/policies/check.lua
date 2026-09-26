@@ -1,15 +1,15 @@
 local Geometry = require("modules/regions/lib/geometry")
 local Policy = require("modules/policy")
 
----@class RegionCheckContext
+---@class RegionCheckContext<R>
 ---@field type RegionType
----@field region Region
----@field siblings Region[]
+---@field region R
+---@field siblings R[]
 ---@field names table<Region, string>
 ---@field fieldsOnly boolean|nil
 ---@field problems string[]
 
----@class RegionCheckSteps: PolicySteps<RegionCheckContext, RegionCheckContext>
+---@class RegionCheckSteps: PolicySteps<RegionCheckContext<Region>, RegionCheckContext<Region>>
 ---@field Shape string
 ---@field Fields string
 
@@ -22,7 +22,7 @@ local Check = Policy.Fold({
 	Fields = "Fields",
 })
 
----@param ctx RegionCheckContext
+---@param ctx RegionCheckContext<Region>
 ---@param region Region
 ---@param field RegionField
 ---@return any

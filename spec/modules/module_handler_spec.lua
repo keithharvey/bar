@@ -218,10 +218,18 @@ describe("ModuleHandler", function()
 				end,
 				["modules/friend/policies/owner.lua"] = function(env)
 					local Owner = env.Policies.Contract("owner")
-					local Extra = Policy.Contributes(Owner.Check, { Friendly = "Friendly" })
-					env.Policies.On(Owner.Check).Apply(Extra.Friendly, function(ctx)
-						ctx.seen[#ctx.seen + 1] = "friend"
-					end)
+					local Extra = Policy.Contributes(Owner.Check, { Friendly = "Friendly", Shy = "Shy" })
+					env.Policies
+						.On(Extra)
+						.Apply(Extra.Friendly, function(ctx)
+							ctx.seen[#ctx.seen + 1] = "friend"
+						end)
+						.Apply(Extra.Shy, function(ctx)
+							ctx.seen[#ctx.seen + 1] = "shy"
+						end)
+						.When(function(ctx)
+							return ctx.brave == true
+						end)
 					return { Extra = Extra }
 				end,
 			}
@@ -241,10 +249,17 @@ describe("ModuleHandler", function()
 			end
 		)
 
-		it("takes a contribution declared in the file that builds it, through Policies.Contract", function()
+		it("takes a contribution declared in the file that builds it, opened on the contributor's own steps", function()
 			local ctx = { seen = {} }
 			ModuleHandler.Evaluate(ModuleHandler.LoadPolicies("owner").check, ctx)
-			assert.are.same({ "owner", "friend" }, ctx.seen)
+			assert.are.same(
+				{ "owner", "friend" },
+				ctx.seen,
+				"a step When'd on a condition that does not hold does nothing"
+			)
+			local brave = { seen = {}, brave = true }
+			ModuleHandler.Evaluate(ModuleHandler.LoadPolicies("owner").check, brave)
+			assert.are.same({ "owner", "friend", "shy" }, brave.seen)
 			local friend = ModuleHandler.Contract("friend")
 			assert.are.same({ "check", "owner" }, {
 				Policy.IdentityOf(friend.Extra).contributes.category,
