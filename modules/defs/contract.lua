@@ -6,25 +6,25 @@ local Modules = require("modules/enums").Modules
 ---@field def table the def table, edited in place
 ---@field modOptions table
 
----@class UnitDefSteps: PolicySteps<DefContext, DefContext>
+---@class DefsUnitDefPolicy: PolicySteps<DefContext, DefContext>
 ---@field Base string the base game's post-processing, gamedata/alldefs_post.lua
 
----@type UnitDefSteps
+---@type DefsUnitDefPolicy
 local UnitDef = {
 	Base = "Base",
 }
 
----@class WeaponDefSteps: PolicySteps<DefContext, DefContext>
+---@class DefsWeaponDefPolicy: PolicySteps<DefContext, DefContext>
 ---@field Base "Base"
 
----@type WeaponDefSteps
+---@type DefsWeaponDefPolicy
 local WeaponDef = {
 	Base = "Base",
 }
 
 ---@class DefsContract
----@field UnitDef UnitDefSteps
----@field WeaponDef WeaponDefSteps
+---@field UnitDef DefsUnitDefPolicy
+---@field WeaponDef DefsWeaponDefPolicy
 
 return Policy.Contract(Modules.Defs, {
 	UnitDef = Policy.Fold(UnitDef),

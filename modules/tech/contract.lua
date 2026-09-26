@@ -17,16 +17,16 @@ local Creation = {
 	BelowTier = "BelowTier",
 }
 
----@class TechCoreSteps: PolicySteps<TechTierRequest, TechCoreLadder>
+---@class TechCorePolicy: PolicySteps<TechTierRequest, TechCoreLadder>
 ---@field TechCoreLadder "TechCoreLadder"
 
----@type TechCoreSteps
+---@type TechCorePolicy
 local TechCore = {
 	TechCoreLadder = "TechCoreLadder",
 }
 
 ---@class TechContract
----@field TechCore TechCoreSteps
+---@field TechCore TechCorePolicy
 ---@field Creation TechCreationSteps
 
 return Policy.Contract(Modules.Tech, {

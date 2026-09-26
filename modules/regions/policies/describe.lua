@@ -10,13 +10,13 @@ local Policy = require("modules/policy")
 ---@field shape RegionDescription
 ---@field map RegionMap
 
----@class RegionDescribeSteps: PolicySteps<RegionDescribeContext<Region>, RegionDescription>
+---@class RegionDescribePolicy: PolicySteps<RegionDescribeContext<Region>, RegionDescription>
 ---@field Shape "Shape"
 
 ---@class (partial) RegionsContract
----@field Describe RegionDescribeSteps
+---@field Describe RegionDescribePolicy
 
----@type RegionDescribeSteps
+---@type RegionDescribePolicy
 local Describe = {
 	Shape = "Shape",
 }

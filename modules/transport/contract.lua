@@ -26,14 +26,14 @@ local Defs = require("modules/defs/contract")
 ---@field dragEnabled boolean the comm_trans_slow rule
 ---@field framesPerSecond number
 
----@class TransportLoadSteps: PolicySteps<TransportLoadContext, boolean>
+---@class TransportLoadPolicy: PolicySteps<TransportLoadContext, boolean>
 ---@field Submerged "Submerged"
 ---@field WithinReach "WithinReach"
 ---@field MovingEnemy "MovingEnemy"
 ---@field AlliedNano "AlliedNano"
 ---@field Allowed "Allowed"
 
----@type TransportLoadSteps
+---@type TransportLoadPolicy
 local Load = {
 	Submerged = "Submerged",
 	WithinReach = "WithinReach",
@@ -42,13 +42,13 @@ local Load = {
 	Allowed = "Allowed",
 }
 
----@class TransportUnloadSteps: PolicySteps<TransportUnloadContext, boolean>
+---@class TransportUnloadPolicy: PolicySteps<TransportUnloadContext, boolean>
 ---@field Submerged "Submerged"
 ---@field WithinReach "WithinReach"
 ---@field NanoOnSlope "NanoOnSlope"
 ---@field Allowed "Allowed"
 
----@type TransportUnloadSteps
+---@type TransportUnloadPolicy
 local Unload = {
 	Submerged = "Submerged",
 	WithinReach = "WithinReach",
@@ -56,11 +56,11 @@ local Unload = {
 	Allowed = "Allowed",
 }
 
----@class TransportLoadedSpeedSteps: PolicySteps<TransportLoadedSpeedContext, number>
+---@class TransportLoadedSpeedPolicy: PolicySteps<TransportLoadedSpeedContext, number>
 ---@field Base string the carrier's own speed, in elmos per frame
 ---@field CommanderDrag string the cap a carried commander puts on it, as a ratio
 
----@type TransportLoadedSpeedSteps
+---@type TransportLoadedSpeedPolicy
 local LoadedSpeed = {
 	Base = "Base",
 	CommanderDrag = "CommanderDrag",
@@ -75,9 +75,9 @@ local UnitDef = {
 }
 
 ---@class TransportContract
----@field Load TransportLoadSteps
----@field Unload TransportUnloadSteps
----@field LoadedSpeed TransportLoadedSpeedSteps
+---@field Load TransportLoadPolicy
+---@field Unload TransportUnloadPolicy
+---@field LoadedSpeed TransportLoadedSpeedPolicy
 ---@field UnitDef TransportUnitDefSteps
 
 return Policy.Contract(Modules.Transport, {
