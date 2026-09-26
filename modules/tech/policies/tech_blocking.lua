@@ -1,12 +1,17 @@
 local ConstructionEnums = require("modules/construction/enums")
-local Contract = require("modules/transfer/contract")
 local ModuleHandler = require("modules/module_handler")
-local TechContract = require("modules/tech/contract")
+local Modules = require("modules/enums").Modules
 local TechTier = require("modules/tech/tier")
-local teamTerms = Contract.TeamTerms
-local teamPairing = Contract.TeamPairing
-local unitTermsNotes = Contract.UnitTermsNotes
-local resourceTermsNotes = Contract.ResourceTermsNotes
+
+---@type TransferContract
+local Transfer = Policies.Contract(Modules.Transfer)
+local teamTerms = Transfer.TeamTerms
+local teamPairing = Transfer.TeamPairing
+local unitTermsNotes = Transfer.UnitTermsNotes
+local resourceTermsNotes = Transfer.ResourceTermsNotes
+
+-- What tech tells transfer about a team: the tax rate and sharing modes its level unlocks, and how far the next is
+--
 
 Policies.On(teamTerms).Provide(teamTerms.TaxRate, function(ctx)
 	local level = tonumber(ctx.springRepo.GetTeamRulesParam(ctx.teamId, "tech_level") or 1) or 1
@@ -28,7 +33,7 @@ Policies.On(teamPairing)
 			t2Threshold = tonumber(rawT2 or 0) or 0,
 			t3Threshold = tonumber(rawT3 or 0) or 0,
 		}
-		local tier = ModuleHandler.Evaluate(TechContract.TechCore, request)
+		local tier = ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Tech).TechCore, request)
 		local taxRate = (tier.taxRate ~= nil and tier.taxRate >= 0) and tier.taxRate or nil
 		return tier.blocking, tier.modes, taxRate
 	end)

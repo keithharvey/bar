@@ -42,7 +42,7 @@ end
 ---@param provisions T enum of the field names enrichers may provide
 ---@return T
 ---@generic C, T
----@param target PolicySteps<C, T> the target policy's steps, from its owner's contract.lua
+---@param target PolicySteps<C, T> the target policy's steps, as its owner declared them
 ---@param names table<string, string>
 ---@return table<string, string>
 function Policy.Contributes(target, names)
@@ -105,34 +105,6 @@ function Policy.IsFacts(target)
 	return meta ~= nil and meta.__facts == true
 end
 
----@generic T: table
----@param owner string the module's name
----@param categories T PascalCase name -> a policy's step enum (Single, Product or Fold) or Facts
----@return T
-function Policy.Contract(owner, categories, policies)
-	assert(type(owner) == "string" and type(categories) == "table", "Policy.Contract(owner, { <category> = <enum> })")
-	assert(
-		policies == nil or type(policies) == "function",
-		"Policy.Contract(owner, categories, policies?): the inline policy is a function(Policies)"
-	)
-	Policy.Declare(owner, categories, "Policy.Contract")
-	return setmetatable(categories, { __owner = owner, __policies = policies })
-end
-
----@param contract table
----@return (fun(Policies: table))|nil
-function Policy.InlinePolicies(contract)
-	local meta = type(contract) == "table" and getmetatable(contract) or nil
-	return meta and meta.__policies or nil
-end
-
----@param contract table
----@return string|nil
-function Policy.OwnerOf(contract)
-	local meta = type(contract) == "table" and getmetatable(contract) or nil
-	return meta and meta.__owner or nil
-end
-
 ---@param steps table
 ---@return PolicyIdentity|nil
 function Policy.IdentityOf(steps)
@@ -164,7 +136,7 @@ end
 ---@field Build fun(): PolicyOp[]
 
 ---@generic C, T
----@param steps PolicySteps<C, T>|nil the policy's steps, from the owner's contract.lua
+---@param steps PolicySteps<C, T>|nil the policy's steps, as the owner declared them
 ---@return PolicyChain<C, T>
 function Policy.Chain(steps)
 	local ops = {} ---@type PolicyOp[]
@@ -356,7 +328,7 @@ end
 ---@field Default fun(name: string, evaluate: fun(ctx: C, ...: any): any): PolicyEnrichment<C> the owner's value for a fact when no module provides it
 ---@field Build fun(): PolicyProvision[]
 
----@param facts table|nil the facts, from the owner's contract.lua
+---@param facts table|nil the facts, as the owner declared them
 ---@return PolicyEnrichment
 function Policy.Enrichment(facts)
 	local ops = {} ---@type PolicyProvision[]

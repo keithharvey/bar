@@ -1,8 +1,8 @@
 local gadget = gadget ---@type Gadget
 
 local ConstructionEnums = require("modules/construction/enums")
-local Contract = require("modules/construction/contract")
 local ModuleHandler = require("modules/module_handler")
+local Modules = require("modules/enums").Modules
 
 local assistEnabled = Spring.GetModOptions()[ConstructionEnums.ModOptions.AlliedAssistMode]
 	== ConstructionEnums.AlliedAssistMode.Enabled
@@ -90,7 +90,7 @@ local function mayAssist(unitTeam, targetID, targetIsBuilder)
 		targetIsBuilder = targetIsBuilder,
 		assistEnabled = assistEnabled,
 	}
-	return ModuleHandler.Evaluate(Contract.Assist, ctx) == true
+	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Construction).Assist, ctx) == true
 end
 
 local function isBuilderAllowedCommand(cmdID, p1, p2, p5, p6, unitTeam)

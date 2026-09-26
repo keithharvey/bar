@@ -7,7 +7,7 @@
 * A **[policy](#why-this-is-easier-for-every-layer)** is one named decision: a pure function of its context, written as named steps, each of which can refuse, pass, or answer. Policy in the middleware sense: a request passes through handlers in order, and any handler may stop it.
 * A **[policy file](#how-a-decision-flows)** is a file under `policies/` declaring policies and their rules, each opened with `Policies.On(...)`.
 * A **[context](#what-flows-through-it)** is the plain table of facts the gadget hands the policy when it asks: who, where, what the engine and the modoptions say.
-* A **[contract](REFERENCE.md#in-contractlua)** names every step and every fact, and the shape going in and coming out, so another module or a mod can say "put my step after this one" or "replace that one."
+* A **[contract](REFERENCE.md#declaring-a-policy)** names every step and every fact, and the shape going in and coming out, so another module or a mod can say "put my step after this one" or "replace that one."
 
 **It acts through [actions](#what-flows-through-it).** An action is the only effectful code in a module: a pure validate over a request, then one execute.
 
@@ -63,7 +63,7 @@ A module answers questions. "May this team hand that unit to this one?" is one. 
 
 The contract is the module saying that out loud. It names each question the module answers, names every step in the order they run, and says what goes in and what comes out. It is not the rules; it is the table of contents for them. That is what lets another module, or a mod, say "put my step after that one" or "replace this one" without reading or touching the file the rules live in, and it is what lets the loader [refuse a wiring mistake at load](#what-the-loader-refuses), by name, rather than let it become a silent no in game.
 
-So a module is two files: a contract that names the question, and a policy that answers it. We'll walk the policy first, because it is the part you read as a rule, and then the contract that makes it explicit.
+So a policy file is two halves: the declaration that names the question, and the rules that answer it. Together, a module's declarations are its contract. We'll walk the rules first, because they are the part you read as a rule, and then the declaration above them that makes it explicit.
 
 The module's api gathers facts and asks. The policy decides. The module's actions act. Here is transfer asking whether one team may hand a unit to another, trimmed from `context_factory.lua`:
 
@@ -75,7 +75,7 @@ local ctx = {
 	areAlliedTeams = springRepo.AreTeamsAllied(senderTeamID, receiverTeamID) == true,
 	isCheatingEnabled = springRepo.IsCheatingEnabled(),
 }
-return ModuleHandler.Evaluate(Contract.UnitTransfer, ctx)
+return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transfer).UnitTransfer, ctx)
 ```
 
 ### The policy
@@ -83,10 +83,7 @@ return ModuleHandler.Evaluate(Contract.UnitTransfer, ctx)
 The real file, trimmed to one policy and three steps.
 
 ```lua
--- modules/transfer/policies/unit_transfer.lua
-local Contract = require("modules/transfer/contract")
-local unitTransfer = Contract.UnitTransfer
-
+-- modules/transfer/policies/unit_transfer.lua, the rules
 ---@param ctx TransferPolicyContext
 ---@param canShare boolean
 ---@return UnitPolicyResult
@@ -97,33 +94,28 @@ local function terms(ctx, canShare)
 	}
 end
 
-Policies.On(unitTransfer)
+Policies.On(UnitTransfer)
 	.Refusal(function(ctx)
 		return terms(ctx, false)
 	end)
-	.If(unitTransfer.Allied, function(ctx)
+	.If(UnitTransfer.Allied, function(ctx)
 		return ctx.areAlliedTeams
 	end)
-	.Unless(unitTransfer.ReceiverHasNoPlayers, function(ctx)
+	.Unless(UnitTransfer.ReceiverHasNoPlayers, function(ctx)
 		if ctx.isCheatingEnabled then
 			return false
 		end
 		local numActivePlayers = ctx.springRepo.GetTeamRulesParam(ctx.receiverTeamId, "numActivePlayers")
 		return tonumber(numActivePlayers) == 0
 	end)
-	.Answer(unitTransfer.TransferTerms, function(ctx)
+	.Answer(UnitTransfer.TransferTerms, function(ctx)
 		return terms(ctx, true)
 	end)
+
+return { UnitTransfer = UnitTransfer }
 ```
 
 Line by line.
-
-```lua
-local Contract = require("modules/transfer/contract")
-local unitTransfer = Contract.UnitTransfer
-```
-
-The policy reads the step names from the contract; it cannot invent one. Including it runs no rules, which is why a gadget, a widget, a spec and a mod can all include it.
 
 ```lua
 local function terms(ctx, canShare)
@@ -132,7 +124,7 @@ local function terms(ctx, canShare)
 A plain local function. Both the yes and the no below are built by it, so a refusal is the same shape as a grant with `canShare` flipped.
 
 ```lua
-Policies.On(unitTransfer)
+Policies.On(UnitTransfer)
 ```
 
 Open the policy. Explicitly name what that's about: transferring a unit. That lets other modules add their own rules to this decision if they want to. `Policies` is not included from anywhere: the loader sets it for the duration of this file, then takes it away.
@@ -146,17 +138,17 @@ Open the policy. Explicitly name what that's about: transferring a unit. That le
 What a no looks like. Declared once, by the owner. Every guard below that refuses hands back this, and so does falling off the end with nobody having said yes. Without it a no is `false`, which is fine for a boolean policy and useless for a table one.
 
 ```lua
-	.If(unitTransfer.Allied, function(ctx)
+	.If(UnitTransfer.Allied, function(ctx)
 		return ctx.areAlliedTeams
 	end)
 ```
 
 A **guard**. It reads the context and returns a boolean. `If` refuses on false, so if our teams are allied, this one moves on to the next step. Guards cannot say "yes" for our policy.
 
-`unitTransfer.Allied` is our step name: `Allied`, in this case. Remember that is done so that someone else can contribute their own step `.Before` it, `.Replace` it.
+`UnitTransfer.Allied` is our step name: `Allied`, in this case. Remember that is done so that someone else can contribute their own step `.Before` it, `.Replace` it.
 
 ```lua
-	.Unless(unitTransfer.ReceiverHasNoPlayers, function(ctx)
+	.Unless(UnitTransfer.ReceiverHasNoPlayers, function(ctx)
 		if ctx.isCheatingEnabled then
 			return false
 		end
@@ -168,12 +160,18 @@ A **guard**. It reads the context and returns a boolean. `If` refuses on false, 
 Same shape, a few more lines. Order is precedence: this only runs if `Allied` passed.
 
 ```lua
-	.Answer(unitTransfer.TransferTerms, function(ctx)
+	.Answer(UnitTransfer.TransferTerms, function(ctx)
 		return terms(ctx, true)
 	end)
 ```
 
 **Answer** is the only kind of step that can say yes. It returns the result, the same shape the Refusal returns. Return nil instead and it passes, and the next Answer gets a go. Run out of Answers and nothing said yes, which is a no.
+
+```lua
+return { UnitTransfer = UnitTransfer }
+```
+
+The file hands its steps to the loader, which files them under the module: this is how `ModuleHandler.Contract(Modules.Transfer).UnitTransfer` names this policy from a gadget, a widget, a spec or a mod, and reaching it that way runs no rules.
 
 ### Why this is easier for every layer
 
@@ -189,15 +187,16 @@ That is the whole of what a monad is, TLDR: a type, plus one rule for chaining f
 
 Every layer sees one shape going in and one shape coming out, and the only place the "what if it refused" question is answered is the one line that declares what a refusal is.
 
-### The contract
+### The declaration
 
-Everything the policy just used by name, declared.
+Everything the rules just used by name, declared above them in the same file.
 
 ```lua
--- modules/transfer/contract.lua
+-- modules/transfer/policies/unit_transfer.lua, the declaration
 local Policy = require("modules/policy")
-local Modules = require("modules/enums").Modules
 
+-- May this team give that one a unit, and on what terms
+--
 ---@class TransferPolicyContext
 ---@field senderTeamId integer
 ---@field receiverTeamId integer
@@ -214,22 +213,26 @@ local Modules = require("modules/enums").Modules
 ---@field ReceiverHasNoPlayers "ReceiverHasNoPlayers"
 ---@field TransferTerms "TransferTerms"
 
+---@class (partial) TransferContract
+---@field UnitTransfer TransferUnitTransferPolicy
+
 ---@type TransferUnitTransferPolicy
 local UnitTransfer = {
 	Allied = "Allied",
 	ReceiverHasNoPlayers = "ReceiverHasNoPlayers",
 	TransferTerms = "TransferTerms",
 }
-
----@class TransferContract
----@field UnitTransfer TransferUnitTransferPolicy
-
-return Policy.Contract(Modules.Transfer, {
-	UnitTransfer = Policy.Single(UnitTransfer),
-})
+Policy.Single(UnitTransfer)
 ```
 
 Same again, line by line.
+
+```lua
+-- May this team give that one a unit, and on what terms
+--
+```
+
+The question, in one line, as the player would ask it. The empty `--` under it is the seam: a file with two policies in it puts a header like this over each, so the eye finds where one ends.
 
 ```lua
 ---@class TransferPolicyContext
@@ -252,21 +255,26 @@ local UnitTransfer = {
 }
 ```
 
-The three names the policy hung its steps on, twice: once as a type, once as the table. Lua has no reflection, so the table is what runs and the class is what the checker reads, and the class types each field as its own value so the checker holds the two together: a step left out of the table is a missing field, a misspelled value is a type error. The literal has to sit on the typed local directly; a table handed through `Policy.Fold(...)` on the same line is never checked. At load the loader checks the other direction: a step added under a name not in this table is refused, and a name in this table that never lands on the policy is refused too. The contract is a promise in both directions, and it is the only thing a mod needs to read to put its own step `.Before` yours.
+The three names the rules hung their steps on, twice: once as a type, once as the table. Lua has no reflection, so the table is what runs and the class is what the checker reads, and the class types each field as its own value so the checker holds the two together: a step left out of the table is a missing field, a misspelled value is a type error. The literal has to sit on the typed local directly; a table handed through `Policy.Single(...)` on the same line is never checked. At load the loader checks the other direction: a step added under a name not in this table is refused, and a name in this table that never lands on the policy is refused too. The declaration is a promise in both directions, and it is the only thing a mod needs to read to put its own step `.Before` yours.
 
 ```lua
-return Policy.Contract(Modules.Transfer, {
-	UnitTransfer = Policy.Single(UnitTransfer),
-})
+---@class (partial) TransferContract
+---@field UnitTransfer TransferUnitTransferPolicy
 ```
 
-A contract belongs to a module. Name the owner with the enum, not a string, so a typo is a load error and not a module that silently never loads. Single means one question, one answer: the first step that answers ends it. The real contract has three policies and four facts tables in this list; the shape is the same for each.
+The module's contract, as a type, is the union of what its policy files declare; each file adds its members with `(partial)`, so `---@type TransferContract` on the table the loader hands back reads every policy the module has.
 
-A module need not declare everything here. A policy file may declare the steps it builds and return them, and the loader stamps those the same way; the module's contract is then the union of `contract.lua` and what its policy files return. Regions does that: each file under `modules/regions/policies/` is one policy, its context, its steps and its rules read top to bottom, and there is no `contract.lua` at all. Another module reaches that union with `Policies.Contract(Modules.Regions)`. A module small enough to fit in one file can instead hand the policy to `Contract` as a third argument; `defs` does.
+```lua
+Policy.Single(UnitTransfer)
+```
+
+Single means one question, one answer: the first step that answers ends it. `Product` and `Fold` are the other two shapes, and `Facts` declares the facts a decision reads instead of a decision. The stamp goes on the table after the literal, on its own line, so the checker still sees the literal on the typed local.
+
+The loader includes every file under `policies/`, stamps what each returns with the module's name, and the module's contract is the sum: one file per policy, its question, its context, its steps and its rules read top to bottom, and a module that fits in one file is one file. Another module reaches the sum with `Policies.Contract(Modules.Transfer)`; api and gadget code with `ModuleHandler.Contract(Modules.Transfer)`.
 
 ### What flows through it
 
-**The context** is the `C` the contract declared: the one table the api gathers for this ask, read from the engine or cached on a cadence. It is the policy's only input, which is the purity the section above leans on: a spec hands in a table literal, and a widget reads the same fields the gadget acted on.
+**The context** is the `C` the declaration named: the one table the api gathers for this ask, read from the engine or cached on a cadence. It is the policy's only input, which is the purity the section above leans on: a spec hands in a table literal, and a widget reads the same fields the gadget acted on.
 
 **Order is precedence.** A guard can only refuse, so "yes, regardless of the rest" is a matter of placement, not a verb. An Answer above `Allied` that grants when cheating is enabled reads: cheaters share with anyone; everyone else must be allied and sharing with a live team. As boolean logic, `cheating or (allied and receiverHasPlayers)`.
 
@@ -298,27 +306,36 @@ If you have built this before as blockers, modifiers and listeners around an `Al
 
 ### A mod
 
-A mod, or another module, changes a decision by aiming the same builder at the owner's contract. This is the whole of a mod that stops tanks being transported. Transport's own file is untouched:
-
-```lua
--- modules/notanks/contract.lua: the step this mod adds, named where others can find it
-local Transport = require("modules/transport/contract")
-
-return Policy.Contract(Modules.NoTanks, {
-	Load = Policy.Contributes(Transport.Load, { TanksStayOnTheGround = "TanksStayOnTheGround" }),
-})
-```
+A mod, or another module, changes a decision by aiming the same builder at the owner's policy. This is the whole of a mod that stops tanks being transported. Transport's own file is untouched:
 
 ```lua
 -- modules/notanks/policies/load.lua
-local Transport = require("modules/transport/contract")
-local Contract = require("modules/notanks/contract")
+local Modules = require("modules/enums").Modules
+local Policy = require("modules/policy")
 
-Policies.On(Transport.Load).Unless(Contract.Load.TanksStayOnTheGround, function(ctx)
+---@type TransportContract
+local Transport = Policies.Contract(Modules.Transport)
+
+-- A tank stays on the ground
+--
+---@class NoTanksTransportLoadSteps: PolicySteps<TransportLoadContext, boolean>
+---@field TanksStayOnTheGround "TanksStayOnTheGround"
+
+---@type NoTanksTransportLoadSteps
+local Load = {
+	TanksStayOnTheGround = "TanksStayOnTheGround",
+}
+Policy.Contributes(Transport.Load, Load)
+
+Policies.On(Load).Unless(Load.TanksStayOnTheGround, function(ctx)
 	local moveDef = ctx.passengerDef and ctx.passengerDef.moveDef
 	return moveDef ~= nil and moveDef.name:lower():find("^tank") ~= nil
 end)
+
+return { Load = Load }
 ```
+
+The step this mod adds is declared with `Contributes`, named where others can find it, and the chain opens on the mod's own steps; the loader files them under the policy they contribute to.
 
 The owner's steps run first, other modules' follow in module-name order, and a new step joins just before the answer unless `.Before` or `.After` says otherwise. Guards compose with AND: anyone can add one, and adding can only tighten. Loosening a rule you do not own touches that rule, by name: `Remove` it, `Replace` it, or exempt from all of them with an Answer above. That asymmetry is deliberate. Tightening is safe to let anyone do blind; loosening is not.
 
@@ -327,21 +344,23 @@ The owner's steps run first, other modules' follow in module-name order, and a n
 Where an owner expects loosening, it puts the knob on the context as a fact, so nobody has to `Replace` anything. Transfer declares the facts others may fill, and Tech Core, a module up the chain, fills one:
 
 ```lua
--- transfer's contract
-TeamPairing = Policy.Facts(TeamPairing), -- { TechBlocking = "techBlocking", TaxRate = "taxRate" }, typed as TransferTeamPairingFacts
-```
+-- transfer/policies/team_pairing.lua: the facts, declared
+---@type TransferTeamPairingFacts
+local TeamPairing = { TechBlocking = "techBlocking", TaxRate = "taxRate" }
+Policy.Facts(TeamPairing)
 
-```lua
--- tech's policy file
-Policies.On(Contract.TeamPairing).Provide(Contract.TeamPairing.TaxRate, function(ctx, springRepo, senderTeamID)
-	return tieredRate(ctx, springRepo, senderTeamID)
+-- and transfer's own default: what the fact means when no live module fills it
+Policies.On(TeamPairing).Default(TeamPairing.TaxRate, function(_, springRepo)
+	return Tax.ModOption(springRepo.GetModOptions())
 end)
 ```
 
 ```lua
--- transfer's own default: what the fact means when no live module fills it
-Policies.On(Contract.TeamPairing).Default(Contract.TeamPairing.TaxRate, function(_, springRepo)
-	return modOptionTax(springRepo.GetModOptions())
+-- tech/policies/tech_blocking.lua
+local Transfer = Policies.Contract(Modules.Transfer)
+
+Policies.On(Transfer.TeamPairing).Provide(Transfer.TeamPairing.TaxRate, function(ctx, springRepo, senderTeamID)
+	return tieredRate(ctx, springRepo, senderTeamID)
 end)
 ```
 
@@ -358,14 +377,14 @@ Modes say which module's provider is live. The loader refuses a preset combinati
 Everything that can go wrong in wiring is a load error that names the file:
 
 - a directory under `modules/` with no `manifest.lua`, or a manifest whose name does not match its directory
-- a step added under a name no contract declares
-- a name in a contract that never lands on the policy, the owner's or a contributor's
+- a step added under a name no policy declares
+- a declared name that never lands on the policy, the owner's or a contributor's
 - two modules adding the same step name
 - a Single policy that does not end in an Answer
 - a preset combination that leaves two providers live for one fact
 - a policy or action file that returns a value, which the include shim would cache and the registration would be lost
 
-There is no registry to add yourself to and no global to poke. Contracts, policies, defaults and presets are all read from files, so the lobby, the synced game and the widgets see the same set.
+There is no registry to add yourself to and no global to poke. Policies, defaults and presets are all read from files, so the lobby, the synced game and the widgets see the same set.
 
 ### How a gadget asks
 
@@ -444,14 +463,9 @@ return { name = "transport", description = "What a carrier may pick up, and how 
 ```
 <sub>[1] [`modules/transport/manifest.lua`](https://github.com/beyond-all-reason/Beyond-All-Reason/blob/transport/modules/transport/manifest.lua)</sub>
 
-**`contract.lua`**
-
-What a module decides, which of those decisions others may change, and which facts it takes from them: each policy's step names, how its steps combine, and the context it reads. Optional, because a policy file may declare and return the steps it builds; the module's contract is `contract.lua` and those returns together, and `ModuleHandler.Contract(Modules.X)` is that union. See [In contract.lua](REFERENCE.md#in-contractlua).
-<sub>Example: [`modules/transfer/contract.lua`](https://github.com/beyond-all-reason/Beyond-All-Reason/blob/transfer/modules/transfer/contract.lua)</sub>
-
 **`policies/`**
 
-The rules. Each file builds policies against a contract, its own or another module's, with `Policies.On(...)`. Any file here is found; there is nothing to register. A file may declare the steps it builds and return them (`return { Check = Check }`); the loader stamps them with the module and they join its contract, so one file can be a policy's whole story. Another module's contract comes from `Policies.Contract(Modules.X)`, loaded on demand. A module whose whole policy is a few lines may carry it inline in `contract.lua` instead, as a third argument the loader runs the same way.
+The rules, and what they are about. One file per policy: the question as a comment, its context, its steps as a typed enum, the rules built with `Policies.On(...)`, and `return { Name = Steps }` so the loader files the steps under the module. A module's contract is the sum of what its policy files return, and `ModuleHandler.Contract(Modules.X)` is that sum. A file may instead build against another module's policy, reached with `Policies.Contract(Modules.Y)`, adding steps it declared with `Policy.Contributes`. Any file here is found; there is nothing to register. See [Declaring a policy](REFERENCE.md#declaring-a-policy).
 <sub>Examples: [`modules/transport/policies/transport.lua`](https://github.com/beyond-all-reason/Beyond-All-Reason/blob/transport/modules/transport/policies/transport.lua) against its contract; [`modules/regions/policies/check.lua`](https://github.com/beyond-all-reason/Beyond-All-Reason/blob/mex-splitting/modules/regions/policies/check.lua) declaring its own</sub>
 
 **`actions/`**
@@ -539,7 +553,7 @@ Every verb is documented where the editor shows it, `modules/game/types/mode_pol
 | `.Sealed()` | Pins the last claim outright, dials included. | `.UnitRestrictions().Sealed()` |
 | `.Hidden()` | Keeps the last claim out of the lobby UI; its pin still applies. | `.FogOfWar(true).Hidden()` |
 | `.Unlocked()` | The last claim is fully editable. Rule verbs come back pinned, so this is how a preset opens one. | `.Allow(Transfer.Units).Unlocked()` |
-| `.Uses(contract)` | A module whose fact providers this preset makes live, besides the one that ships it. Named by its contract, never a string. | `.Uses(TechModule)` |
+| `.Uses(Modules.X)` | A module whose fact providers this preset makes live, besides the one that ships it. | `.Uses(Modules.Tech)` |
 | `.RetainValues()` | A non-sticky preset: picking it exposes and unlocks its claims but keeps the current values as the starting point. | `.RetainValues()` |
 
 The FFA preset, whole:

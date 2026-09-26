@@ -1,5 +1,5 @@
-local Contract = require("modules/construction/contract")
 local ModuleHandler = require("modules/module_handler")
+local Modules = require("modules/enums").Modules
 
 local extractorKind ---@type table<integer, "mex"|"geo">|nil built on first use: api.lua is included where UnitDefs is not
 
@@ -69,12 +69,13 @@ function Placement.Decide(unitDefID, builderTeam, x, y, z, springRepo)
 		spotHolder = builderTeam,
 		spotHolderAllied = false,
 	}
-	local facts = ModuleHandler.Enrich(Contract.PlacementFacts, opts, ctx, springRepo)
-	ctx.spotHolder = facts[Contract.PlacementFacts.SpotHolder]
-	ctx.utilitySharing = facts[Contract.PlacementFacts.UtilitySharing] == true
+	local facts =
+		ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Construction).PlacementFacts, opts, ctx, springRepo)
+	ctx.spotHolder = facts[ModuleHandler.Contract(Modules.Construction).PlacementFacts.SpotHolder]
+	ctx.utilitySharing = facts[ModuleHandler.Contract(Modules.Construction).PlacementFacts.UtilitySharing] == true
 	ctx.spotHolderAllied = ctx.spotHolder ~= builderTeam
 		and springRepo.AreTeamsAllied(builderTeam, ctx.spotHolder) == true
-	return ModuleHandler.Evaluate(Contract.Placement, ctx) == true
+	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Construction).Placement, ctx) == true
 end
 
 local anyMex ---@type integer|nil

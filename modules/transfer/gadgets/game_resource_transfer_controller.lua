@@ -18,10 +18,10 @@ end
 
 local AssistTax = require("modules/transfer/lib/assist_tax")
 local Construction = require("modules/construction/api")
-local ConstructionContract = require("modules/construction/contract")
 local ContextFactoryModule = require("modules/transfer/context_factory")
 local LuaRulesMsg = require("modules/transfer/lib/lua_rules_msg")
 local ModuleHandler = require("modules/module_handler")
+local Modules = require("modules/enums").Modules
 local ResourceTransfer = require("modules/transfer/resource/synced")
 local ResourceTypes = require("gamedata/resource_types")
 local Tax = require("modules/transfer/resource/tax")
@@ -95,7 +95,7 @@ local function payAssistTax(ctx)
 		return true
 	end
 	ctx.delayed = Construction.IsBuilderDelayed(ctx.builderID)
-	if not ModuleHandler.Evaluate(ConstructionContract.Build, ctx) then
+	if not ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Construction).Build, ctx) then
 		return false
 	end
 	spUseUnitResource(ctx.builderID, "metal", quote.metalTax)

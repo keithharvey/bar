@@ -1,6 +1,6 @@
-local Contract = require("modules/transfer/contract")
 local Economy = require("modules/economy/api")
 local ModuleHandler = require("modules/module_handler")
+local Modules = require("modules/enums").Modules
 local TransferEnums = require("modules/transfer/enums")
 
 ---@class TransferResourceRequest : TransferRequest
@@ -67,7 +67,7 @@ function ContextFactory.create(springRepo, enrichers)
 			isCheatingEnabled = springRepo.IsCheatingEnabled(),
 		}
 
-		local resolved = enrichers or ModuleHandler.LoadEnrichers(Contract.TeamPairing)
+		local resolved = enrichers or ModuleHandler.LoadEnrichers(ModuleHandler.Contract(Modules.Transfer).TeamPairing)
 		local live = nil
 		if not enrichers then
 			live = ModuleHandler.LiveModulesFor(springRepo.GetModOptions())

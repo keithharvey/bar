@@ -1,5 +1,5 @@
-local Contract = require("modules/construction/contract")
 local ModuleHandler = require("modules/module_handler")
+local Modules = require("modules/enums").Modules
 local state = require("modules/construction/state")
 
 local REASON = "construction_creation"
@@ -13,15 +13,23 @@ function Creation.Refresh(teamID, springRepo)
 	if not blocking then
 		return
 	end
-	local facts =
-		ModuleHandler.Enrich(Contract.CreationFacts, springRepo.GetModOptions(), { teamID = teamID }, springRepo)
+	local facts = ModuleHandler.Enrich(
+		ModuleHandler.Contract(Modules.Construction).CreationFacts,
+		springRepo.GetModOptions(),
+		{ teamID = teamID },
+		springRepo
+	)
 	local blocked = state.creationBlocked[teamID] or {}
 	state.creationBlocked[teamID] = blocked
 	for unitDefID, unitDef in pairs(UnitDefs) do
 		---@type ConstructionCreationContext
-		local ctx =
-			{ unitDefID = unitDefID, unitDef = unitDef, teamID = teamID, tier = facts[Contract.CreationFacts.Tier] }
-		local allowed = ModuleHandler.Evaluate(Contract.Creation, ctx) == true
+		local ctx = {
+			unitDefID = unitDefID,
+			unitDef = unitDef,
+			teamID = teamID,
+			tier = facts[ModuleHandler.Contract(Modules.Construction).CreationFacts.Tier],
+		}
+		local allowed = ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Construction).Creation, ctx) == true
 		if not allowed and not blocked[unitDefID] then
 			blocking.AddBlockedUnit(unitDefID, teamID, REASON)
 			blocked[unitDefID] = true

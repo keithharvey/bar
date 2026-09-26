@@ -1,4 +1,5 @@
-local Contract = require("modules/transfer/contract")
+local ModuleHandler = require("modules/module_handler")
+local Modules = require("modules/enums").Modules
 local Notes = require("modules/transfer/lib/notes")
 local TransferEnums = require("modules/transfer/enums")
 
@@ -76,7 +77,7 @@ end
 ---@param policy TransferUnitPolicyResult
 ---@param validationResult TransferUnitValidation?
 function Comms.TooltipText(policy, validationResult)
-	local notes = Notes.For(Contract.UnitTermsNotes, policy, Spring.GetModOptions())
+	local notes = Notes.For(ModuleHandler.Contract(Modules.Transfer).UnitTermsNotes, policy, Spring.GetModOptions())
 	local hasTechUnlock = policy.techBlocking ~= nil
 	local futureUnlock = hasTechUnlock and notes.futureUnlock == true
 	local tree = (hasTechUnlock and futureUnlock) and "tech" or "base"

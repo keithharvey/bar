@@ -1,6 +1,5 @@
-local ConstructionContract = require("modules/construction/contract")
-local Contract = require("modules/transfer/contract")
 local ModuleHandler = require("modules/module_handler")
+local Modules = require("modules/enums").Modules
 local Regions = require("modules/regions/api")
 local Shared = require("modules/transfer/mex_splitting/shared")
 
@@ -57,7 +56,10 @@ local spots = {
 
 ---@return MexRegionsDeal
 local function deal(teams, regions, metal)
-	return ModuleHandler.Evaluate(Contract.MexSplitting, { regions = regions, spots = metal or spots, teams = teams })
+	return ModuleHandler.Evaluate(
+		ModuleHandler.Contract(Modules.Transfer).MexSplitting,
+		{ regions = regions, spots = metal or spots, teams = teams }
+	)
 end
 
 local function count(t)
@@ -163,7 +165,7 @@ describe("the spot holder fact", function()
 	local MexRegions = require("modules/transfer/api").MexSplitting ---@type TransferMexSplittingApi
 	local state = require("modules/transfer/state")
 	local TransferEnums = require("modules/transfer/enums")
-	local resolved = ModuleHandler.LoadEnrichers(ConstructionContract.PlacementFacts)
+	local resolved = ModuleHandler.LoadEnrichers(ModuleHandler.Contract(Modules.Construction).PlacementFacts)
 	local mexSplitting ---@type string
 	local rules ---@type table<string, string>
 	local params ---@type table<integer, string>
@@ -202,7 +204,7 @@ describe("the spot holder fact", function()
 			unitDefID = 7,
 			builderTeam = builderTeam or 0,
 		}
-		return ModuleHandler.EnrichWith(resolved, nil, ctx, repo)[ConstructionContract.PlacementFacts.SpotHolder]
+		return ModuleHandler.EnrichWith(resolved, nil, ctx, repo)[ModuleHandler.Contract(Modules.Construction).PlacementFacts.SpotHolder]
 	end
 
 	before_each(function()
@@ -269,7 +271,7 @@ describe("the spot holder fact", function()
 		}
 		assert.are.equal(
 			3,
-			ModuleHandler.EnrichWith(resolved, nil, ctx, repo)[ConstructionContract.PlacementFacts.SpotHolder]
+			ModuleHandler.EnrichWith(resolved, nil, ctx, repo)[ModuleHandler.Contract(Modules.Construction).PlacementFacts.SpotHolder]
 		)
 	end)
 

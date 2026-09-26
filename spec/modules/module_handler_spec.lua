@@ -148,7 +148,7 @@ describe("ModuleHandler", function()
 	describe("a module's contract", function()
 		local Policy = require("modules/policy")
 		-- Three modules on a fake VFS. owner declares its Check policy in the policy file that
-		-- builds it and its facts in contract.lua; friend contributes a step to owner's Check
+		-- builds it in one policy file and declares its facts in another; friend contributes a step to owner's Check
 		-- through Policies.Contract; loner's two policy files each claim the same category.
 		local FILES
 		local real = {}
@@ -206,8 +206,8 @@ describe("ModuleHandler", function()
 				["modules/loner/manifest.lua"] = function()
 					return { name = "loner" }
 				end,
-				["modules/owner/contract.lua"] = function()
-					return Policy.Contract("owner", { Terms = Policy.Facts({ Rate = "rate" }) })
+				["modules/owner/policies/terms.lua"] = function()
+					return { Terms = Policy.Facts({ Rate = "rate" }) }
 				end,
 				["modules/owner/policies/check.lua"] = function(env)
 					local Check = Policy.Fold({ Shape = "Shape" })
@@ -235,19 +235,12 @@ describe("ModuleHandler", function()
 			}
 		end)
 
-		it(
-			"is what contract.lua declares and what its policy files return, and the loader stamps the latter",
-			function()
-				local owner = ModuleHandler.Contract("owner")
-				assert.are.same(
-					{ owner = "owner", category = "check", result = "fold" },
-					Policy.IdentityOf(owner.Check)
-				)
-				assert.are.same({ owner = "owner", category = "terms", facts = true }, Policy.IdentityOf(owner.Terms))
-				assert.are.equal("owner", Policy.OwnerOf(owner))
-				assert.is_true(rawequal(owner, ModuleHandler.Contract("owner")))
-			end
-		)
+		it("is what its policy files return, stamped by the loader", function()
+			local owner = ModuleHandler.Contract("owner")
+			assert.are.same({ owner = "owner", category = "check", result = "fold" }, Policy.IdentityOf(owner.Check))
+			assert.are.same({ owner = "owner", category = "terms", facts = true }, Policy.IdentityOf(owner.Terms))
+			assert.is_true(rawequal(owner, ModuleHandler.Contract("owner")))
+		end)
 
 		it("takes a contribution declared in the file that builds it, opened on the contributor's own steps", function()
 			local ctx = { seen = {} }

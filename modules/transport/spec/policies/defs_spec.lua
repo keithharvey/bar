@@ -1,10 +1,10 @@
-local Contract = require("modules/transport/contract")
-local DefsContract = require("modules/defs/contract")
+local Modules = require("modules/enums").Modules
 local ModuleHandler = require("modules/module_handler")
 local TransportEnums = require("modules/transport/enums")
 
-describe("transport's step on the unit def fold", function()
-	local policy = ModuleHandler.Steps(DefsContract.UnitDef)
+describe("whether an enemy may carry a unit", function()
+	local Contract = ModuleHandler.Contract(Modules.Transport)
+	local policy = ModuleHandler.Steps(ModuleHandler.Contract(Modules.Defs).UnitDef)
 
 	local function enemyTransport(which, def)
 		for _, step in ipairs(policy) do
@@ -20,7 +20,7 @@ describe("transport's step on the unit def fold", function()
 		error("no EnemyTransport step")
 	end
 
-	it("follows the base game's post", function()
+	it("is written onto its def after the base game's post", function()
 		local order = {}
 		for i, step in ipairs(policy) do
 			order[step.name] = i

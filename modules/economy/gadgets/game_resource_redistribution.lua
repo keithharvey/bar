@@ -21,9 +21,9 @@ end
 
 GG = GG or {}
 
-local Contract = require("modules/economy/contract")
 local Extraction = require("modules/economy/lib/extraction")
 local ModuleHandler = require("modules/module_handler")
+local Modules = require("modules/enums").Modules
 local ResourceTypes = require("gamedata/resource_types")
 local ShareStats = require("modules/economy/lib/share_stats")
 local TeamResourceData = require("modules/economy/lib/team_resource_data")
@@ -51,8 +51,9 @@ local CADENCE = 30
 local function taxRateFor(_, teamId)
 	---@type EconomyTeamContext
 	local ctx = { teamId = teamId, springRepo = springRepo }
-	local terms = ModuleHandler.Enrich(Contract.Distribution, springRepo.GetModOptions(), ctx)
-	return tonumber(terms[Contract.Distribution.TaxRate]) or 0
+	local terms =
+		ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Economy).Distribution, springRepo.GetModOptions(), ctx)
+	return tonumber(terms[ModuleHandler.Contract(Modules.Economy).Distribution.TaxRate]) or 0
 end
 
 ---@param results EconomyTeamResult[]
@@ -60,8 +61,9 @@ end
 local function amended(results)
 	---@type EconomyRedistributionContext
 	local ctx = { results = results }
-	local amendedResults = ModuleHandler.Enrich(Contract.Redistribution, springRepo.GetModOptions(), ctx)
-	return amendedResults[Contract.Redistribution.Results] or results
+	local amendedResults =
+		ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Economy).Redistribution, springRepo.GetModOptions(), ctx)
+	return amendedResults[ModuleHandler.Contract(Modules.Economy).Redistribution.Results] or results
 end
 
 -- What extraction pays each team this tick is economy's question; the engine's answer is the default. Whatever a
@@ -77,8 +79,11 @@ local function payExtraction(teams)
 	local made = Extraction.Made(springRepo, teamIDs, seconds)
 	---@type EconomyExtractionContext
 	local ctx = { springRepo = springRepo, teams = teams, seconds = seconds, income = made }
-	local income = ModuleHandler.Enrich(Contract.Extraction, springRepo.GetModOptions(), ctx)[Contract.Extraction.Income]
-		or made
+	local income = ModuleHandler.Enrich(
+		ModuleHandler.Contract(Modules.Economy).Extraction,
+		springRepo.GetModOptions(),
+		ctx
+	)[ModuleHandler.Contract(Modules.Economy).Extraction.Income] or made
 	for teamID, paid in pairs(income) do
 		for resourceType, amount in pairs(paid) do
 			local res = teams[teamID] and teams[teamID][resourceType]

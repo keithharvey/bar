@@ -1,4 +1,4 @@
-local Contract = require("modules/transfer/contract")
+local Modules = require("modules/enums").Modules
 local ModuleHandler = require("modules/module_handler")
 
 ---@param rules table<string, any>
@@ -15,6 +15,7 @@ local function repo(rules, opts)
 end
 
 describe("what tech tells transfer about a team", function()
+	local Contract = ModuleHandler.Contract(Modules.Transfer)
 	local opts = {
 		unit_sharing_mode = "none",
 		unit_sharing_mode_at_t2 = "resource",

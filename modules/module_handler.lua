@@ -11,7 +11,6 @@ local MODULES_DIR = "modules/"
 
 local LAYOUT = {
 	manifest = "manifest.lua",
-	contract = "contract.lua",
 	widgets = "widgets/",
 	rmlWidgets = "rml_widgets/",
 	gadgets = "gadgets/",
@@ -297,7 +296,7 @@ local presetsCache = nil
 ---@field enrichments table<string, table<string, LoadedEnrichment[]>> by the facts' owner and category
 ---@field facts table<string, table<string, string[]>> facts[owner][category] = declared names
 ---@field contributions table<string, table<string, { module: string, names: string[] }[]>> by the TARGET's owner and category
----@field contracts table<string, table|nil> each module's contract: what its contract.lua declares and what its policy files return, one table
+---@field contracts table<string, table|nil> each module's contract: what its policy files return, one table
 ---@field manifests table<string, ModuleManifest>
 ---@field vfsMode string|nil
 ---@field stack string[] the modules being loaded, innermost last
@@ -484,17 +483,6 @@ function loadModulePolicies(load, name)
 		indexContract(name, members, load.facts, load.contributions)
 	end
 
-	local contractPath = manifest.dir .. LAYOUT.contract
-	if VFS.FileExists(contractPath, vfsMode) then
-		local declared = VFS.Include(contractPath, nil, vfsMode)
-		if type(declared) == "table" then
-			declare(declared, contractPath)
-			local inline = Policy.InlinePolicies(declared)
-			if inline then
-				keepPolicies(load, collectPolicies(load, name, contractPath, inline))
-			end
-		end
-	end
 	local files = VFS.DirList(manifest.dir .. LAYOUT.policies, "*.lua", vfsMode)
 	table.sort(files)
 	for _, filePath in ipairs(files) do
@@ -552,7 +540,7 @@ end
 
 ---@param name string a Modules entry (modules/enums.lua)
 ---@param vfsMode string?
----@return table the module's contract: what its contract.lua declares and what its policy files return, one table
+---@return table the module's contract: what its policy files return, one table
 function ModuleHandler.Contract(name, vfsMode)
 	if policyLoad then
 		return loadModulePolicies(policyLoad, name)
@@ -648,8 +636,8 @@ function ModuleHandler.LoadPolicies(name, vfsMode)
 						.. category
 						.. " that no contract declares; "
 						.. (
-							chain.module == name and "name it in the policy's steps in contract.lua"
-							or "declare it with Policy.Contributes in " .. chain.module .. "'s contract.lua"
+							chain.module == name and "name it in the policy's steps"
+							or "declare it with Policy.Contributes in " .. chain.module .. "'s policies"
 						)
 				)
 			end
@@ -966,12 +954,12 @@ function ModuleHandler.IsolationConflicts(byCategory, alwaysLive, providers)
 	return conflicts
 end
 
----@param facts table the Facts table from the owner's contract.lua
+---@param facts table the owner's Facts
 ---@param vfsMode string?
 ---@return ResolvedProvisions
 function ModuleHandler.LoadEnrichers(facts, vfsMode)
 	local identity = Policy.IdentityOf(facts)
-	assert(identity and identity.facts, "LoadEnrichers(facts): expects a Facts table from a module's contract.lua")
+	assert(identity and identity.facts, "LoadEnrichers(facts): expects a module's Facts")
 	local owner, category = identity.owner, identity.category
 	local key = owner .. "." .. category
 	if enrichersCache[key] then
@@ -1040,7 +1028,7 @@ function ModuleHandler.EnrichWith(resolved, live, ctx, ...)
 	return out
 end
 
----@param facts table the Facts table from the owner's contract.lua
+---@param facts table the owner's Facts
 ---@param modOptions table<string, any>
 ---@param ctx table
 ---@param ... any extra producer arguments

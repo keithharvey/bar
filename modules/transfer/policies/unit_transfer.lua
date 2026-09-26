@@ -1,7 +1,38 @@
 local ConstructionEnums = require("modules/construction/enums")
-local Contract = require("modules/transfer/contract")
+local Policy = require("modules/policy")
 local TransferEnums = require("modules/transfer/enums")
-local unitTransfer = Contract.UnitTransfer
+
+-- May this team give that one a unit, and on what terms
+--
+---@class TransferPolicyResult
+---@field senderTeamId integer
+---@field receiverTeamId integer
+
+---@class TransferUnitPolicyResult: TransferPolicyResult
+---@field canShare boolean
+---@field sharingModes string[]
+---@field stunSeconds number?
+---@field stunCategory string?
+---@field buildDelaySeconds number?
+---@field techBlocking? TechBlockingContext
+
+---@class TransferUnitTransferPolicy: PolicySteps<TransferPolicyContext, TransferUnitPolicyResult>
+---@field SharingDisabled "SharingDisabled"
+---@field Allied "Allied"
+---@field ReceiverHasNoPlayers "ReceiverHasNoPlayers"
+---@field TransferTerms "TransferTerms"
+
+---@class (partial) TransferContract
+---@field UnitTransfer TransferUnitTransferPolicy
+
+---@type TransferUnitTransferPolicy
+local UnitTransfer = {
+	SharingDisabled = "SharingDisabled",
+	Allied = "Allied",
+	ReceiverHasNoPlayers = "ReceiverHasNoPlayers",
+	TransferTerms = "TransferTerms",
+}
+Policy.Single(UnitTransfer)
 
 local NONE = ConstructionEnums.UnitFilterCategory.None
 
@@ -29,24 +60,42 @@ local function terms(ctx, canShare)
 	}
 end
 
-Policies.On(unitTransfer)
+Policies.On(UnitTransfer)
 	.Refusal(function(ctx)
 		return terms(ctx, false)
 	end)
-	.Unless(unitTransfer.SharingDisabled, function(ctx)
+	.Unless(UnitTransfer.SharingDisabled, function(ctx)
 		local modes = modesOf(ctx)
 		return #modes == 1 and modes[1] == NONE
 	end)
-	.If(unitTransfer.Allied, function(ctx)
+	.If(UnitTransfer.Allied, function(ctx)
 		return ctx.areAlliedTeams
 	end)
-	.Unless(unitTransfer.ReceiverHasNoPlayers, function(ctx)
+	.Unless(UnitTransfer.ReceiverHasNoPlayers, function(ctx)
 		if ctx.isCheatingEnabled then
 			return false
 		end
 		local numActivePlayers = ctx.springRepo.GetTeamRulesParam(ctx.receiverTeamId, "numActivePlayers")
 		return numActivePlayers ~= nil and tonumber(numActivePlayers) == 0
 	end)
-	.Answer(unitTransfer.TransferTerms, function(ctx)
+	.Answer(UnitTransfer.TransferTerms, function(ctx)
 		return terms(ctx, true)
 	end)
+
+-- The notes other modules attach to a unit-terms record for the player to read; providers get the modoptions
+--
+---@class TransferUnitNotesFacts: PolicyFacts<TransferUnitPolicyResult>
+---@field FutureUnlock "futureUnlock"
+---@field TechData "techData"
+
+---@class (partial) TransferContract
+---@field UnitTermsNotes TransferUnitNotesFacts
+
+---@type TransferUnitNotesFacts
+local UnitTermsNotes = {
+	FutureUnlock = "futureUnlock",
+	TechData = "techData",
+}
+Policy.Facts(UnitTermsNotes)
+
+return { UnitTransfer = UnitTransfer, UnitTermsNotes = UnitTermsNotes }

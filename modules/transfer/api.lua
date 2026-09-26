@@ -1,5 +1,4 @@
 local Claims = require("modules/transfer/mex_splitting/claims")
-local Contract = require("modules/transfer/contract")
 local Deal = require("modules/transfer/mex_splitting/deal")
 local Hull = require("modules/transfer/mex_splitting/hull")
 local ModuleHandler = require("modules/module_handler")
@@ -88,7 +87,7 @@ local MexSplitting = {
 		local regions = state.mexRegions or {}
 		---@type MexRegionsDealContext
 		local ctx = { regions = regions, spots = spots or {}, teams = teams }
-		local deal = ModuleHandler.Evaluate(Contract.MexSplitting, ctx)
+		local deal = ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transfer).MexSplitting, ctx)
 		state.mexDeal = deal
 		state.mexTeams = teams
 		state.mexGifted = {}
@@ -123,7 +122,10 @@ local MexSplitting = {
 				heirs[#heirs + 1] = { teamID = team.teamID, x = team.x, z = team.z, gifted = gifted[team.teamID] or 0 }
 			end
 		end
-		local heir = ModuleHandler.Evaluate(Contract.MexSplittingHeir, { departing = departing, heirs = heirs })
+		local heir = ModuleHandler.Evaluate(
+			ModuleHandler.Contract(Modules.Transfer).MexSplittingHeir,
+			{ departing = departing, heirs = heirs }
+		)
 		if not heir then
 			return nil
 		end

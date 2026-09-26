@@ -6,26 +6,26 @@ local RegionsApi = require("modules/regions/api")
 local Regions = Policies.Contract(Modules.Regions)
 
 ---@class (partial) TransferContract
----@field MexRegionsSet TransferMexRegionsSetSteps
----@field MexRegionsNames TransferMexRegionsNamesSteps
----@field MexRegionsDescribe TransferMexRegionsDescribeSteps
+---@field MexRegionsSet TransferRegionsCheckSetSteps
+---@field MexRegionsNames TransferRegionsNamesSteps
+---@field MexRegionsDescribe TransferRegionsDescribeSteps
 
 ---@class (partial) RegionMap
 ---@field spots { x: number, z: number, worth: number|nil }[]|nil
 
----@class TransferMexRegionsSetSteps: PolicySteps<RegionSetContext<MexRegion>, RegionSetContext<MexRegion>>
+---@class TransferRegionsCheckSetSteps: PolicySteps<RegionSetContext<MexRegion>, RegionSetContext<MexRegion>>
 ---@field MexesCovered "MexesCovered"
 
----@type TransferMexRegionsSetSteps
+---@type TransferRegionsCheckSetSteps
 local MexRegionsSet = {
 	MexesCovered = "MexesCovered",
 }
 Policy.Contributes(Regions.CheckSet, MexRegionsSet)
 
----@class TransferMexRegionsNamesSteps: PolicySteps<RegionNamesContext<MexRegion>, RegionNamesContext<MexRegion>>
+---@class TransferRegionsNamesSteps: PolicySteps<RegionNamesContext<MexRegion>, RegionNamesContext<MexRegion>>
 ---@field FromGroup "FromGroup"
 
----@type TransferMexRegionsNamesSteps
+---@type TransferRegionsNamesSteps
 local MexRegionsNames = {
 	FromGroup = "FromGroup",
 }
@@ -37,10 +37,10 @@ Policy.Contributes(Regions.Names, MexRegionsNames)
 ---@field spots integer|nil
 ---@field worth number|nil
 
----@class TransferMexRegionsDescribeSteps: PolicySteps<RegionDescribeContext<MexRegion>, MexRegionDescription>
+---@class TransferRegionsDescribeSteps: PolicySteps<RegionDescribeContext<MexRegion>, MexRegionDescription>
 ---@field MexRegion "MexRegion"
 
----@type TransferMexRegionsDescribeSteps
+---@type TransferRegionsDescribeSteps
 local MexRegionsDescribe = {
 	MexRegion = "MexRegion",
 }

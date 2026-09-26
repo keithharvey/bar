@@ -4,7 +4,7 @@
 ---@field Desc fun(desc: string): TransferModeChain
 ---@field Ranked fun(enabled: boolean?): TransferModeChain permission is a flag; Ranked(false) pins ranked_game off, lockable like any policy
 ---@field RetainValues fun(): TransferModeChain
----@field Uses fun(contract: table): TransferModeChain A module whose fact providers this preset makes live, besides the module that ships the preset; named by its contract.lua, never a string.
+---@field Uses fun(moduleName: string): TransferModeChain A module whose fact providers this preset makes live, besides the module that ships the preset; named by its contract.lua, never a string.
 ---@field Hidden fun(): TransferModeChain
 ---@field Unlocked fun(): TransferModeChain
 ---@field Locked fun(): TransferModeChain

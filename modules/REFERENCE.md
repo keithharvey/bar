@@ -2,17 +2,20 @@
 
 Every word the builder gives you, grouped by the file you write it in. [README.md](README.md) is the walkthrough; this is the lookup.
 
-## In contract.lua
+## Declaring a policy
 
-A contract declares policies and facts. It is a lexical scope that reads top to bottom, with each member typed and named explicitly: the context, the result, each policy, and each step on it. [The contract](README.md#the-contract) in the README walks a complete one line by line. The step enum is the contract's promise: a name in it is a step on the policy, or load fails. That holds for the owner's own steps and for anything declared with `Contributes`.
+A policy file declares what it builds, above the rules: the context, the result, the policy's steps as a typed enum, and the shape the steps combine in. The declaration is a lexical scope that reads top to bottom, each member typed and named explicitly. [The declaration](README.md#the-declaration) in the README walks a complete one line by line. The step enum is the promise: a name in it is a step on the policy, or load fails. That holds for the owner's own steps and for anything declared with `Contributes`.
 
-**`Policy.Contract(Modules.X, { ... })`**
-
-<sub>Type: `(Modules, table) → Contract`</sub>
-
-Stamps every member with its owner and category, so a policy's identity travels with its step enum wherever it is included. An optional third argument, `function(Policies)`, is the module's policy inline; the loader runs it like a file under `policies/`. A policy file that returns its own steps gets the same stamp from the loader, so `contract.lua` holds only what the module declares away from its rules, and may be absent.
+A module's contract is what its policy files return, stamped by the loader with the module's name; the type `XContract` is built up the same way, one `---@class (partial) XContract` per file. There is no contract file.
 ```lua
-return Policy.Contract(Modules.Defs, { UnitDef = Policy.Fold(UnitDef) })
+---@class (partial) DefsContract
+---@field UnitDef DefsUnitDefPolicy
+
+---@type DefsUnitDefPolicy
+local UnitDef = { Base = "Base" }
+Policy.Fold(UnitDef)
+…
+return { UnitDef = UnitDef }
 ```
 
 **`Single(steps)`**
@@ -25,9 +28,9 @@ A single policy answers one question once. Most policies are this.
 * A guard refusal, or every Answer declining to provide a value, returns the Refusal if the owner declared one and `false` if not.
 
 ```lua
-Load = Policy.Single(Load) -- in the contract
+Policy.Single(Load) -- under the typed local
 
-Policies.On(Load) -- in a policy
+Policies.On(Load) -- the rules
 	.Refusal(function() return false end)
 	.Unless(Load.Submerged, isUnderwater) -- true refuses
 	.If(Load.WithinReach, isClose) -- false refuses
@@ -67,21 +70,21 @@ Policies.On(UnitDef) -- in a policy: both run, on the same def, in this order
 
 Not a policy. The facts a decision reads, which other modules may fill before the policy is asked. A fact informs a decision; it is not the decision. One fact, three files:
 ```lua
--- transfer/contract.lua: the fact, declared and typed by its owner
----@class TransferTeamTermsFacts: PolicyFacts<TransferTermsContext>
+-- transfer/policies/team_terms.lua: the fact, declared and typed by its owner
+---@class TransferTeamTermsFacts: PolicyFacts<TransferTeamContext>
 ---@field TaxRate "taxRate"
 ---@type TransferTeamTermsFacts
 local TeamTerms = { TaxRate = "taxRate" }
-…
-TeamTerms = Policy.Facts(TeamTerms),
+Policy.Facts(TeamTerms)
 
--- transfer/policies/terms_defaults.lua: what it means when nobody else answers
-Policies.On(Contract.TeamTerms).Default(Contract.TeamTerms.TaxRate, function(ctx)
-	return modOptionTax(ctx.opts)
+-- the same file: what it means when nobody else answers
+Policies.On(TeamTerms).Default(TeamTerms.TaxRate, function(ctx)
+	return Tax.ModOption(ctx.opts)
 end)
 
 -- tech/policies/tech_blocking.lua: live under Tech Core, and the rate follows the team's tier
-Policies.On(Contract.TeamTerms).Provide(Contract.TeamTerms.TaxRate, function(ctx)
+local Transfer = Policies.Contract(Modules.Transfer)
+Policies.On(Transfer.TeamTerms).Provide(Transfer.TeamTerms.TaxRate, function(ctx)
 	local level = tonumber(ctx.springRepo.GetTeamRulesParam(ctx.teamId, "tech_level")) or 1
 	return TechTier.resolveByTechLevel(ctx.opts, "tax_resource_sharing_amount", level)
 end)
@@ -94,12 +97,12 @@ Transfer never learns that tech exists. The mode says whose answer is live.
 
 The steps this module adds to another module's policy, named here so a third module can place a rule against them by reference. A declared name that never lands is a load error.
 ```lua
-local Defs = require("modules/defs/contract")
+---@type DefsContract
+local Defs = Policies.Contract(Modules.Defs)
 
-return Policy.Contract(Modules.Transport, {
-	Load = Policy.Single(Load),
-	UnitDef = Policy.Contributes(Defs.UnitDef, { EnemyTransport = "EnemyTransport" }),
-})
+---@type TransportDefsUnitDefSteps
+local UnitDef = { EnemyTransport = "EnemyTransport" }
+Policy.Contributes(Defs.UnitDef, UnitDef)
 ```
 
 **`---@class XContext`**
@@ -114,7 +117,7 @@ The [context](README.md#what-flows-through-it) as a type, declared beside the st
 
 ## In a policy file
 
-A policy file runs with one extra name in scope, `Policies`, bound to a registrar for that load. It builds policies, and returns either nothing or the steps it declared itself (`return { Check = Check }`), which the loader stamps with the module as `Contract` would and adds to the module's contract. Two files of one module declaring the same member is a load error.
+A policy file runs with one extra name in scope, `Policies`, bound to a registrar for that load. It builds policies, and returns the steps it declared (`return { Check = Check }`), which the loader stamps with the module and adds to the module's contract; a file that only contributes to other modules' policies still returns what it declared with `Contributes`. Two files of one module declaring the same member is a load error.
 
 **`Policies.On(steps)`**
 
@@ -122,7 +125,7 @@ A policy file runs with one extra name in scope, `Policies`, bound to a registra
 
 Opens a chain against a policy's steps: the owner's own, or the steps this module declared with `Contributes`, which the loader files under the policy they contribute to. Open on your own steps when their context is typed more narrowly than the owner's.
 ```lua
-Policies.On(Contract.Load)
+Policies.On(Load) -- transport's own
 Policies.On(RegionsNames) -- start's steps on regions' Names, typed over StartRegion
 ```
 
@@ -130,7 +133,7 @@ Policies.On(RegionsNames) -- start's steps on regions' Names, typed over StartRe
 
 <sub>Type: `Modules → Contract`</sub>
 
-Another module's contract: what its `contract.lua` declares and what its policy files return, one table, loaded on demand. Two modules whose policy files ask for each other is a load error naming both. Annotate the local with the module's contract class, which the declaring files build up with `---@class (partial)`.
+Another module's contract: what its policy files return, one table, loaded on demand. Two modules whose policy files ask for each other is a load error naming both. Annotate the local with the module's contract class, which the declaring files build up with `---@class (partial)`.
 ```lua
 ---@type RegionsContract
 local Regions = Policies.Contract(Modules.Regions)
@@ -209,7 +212,7 @@ What a no looks like, declared once by the owner, wherever the no happens: a gua
 Where the step just added goes. Without either, a new step joins the end of the checks, just before the answer.
 ```lua
 -- the mod from above: tanks are refused before transport even looks at the water
-.Unless(Contract.Load.TanksStayOnTheGround, isTank).Before(Transport.Load.Submerged)
+.Unless(Load.TanksStayOnTheGround, isTank).Before(Transport.Load.Submerged)
 ```
 
 **`.When(fn)`**
@@ -258,7 +261,7 @@ Facts are filled before a policy is asked, not decided inside it. Anyone may pro
 
 Opens a provider chain against a contract's facts.
 ```lua
-Policies.On(Contract.TeamPairing)
+Policies.On(Transfer.TeamPairing) -- another module's facts; or the owner's own, Policies.On(TeamPairing)
 ```
 
 **`.Provide(fact, fn)`**
@@ -267,7 +270,7 @@ Policies.On(Contract.TeamPairing)
 
 Answers a fact, per ask, from the context. Nil declines and the next live provider or the Default answers.
 ```lua
-.Provide(Contract.TeamPairing.TaxRate, function(ctx) return tieredRate(ctx) end)
+.Provide(Transfer.TeamPairing.TaxRate, function(ctx) return tieredRate(ctx) end)
 ```
 
 **`.Default(fact, fn)`**
@@ -276,7 +279,7 @@ Answers a fact, per ask, from the context. Nil declines and the next live provid
 
 The owner's answer when no live module provides, for a fact that has to be computed. A fact with no Default is the context's field of its name: the api gathered the engine's answer under that name, and nobody knowing better, that is the fact. Most facts are that; a Default is for the rest.
 ```lua
-.Default(Contract.TeamTerms.TaxRate, function(ctx) return modOptionTax(ctx.opts) end)
+.Default(TeamTerms.TaxRate, function(ctx) return Tax.ModOption(ctx.opts) end)
 ```
 
 ## In a gadget, widget or lib
@@ -296,7 +299,7 @@ local Modules = require("modules/enums").Modules
 
 <sub>Type: `Modules → Contract`</sub>
 
-The module's contract as the loader assembled it: what `contract.lua` declares and what its policy files return. For api code that needs a facts table or a step enum the module declared in a policy file; a policy file uses `Policies.Contract` instead.
+The module's contract as the loader assembled it: what its policy files return. For api, gadget and spec code that needs a facts table or a step enum; a policy file uses `Policies.Contract` instead.
 ```lua
 ---@type StartContract
 local Start = ModuleHandler.Contract(Modules.Start)
@@ -309,7 +312,7 @@ local Start = ModuleHandler.Contract(Modules.Start)
 Asks. The step enum from the contract names the policy; the loader finds what it assembled for that identity, every contributor's steps placed, and runs it under the contract's strategy. Returns the result, or the refusal. The result is the `T` the enum declared: a boolean for transport's load, the `TransferUnitPolicyResult` record for transfer's unit transfer. A refusal has the same shape, so the caller reads one set of fields either way. `ctx` and the return are typed from the enum; no annotation at the call.
 ```lua
 -- modules/transfer/unit/synced.lua
-local grant = ModuleHandler.Evaluate(Contract.UnitTransfer, ctx)
+local grant = ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transfer).UnitTransfer, ctx)
 if grant.canShare then
 	applyStun(unitID, grant.stunSeconds)
 end
@@ -321,7 +324,7 @@ end
 
 The assembled policy itself, for a caller that reads its steps rather than running it: a spec asserting the order, a tool listing them. `Evaluate` takes this too.
 ```lua
-for _, step in ipairs(ModuleHandler.Steps(ConstructionContract.Build)) do
+for _, step in ipairs(ModuleHandler.Steps(ModuleHandler.Contract(Modules.Construction).Build)) do
 	names[#names + 1] = step.name
 end
 ```
@@ -334,8 +337,9 @@ Fills a contract's facts for one ask: the live providers answer, nil declines, t
 ```lua
 -- modules/transfer/resource/tax.lua: whose rate this is, tech's or the modoption's, is the mode's business
 local ctx = { teamId = teamId, opts = opts, springRepo = springRepo }
-local terms = ModuleHandler.Enrich(Contract.TeamTerms, opts, ctx)
-local rate = tonumber(terms[Contract.TeamTerms.TaxRate])
+local TeamTerms = ModuleHandler.Contract(Modules.Transfer).TeamTerms
+local terms = ModuleHandler.Enrich(TeamTerms, opts, ctx)
+local rate = tonumber(terms[TeamTerms.TaxRate])
 ```
 
 **`ModuleHandler.LoadActions(Modules.X)`**

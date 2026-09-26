@@ -1,4 +1,4 @@
-local Contract = require("modules/transport/contract")
+local Modules = require("modules/enums").Modules
 local ModuleHandler = require("modules/module_handler")
 local Policy = require("modules/policy")
 
@@ -7,6 +7,8 @@ local function decide(policy, ctx)
 end
 
 describe("transport policies", function()
+	local Contract = ModuleHandler.Contract(Modules.Transport)
+
 	it("publishes every step name, keyed as its policies are, for the owner and for whoever contributes", function()
 		for _, steps in pairs(Contract) do
 			local identity = Policy.IdentityOf(steps)

@@ -1,4 +1,4 @@
-local Contract = require("modules/tech/contract")
+local Modules = require("modules/enums").Modules
 local ModuleHandler = require("modules/module_handler")
 
 ---@param level integer
@@ -6,12 +6,12 @@ local ModuleHandler = require("modules/module_handler")
 ---@return TechCoreLadder
 local function ladder(level, opts)
 	return ModuleHandler.Evaluate(
-		Contract.TechCore,
+		ModuleHandler.Contract(Modules.Tech).TechCore,
 		{ level = level, points = 5, opts = opts, t2Threshold = 10, t3Threshold = 20 }
 	)
 end
 
-describe("the tech core ladder", function()
+describe("the ladder a team stands on", function()
 	local opts = {
 		unit_sharing_mode = "none",
 		unit_sharing_mode_at_t2 = "resource",

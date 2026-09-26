@@ -1,6 +1,6 @@
 local Comms = require("modules/transfer/resource/comms")
-local Contract = require("modules/transfer/contract")
 local ModuleHandler = require("modules/module_handler")
+local Modules = require("modules/enums").Modules
 local Shared = require("modules/transfer/resource/shared")
 local SharedConfig = require("modules/transfer/economy/shared_config")
 local TransferEnums = require("modules/transfer/enums")
@@ -79,7 +79,7 @@ function Gadgets.CalcResourcePolicy(ctx, resourceType)
 		result = {} --[[@as TransferResourcePolicyResult]]
 		policyResultPool[resourceType] = result
 	end
-	local policy = Contract.ResourceTransfer
+	local policy = ModuleHandler.Contract(Modules.Transfer).ResourceTransfer
 	return ModuleHandler.Evaluate(policy, ctx, resourceType, resolveEffectiveRate(ctx, resourceType), result)
 end
 

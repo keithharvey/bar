@@ -18,8 +18,8 @@ if not gadgetHandler:IsSyncedCode() then
 	return false
 end
 
-local Contract = require("modules/construction/contract")
 local ModuleHandler = require("modules/module_handler")
+local Modules = require("modules/enums").Modules
 
 local reclaimEnabled = Spring.GetModOptions()[ConstructionEnums.ModOptions.AlliedUnitReclaimMode]
 	== ConstructionEnums.AlliedUnitReclaimMode.Enabled
@@ -41,7 +41,7 @@ local function mayReclaim(unitTeam, targetID, command)
 		targetCanReclaim = (targetUnitDef and targetUnitDef.canReclaim) == true,
 		reclaimEnabled = reclaimEnabled,
 	}
-	return ModuleHandler.Evaluate(Contract.Reclaim, ctx) == true
+	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Construction).Reclaim, ctx) == true
 end
 
 function gadget:Initialize()

@@ -1,9 +1,46 @@
 local Claims = require("modules/transfer/mex_splitting/claims")
-local ConstructionContract = require("modules/construction/contract")
-local Contract = require("modules/transfer/contract")
 local Holders = require("modules/transfer/mex_splitting/holders")
+local Modules = require("modules/enums").Modules
+local Policy = require("modules/policy")
 local RegionsApi = require("modules/regions/api")
 local TransferEnums = require("modules/transfer/enums")
+
+---@type ConstructionContract
+local ConstructionContract = Policies.Contract(Modules.Construction)
+
+-- The deal: every mex region goes to a team seated at its start, and every spot in it is that team's to build on
+--
+---@class MexRegionsTeamStart
+---@field teamID integer
+---@field allyTeamID integer the engine's; the layout seats it at start allyTeamID + 1
+---@field x number the team's start point: the centre of its start area
+---@field z number
+
+---@class MexRegionsDealContext
+---@field regions MexRegion[]
+---@field spots { x: number, z: number }[] the map's metal spots; a mex is attributed to the spot it mines
+---@field teams MexRegionsTeamStart[] deal order
+
+---@class MexRegionsDeal empty, with problems set, when no deal could be made
+---@field regions table<string, integer> the team holding each region, by region id
+---@field spots table<string, integer[]> the teams holding each metal spot, by spot key; a spot covered by two regions is held by both teams
+---@field problems string[] why no deal was made; empty when one was
+
+---@class TransferMexSplittingPolicy: PolicySteps<MexRegionsDealContext, MexRegionsDeal>
+---@field LayoutChecksOut "LayoutChecksOut"
+---@field SpotsKnown "SpotsKnown"
+---@field NearestRoundRobin "NearestRoundRobin"
+
+---@class (partial) TransferContract
+---@field MexSplitting TransferMexSplittingPolicy
+
+---@type TransferMexSplittingPolicy
+local MexSplitting = {
+	LayoutChecksOut = "LayoutChecksOut",
+	SpotsKnown = "SpotsKnown",
+	NearestRoundRobin = "NearestRoundRobin",
+}
+Policy.Single(MexSplitting)
 
 ---@param problems string[]
 ---@return MexRegionsDeal
@@ -11,7 +48,7 @@ local function noDeal(problems)
 	return { regions = {}, spots = {}, problems = problems }
 end
 
-Policies.On(Contract.MexSplitting)
+Policies.On(MexSplitting)
 	.Refusal(function(ctx)
 		local problems = RegionsApi.ProblemLines(RegionsApi.Enums.Types.MexRegion, ctx.regions, { spots = ctx.spots })
 		if #problems == 0 and #ctx.spots == 0 then
@@ -19,13 +56,13 @@ Policies.On(Contract.MexSplitting)
 		end
 		return noDeal(problems)
 	end)
-	.If(Contract.MexSplitting.LayoutChecksOut, function(ctx)
+	.If(MexSplitting.LayoutChecksOut, function(ctx)
 		return #RegionsApi.ProblemLines(RegionsApi.Enums.Types.MexRegion, ctx.regions, { spots = ctx.spots }) == 0
 	end)
-	.If(Contract.MexSplitting.SpotsKnown, function(ctx)
+	.If(MexSplitting.SpotsKnown, function(ctx)
 		return #ctx.spots > 0
 	end)
-	.Answer(Contract.MexSplitting.NearestRoundRobin, function(ctx)
+	.Answer(MexSplitting.NearestRoundRobin, function(ctx)
 		local teams = Claims.Rank(ctx.teams, ctx.regions)
 		local starts = Claims.Seat(teams)
 		local held = {} ---@type table<string, integer>
@@ -43,7 +80,25 @@ Policies.On(Contract.MexSplitting)
 		return { regions = held, spots = Claims.SpotHolders(ctx.regions, ctx.spots, held), problems = {} }
 	end)
 
-Policies.On(Contract.MexSplittingHeir).Answer(Contract.MexSplittingHeir.FewestGiftedThenNearest, function(ctx)
+-- A team has left the match: the ally that has inherited the fewest regions takes its; ties go to the nearest start
+--
+---@class MexRegionsHeirContext
+---@field departing MexRegionsTeamStart
+---@field heirs { teamID: integer, x: number, z: number, gifted: integer }[] the departing team's living allies in the deal; gifted is how many regions each has already inherited
+
+---@class TransferMexSplittingHeirPolicy: PolicySteps<MexRegionsHeirContext, integer|false>
+---@field FewestGiftedThenNearest "FewestGiftedThenNearest"
+
+---@class (partial) TransferContract
+---@field MexSplittingHeir TransferMexSplittingHeirPolicy
+
+---@type TransferMexSplittingHeirPolicy
+local MexSplittingHeir = {
+	FewestGiftedThenNearest = "FewestGiftedThenNearest",
+}
+Policy.Single(MexSplittingHeir)
+
+Policies.On(MexSplittingHeir).Answer(MexSplittingHeir.FewestGiftedThenNearest, function(ctx)
 	local from = ctx.departing
 	local best, bestGifted, bestDistance = nil, math.huge, math.huge
 	for _, heir in ipairs(ctx.heirs) do
@@ -55,6 +110,8 @@ Policies.On(Contract.MexSplittingHeir).Answer(Contract.MexSplittingHeir.FewestGi
 	return best
 end)
 
+-- Map assigned: a spot is held by whoever the deal gave its region to
+--
 Policies.On(ConstructionContract.PlacementFacts)
 	.Provide(ConstructionContract.PlacementFacts.SpotHolder, function(ctx, springRepo)
 		if ctx.modOptions[TransferEnums.ModOptions.MexSplitting] ~= TransferEnums.MexSplitting.MapAssigned then
@@ -75,3 +132,5 @@ Policies.On(ConstructionContract.PlacementFacts)
 		end
 		return holders[1]
 	end)
+
+return { MexSplitting = MexSplitting, MexSplittingHeir = MexSplittingHeir }

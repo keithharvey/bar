@@ -12,7 +12,7 @@ local system = VFS.Include("gamedata/system.lua")
 local savedefs = require("gamedata/post_save_to_customparams")
 
 local Defs = require("modules/defs/api")
-local DefsContract = require("modules/defs/contract")
+local Modules = require("modules/enums").Modules
 local ModuleHandler = require("modules/module_handler")
 local modOptions = Spring.GetModOptions()
 local saveDefToCustomParams = savedefs.SaveDefToCustomParams
@@ -95,7 +95,10 @@ end
 
 -- postprocess weapondefs
 for name, weaponDef in pairs(WeaponDefs) do
-	ModuleHandler.Evaluate(DefsContract.WeaponDef, { name = name, def = weaponDef, modOptions = modOptions })
+	ModuleHandler.Evaluate(
+		ModuleHandler.Contract(Modules.Defs).WeaponDef,
+		{ name = name, def = weaponDef, modOptions = modOptions }
+	)
 
 	if SaveDefsToCustomParams then
 		saveDefToCustomParams("WeaponDefs", name, weaponDef)

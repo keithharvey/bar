@@ -1,8 +1,8 @@
 local gadget = gadget ---@type Gadget
 
 local ConstructionEnums = require("modules/construction/enums")
-local Contract = require("modules/construction/contract")
 local ModuleHandler = require("modules/module_handler")
+local Modules = require("modules/enums").Modules
 
 local allowPartialResurrection = Spring.GetModOptions()[ConstructionEnums.ModOptions.AllowPartialResurrection]
 	== ConstructionEnums.AllowPartialResurrection.Enabled
@@ -35,7 +35,7 @@ function gadget:AllowFeatureBuildStep(builderID, builderTeam, featureID, feature
 	if metal == defMetal then
 		---@type ConstructionResurrectContext
 		local ctx = { partialAllowed = allowPartialResurrection }
-		if not ModuleHandler.Evaluate(Contract.Resurrect, ctx) then
+		if not ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Construction).Resurrect, ctx) then
 			spSetFeatureResurrect(featureID, false)
 		end
 	end

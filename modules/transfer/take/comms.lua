@@ -1,5 +1,6 @@
+local ModuleHandler = require("modules/module_handler")
+local Modules = require("modules/enums").Modules
 local ConstructionEnums = require("modules/construction/enums")
-local Contract = require("modules/transfer/contract")
 local TransferEnums = require("modules/transfer/enums")
 
 local Comms = {}
@@ -25,11 +26,9 @@ end
 ---@param modOptions table
 ---@return TakePolicy
 function Comms.GetPolicy(modOptions)
-	local ModuleHandler = require("modules/module_handler")
-	local Modules = require("modules/enums").Modules
 	---@type TransferTakeContext
 	local ctx = { modOptions = modOptions }
-	return ModuleHandler.Evaluate(Contract.Take, ctx)
+	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transfer).Take, ctx)
 end
 
 ---@class TakeResult

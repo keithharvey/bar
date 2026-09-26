@@ -43,33 +43,18 @@ end
 
 local run = ModuleHandler.Evaluate
 
+---@generic T: table
+---@param owner string
+---@param members T
+---@return T
+local function declared(owner, members)
+	Policy.Declare(owner, members, "spec")
+	return members
+end
+
 describe("a policy's identity", function()
-	it("carries an inline policy when the contract has one, and including it runs nothing", function()
-		local ran = 0
-		local Contract = Policy.Contract("transport", {
-			Load = Policy.Single({ Submerged = "Submerged" }),
-		}, function(Policies)
-			ran = ran + 1
-		end)
-		assert.is_function(Policy.InlinePolicies(Contract))
-		assert.are.equal(0, ran)
-		assert.is_nil(Policy.InlinePolicies(Policy.Contract("transport", {})))
-		assert.has_error(function()
-			Policy.Contract("transport", {}, "not a function")
-		end)
-	end)
-
-	it("names the module a contract belongs to", function()
-		local Contract = Policy.Contract("transport", {
-			Load = Policy.Single({ Submerged = "Submerged" }),
-		})
-		assert.are.equal("transport", Policy.OwnerOf(Contract))
-		assert.is_nil(Policy.OwnerOf({}))
-		assert.is_nil(Policy.OwnerOf("transport"))
-	end)
-
 	it("carries owner, category and the declared result", function()
-		local Contract = Policy.Contract("transport", {
+		local Contract = declared("transport", {
 			Load = Policy.Single({ Submerged = "Submerged" }),
 			LoadedSpeed = Policy.Product({ CommanderDrag = "CommanderDrag" }),
 		})
@@ -83,12 +68,9 @@ describe("a policy's identity", function()
 	end)
 
 	it("requires every category to declare itself", function()
-		assert.has_error(
-			function()
-				Policy.Contract("transport", { Load = { Submerged = "Submerged" } })
-			end,
-			"Policy.Contract: Load must declare itself: Single(...), Product(...), Fold(...), Contributes(...) or Facts(...)"
-		)
+		assert.has_error(function()
+			declared("transport", { Load = { Submerged = "Submerged" } })
+		end, "spec: Load must declare itself: Single(...), Product(...), Fold(...), Contributes(...) or Facts(...)")
 	end)
 
 	it("serializes a declaration's name to the key the runtime uses", function()
@@ -183,7 +165,7 @@ end)
 
 describe("facts", function()
 	it("carries identity, and provisions are named or refused", function()
-		local Contract = Policy.Contract("transfer", {
+		local Contract = declared("transfer", {
 			TeamPairing = Policy.Facts({ TechBlocking = "techBlocking" }),
 		})
 		assert.are.same(
@@ -199,7 +181,7 @@ describe("facts", function()
 	end)
 
 	it("a provider may add a fact the contract did not declare, and never removes one", function()
-		local Contract = Policy.Contract("transfer", {
+		local Contract = declared("transfer", {
 			TeamPairing = Policy.Facts({ TaxRate = "taxRate" }),
 		})
 		local ops = Policy.Enrichment(Contract.TeamPairing)
@@ -424,7 +406,7 @@ end)
 
 describe("a declared contribution", function()
 	local function target()
-		return Policy.Contract("transport", {
+		return declared("transport", {
 			Load = Policy.Single({ Submerged = "Submerged", Allowed = "Allowed" }),
 			Facts = Policy.Facts({ Reach = "reach" }),
 		})
@@ -432,7 +414,7 @@ describe("a declared contribution", function()
 
 	it("carries the target's identity and the contributor's own", function()
 		local Contract = target()
-		local mod = Policy.Contract("mod", {
+		local mod = declared("mod", {
 			Load = Policy.Contributes(Contract.Load, { NoTanks = "NoTanks" }),
 		})
 		assert.are.same(

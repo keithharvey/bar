@@ -1,7 +1,15 @@
 local ConstructionEnums = require("modules/construction/enums")
-local Contract = require("modules/tech/contract")
+local Policy = require("modules/policy")
 local TechTier = require("modules/tech/tier")
-local techCore = Contract.TechCore
+
+-- The ladder a team stands on: what its tech level unlocks now, and what the next level would
+--
+---@class TechTierRequest
+---@field level integer the team's current tech level
+---@field points number keystone points the team holds
+---@field opts table<string, string|number|boolean>
+---@field t2Threshold number keystones per player for tech 2
+---@field t3Threshold number keystones per player for tech 3
 
 ---@class TechUnlock
 ---@field unlockLevel integer
@@ -23,6 +31,18 @@ local techCore = Contract.TechCore
 ---@field modes string[]
 ---@field taxRate number|nil
 ---@field blocking TechBlockingContext
+
+---@class TechCorePolicy: PolicySteps<TechTierRequest, TechCoreLadder>
+---@field TechCoreLadder "TechCoreLadder"
+
+---@class (partial) TechContract
+---@field TechCore TechCorePolicy
+
+---@type TechCorePolicy
+local TechCore = {
+	TechCoreLadder = "TechCoreLadder",
+}
+Policy.Single(TechCore)
 
 local NONE = ConstructionEnums.UnitFilterCategory.None
 
@@ -62,7 +82,7 @@ local function activeModes(request)
 	return modes
 end
 
-Policies.On(techCore).Answer(techCore.TechCoreLadder, function(request)
+Policies.On(TechCore).Answer(TechCore.TechCoreLadder, function(request)
 	local currentTax = tonumber(TechTier.resolveByTechLevel(request.opts, "tax_resource_sharing_amount", request.level))
 	local taxUnlock = nextProgression(request, "tax_resource_sharing_amount", currentTax, tonumber)
 	local unitUnlock = nil
@@ -91,3 +111,5 @@ Policies.On(techCore).Answer(techCore.TechCoreLadder, function(request)
 		},
 	}
 end)
+
+return { TechCore = TechCore }
