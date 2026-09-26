@@ -345,7 +345,7 @@ Policies.On(Contract.TeamPairing).Default(Contract.TeamPairing.TaxRate, function
 end)
 ```
 
-Two modules may both provide the same fact. The owner declares the fact and its type, and must declare a `Default`, so a mod _may_ provide one and never has to.
+Two modules may both provide the same fact. The owner declares the fact and its type. When nobody provides, the fact is the context's field of its name, which the api gathered from the engine; a `Default` is only for a fact that has to be computed. Either way a mod _may_ provide one and never has to.
 
 Modes say which module's provider is live. The loader refuses a preset combination that would leave two live for one fact; that is in the list below.
 
@@ -362,7 +362,6 @@ Everything that can go wrong in wiring is a load error that names the file:
 - a name in a contract that never lands on the policy, the owner's or a contributor's
 - two modules adding the same step name
 - a Single policy that does not end in an Answer
-- a declared fact with no Default from its owner
 - a preset combination that leaves two providers live for one fact
 - a policy or action file that returns a value, which the include shim would cache and the registration would be lost
 

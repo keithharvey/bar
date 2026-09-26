@@ -274,7 +274,7 @@ Answers a fact, per ask, from the context. Nil declines and the next live provid
 
 <sub>Type: `(fact, C → V) → Provision<C>`</sub>
 
-The owner's answer when no live module provides. Every declared fact must have one, or load fails.
+The owner's answer when no live module provides, for a fact that has to be computed. A fact with no Default is the context's field of its name: the api gathered the engine's answer under that name, and nobody knowing better, that is the fact. Most facts are that; a Default is for the rest.
 ```lua
 .Default(Contract.TeamTerms.TaxRate, function(ctx) return modOptionTax(ctx.opts) end)
 ```

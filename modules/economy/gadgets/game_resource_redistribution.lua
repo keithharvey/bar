@@ -76,7 +76,7 @@ local function payExtraction(teams)
 	local seconds = CADENCE / 30
 	local made = Extraction.Made(springRepo, teamIDs, seconds)
 	---@type EconomyExtractionContext
-	local ctx = { springRepo = springRepo, teams = teams, seconds = seconds, made = made }
+	local ctx = { springRepo = springRepo, teams = teams, seconds = seconds, income = made }
 	local income = ModuleHandler.Enrich(Contract.Extraction, springRepo.GetModOptions(), ctx)[Contract.Extraction.Income]
 		or made
 	for teamID, paid in pairs(income) do

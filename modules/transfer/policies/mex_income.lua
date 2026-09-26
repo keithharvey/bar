@@ -7,5 +7,5 @@ Policies.On(EconomyContract.Extraction).Provide(EconomyContract.Extraction.Incom
 	if ctx.springRepo.GetModOptions()[TransferEnums.ModOptions.MexSplitting] ~= TransferEnums.MexSplitting.Shared then
 		return nil
 	end
-	return Income.Shared(ctx.teams, ctx.made)
+	return Income.Shared(ctx.teams, ctx.income)
 end)

@@ -10,8 +10,8 @@ describe("economy's own answers, when no module provides", function()
 
 	it("pays extraction as the engine did", function()
 		local resolved = ModuleHandler.LoadEnrichers(Contract.Extraction)
-		local made = { [1] = { metal = 3, energy = 0 } }
-		local ctx = { teams = {}, seconds = 1, made = made }
+		local income = { [1] = { metal = 3, energy = 0 } }
+		local ctx = { teams = {}, seconds = 1, income = made }
 		assert.is_true(rawequal(made, ModuleHandler.EnrichWith(resolved, {}, ctx)[Contract.Extraction.Income]))
 	end)
 

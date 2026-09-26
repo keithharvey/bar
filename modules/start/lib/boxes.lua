@@ -1,4 +1,4 @@
----@class StartBoxes
+---@class StartBoxes the match's start areas, resolved: the modoption's polygons when one set them, else the engine's rects
 local Boxes = {}
 
 ---@class StartboxEntry
@@ -13,12 +13,11 @@ local Boxes = {}
 ---@field source string|nil
 ---@field explicit boolean
 
----@class StartBox
+---@class StartArea one ally team's start area, as the match resolved it: the modoption's polygon, or the engine's rect
 ---@field allyTeamID integer
----@field ring { x: number, z: number, strength: number|nil }[]
 ---@field name string|nil
+---@field anchors { x: number, z: number, strength: number|nil }[]
 ---@field source string
----@field wholeMap boolean
 
 ---@param cx number
 ---@param cz number
@@ -34,45 +33,41 @@ end
 ---@param allyTeamID integer
 ---@param entry StartboxEntry
 ---@param source string
----@return StartBox|nil
+---@return StartArea|nil
 local function fromEntry(allyTeamID, entry, source)
 	local ring = entry.boxes and entry.boxes[1]
-	if not ring or #ring < 3 then
+	if not ring or #ring < 3 or entry.wholeMap then
 		return nil
 	end
 	local anchors = {}
 	for i, pt in ipairs(ring) do
 		anchors[i] = { x = pt[1], z = pt[2], strength = pt[3] }
 	end
-	return {
-		allyTeamID = allyTeamID,
-		ring = anchors,
-		name = entry.nameShort,
-		source = source,
-		wholeMap = entry.wholeMap == true,
-	}
+	return { allyTeamID = allyTeamID, name = entry.nameShort, anchors = anchors, source = source }
 end
 
 ---@param springRepo Spring
 ---@param allyTeamID integer
----@return StartBox|nil
+---@return StartArea|nil
 local function fromEngine(springRepo, allyTeamID)
 	local xmin, zmin, xmax, zmax = springRepo.GetAllyTeamStartBox(allyTeamID)
 	if not (xmin and xmax and zmin and zmax) or xmax <= xmin or zmax <= zmin then
 		return nil
 	end
+	if xmin <= 0 and zmin <= 0 and xmax >= Game.mapSizeX and zmax >= Game.mapSizeZ then
+		return nil
+	end
 	return {
 		allyTeamID = allyTeamID,
-		ring = { { x = xmin, z = zmin }, { x = xmax, z = zmin }, { x = xmax, z = zmax }, { x = xmin, z = zmax } },
 		name = compassName((xmin + xmax) * 0.5, (zmin + zmax) * 0.5),
+		anchors = { { x = xmin, z = zmin }, { x = xmax, z = zmin }, { x = xmax, z = zmax }, { x = xmin, z = zmax } },
 		source = "engine",
-		wholeMap = xmin <= 0 and zmin <= 0 and xmax >= Game.mapSizeX and zmax >= Game.mapSizeZ,
 	}
 end
 
 ---@param springRepo Spring
 ---@param config StartboxConfig
----@return StartBox[]
+---@return StartArea[] by ally team id, gaia left out
 function Boxes.Resolve(springRepo, config)
 	local gaia = springRepo.GetGaiaTeamID and springRepo.GetGaiaTeamID() or nil
 	local gaiaAlly = gaia and springRepo.GetTeamAllyTeamID and springRepo.GetTeamAllyTeamID(gaia) or nil
@@ -87,7 +82,7 @@ function Boxes.Resolve(springRepo, config)
 		end
 	end
 	table.sort(ids)
-	local out = {} ---@type StartBox[]
+	local out = {} ---@type StartArea[]
 	for _, allyTeamID in ipairs(ids) do
 		if allyTeamID ~= gaiaAlly then
 			local box
