@@ -9,14 +9,14 @@ local Policy = require("modules/policy")
 ---@field fieldsOnly boolean|nil
 ---@field problems string[]
 
----@class RegionCheckSteps: PolicySteps<RegionCheckContext<Region>, RegionCheckContext<Region>>
+---@class RegionCheckPolicy: PolicySteps<RegionCheckContext<Region>, RegionCheckContext<Region>>
 ---@field Shape string
 ---@field Fields string
 
 ---@class (partial) RegionsContract
----@field Check RegionCheckSteps
+---@field Check RegionCheckPolicy
 
----@type RegionCheckSteps
+---@type RegionCheckPolicy
 local Check = Policy.Fold({
 	Shape = "Shape",
 	Fields = "Fields",

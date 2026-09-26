@@ -18,13 +18,13 @@ local Problems = require("modules/regions/lib/problems")
 
 ---@class (partial) RegionMap
 
----@class RegionSetSteps: PolicySteps<RegionSetContext<Region>, RegionSetContext<Region>>
+---@class RegionSetPolicy: PolicySteps<RegionSetContext<Region>, RegionSetContext<Region>>
 ---@field Each "Each"
 
 ---@class (partial) RegionsContract
----@field CheckSet RegionSetSteps
+---@field CheckSet RegionSetPolicy
 
----@type RegionSetSteps
+---@type RegionSetPolicy
 local CheckSet = {
 	Each = "Each",
 }

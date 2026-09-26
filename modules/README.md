@@ -209,12 +209,12 @@ local Modules = require("modules/enums").Modules
 ---@field canShare boolean
 ---@field stunSeconds number
 
----@class TransferUnitTransferSteps: PolicySteps<TransferPolicyContext, UnitPolicyResult>
+---@class TransferUnitTransferPolicy: PolicySteps<TransferPolicyContext, UnitPolicyResult>
 ---@field Allied "Allied"
 ---@field ReceiverHasNoPlayers "ReceiverHasNoPlayers"
 ---@field TransferTerms "TransferTerms"
 
----@type TransferUnitTransferSteps
+---@type TransferUnitTransferPolicy
 local UnitTransfer = {
 	Allied = "Allied",
 	ReceiverHasNoPlayers = "ReceiverHasNoPlayers",
@@ -222,7 +222,7 @@ local UnitTransfer = {
 }
 
 ---@class TransferContract
----@field UnitTransfer TransferUnitTransferSteps
+---@field UnitTransfer TransferUnitTransferPolicy
 
 return Policy.Contract(Modules.Transfer, {
 	UnitTransfer = Policy.Single(UnitTransfer),
@@ -239,12 +239,12 @@ Same again, line by line.
 The two types every policy has, written `<C, T>` everywhere else in this doc. `C` is what the gadget gathered up top. `T` is what `terms` built. `T` is a table here, not a boolean, because the gadget that stuns the unit and the widget that explains the stun in a tooltip both need the seconds, and they need them on a refusal too.
 
 ```lua
----@class TransferUnitTransferSteps: PolicySteps<TransferPolicyContext, UnitPolicyResult>
+---@class TransferUnitTransferPolicy: PolicySteps<TransferPolicyContext, UnitPolicyResult>
 ---@field Allied "Allied"
 ---@field ReceiverHasNoPlayers "ReceiverHasNoPlayers"
 ---@field TransferTerms "TransferTerms"
 
----@type TransferUnitTransferSteps
+---@type TransferUnitTransferPolicy
 local UnitTransfer = {
 	Allied = "Allied",
 	ReceiverHasNoPlayers = "ReceiverHasNoPlayers",
