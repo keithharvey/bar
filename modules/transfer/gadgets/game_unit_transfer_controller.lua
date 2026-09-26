@@ -1,3 +1,7 @@
+---@class TransferUnitController
+---@field AllowUnitTransfer fun(unitID: integer, unitDefID: integer, fromTeamID: integer, toTeamID: integer, capture: boolean): boolean
+---@field TeamShare fun(srcTeamID: integer, dstTeamID: integer)
+
 ---@class UnitTransferGadget : Gadget
 ---@field TeamShare fun(self, srcTeamID: number, dstTeamID: number)
 local gadget = gadget ---@type UnitTransferGadget
@@ -78,7 +82,7 @@ function gadget:Initialize()
 	lastPolicyCacheUpdate = springRepo.GetGameFrame()
 
 	if Spring.SetUnitTransferController then
-		---@type GameUnitTransferController
+		---@type TransferUnitController
 		local controller = {
 			AllowUnitTransfer = UnitTransferController.AllowUnitTransfer,
 			TeamShare = UnitTransferController.TeamShare,

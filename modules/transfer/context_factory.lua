@@ -1,13 +1,18 @@
 local Contract = require("modules/transfer/contract")
+local Economy = require("modules/economy/api")
 local ModuleHandler = require("modules/module_handler")
-local TeamResourceData = require("modules/economy/lib/team_resource_data")
 local TransferEnums = require("modules/transfer/enums")
+
+---@class TransferResourceRequest : TransferRequest
+---@field resourceType ResourceName
+---@field desiredAmount number
+---@field policyResult TransferResourcePolicyResult
 
 ---@class ContextFactory
 ---@field create fun(springRepo: Spring): ContextFactory
 ---@field policy fun(senderTeamID: integer, receiverTeamID: integer): TransferPolicyContext
 ---@field request fun(senderTeamId: integer, receiverTeamId: integer, policyType: string): TransferRequest
----@field resourceTransfer fun(senderTeamId: integer, receiverTeamId: integer, resourceType: ResourceName, desiredAmount: number, policyResult: ResourcePolicyResult): ResourceTransferRequest
+---@field resourceTransfer fun(senderTeamId: integer, receiverTeamId: integer, resourceType: ResourceName, desiredAmount: number, policyResult: TransferResourcePolicyResult): TransferResourceRequest
 local ContextFactory = {}
 
 ---@param springRepo Spring
@@ -24,7 +29,7 @@ function ContextFactory.create(springRepo, enrichers)
 		end
 		local data = perTeam[resourceType]
 		if not data then
-			data = TeamResourceData.Get(springRepo, teamID, resourceType)
+			data = Economy.Resources.Snapshot(springRepo, teamID, resourceType)
 			perTeam[resourceType] = data
 		end
 		return data
@@ -39,13 +44,13 @@ function ContextFactory.create(springRepo, enrichers)
 	---@param extensions? table
 	---@return TransferPolicyContext
 	local function buildContext(senderTeamID, receiverTeamID, extensions)
-		---@type TeamResources
+		---@type TransferTeamResources
 		local senderResources = {
 			metal = getResource(senderTeamID, TransferEnums.ResourceType.METAL),
 			energy = getResource(senderTeamID, TransferEnums.ResourceType.ENERGY),
 		}
 
-		---@type TeamResources
+		---@type TransferTeamResources
 		local receiverResources = {
 			metal = getResource(receiverTeamID, TransferEnums.ResourceType.METAL),
 			energy = getResource(receiverTeamID, TransferEnums.ResourceType.ENERGY),
@@ -106,8 +111,8 @@ function ContextFactory.create(springRepo, enrichers)
 	---@param receiverTeamId integer
 	---@param resourceType ResourceName
 	---@param desiredAmount number
-	---@param policyResult ResourcePolicyResult
-	---@return ResourceTransferRequest
+	---@param policyResult TransferResourcePolicyResult
+	---@return TransferResourceRequest
 	local function resourceTransfer(senderTeamId, receiverTeamId, resourceType, desiredAmount, policyResult)
 		local policyType = resourceType == TransferEnums.ResourceType.METAL and TransferEnums.PolicyType.MetalTransfer
 			or TransferEnums.PolicyType.EnergyTransfer
@@ -116,7 +121,7 @@ function ContextFactory.create(springRepo, enrichers)
 			resourceType = resourceType,
 			desiredAmount = desiredAmount,
 			policyResult = policyResult,
-		}) --[[@as ResourceTransferRequest]]
+		}) --[[@as TransferResourceRequest]]
 	end
 
 	return {

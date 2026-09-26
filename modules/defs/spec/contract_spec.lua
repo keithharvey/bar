@@ -1,25 +1,19 @@
-local ModuleHandler = require("modules/module_handler")
-local Modules = require("modules/enums").Modules
 local Contract = require("modules/defs/contract")
-local PolicyBuilder = require("modules/policy_builder")
+local ModuleHandler = require("modules/module_handler")
+local Policy = require("modules/policy")
 
-describe("defs pipelines", function()
-	local pipelines = ModuleHandler.LoadPolicies(Modules.Defs) ---@type DefsPipelines
-
-	it("are folds over one def, with the base game's post as a named stage", function()
-		for _, category in ipairs({ "unit_def", "weapon_def" }) do
-			local pipeline = pipelines[category]
-			assert.are.equal("fold", pipeline.result, category)
+describe("defs policies", function()
+	it("are folds over one def, with the base game's post as a named step", function()
+		for category, steps in pairs({ unit_def = Contract.UnitDef, weapon_def = Contract.WeaponDef }) do
+			local policy = ModuleHandler.Steps(steps)
+			assert.are.equal("fold", policy.result, category)
 			local named = {}
-			for _, stage in ipairs(pipeline) do
-				named[stage.name] = true
+			for _, step in ipairs(policy) do
+				named[step.name] = true
 			end
 			assert.is_true(named.Base, category)
 		end
-		assert.are.same(
-			{ owner = "defs", category = "unit_def", result = "fold" },
-			PolicyBuilder.IdentityOf(Contract.UnitDef)
-		)
+		assert.are.same({ owner = "defs", category = "unit_def", result = "fold" }, Policy.IdentityOf(Contract.UnitDef))
 	end)
 
 end)

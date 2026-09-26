@@ -1,10 +1,8 @@
+local Contract = require("modules/construction/contract")
 local ModuleHandler = require("modules/module_handler")
-local Modules = require("modules/enums").Modules
 
-local pipelines = ModuleHandler.LoadPolicies(Modules.Construction) ---@type ConstructionPipelines
-
-local function decide(pipeline, ctx)
-	return ModuleHandler.Evaluate(pipeline, ctx)
+local function decide(policy, ctx)
+	return ModuleHandler.Evaluate(policy, ctx)
 end
 
 describe("construction policies", function()
@@ -12,13 +10,13 @@ describe("construction policies", function()
 		it("lets anyone help their own, and allies help when the mode is on", function()
 			assert.is_true(
 				decide(
-					pipelines.assist,
+					Contract.Assist,
 					{ allied = false, targetComplete = false, targetIsBuilder = true, assistEnabled = false }
 				)
 			)
 			assert.is_true(
 				decide(
-					pipelines.assist,
+					Contract.Assist,
 					{ allied = true, targetComplete = false, targetIsBuilder = true, assistEnabled = true }
 				)
 			)
@@ -27,19 +25,19 @@ describe("construction policies", function()
 		it("with the mode off, an ally may not help an unfinished unit or any builder", function()
 			assert.is_false(
 				decide(
-					pipelines.assist,
+					Contract.Assist,
 					{ allied = true, targetComplete = false, targetIsBuilder = false, assistEnabled = false }
 				)
 			)
 			assert.is_false(
 				decide(
-					pipelines.assist,
+					Contract.Assist,
 					{ allied = true, targetComplete = true, targetIsBuilder = true, assistEnabled = false }
 				)
 			)
 			assert.is_true(
 				decide(
-					pipelines.assist,
+					Contract.Assist,
 					{ allied = true, targetComplete = true, targetIsBuilder = false, assistEnabled = false }
 				)
 			)
@@ -50,25 +48,25 @@ describe("construction policies", function()
 		it("with the mode off, allies may neither reclaim each other nor guard a reclaimer", function()
 			assert.is_false(
 				decide(
-					pipelines.reclaim,
+					Contract.Reclaim,
 					{ allied = true, command = "reclaim", targetCanReclaim = false, reclaimEnabled = false }
 				)
 			)
 			assert.is_false(
 				decide(
-					pipelines.reclaim,
+					Contract.Reclaim,
 					{ allied = true, command = "guard", targetCanReclaim = true, reclaimEnabled = false }
 				)
 			)
 			assert.is_true(
 				decide(
-					pipelines.reclaim,
+					Contract.Reclaim,
 					{ allied = true, command = "guard", targetCanReclaim = false, reclaimEnabled = false }
 				)
 			)
 			assert.is_true(
 				decide(
-					pipelines.reclaim,
+					Contract.Reclaim,
 					{ allied = true, command = "reclaim", targetCanReclaim = false, reclaimEnabled = true }
 				)
 			)
@@ -77,22 +75,22 @@ describe("construction policies", function()
 
 	describe("resurrect", function()
 		it("a partly reclaimed wreck resurrects only when the mode allows", function()
-			assert.is_true(decide(pipelines.resurrect, { partialAllowed = true }))
-			assert.is_false(decide(pipelines.resurrect, { partialAllowed = false }))
+			assert.is_true(decide(Contract.Resurrect, { partialAllowed = true }))
+			assert.is_false(decide(Contract.Resurrect, { partialAllowed = false }))
 		end)
 	end)
 
 	describe("build", function()
 		it("a delayed builder builds nothing", function()
-			assert.is_false(decide(pipelines.build, { builderID = 1, builderTeam = 0, delayed = true, part = 0.1 }))
-			assert.is_true(decide(pipelines.build, { builderID = 1, builderTeam = 0, delayed = false, part = 0.1 }))
+			assert.is_false(decide(Contract.Build, { builderID = 1, builderTeam = 0, delayed = true, part = 0.1 }))
+			assert.is_true(decide(Contract.Build, { builderID = 1, builderTeam = 0, delayed = false, part = 0.1 }))
 		end)
 	end)
 
 	describe("creation", function()
 		it("construction itself refuses nobody; a tier gate is another module's guard", function()
 			assert.is_true(
-				decide(pipelines.creation, { unitDefID = 1, teamID = 0, tier = nil, unitDef = { isFactory = true } })
+				decide(Contract.Creation, { unitDefID = 1, teamID = 0, tier = nil, unitDef = { isFactory = true } })
 			)
 		end)
 
@@ -120,25 +118,25 @@ describe("construction policies", function()
 		it("an ally's extractor spot is taken unless utility buildings may change hands", function()
 			assert.is_false(
 				decide(
-					pipelines.placement,
+					Contract.Placement,
 					at({ extractor = "mex", alliedExtractorNearby = true, utilitySharing = false })
 				)
 			)
 			assert.is_true(
 				decide(
-					pipelines.placement,
+					Contract.Placement,
 					at({ extractor = "mex", alliedExtractorNearby = true, utilitySharing = true })
 				)
 			)
 			assert.is_true(
 				decide(
-					pipelines.placement,
+					Contract.Placement,
 					at({ extractor = "geo", alliedExtractorNearby = false, utilitySharing = false })
 				)
 			)
 			assert.is_true(
 				decide(
-					pipelines.placement,
+					Contract.Placement,
 					at({ extractor = nil, alliedExtractorNearby = true, utilitySharing = false })
 				)
 			)
@@ -146,29 +144,27 @@ describe("construction policies", function()
 
 		it("refuses an extractor on a spot an ally holds, and nothing an enemy holds", function()
 			assert.is_false(
-				decide(pipelines.placement, at({ extractor = "mex", spotHolder = 1, spotHolderAllied = true }))
+				decide(Contract.Placement, at({ extractor = "mex", spotHolder = 1, spotHolderAllied = true }))
 			)
 			assert.is_true(
-				decide(pipelines.placement, at({ extractor = "mex", spotHolder = 1, spotHolderAllied = false }))
+				decide(Contract.Placement, at({ extractor = "mex", spotHolder = 1, spotHolderAllied = false }))
 			)
 			assert.is_true(
-				decide(pipelines.placement, at({ extractor = "mex", spotHolder = 0, spotHolderAllied = false }))
+				decide(Contract.Placement, at({ extractor = "mex", spotHolder = 0, spotHolderAllied = false }))
 			)
 			assert.is_false(
-				decide(pipelines.placement, at({ extractor = "geo", spotHolder = 1, spotHolderAllied = true })),
+				decide(Contract.Placement, at({ extractor = "geo", spotHolder = 1, spotHolderAllied = true })),
 				"a geo spot too, once a module deals those"
 			)
-			assert.is_true(
-				decide(pipelines.placement, at({ extractor = nil, spotHolder = 1, spotHolderAllied = true }))
-			)
+			assert.is_true(decide(Contract.Placement, at({ extractor = nil, spotHolder = 1, spotHolderAllied = true })))
 		end)
 
 		it("lets a mex onto an ally's extractor on that ally's spot when utility buildings may change hands", function()
 			local theirs = { extractor = "mex", spotHolder = 1, spotHolderAllied = true, alliedExtractorNearby = true }
 			theirs.utilitySharing = true
-			assert.is_true(decide(pipelines.placement, at(theirs)))
+			assert.is_true(decide(Contract.Placement, at(theirs)))
 			theirs.utilitySharing = false
-			assert.is_false(decide(pipelines.placement, at(theirs)))
+			assert.is_false(decide(Contract.Placement, at(theirs)))
 		end)
 
 		it("holds every spot for its builder, and shares no utilities, unless a module says otherwise", function()

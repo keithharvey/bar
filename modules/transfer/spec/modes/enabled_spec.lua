@@ -18,9 +18,9 @@ local spring = Builders.Spring
 
 describe("Transfer Enabled mode #policy", function()
 	describe("with default settings (zero tax, zero thresholds)", function()
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local metalResult
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local energyResult
 
 		before_each(function()
@@ -119,6 +119,11 @@ describe("Enabled mode policy bundle", function()
 
 	it("serializes to the exact modOptions the literal preset declared", function()
 		assert.same({
+			[TransferEnums.ModOptions.MexSplitting] = {
+				value = TransferEnums.MexSplitting.None,
+				locked = true,
+				ui = "hidden",
+			},
 			[TransferEnums.ModOptions.UnitSharingMode] = {
 				value = ConstructionEnums.UnitFilterCategory.All,
 				locked = true,

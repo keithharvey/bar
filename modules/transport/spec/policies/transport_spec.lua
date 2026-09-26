@@ -1,28 +1,25 @@
-local ModuleHandler = require("modules/module_handler")
-local Modules = require("modules/enums").Modules
 local Contract = require("modules/transport/contract")
-local PolicyBuilder = require("modules/policy_builder")
+local ModuleHandler = require("modules/module_handler")
+local Policy = require("modules/policy")
 
-local pipelines = ModuleHandler.LoadPolicies(Modules.Transport) ---@type TransportPipelines
-
-local function decide(pipeline, ctx)
-	return ModuleHandler.Evaluate(pipeline, ctx)
+local function decide(policy, ctx)
+	return ModuleHandler.Evaluate(policy, ctx)
 end
 
 describe("transport policies", function()
-	it("publishes every stage name, keyed as its pipelines are, for the owner and for whoever contributes", function()
-		for _, stages in pairs(Contract) do
-			local identity = PolicyBuilder.IdentityOf(stages)
+	it("publishes every step name, keyed as its policies are, for the owner and for whoever contributes", function()
+		for _, steps in pairs(Contract) do
+			local identity = Policy.IdentityOf(steps)
 			local owner = identity.contributes and identity.contributes.owner or "transport"
 			local category = identity.contributes and identity.contributes.category or identity.category
 			local named = {}
-			for _, stage in ipairs(ModuleHandler.LoadPolicies(owner)[category]) do
-				named[stage.name] = true
+			for _, step in ipairs(ModuleHandler.LoadPolicies(owner)[category]) do
+				named[step.name] = true
 			end
-			for key, name in pairs(stages) do
+			for key, name in pairs(steps) do
 				assert.is_true(
 					named[name],
-					owner .. "." .. category .. " has no stage " .. name .. " (Contract." .. key .. ")"
+					owner .. "." .. category .. " has no step " .. name .. " (Contract." .. key .. ")"
 				)
 			end
 		end
@@ -32,25 +29,25 @@ describe("transport policies", function()
 		local ok = { goalY = 10, height = 20, distance = 5, reach = 20, allied = true, passengerSpeed = 0 }
 
 		it("allows an allied unit in reach on dry ground", function()
-			assert.is_true(decide(pipelines.load, ok))
+			assert.is_true(decide(Contract.Load, ok))
 		end)
 
 		it("refuses under water, out of reach, or a moving enemy — each on its own", function()
 			assert.is_false(
-				decide(pipelines.load, { goalY = -30, height = 10, distance = 5, reach = 20, allied = true })
+				decide(Contract.Load, { goalY = -30, height = 10, distance = 5, reach = 20, allied = true })
 			)
 			assert.is_false(
-				decide(pipelines.load, { goalY = 10, height = 20, distance = 25, reach = 20, allied = true })
+				decide(Contract.Load, { goalY = 10, height = 20, distance = 25, reach = 20, allied = true })
 			)
 			assert.is_false(
 				decide(
-					pipelines.load,
+					Contract.Load,
 					{ goalY = 10, height = 20, distance = 5, reach = 20, allied = false, passengerSpeed = 2 }
 				)
 			)
 			assert.is_true(
 				decide(
-					pipelines.load,
+					Contract.Load,
 					{ goalY = 10, height = 20, distance = 5, reach = 20, allied = false, passengerSpeed = 0.1 }
 				)
 			)
@@ -58,32 +55,32 @@ describe("transport policies", function()
 
 		it("an ally's nano stays put; your own or an enemy's may be lifted", function()
 			assert.is_false(
-				decide(pipelines.load, { goalY = 10, height = 20, nano = true, allied = true, ownTeam = false })
+				decide(Contract.Load, { goalY = 10, height = 20, nano = true, allied = true, ownTeam = false })
 			)
 			assert.is_true(
-				decide(pipelines.load, { goalY = 10, height = 20, nano = true, allied = true, ownTeam = true })
+				decide(Contract.Load, { goalY = 10, height = 20, nano = true, allied = true, ownTeam = true })
 			)
 			assert.is_true(
-				decide(pipelines.load, { goalY = 10, height = 20, nano = true, allied = false, ownTeam = false })
+				decide(Contract.Load, { goalY = 10, height = 20, nano = true, allied = false, ownTeam = false })
 			)
 		end)
 
 		it("a ground transport has no reach to be out of", function()
 			assert.is_true(
-				decide(pipelines.load, { goalY = 10, height = 20, distance = 900, reach = nil, allied = true })
+				decide(Contract.Load, { goalY = 10, height = 20, distance = 900, reach = nil, allied = true })
 			)
 		end)
 	end)
 
 	describe("unload", function()
 		it("sets a nano down only on dry, level ground", function()
-			assert.is_true(decide(pipelines.unload, { goalY = 10, height = 0, nano = true, groundNormalY = 0.95 }))
-			assert.is_false(decide(pipelines.unload, { goalY = 10, height = 0, nano = true, groundNormalY = 0.5 }))
-			assert.is_true(decide(pipelines.unload, { goalY = 10, height = 0, nano = false, groundNormalY = 0.5 }))
+			assert.is_true(decide(Contract.Unload, { goalY = 10, height = 0, nano = true, groundNormalY = 0.95 }))
+			assert.is_false(decide(Contract.Unload, { goalY = 10, height = 0, nano = true, groundNormalY = 0.5 }))
+			assert.is_true(decide(Contract.Unload, { goalY = 10, height = 0, nano = false, groundNormalY = 0.5 }))
 		end)
 
 		it("nothing is set down under water", function()
-			assert.is_false(decide(pipelines.unload, { goalY = -50, height = 10 }))
+			assert.is_false(decide(Contract.Unload, { goalY = -50, height = 10 }))
 		end)
 	end)
 
@@ -92,7 +89,7 @@ describe("transport policies", function()
 			assert.is.near(
 				9,
 				decide(
-					pipelines.loaded_speed,
+					Contract.LoadedSpeed,
 					{ carriesCommander = true, transportSpeed = 270, dragEnabled = false, framesPerSecond = 30 }
 				),
 				1e-9
@@ -100,7 +97,7 @@ describe("transport policies", function()
 			assert.is.near(
 				4,
 				decide(
-					pipelines.loaded_speed,
+					Contract.LoadedSpeed,
 					{ carriesCommander = true, transportSpeed = 270, dragEnabled = true, framesPerSecond = 30 }
 				),
 				1e-9

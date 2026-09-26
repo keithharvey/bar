@@ -1,9 +1,14 @@
+local Actions = require("modules/construction/lib/actions")
 local Creation = require("modules/construction/lib/creation")
 local Debuff = require("modules/construction/lib/build_debuff")
 local Placement = require("modules/construction/lib/placement")
+local UnitCategories = require("modules/construction/lib/unit_categories")
 
 ---@class ConstructionApi
 return {
+	Actions = Actions.Construction,
+	UnitTypesFor = UnitCategories.TypesFor,
+
 	---@param unitID integer
 	---@param seconds number
 	DelayBuilder = function(unitID, seconds)
@@ -45,5 +50,15 @@ return {
 	---@return boolean
 	IsExtractor = function(unitDefID)
 		return Placement.IsExtractor(unitDefID)
+	end,
+
+	---@return integer[] the unit def ids that extract metal
+	Mexes = function()
+		return Placement.ExtractorDefIDs("mex")
+	end,
+
+	---@return integer[] the unit def ids that extract energy from the ground
+	Geos = function()
+		return Placement.ExtractorDefIDs("geo")
 	end,
 }

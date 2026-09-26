@@ -1,4 +1,4 @@
-local PolicyBuilder = require("modules/policy_builder")
+local Policy = require("modules/policy")
 
 ---@class ModOptionConfig
 ---@field value string|number|boolean
@@ -181,7 +181,7 @@ function ModeBuilder.Grammar(grammar)
 
 		---@param contract table the module's contract.lua
 		chain.Uses = function(contract)
-			local moduleName = PolicyBuilder.OwnerOf(contract)
+			local moduleName = Policy.OwnerOf(contract)
 			assert(moduleName ~= nil, name .. ": .Uses expects a module's contract (VFS.Include its contract.lua)")
 			chain.uses = chain.uses or {}
 			chain.uses[#chain.uses + 1] = moduleName

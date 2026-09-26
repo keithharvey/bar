@@ -8,7 +8,7 @@ local ResourceTransfer = require("modules/transfer/resource/synced")
 ---@field to integer receiving team
 ---@field resource "metal"|"energy"
 ---@field amount number
----@field grant ResourcePolicyResult the pair's policy result for this resource, as the api resolved it
+---@field grant TransferResourcePolicyResult the pair's policy result for this resource, as the api resolved it
 
 ---@param request table unvalidated; validate is what makes it a TransferResourcesRequest
 ---@return boolean allowed, string? reason
@@ -35,7 +35,7 @@ Actions.RegisterValidate(function(request)
 end)
 
 ---@param request TransferResourcesRequest
----@return ResourceTransferResult
+---@return TransferResourceResult
 Actions.RegisterExecute(function(request)
 	local from, to, resource, amount = request.from, request.to, request.resource, request.amount
 	local springRepo = Spring

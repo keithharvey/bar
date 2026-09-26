@@ -1,4 +1,4 @@
-local ConstructionActions = require("modules/construction/lib/actions")
+local Construction = require("modules/construction/api")
 local ConstructionEnums = require("modules/construction/enums")
 local ResourceTypes = require("gamedata/resource_types")
 
@@ -55,7 +55,7 @@ Actions.Transfer = {
 		end,
 	},
 }
-Actions.Construction = ConstructionActions.Construction
+Actions.Construction = Construction.Actions
 
 Actions.Take = withCategories({ domain = "take" }, ConstructionEnums.UnitCategory)
 Actions.Tech = { domain = "tech" }

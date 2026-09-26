@@ -52,9 +52,9 @@ local spring = Builders.Spring
 
 describe("Tech Core mode #policy", function()
 	describe("at T1 (base tax rate)", function()
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local metalResult
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local energyResult
 
 		before_each(function()
@@ -102,9 +102,9 @@ describe("Tech Core mode #policy", function()
 	end)
 
 	describe("at T2 (reduced tax rate)", function()
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local metalResult
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local energyResult
 
 		before_each(function()
@@ -152,9 +152,9 @@ describe("Tech Core mode #policy", function()
 	end)
 
 	describe("at T3 (lowest tax rate)", function()
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local metalResult
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local energyResult
 
 		before_each(function()
@@ -477,6 +477,7 @@ describe("Tech Core mode policy bundle", function()
 
 	it("serializes to the exact modOptions the literal preset declared", function()
 		assert.same({
+			[TransferEnums.ModOptions.MexSplitting] = { value = TransferEnums.MexSplitting.Shared, locked = true },
 			[TransferEnums.ModOptions.TechBlocking] = { value = true, locked = true },
 			[TransferEnums.ModOptions.T2TechThreshold] = { value = 1, locked = false },
 			[TransferEnums.ModOptions.T3TechThreshold] = { value = 1.5, locked = false },

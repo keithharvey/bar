@@ -1,9 +1,20 @@
 local Comms = require("modules/transfer/unit/comms")
+local Construction = require("modules/construction/api")
 local ConstructionEnums = require("modules/construction/enums")
 local Published = require("modules/published")
 local TransferEnums = require("modules/transfer/enums")
-local UnitCategories = require("modules/construction/lib/unit_categories")
 local UnitSharingCategories = require("modules/transfer/unit/categories")
+
+---@class TransferUnitValidation
+---@field status string TransferEnums.UnitValidationOutcome
+---@field buildDelayedUnitCount integer? Valid units that will receive the constructor build delay
+---@field stunnedUnitCount integer? Valid units that will be stunned (stun category)
+---@field invalidUnitCount integer
+---@field invalidUnitIds integer[]
+---@field invalidUnitNames string[]
+---@field validUnitCount integer
+---@field validUnitIds integer[]
+---@field validUnitNames string[]
 
 local Shared = Comms
 
@@ -30,17 +41,17 @@ local function resetArray(arr)
 	end
 end
 
----@param policyResult UnitPolicyResult
+---@param policyResult TransferUnitPolicyResult
 ---@param unitIds integer[]
 ---@param springApi Spring?
 ---@param unitDefs table?
----@param out UnitValidationResult? optional pre-allocated result to fill in place (table lifting)
----@return UnitValidationResult
+---@param out TransferUnitValidation? optional pre-allocated result to fill in place (table lifting)
+---@return TransferUnitValidation
 function Shared.ValidateUnits(policyResult, unitIds, springApi, unitDefs, out)
 	local spring = springApi or Spring
 	local defs = unitDefs or UnitDefs or (spring.GetUnitDefs and spring.GetUnitDefs()) or {}
 
-	out = out or {} --[[@as UnitValidationResult]]
+	out = out or {} --[[@as TransferUnitValidation]]
 	out.status = TransferEnums.UnitValidationOutcome.Failure
 	out.validUnitCount = 0
 	out.invalidUnitCount = 0
@@ -125,7 +136,7 @@ end
 ---@param senderTeamId integer
 ---@param receiverTeamId integer
 ---@param springApi Spring?
----@return UnitPolicyResult
+---@return TransferUnitPolicyResult
 function Shared.GetCachedPolicyResult(senderTeamId, receiverTeamId, springApi)
 	local spring = springApi or Spring
 	local modOptions = spring.GetModOptions()
@@ -141,7 +152,7 @@ function Shared.GetCachedPolicyResult(senderTeamId, receiverTeamId, springApi)
 
 	if senderFactor == nil or receiverFactor == nil then
 		local category = modOptions.unit_sharing_mode or ConstructionEnums.UnitFilterCategory.None
-		---@type UnitPolicyResult
+		---@type TransferUnitPolicyResult
 		return {
 			senderTeamId = senderTeamId,
 			receiverTeamId = receiverTeamId,
@@ -163,7 +174,7 @@ function Shared.GetCachedPolicyResult(senderTeamId, receiverTeamId, springApi)
 		end
 	end
 
-	---@type UnitPolicyResult
+	---@type TransferUnitPolicyResult
 	return {
 		senderTeamId = senderTeamId,
 		receiverTeamId = receiverTeamId,
@@ -176,7 +187,7 @@ function Shared.GetCachedPolicyResult(senderTeamId, receiverTeamId, springApi)
 end
 
 function Shared.GetModeUnitTypes(category)
-	return UnitCategories.TypesFor(category)
+	return Construction.UnitTypesFor(category)
 end
 
 local function UnitTypeMatchesCategory(unitDef, category)

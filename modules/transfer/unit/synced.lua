@@ -1,6 +1,6 @@
 local ConstructionEnums = require("modules/construction/enums")
+local Contract = require("modules/transfer/contract")
 local ModuleHandler = require("modules/module_handler")
-local Modules = require("modules/enums").Modules
 local Shared = require("modules/transfer/unit/shared")
 
 local Synced = {
@@ -9,10 +9,9 @@ local Synced = {
 }
 
 ---@param ctx TransferPolicyContext
----@return UnitPolicyResult
+---@return TransferUnitPolicyResult
 function Synced.GetPolicy(ctx)
-	local pipelines = ModuleHandler.LoadPolicies(Modules.Transfer) ---@type TransferPipelines
-	return ModuleHandler.Evaluate(pipelines.unit_transfer, ctx)
+	return ModuleHandler.Evaluate(Contract.UnitTransfer, ctx)
 end
 
 ---@param springRepo Spring

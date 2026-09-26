@@ -12,17 +12,15 @@ if not gadgetHandler:IsSyncedCode() then
 	return false
 end
 
+local Contract = require("modules/construction/contract")
 local Debuff = require("modules/construction/lib/build_debuff")
 local ModuleHandler = require("modules/module_handler")
-local Modules = require("modules/enums").Modules
-
-local pipelines = ModuleHandler.LoadPolicies(Modules.Construction) ---@type ConstructionPipelines
 
 ---@param ctx ConstructionBuildContext
 ---@return boolean
 local function mayBuild(ctx)
 	ctx.delayed = Debuff.IsDelayed(ctx.builderID)
-	return ModuleHandler.Evaluate(pipelines.build, ctx) == true
+	return ModuleHandler.Evaluate(Contract.Build, ctx) == true
 end
 
 local spGetUnitIsBeingBuilt = Spring.GetUnitIsBeingBuilt

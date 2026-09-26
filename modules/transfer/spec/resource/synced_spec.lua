@@ -40,7 +40,7 @@ describe("ResourceTransfer #action", function()
 
 	describe("basic resource transfer", function()
 		it("should transfer metal without overhead when the tax rate is zero", function()
-			---@type ResourceTransferRequest
+			---@type TransferResourceRequest
 			local ctx = {
 				senderTeamId = sender.id,
 				receiverTeamId = receiver.id,
@@ -127,7 +127,7 @@ describe("ResourceTransfer #action", function()
 			local r = Builders.Team:new():Human():WithMetal(500):WithMetalStorage(1000)
 			local spr = Builders.Spring.new():WithTeam(s):WithTeam(r):Build()
 
-			---@type ResourceTransferRequest
+			---@type TransferResourceRequest
 			local ctx = {
 				senderTeamId = s.id,
 				receiverTeamId = r.id,
@@ -200,7 +200,7 @@ describe("ResourceTransfer #action", function()
 		end)
 
 		it("should apply tax overhead to the sender cost", function()
-			---@type ResourceTransferRequest
+			---@type TransferResourceRequest
 			local ctx = {
 				senderTeamId = sender.id,
 				receiverTeamId = receiver.id,
@@ -283,7 +283,7 @@ describe("ResourceTransfer #action", function()
 		end)
 
 		it("should handle 100% tax rate", function()
-			---@type ResourceTransferRequest
+			---@type TransferResourceRequest
 			local ctx = {
 				senderTeamId = sender.id,
 				receiverTeamId = receiver.id,

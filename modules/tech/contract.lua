@@ -1,4 +1,4 @@
-local PolicyBuilder = require("modules/policy_builder")
+local Policy = require("modules/policy")
 local Modules = require("modules/enums").Modules
 local ConstructionContract = require("modules/construction/contract")
 
@@ -9,30 +9,27 @@ local ConstructionContract = require("modules/construction/contract")
 ---@field t2Threshold number keystones per player for tech 2
 ---@field t3Threshold number keystones per player for tech 3
 
----@class TechCreationStages the guard tech adds to construction's creation pipeline
+---@class TechCreationSteps the guard tech adds to construction's creation policy
 ---@field BelowTier string a lab whose tier the team has not reached
 
----@type TechCreationStages
+---@type TechCreationSteps
 local Creation = {
 	BelowTier = "BelowTier",
 }
 
----@class TechCoreStages: PolicyStages<TechTierRequest, TechCoreLadder>
----@field TechCoreLadder string
+---@class TechCorePolicy: PolicySteps<TechTierRequest, TechCoreLadder>
+---@field TechCoreLadder "TechCoreLadder"
 
----@type TechCoreStages
+---@type TechCorePolicy
 local TechCore = {
 	TechCoreLadder = "TechCoreLadder",
 }
 
----@class TechPipelines what LoadPolicies("tech") hands back
----@field tech_core AssembledPipeline<TechTierRequest, TechCoreLadder>
-
 ---@class TechContract
----@field TechCore TechCoreStages
----@field Creation TechCreationStages
+---@field TechCore TechCorePolicy
+---@field Creation TechCreationSteps
 
-return PolicyBuilder.Contract(Modules.Tech, {
-	TechCore = PolicyBuilder.Single(TechCore),
-	Creation = PolicyBuilder.Contributes(ConstructionContract.Creation, Creation),
+return Policy.Contract(Modules.Tech, {
+	TechCore = Policy.Single(TechCore),
+	Creation = Policy.Contributes(ConstructionContract.Creation, Creation),
 })

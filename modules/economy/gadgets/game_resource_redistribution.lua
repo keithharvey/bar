@@ -22,6 +22,7 @@ end
 GG = GG or {}
 
 local Contract = require("modules/economy/contract")
+local Extraction = require("modules/economy/lib/extraction")
 local ModuleHandler = require("modules/module_handler")
 local ResourceTypes = require("gamedata/resource_types")
 local ShareStats = require("modules/economy/lib/share_stats")
@@ -63,13 +64,39 @@ local function amended(results)
 	return amendedResults[Contract.Redistribution.Results] or results
 end
 
+-- What extraction pays each team this tick is economy's question; the engine's answer is the default. Whatever a
+-- mode answers, the team's balance is made to match before the tick is solved.
+---@param teams table<integer, EconomyTeamResources>
+local function payExtraction(teams)
+	local teamIDs = {}
+	for teamID in pairs(teams) do
+		teamIDs[#teamIDs + 1] = teamID
+	end
+	table.sort(teamIDs)
+	local seconds = CADENCE / 30
+	local made = Extraction.Made(springRepo, teamIDs, seconds)
+	---@type EconomyExtractionContext
+	local ctx = { springRepo = springRepo, teams = teams, seconds = seconds, income = made }
+	local income = ModuleHandler.Enrich(Contract.Extraction, springRepo.GetModOptions(), ctx)[Contract.Extraction.Income]
+		or made
+	for teamID, paid in pairs(income) do
+		for resourceType, amount in pairs(paid) do
+			local res = teams[teamID] and teams[teamID][resourceType]
+			local delta = amount - ((made[teamID] or {})[resourceType] or 0)
+			if res and delta ~= 0 then
+				res.current = math.max(0, math.min(res.storage, res.current + delta))
+			end
+		end
+	end
+end
+
 local overflowAccum = {} ---@type table<integer, [number, number]>
 
-local snapshotPool = {} ---@type table<integer, TeamResourceData>
+local snapshotPool = {} ---@type table<integer, EconomyTeamResources>
 
----@return table<integer, TeamResourceData>
+---@return table<integer, EconomyTeamResources>
 local function buildSnapshot()
-	local teams = {} ---@type table<integer, TeamResourceData>
+	local teams = {} ---@type table<integer, EconomyTeamResources>
 	local teamList = spGetTeamList()
 	for i = 1, #teamList do
 		local teamID = teamList[i]
@@ -108,13 +135,13 @@ local function buildSnapshot()
 			entry.allyTeam = allyTeam
 			entry.isDead = isDead
 
-			local m = entry.metal --[[@as ResourceData]]
+			local m = entry.metal --[[@as EconomyResource]]
 			m.current = mCur
 			m.storage = mStor
 			m.shareSlider = mShare
 			m.excess = acc and acc[1] or 0
 
-			local e = entry.energy --[[@as ResourceData]]
+			local e = entry.energy --[[@as EconomyResource]]
 			e.current = eCur
 			e.storage = eStor
 			e.shareSlider = eShare
@@ -133,6 +160,7 @@ local function redistribute(frame)
 	end
 
 	local teams = buildSnapshot()
+	payExtraction(teams)
 	local results = amended(WaterfillSolver.SolveToResults(springRepo, teams, taxRateFor))
 
 	for i = 1, #results do

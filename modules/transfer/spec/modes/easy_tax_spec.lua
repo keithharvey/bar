@@ -18,9 +18,9 @@ local spring = Builders.Spring
 
 describe("Easy Tax mode #policy", function()
 	describe("with default settings (30% tax)", function()
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local metalResult
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local energyResult
 
 		before_each(function()
@@ -49,9 +49,9 @@ describe("Easy Tax mode #policy", function()
 	end)
 
 	describe("when receiver is full", function()
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local metalResult
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local energyResult
 
 		before_each(function()
@@ -155,6 +155,7 @@ describe("Easy Tax mode policy bundle", function()
 
 	it("serializes to the exact modOptions the literal preset declared", function()
 		assert.same({
+			[TransferEnums.ModOptions.MexSplitting] = { value = TransferEnums.MexSplitting.MapAssigned, locked = true },
 			[TransferEnums.ModOptions.UnitSharingMode] = {
 				value = ConstructionEnums.UnitFilterCategory.All,
 				locked = true,

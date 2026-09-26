@@ -37,9 +37,9 @@ describe(TransferEnums.ModOptions.TaxResourceSharingAmount .. " #policy", functi
 	local taxRate = 0.5
 
 	describe("simple taxation", function()
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local metalResult
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local energyResult
 
 		before_each(function()
@@ -74,9 +74,9 @@ describe(TransferEnums.ModOptions.TaxResourceSharingAmount .. " #policy", functi
 	end)
 
 	describe("when receiver is full", function()
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local metalResult
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local energyResult
 
 		before_each(function()
@@ -108,7 +108,7 @@ describe(TransferEnums.ModOptions.TaxResourceSharingAmount .. " #policy", functi
 	end)
 
 	describe("rate = 0.7, receiver capacity 300, sender 1000", function()
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local energyResult
 		local testTaxRate = 0.7
 
@@ -127,7 +127,7 @@ describe(TransferEnums.ModOptions.TaxResourceSharingAmount .. " #policy", functi
 	end)
 
 	describe("sender 1000, rate = 0.7, receiver capacity 300", function()
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local energyResult
 		local testTaxRate = 0.7
 
@@ -150,9 +150,9 @@ describe(TransferEnums.ModOptions.TaxResourceSharingAmount .. " #policy", functi
 	end)
 
 	describe("when taxation is disabled", function()
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local metalResult
-		---@type ResourcePolicyResult
+		---@type TransferResourcePolicyResult
 		local energyResult
 
 		before_each(function()

@@ -1,7 +1,7 @@
-local ModuleHandler = require("modules/module_handler")
-local Modules = require("modules/enums").Modules
 local ConstructionEnums = require("modules/construction/enums")
 local Contract = require("modules/transfer/contract")
+local ModuleHandler = require("modules/module_handler")
+local TechContract = require("modules/tech/contract")
 local TechTier = require("modules/tech/tier")
 local teamTerms = Contract.TeamTerms
 local teamPairing = Contract.TeamPairing
@@ -28,20 +28,18 @@ Policies.On(teamPairing)
 			t2Threshold = tonumber(rawT2 or 0) or 0,
 			t3Threshold = tonumber(rawT3 or 0) or 0,
 		}
-		local pipelines = ModuleHandler.LoadPolicies(Modules.Tech) ---@type TechPipelines
-		local tier = ModuleHandler.Evaluate(pipelines.tech_core, request)
+		local tier = ModuleHandler.Evaluate(TechContract.TechCore, request)
 		local taxRate = (tier.taxRate ~= nil and tier.taxRate >= 0) and tier.taxRate or nil
 		return tier.blocking, tier.modes, taxRate
 	end)
 
 local NONE_MODE = ConstructionEnums.UnitFilterCategory.None
 
-Policies.On(unitTermsNotes).Provide(unitTermsNotes.FutureUnlock, unitTermsNotes.TechData, function(policy)
+Policies.On(unitTermsNotes).Provide(unitTermsNotes.FutureUnlock, unitTermsNotes.TechData, function(policy, opts)
 	local tb = policy.techBlocking
 	if not tb then
 		return false, nil
 	end
-	local opts = Spring.GetModOptions()
 	local nextMode, nextLevel, nextThreshold
 	for scanLevel = tb.level + 1, 3 do
 		local mode = opts["unit_sharing_mode_at_t" .. scanLevel] ---@type string? sparse modoption
@@ -60,12 +58,11 @@ Policies.On(unitTermsNotes).Provide(unitTermsNotes.FutureUnlock, unitTermsNotes.
 		}
 end)
 
-Policies.On(resourceTermsNotes).Provide(resourceTermsNotes.TaxUnlock, function(policyResult)
+Policies.On(resourceTermsNotes).Provide(resourceTermsNotes.TaxUnlock, function(policyResult, opts)
 	local tb = policyResult.techBlocking
 	if not tb then
 		return nil
 	end
-	local opts = Spring.GetModOptions()
 	for scanLevel = tb.level + 1, 3 do
 		local raw = opts["tax_resource_sharing_amount_at_t" .. scanLevel]
 		local rate = tonumber(raw)

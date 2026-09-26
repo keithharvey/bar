@@ -95,7 +95,7 @@ describe(TransferEnums.ModOptions.UnitSharingMode .. " #policy", function()
 	for modeKey, config in pairs(testConfigs) do
 		describe("WHEN unit sharing mode is set to " .. config.mode, function()
 			spring:WithModOption(TransferEnums.ModOptions.UnitSharingMode, config.mode)
-			local result ---@type UnitPolicyResult
+			local result ---@type TransferUnitPolicyResult
 			local unitIds = {} ---@type table<string, integer>
 			local api ---@type SpringSyncedMock
 

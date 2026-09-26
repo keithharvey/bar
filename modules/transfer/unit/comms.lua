@@ -15,8 +15,8 @@ local function displayModes(modes)
 	return table.concat(names, " + ")
 end
 
----@param policy UnitPolicyResult
----@param validationResult UnitValidationResult?
+---@param policy TransferUnitPolicyResult
+---@param validationResult TransferUnitValidation?
 ---@return number TransferEnums.UnitCommunicationCase
 function Comms.DecideCommunicationCase(policy, validationResult)
 	if policy.senderTeamId == policy.receiverTeamId then
@@ -39,8 +39,8 @@ function Comms.DecideCommunicationCase(policy, validationResult)
 end
 
 ---@param text string
----@param policy UnitPolicyResult
----@param validationResult UnitValidationResult?
+---@param policy TransferUnitPolicyResult
+---@param validationResult TransferUnitValidation?
 ---@return string
 local function withPolicyEffects(text, policy, validationResult)
 	if not validationResult then
@@ -73,10 +73,10 @@ local function withPolicyEffects(text, policy, validationResult)
 	return text
 end
 
----@param policy UnitPolicyResult
----@param validationResult UnitValidationResult?
+---@param policy TransferUnitPolicyResult
+---@param validationResult TransferUnitValidation?
 function Comms.TooltipText(policy, validationResult)
-	local notes = Notes.For(Contract.UnitTermsNotes, policy)
+	local notes = Notes.For(Contract.UnitTermsNotes, policy, Spring.GetModOptions())
 	local hasTechUnlock = policy.techBlocking ~= nil
 	local futureUnlock = hasTechUnlock and notes.futureUnlock == true
 	local tree = (hasTechUnlock and futureUnlock) and "tech" or "base"

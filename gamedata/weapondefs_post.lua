@@ -11,10 +11,9 @@
 local system = VFS.Include("gamedata/system.lua")
 local savedefs = require("gamedata/post_save_to_customparams")
 
-local ModuleHandler = require("modules/module_handler")
-local Modules = require("modules/enums").Modules
 local Defs = require("modules/defs/api")
-local weaponDefPipeline = ModuleHandler.LoadPolicies(Modules.Defs).weapon_def ---@type AssembledPipeline<DefContext, DefContext>
+local DefsContract = require("modules/defs/contract")
+local ModuleHandler = require("modules/module_handler")
 local modOptions = Spring.GetModOptions()
 local saveDefToCustomParams = savedefs.SaveDefToCustomParams
 local markDefOmittedInCustomParams = savedefs.MarkDefOmittedInCustomParams
@@ -96,7 +95,7 @@ end
 
 -- postprocess weapondefs
 for name, weaponDef in pairs(WeaponDefs) do
-	ModuleHandler.Evaluate(weaponDefPipeline, { name = name, def = weaponDef, modOptions = modOptions })
+	ModuleHandler.Evaluate(DefsContract.WeaponDef, { name = name, def = weaponDef, modOptions = modOptions })
 
 	if SaveDefsToCustomParams then
 		saveDefToCustomParams("WeaponDefs", name, weaponDef)

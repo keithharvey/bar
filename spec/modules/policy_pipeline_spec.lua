@@ -1,5 +1,5 @@
 local ModuleHandler = require("modules/module_handler")
-local PolicyBuilder = require("modules/policy_builder")
+local Policy = require("modules/policy")
 
 ---@class SpecCtx
 ---@field submerged boolean|nil
@@ -13,11 +13,11 @@ local PolicyBuilder = require("modules/policy_builder")
 ---@field inMud boolean|nil
 
 local function owner()
-	---@type AssembledPipeline<SpecCtx, boolean|string|table>
-	local stages = { result = "single" }
-	PolicyBuilder.Assemble(
-		stages,
-		PolicyBuilder.Pipeline()
+	---@type AssembledPolicy<SpecCtx, boolean|string|table>
+	local steps = { result = "single" }
+	Policy.Assemble(
+		steps,
+		Policy.Chain()
 			.Unless("Submerged", function(ctx)
 				return ctx.submerged
 			end)
@@ -30,154 +30,143 @@ local function owner()
 			.Build(),
 		"owner"
 	)
-	return stages
+	return steps
 end
 
-local function names(stages)
+local function names(steps)
 	local out = {}
-	for i, stage in ipairs(stages) do
-		out[i] = stage.name
+	for i, step in ipairs(steps) do
+		out[i] = step.name
 	end
 	return out
 end
 
 local run = ModuleHandler.Evaluate
 
-describe("a pipeline's identity", function()
+describe("a policy's identity", function()
 	it("carries an inline policy when the contract has one, and including it runs nothing", function()
 		local ran = 0
-		local Contract = PolicyBuilder.Contract("transport", {
-			Load = PolicyBuilder.Single({ Submerged = "Submerged" }),
+		local Contract = Policy.Contract("transport", {
+			Load = Policy.Single({ Submerged = "Submerged" }),
 		}, function(Policies)
 			ran = ran + 1
 		end)
-		assert.is_function(PolicyBuilder.InlinePolicies(Contract))
+		assert.is_function(Policy.InlinePolicies(Contract))
 		assert.are.equal(0, ran)
-		assert.is_nil(PolicyBuilder.InlinePolicies(PolicyBuilder.Contract("transport", {})))
+		assert.is_nil(Policy.InlinePolicies(Policy.Contract("transport", {})))
 		assert.has_error(function()
-			PolicyBuilder.Contract("transport", {}, "not a function")
+			Policy.Contract("transport", {}, "not a function")
 		end)
 	end)
 
 	it("names the module a contract belongs to", function()
-		local Contract = PolicyBuilder.Contract("transport", {
-			Load = PolicyBuilder.Single({ Submerged = "Submerged" }),
+		local Contract = Policy.Contract("transport", {
+			Load = Policy.Single({ Submerged = "Submerged" }),
 		})
-		assert.are.equal("transport", PolicyBuilder.OwnerOf(Contract))
-		assert.is_nil(PolicyBuilder.OwnerOf({}))
-		assert.is_nil(PolicyBuilder.OwnerOf("transport"))
+		assert.are.equal("transport", Policy.OwnerOf(Contract))
+		assert.is_nil(Policy.OwnerOf({}))
+		assert.is_nil(Policy.OwnerOf("transport"))
 	end)
 
 	it("carries owner, category and the declared result", function()
-		local Contract = PolicyBuilder.Contract("transport", {
-			Load = PolicyBuilder.Single({ Submerged = "Submerged" }),
-			LoadedSpeed = PolicyBuilder.Product({ CommanderDrag = "CommanderDrag" }),
+		local Contract = Policy.Contract("transport", {
+			Load = Policy.Single({ Submerged = "Submerged" }),
+			LoadedSpeed = Policy.Product({ CommanderDrag = "CommanderDrag" }),
 		})
-		assert.are.same(
-			{ owner = "transport", category = "load", result = "single" },
-			PolicyBuilder.IdentityOf(Contract.Load)
-		)
+		assert.are.same({ owner = "transport", category = "load", result = "single" }, Policy.IdentityOf(Contract.Load))
 		assert.are.same(
 			{ owner = "transport", category = "loaded_speed", result = "product" },
-			PolicyBuilder.IdentityOf(Contract.LoadedSpeed)
+			Policy.IdentityOf(Contract.LoadedSpeed)
 		)
-		assert.is_nil(PolicyBuilder.IdentityOf({}))
-		assert.are.equal(Contract.Load, PolicyBuilder.Pipeline(Contract.Load).stages)
+		assert.is_nil(Policy.IdentityOf({}))
+		assert.are.equal(Contract.Load, Policy.Chain(Contract.Load).steps)
 	end)
 
 	it("requires every category to declare itself", function()
 		assert.has_error(
 			function()
-				PolicyBuilder.Contract("transport", { Load = { Submerged = "Submerged" } })
+				Policy.Contract("transport", { Load = { Submerged = "Submerged" } })
 			end,
-			"PolicyBuilder.Contract: Load must declare itself: Single(...), Product(...), Fold(...), Contributes(...) or Facts(...)"
+			"Policy.Contract: Load must declare itself: Single(...), Product(...), Fold(...), Contributes(...) or Facts(...)"
 		)
 	end)
 
 	it("serializes a declaration's name to the key the runtime uses", function()
-		assert.are.equal("unit_terms_notes", PolicyBuilder.KeyOf("UnitTermsNotes"))
-		assert.are.equal("take", PolicyBuilder.KeyOf("Take"))
+		assert.are.equal("unit_terms_notes", Policy.KeyOf("UnitTermsNotes"))
+		assert.are.equal("take", Policy.KeyOf("Take"))
 	end)
 end)
 
 describe("one chain for owners and contributors", function()
-	it("a bare stage joins the end of the checks, never past the terminal", function()
-		local stages = owner()
-		PolicyBuilder.Assemble(
-			stages,
-			PolicyBuilder.Pipeline()
+	it("a bare step joins the end of the checks, never past the terminal", function()
+		local steps = owner()
+		Policy.Assemble(
+			steps,
+			Policy.Chain()
 				.Unless("NoTanks", function(ctx)
 					return ctx.tank
 				end)
 				.Build(),
 			"mod"
 		)
-		assert.are.same({ "Submerged", "OutOfReach", "NoTanks", "Allowed" }, names(stages))
-		assert.is_false(run(stages, { tank = true }))
-		assert.is_true(run(stages, {}))
+		assert.are.same({ "Submerged", "OutOfReach", "NoTanks", "Allowed" }, names(steps))
+		assert.is_false(run(steps, { tank = true }))
+		assert.is_true(run(steps, {}))
 	end)
 
-	it("places a stage after or before a named stage", function()
-		local stages = owner()
-		local ops = PolicyBuilder.Pipeline()
+	it("places a step after or before a named step", function()
+		local steps = owner()
+		local ops = Policy.Chain()
 			.Unless("A", function() end)
 			.After("Submerged")
 			.Unless("B", function() end)
 			.Before("Allowed")
 			.Build()
-		PolicyBuilder.Assemble(stages, ops, "mod")
-		assert.are.same({ "Submerged", "A", "OutOfReach", "B", "Allowed" }, names(stages))
+		Policy.Assemble(steps, ops, "mod")
+		assert.are.same({ "Submerged", "A", "OutOfReach", "B", "Allowed" }, names(steps))
 	end)
 
-	it("replaces a stage in place, keeping its kind, the terminal included", function()
-		local stages = owner()
-		local ops = PolicyBuilder.Pipeline()
+	it("replaces a step in place, keeping its kind, the terminal included", function()
+		local steps = owner()
+		local ops = Policy.Chain()
 			.Replace("OutOfReach", function() end)
 			.Replace("Allowed", function()
 				return "maybe"
 			end)
 			.Build()
-		PolicyBuilder.Assemble(stages, ops, "mod")
-		assert.are.same({ "Submerged", "OutOfReach", "Allowed" }, names(stages))
-		assert.are.equal("answer", stages[3].kind)
-		assert.are.equal("maybe", run(stages, { far = true }))
+		Policy.Assemble(steps, ops, "mod")
+		assert.are.same({ "Submerged", "OutOfReach", "Allowed" }, names(steps))
+		assert.are.equal("answer", steps[3].kind)
+		assert.are.equal("maybe", run(steps, { far = true }))
 	end)
 
-	it("removes a stage", function()
-		local stages = owner()
-		PolicyBuilder.Assemble(stages, PolicyBuilder.Pipeline().Remove("Submerged").Build(), "mod")
-		assert.are.same({ "OutOfReach", "Allowed" }, names(stages))
-		assert.is_true(run(stages, { submerged = true }))
+	it("removes a step", function()
+		local steps = owner()
+		Policy.Assemble(steps, Policy.Chain().Remove("Submerged").Build(), "mod")
+		assert.are.same({ "OutOfReach", "Allowed" }, names(steps))
+		assert.is_true(run(steps, { submerged = true }))
 	end)
 
 	it("names are the contract: unknown or colliding names are load errors naming the file", function()
 		assert.has_error(function()
-			PolicyBuilder.Assemble(
-				owner(),
-				PolicyBuilder.Pipeline().Replace("Ghost", function() end).Build(),
-				"mod.lua"
-			)
-		end, "mod.lua: no stage named Ghost to replace")
+			Policy.Assemble(owner(), Policy.Chain().Replace("Ghost", function() end).Build(), "mod.lua")
+		end, "mod.lua: no step named Ghost to replace")
 		assert.has_error(function()
-			PolicyBuilder.Assemble(
-				owner(),
-				PolicyBuilder.Pipeline().Unless("Submerged", function() end).Build(),
-				"mod.lua"
-			)
-		end, "mod.lua: the pipeline already has a stage named Submerged")
+			Policy.Assemble(owner(), Policy.Chain().Unless("Submerged", function() end).Build(), "mod.lua")
+		end, "mod.lua: the policy already has a step named Submerged")
 		assert.has_error(function()
-			PolicyBuilder.Pipeline().After("Submerged")
+			Policy.Chain().After("Submerged")
 		end)
 	end)
 end)
 
 describe("one chain for owners and contributors", function()
 	it("If is the inclusive guard: it refuses when its condition does not hold", function()
-		---@type AssembledPipeline<SpecCtx, boolean>
-		local stages = { result = "single" }
-		PolicyBuilder.Assemble(
-			stages,
-			PolicyBuilder.Pipeline()
+		---@type AssembledPolicy<SpecCtx, boolean>
+		local steps = { result = "single" }
+		Policy.Assemble(
+			steps,
+			Policy.Chain()
 				.If("WithinReach", function(ctx)
 					return ctx.reachable
 				end)
@@ -187,21 +176,21 @@ describe("one chain for owners and contributors", function()
 				.Build(),
 			"owner"
 		)
-		assert.is_false(run(stages, {}))
-		assert.is_true(run(stages, { reachable = true }))
+		assert.is_false(run(steps, {}))
+		assert.is_true(run(steps, { reachable = true }))
 	end)
 end)
 
 describe("facts", function()
 	it("carries identity, and provisions are named or refused", function()
-		local Contract = PolicyBuilder.Contract("transfer", {
-			TeamPairing = PolicyBuilder.Facts({ TechBlocking = "techBlocking" }),
+		local Contract = Policy.Contract("transfer", {
+			TeamPairing = Policy.Facts({ TechBlocking = "techBlocking" }),
 		})
 		assert.are.same(
 			{ owner = "transfer", category = "team_pairing", facts = true },
-			PolicyBuilder.IdentityOf(Contract.TeamPairing)
+			Policy.IdentityOf(Contract.TeamPairing)
 		)
-		local ops = PolicyBuilder.Enrichment(Contract.TeamPairing)
+		local ops = Policy.Enrichment(Contract.TeamPairing)
 			.Provide(Contract.TeamPairing.TechBlocking, function(ctx)
 				return { level = 2 }
 			end)
@@ -210,10 +199,10 @@ describe("facts", function()
 	end)
 
 	it("a provider may add a fact the contract did not declare, and never removes one", function()
-		local Contract = PolicyBuilder.Contract("transfer", {
-			TeamPairing = PolicyBuilder.Facts({ TaxRate = "taxRate" }),
+		local Contract = Policy.Contract("transfer", {
+			TeamPairing = Policy.Facts({ TaxRate = "taxRate" }),
 		})
-		local ops = PolicyBuilder.Enrichment(Contract.TeamPairing)
+		local ops = Policy.Enrichment(Contract.TeamPairing)
 			.Provide("stunSeconds", function()
 				return 30
 			end)
@@ -223,14 +212,14 @@ describe("facts", function()
 	end)
 
 	it("one producer can fill several provisions, in order", function()
-		local ops = PolicyBuilder.Enrichment()
+		local ops = Policy.Enrichment()
 			.Provide("a", "b", function()
 				return 1, 2
 			end)
 			.Build()
 		assert.are.same({ "a", "b" }, ops[1].names)
 		assert.has_error(function()
-			PolicyBuilder.Enrichment().Provide("a")
+			Policy.Enrichment().Provide("a")
 		end)
 	end)
 end)
@@ -247,10 +236,10 @@ end)
 
 describe("the refusal", function()
 	it("is what every Answer declining becomes: nothing said yes is a no", function()
-		local stages = { result = "single" }
-		PolicyBuilder.Assemble(
-			stages,
-			PolicyBuilder.Pipeline()
+		local steps = { result = "single" }
+		Policy.Assemble(
+			steps,
+			Policy.Chain()
 				.Answer("Stunned", function(ctx)
 					if ctx.stunned then
 						return true
@@ -259,91 +248,87 @@ describe("the refusal", function()
 				.Build(),
 			"owner"
 		)
-		assert.is_true(run(stages, { stunned = true }))
-		assert.is_false(run(stages, {}))
-		PolicyBuilder.Assemble(
-			stages,
-			PolicyBuilder.Pipeline()
+		assert.is_true(run(steps, { stunned = true }))
+		assert.is_false(run(steps, {}))
+		Policy.Assemble(
+			steps,
+			Policy.Chain()
 				.Refusal(function()
 					return { allowed = false, reason = "nobody said yes" }
 				end)
 				.Build(),
 			"owner"
 		)
-		assert.are.same({ allowed = false, reason = "nobody said yes" }, run(stages, {}))
+		assert.are.same({ allowed = false, reason = "nobody said yes" }, run(steps, {}))
 	end)
 
 	it("a Product with no factor is a broken owner, and says so", function()
-		local stages = { result = "product" }
-		PolicyBuilder.Assemble(
-			stages,
-			PolicyBuilder.Pipeline()
+		local steps = { result = "product" }
+		Policy.Assemble(
+			steps,
+			Policy.Chain()
 				.Factor("Base", function(ctx)
 					return ctx.speed
 				end)
 				.Build(),
 			"owner"
 		)
-		assert.are.equal(3, run(stages, { speed = 3 }))
+		assert.are.equal(3, run(steps, { speed = 3 }))
 		assert.has_error(function()
-			run(stages, {})
+			run(steps, {})
 		end)
 	end)
 
-	it("is false unless the pipeline declares its shape", function()
-		local stages = owner()
-		assert.is_false(run(stages, { submerged = true }))
-		PolicyBuilder.Assemble(
-			stages,
-			PolicyBuilder.Pipeline()
+	it("is false unless the policy declares its shape", function()
+		local steps = owner()
+		assert.is_false(run(steps, { submerged = true }))
+		Policy.Assemble(
+			steps,
+			Policy.Chain()
 				.Refusal(function(ctx)
 					return { allowed = false, deep = ctx.submerged }
 				end)
 				.Build(),
 			"owner"
 		)
-		assert.are.same({ allowed = false, deep = true }, run(stages, { submerged = true }))
-		assert.is_true(run(stages, {}))
+		assert.are.same({ allowed = false, deep = true }, run(steps, { submerged = true }))
+		assert.is_true(run(steps, {}))
 	end)
 
 	it("is declared once", function()
-		local stages = owner()
-		local shape = PolicyBuilder.Pipeline()
+		local steps = owner()
+		local shape = Policy.Chain()
 			.Refusal(function()
 				return false
 			end)
 			.Build()
-		PolicyBuilder.Assemble(stages, shape, "owner")
+		Policy.Assemble(steps, shape, "owner")
 		assert.has_error(function()
-			PolicyBuilder.Assemble(stages, shape, "mod.lua")
-		end, "mod.lua: the pipeline already has a Refusal")
+			Policy.Assemble(steps, shape, "mod.lua")
+		end, "mod.lua: the policy already has a Refusal")
 	end)
 end)
 
 describe("the declared result", function()
 	it("single: ends with an Answer", function()
-		PolicyBuilder.Validate(owner(), "single", "transport.load")
+		Policy.Validate(owner(), "single", "transport.load")
 		assert.has_error(function()
-			local stages = owner()
-			PolicyBuilder.Assemble(stages, PolicyBuilder.Pipeline().Remove("Allowed").Build(), "mod")
-			PolicyBuilder.Validate(stages, "single", "transport.load")
-		end, "transport.load: a single-result pipeline ends with an Answer; OutOfReach is a guard")
+			local steps = owner()
+			Policy.Assemble(steps, Policy.Chain().Remove("Allowed").Build(), "mod")
+			Policy.Validate(steps, "single", "transport.load")
+		end, "transport.load: a single-result policy ends with an Answer; OutOfReach is a guard")
 		assert.has_error(function()
-			local stages = owner()
-			PolicyBuilder.Assemble(
-				stages,
-				PolicyBuilder.Pipeline().Unless("Late", function() end).After("Allowed").Build(),
-				"mod"
-			)
-			PolicyBuilder.Validate(stages, "single", "transport.load")
-		end, "transport.load: a single-result pipeline ends with an Answer; Late is a guard")
+			local steps = owner()
+			Policy.Assemble(steps, Policy.Chain().Unless("Late", function() end).After("Allowed").Build(), "mod")
+			Policy.Validate(steps, "single", "transport.load")
+		end, "transport.load: a single-result policy ends with an Answer; Late is a guard")
 	end)
 
 	it("single: an early Answer preempts — answering when it can, passing when it cannot", function()
-		local stages = owner()
-		PolicyBuilder.Assemble(
-			stages,
-			PolicyBuilder.Pipeline()
+		local steps = owner()
+		Policy.Assemble(
+			steps,
+			Policy.Chain()
 				.Answer("Scripted", function(ctx)
 					return ctx.scripted
 				end)
@@ -351,18 +336,18 @@ describe("the declared result", function()
 				.Build(),
 			"mod"
 		)
-		PolicyBuilder.Validate(stages, "single", "transport.load")
-		assert.are.equal("override", run(stages, { scripted = "override", submerged = true }))
-		assert.is_false(run(stages, { submerged = true }))
-		assert.is_true(run(stages, {}))
+		Policy.Validate(steps, "single", "transport.load")
+		assert.are.equal("override", run(steps, { scripted = "override", submerged = true }))
+		assert.is_false(run(steps, { submerged = true }))
+		assert.is_true(run(steps, {}))
 	end)
 
 	it("product: factors from every module multiply into one answer", function()
-		---@type AssembledPipeline<SpecProductCtx, number>
-		local pipeline = { result = "product" }
-		PolicyBuilder.Assemble(
-			pipeline,
-			PolicyBuilder.Pipeline()
+		---@type AssembledPolicy<SpecProductCtx, number>
+		local policy = { result = "product" }
+		Policy.Assemble(
+			policy,
+			Policy.Chain()
 				.Factor("CommanderDrag", function(ctx)
 					return ctx.carriesCommander and 0.5 or nil
 				end)
@@ -372,48 +357,44 @@ describe("the declared result", function()
 				.Build(),
 			"owner"
 		)
-		assert.are.equal(0.125, run(pipeline, { carriesCommander = true, inMud = true }))
-		assert.are.equal(0.25, run(pipeline, { inMud = true }))
+		assert.are.equal(0.125, run(policy, { carriesCommander = true, inMud = true }))
+		assert.are.equal(0.25, run(policy, { inMud = true }))
 		assert.has_error(function()
-			run(pipeline, {})
+			run(policy, {})
 		end)
 	end)
 
-	it("product: every stage is a Factor", function()
-		local stages = {}
-		PolicyBuilder.Assemble(
-			stages,
-			PolicyBuilder.Pipeline().Factor("CommanderDrag", function() end).Build(),
-			"owner"
-		)
-		PolicyBuilder.Validate(stages, "product", "transport.loaded_speed")
+	it("product: every step is a Factor", function()
+		local steps = {}
+		Policy.Assemble(steps, Policy.Chain().Factor("CommanderDrag", function() end).Build(), "owner")
+		Policy.Validate(steps, "product", "transport.loaded_speed")
 		assert.has_error(function()
-			PolicyBuilder.Assemble(stages, PolicyBuilder.Pipeline().Unless("NoMud", function() end).Build(), "mod")
-			PolicyBuilder.Validate(stages, "product", "transport.loaded_speed")
-		end, "transport.loaded_speed: a product pipeline multiplies Factor results; NoMud is a guard")
+			Policy.Assemble(steps, Policy.Chain().Unless("NoMud", function() end).Build(), "mod")
+			Policy.Validate(steps, "product", "transport.loaded_speed")
+		end, "transport.loaded_speed: a product policy multiplies Factor results; NoMud is a guard")
 	end)
 end)
 
 describe("the fold result", function()
 	local function fold(ops, origin)
-		---@type AssembledPipeline<table, table>
-		local stages = { result = "fold" }
-		PolicyBuilder.Assemble(stages, ops, origin)
-		return stages
+		---@type AssembledPolicy<table, table>
+		local steps = { result = "fold" }
+		Policy.Assemble(steps, ops, origin)
+		return steps
 	end
 
 	it("hands one context through every Apply, owner's first, and returns it", function()
-		local stages = fold(
-			PolicyBuilder.Pipeline()
+		local steps = fold(
+			Policy.Chain()
 				.Apply("Base", function(ctx)
 					ctx.def.mass = (ctx.def.mass or 0) + 1
 				end)
 				.Build(),
 			"owner"
 		)
-		PolicyBuilder.Assemble(
-			stages,
-			PolicyBuilder.Pipeline()
+		Policy.Assemble(
+			steps,
+			Policy.Chain()
 				.Apply("Heavier", function(ctx)
 					ctx.def.mass = ctx.def.mass * 10
 				end)
@@ -421,14 +402,14 @@ describe("the fold result", function()
 			"mod"
 		)
 		local ctx = { def = {} }
-		assert.are.equal(ctx, ModuleHandler.Evaluate(stages, ctx))
+		assert.are.equal(ctx, ModuleHandler.Evaluate(steps, ctx))
 		assert.are.equal(10, ctx.def.mass)
-		assert.are.same({ "Base", "Heavier" }, names(stages))
+		assert.are.same({ "Base", "Heavier" }, names(steps))
 	end)
 
-	it("every stage is an Apply: a fold has nothing to refuse", function()
-		local stages = fold(
-			PolicyBuilder.Pipeline()
+	it("every step is an Apply: a fold has nothing to refuse", function()
+		local steps = fold(
+			Policy.Chain()
 				.Unless("Never", function()
 					return false
 				end)
@@ -436,43 +417,43 @@ describe("the fold result", function()
 			"owner"
 		)
 		assert.has_error(function()
-			PolicyBuilder.Validate(stages, "fold", "defs.unit_def")
-		end, "defs.unit_def: a fold pipeline runs every Apply over the context; Never is a guard")
+			Policy.Validate(steps, "fold", "defs.unit_def")
+		end, "defs.unit_def: a fold policy runs every Apply over the context; Never is a guard")
 	end)
 end)
 
 describe("a declared contribution", function()
 	local function target()
-		return PolicyBuilder.Contract("transport", {
-			Load = PolicyBuilder.Single({ Submerged = "Submerged", Allowed = "Allowed" }),
-			Facts = PolicyBuilder.Facts({ Reach = "reach" }),
+		return Policy.Contract("transport", {
+			Load = Policy.Single({ Submerged = "Submerged", Allowed = "Allowed" }),
+			Facts = Policy.Facts({ Reach = "reach" }),
 		})
 	end
 
 	it("carries the target's identity and the contributor's own", function()
 		local Contract = target()
-		local mod = PolicyBuilder.Contract("mod", {
-			Load = PolicyBuilder.Contributes(Contract.Load, { NoTanks = "NoTanks" }),
+		local mod = Policy.Contract("mod", {
+			Load = Policy.Contributes(Contract.Load, { NoTanks = "NoTanks" }),
 		})
 		assert.are.same(
-			{ owner = "mod", category = "load", contributes = PolicyBuilder.IdentityOf(Contract.Load) },
-			PolicyBuilder.IdentityOf(mod.Load)
+			{ owner = "mod", category = "load", contributes = Policy.IdentityOf(Contract.Load) },
+			Policy.IdentityOf(mod.Load)
 		)
 		assert.are.equal("NoTanks", mod.Load.NoTanks)
 	end)
 
-	it("targets a pipeline, never a context", function()
+	it("targets a policy, never a context", function()
 		local Contract = target()
 		assert.has_error(function()
-			PolicyBuilder.Contributes({}, { A = "A" })
-		end, "PolicyBuilder.Contributes(target, names): target must be a pipeline's stages")
+			Policy.Contributes({}, { A = "A" })
+		end, "Policy.Contributes(target, names): target must be a policy's steps")
 		assert.has_error(function()
-			PolicyBuilder.Contributes(Contract.Facts, { A = "A" })
-		end, "PolicyBuilder.Contributes(target, names): target must be a pipeline's stages")
+			Policy.Contributes(Contract.Facts, { A = "A" })
+		end, "Policy.Contributes(target, names): target must be a policy's steps")
 	end)
 
 	it("is the only way to add a step: a name no contract declares is refused", function()
-		local ops = PolicyBuilder.Pipeline()
+		local ops = Policy.Chain()
 			.Unless("NoTanks", function()
 				return true
 			end)
@@ -492,7 +473,7 @@ describe("a declared contribution", function()
 	end)
 
 	it("moving, replacing or removing a step needs no declaration: the name already exists", function()
-		local ops = PolicyBuilder.Pipeline()
+		local ops = Policy.Chain()
 			.Replace("Submerged", function()
 				return false
 			end)
@@ -507,7 +488,7 @@ describe("a contract's facts", function()
 		return { module = module, ops = ops, file = module .. "/policies/x.lua" }
 	end
 	local function defaults(...)
-		local chain = PolicyBuilder.Enrichment()
+		local chain = Policy.Enrichment()
 		for _, name in ipairs({ ... }) do
 			chain.Default(name, function()
 				return "default:" .. name
@@ -516,20 +497,17 @@ describe("a contract's facts", function()
 		return chain.Build()
 	end
 	local function provides(name, value)
-		return PolicyBuilder.Enrichment()
+		return Policy.Enrichment()
 			.Provide(name, function()
 				return value
 			end)
 			.Build()
 	end
 
-	it("must every one be given a Default by the owner, so a slot is a promise", function()
-		assert.has_error(
-			function()
-				ModuleHandler.ResolveProvisions("transfer.team_terms", "transfer", { "taxRate" }, {})
-			end,
-			"transfer.team_terms declares taxRate without a Default; transfer must say what the slot means when nobody provides it"
-		)
+	it("a slot nobody Defaults or provides is the context's field of its name", function()
+		local resolved = ModuleHandler.ResolveProvisions("transfer.team_terms", "transfer", { "taxRate" }, {})
+		assert.are.equal(0.3, ModuleHandler.EnrichWith(resolved, {}, { taxRate = 0.3 }).taxRate)
+		assert.is_nil(ModuleHandler.EnrichWith(resolved, {}, {}).taxRate)
 		assert.has_error(function()
 			ModuleHandler.ResolveProvisions("k", "transfer", { "taxRate" }, { enrichment("tech", defaults("taxRate")) })
 		end, "tech/policies/x.lua: only transfer may Default taxRate on k")
@@ -619,5 +597,32 @@ describe("what a mode makes live", function()
 			"taxRate is provided by both other/p.lua and tech/p.lua under experiments=other, game=standard, transfer=customize",
 			"taxRate is provided by both other/p.lua and tech/p.lua under experiments=other, game=standard, transfer=tech_core",
 		}, ModuleHandler.IsolationConflicts(withOther, alwaysLive, { provider("other"), provider("tech") }))
+	end)
+
+	it("a step When'd on a condition steps aside when it does not hold: an Answer passes, a guard holds", function()
+		local steps = Policy.Single({ Bar = "Bar", Quick = "Quick", Slow = "Slow" })
+		Policy.Declare("t", { Steps = steps })
+		local ops = Policy.Chain(steps)
+			.Unless(steps.Bar, function()
+				return true
+			end)
+			.When(function(ctx)
+				return ctx.barred
+			end)
+			.Answer(steps.Quick, function()
+				return "quick"
+			end)
+			.When(function(ctx)
+				return ctx.hurry
+			end)
+			.Answer(steps.Slow, function()
+				return "slow"
+			end)
+			.Build()
+		local policy = { result = "single" }
+		Policy.Assemble(policy, ops, "t")
+		assert.are.equal("slow", run(policy, {}))
+		assert.are.equal("quick", run(policy, { hurry = true }))
+		assert.are.equal(false, run(policy, { barred = true, hurry = true }))
 	end)
 end)
