@@ -39,14 +39,14 @@ local NONE = ConstructionEnums.UnitFilterCategory.None
 ---@param ctx TransferContext
 ---@return string[]
 local function modesOf(ctx)
-	return ctx.unitSharingModes or { ctx.springRepo.GetModOptions().unit_sharing_mode or NONE }
+	return ctx.unitSharingModes or { ctx.modOptions[TransferEnums.ModOptions.UnitSharingMode] or NONE }
 end
 
 ---@param ctx TransferContext
 ---@param canShare boolean
 ---@return UnitTransferTerms
 local function terms(ctx, canShare)
-	local modOptions = ctx.springRepo.GetModOptions()
+	local modOptions = ctx.modOptions
 	return {
 		canShare = canShare,
 		senderTeamId = ctx.senderTeamId,

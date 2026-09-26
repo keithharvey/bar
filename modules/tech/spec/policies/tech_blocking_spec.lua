@@ -37,7 +37,7 @@ describe("what tech tells transfer about a team", function()
 		local resolved = ModuleHandler.LoadEnrichers(Contract.TeamPairing)
 		local spring =
 			repo({ tech_level = "1", tech_points = "3", tech_t2_threshold = "10", tech_t3_threshold = "20" }, opts)
-		local facts = ModuleHandler.EnrichWith(resolved, { tech = true }, {}, spring, 1)
+		local facts = ModuleHandler.EnrichWith(resolved, { tech = true }, { modOptions = opts }, spring, 1)
 		assert.are.same({ "none" }, facts[Contract.TeamPairing.UnitSharingModes])
 		assert.are.equal(0.5, facts[Contract.TeamPairing.TaxRate])
 		local blocking = facts[Contract.TeamPairing.TechBlocking]

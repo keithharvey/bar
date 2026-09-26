@@ -19,6 +19,7 @@ local ContextFactory = {}
 ---@param enrichers PolicyProvision[]|nil a test seam; the discovered enrichments when nil
 ---@return table Context factory with closures
 function ContextFactory.create(springRepo, enrichers)
+	local modOptions = springRepo.GetModOptions()
 	local resourceCache = {}
 
 	local function getResource(teamID, resourceType)
@@ -63,6 +64,7 @@ function ContextFactory.create(springRepo, enrichers)
 			sender = senderResources,
 			receiver = receiverResources,
 			springRepo = springRepo,
+			modOptions = modOptions,
 			areAlliedTeams = springRepo.AreTeamsAllied(senderTeamID, receiverTeamID) == true,
 			isCheatingEnabled = springRepo.IsCheatingEnabled(),
 		}
@@ -70,7 +72,7 @@ function ContextFactory.create(springRepo, enrichers)
 		local resolved = enrichers or ModuleHandler.LoadEnrichers(ModuleHandler.Contract(Modules.Transfer).TeamPairing)
 		local live = nil
 		if not enrichers then
-			live = ModuleHandler.LiveModulesFor(springRepo.GetModOptions())
+			live = ModuleHandler.LiveModulesFor(modOptions)
 		end
 		for field, value in
 			pairs(ModuleHandler.EnrichWith(resolved, live, ctx, springRepo, senderTeamID, receiverTeamID))

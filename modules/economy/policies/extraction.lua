@@ -4,6 +4,7 @@ local Policy = require("modules/policy")
 --
 ---@class EconomyExtractionContext
 ---@field springRepo Spring
+---@field modOptions table<string, string|number|boolean>
 ---@field teams table<integer, EconomyTeamResources>
 ---@field seconds number
 ---@field income table<integer, table<ResourceName, number>> what each team's extractors made over the tick

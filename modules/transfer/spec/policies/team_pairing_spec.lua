@@ -18,17 +18,17 @@ describe("a sender and a receiver", function()
 		"are blocked by nothing, share by the modoption's mode and are taxed by its rate, unless a module says otherwise",
 		function()
 			local resolved = ModuleHandler.LoadEnrichers(Contract.TeamPairing)
-			local spring = repo({
+			local lobby = {
 				[TransferEnums.ModOptions.UnitSharingMode] = "resource",
 				[TransferEnums.ModOptions.TaxResourceSharingAmount] = 0.2,
-			})
-			local facts = ModuleHandler.EnrichWith(resolved, {}, {}, spring, 1)
+			}
+			local facts = ModuleHandler.EnrichWith(resolved, {}, { modOptions = lobby }, repo(lobby), 1)
 			assert.is_nil(facts[Contract.TeamPairing.TechBlocking])
 			assert.are.same({ "resource" }, facts[Contract.TeamPairing.UnitSharingModes])
 			assert.are.equal(0.2, facts[Contract.TeamPairing.TaxRate])
 			assert.are.same(
 				{ "none" },
-				ModuleHandler.EnrichWith(resolved, {}, {}, repo({}), 1)[Contract.TeamPairing.UnitSharingModes]
+				ModuleHandler.EnrichWith(resolved, {}, { modOptions = {} }, repo({}), 1)[Contract.TeamPairing.UnitSharingModes]
 			)
 		end
 	)

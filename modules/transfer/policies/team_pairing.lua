@@ -15,6 +15,7 @@ local TransferEnums = require("modules/transfer/enums")
 ---@field sender TransferTeamResources
 ---@field receiver TransferTeamResources
 ---@field springRepo Spring
+---@field modOptions table<string, string|number|boolean>
 ---@field areAlliedTeams boolean
 ---@field isCheatingEnabled boolean
 ---@field techBlocking? TechBlockingContext
@@ -41,12 +42,12 @@ local TeamPairing = {
 Policy.Facts(TeamPairing)
 
 Policies.On(TeamPairing)
-	.Default(TeamPairing.UnitSharingModes, function(_, springRepo)
-		local mode = springRepo.GetModOptions()[TransferEnums.ModOptions.UnitSharingMode]
+	.Default(TeamPairing.UnitSharingModes, function(ctx)
+		local mode = ctx.modOptions[TransferEnums.ModOptions.UnitSharingMode]
 		return { mode or ConstructionEnums.UnitFilterCategory.None }
 	end)
-	.Default(TeamPairing.TaxRate, function(_, springRepo)
-		return Tax.ModOption(springRepo.GetModOptions())
+	.Default(TeamPairing.TaxRate, function(ctx)
+		return Tax.ModOption(ctx.modOptions)
 	end)
 
 return { TeamPairing = TeamPairing }

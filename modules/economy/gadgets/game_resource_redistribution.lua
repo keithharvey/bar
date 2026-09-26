@@ -43,6 +43,7 @@ local spGetTeamList = springRepo.GetTeamList
 local spGetGameFrame = springRepo.GetGameFrame
 
 local gaiaTeamID = springRepo.GetGaiaTeamID()
+local modOptions = springRepo.GetModOptions()
 
 local CADENCE = 30
 
@@ -51,8 +52,7 @@ local CADENCE = 30
 local function taxRateFor(_, teamId)
 	---@type EconomyTeamContext
 	local ctx = { teamId = teamId, springRepo = springRepo }
-	local terms =
-		ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Economy).Distribution, springRepo.GetModOptions(), ctx)
+	local terms = ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Economy).Distribution, modOptions, ctx)
 	return tonumber(terms[ModuleHandler.Contract(Modules.Economy).Distribution.TaxRate]) or 0
 end
 
@@ -61,8 +61,7 @@ end
 local function amended(results)
 	---@type EconomyRedistributionContext
 	local ctx = { results = results }
-	local amendedResults =
-		ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Economy).Redistribution, springRepo.GetModOptions(), ctx)
+	local amendedResults = ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Economy).Redistribution, modOptions, ctx)
 	return amendedResults[ModuleHandler.Contract(Modules.Economy).Redistribution.Results] or results
 end
 
@@ -78,12 +77,10 @@ local function payExtraction(teams)
 	local seconds = CADENCE / 30
 	local made = Extraction.Made(springRepo, teamIDs, seconds)
 	---@type EconomyExtractionContext
-	local ctx = { springRepo = springRepo, teams = teams, seconds = seconds, income = made }
-	local income = ModuleHandler.Enrich(
-		ModuleHandler.Contract(Modules.Economy).Extraction,
-		springRepo.GetModOptions(),
-		ctx
-	)[ModuleHandler.Contract(Modules.Economy).Extraction.Income] or made
+	local ctx = { springRepo = springRepo, modOptions = modOptions, teams = teams, seconds = seconds, income = made }
+	local income = ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Economy).Extraction, modOptions, ctx)[ModuleHandler.Contract(
+		Modules.Economy
+	).Extraction.Income] or made
 	for teamID, paid in pairs(income) do
 		for resourceType, amount in pairs(paid) do
 			local res = teams[teamID] and teams[teamID][resourceType]

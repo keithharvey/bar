@@ -33,6 +33,7 @@ describe("giving an ally a unit", function()
 	local function terms(fields)
 		local ctx = { senderTeamId = 1, receiverTeamId = 2, areAlliedTeams = true, isCheatingEnabled = false }
 		ctx.springRepo = repo(lobby, 1)
+		ctx.modOptions = lobby
 		for k, v in pairs(fields) do
 			ctx[k] = v
 		end
@@ -50,7 +51,7 @@ describe("giving an ally a unit", function()
 		"is refused, on the same terms to read, when sharing is off, the teams are enemies, or nobody is home",
 		function()
 			local off = { [TransferEnums.ModOptions.UnitSharingMode] = ConstructionEnums.UnitFilterCategory.None }
-			assert.is_false(terms({ springRepo = repo(off, 1) }).canShare)
+			assert.is_false(terms({ modOptions = off }).canShare)
 			assert.is_false(terms({ areAlliedTeams = false }).canShare)
 			local refused = terms({ springRepo = repo(lobby, 0) })
 			assert.is_false(refused.canShare)
