@@ -13,6 +13,7 @@ local Types = require("modules/regions/types")
 ---@field Contains fun(x: number, z: number, vertices: { x: number, z: number }[]): boolean
 ---@field ProblemLine fun(problem: RegionProblem): string
 ---@field OfType fun(key: RegionTypeKey): fun(ctx: any): boolean the precondition for a step that is one type's: the context is about that type
+---@field Shape fun(region: Region): RegionShape
 ---@field ProblemLines fun(typeKey: RegionTypeKey, regions: Region[], map: RegionMap|nil): string[]
 ---@field ProblemWith fun(ctx: RegionSetContext<Region>, index: integer, message: string)
 ---@field ProblemAt fun(ctx: RegionSetContext<Region>, message: string, at: { x: number, z: number }|nil)
@@ -337,21 +338,28 @@ end
 
 Api.Tessellate = Layout.Tessellate
 
+---@class RegionShape
+---@field area number
+---@field centre { x: number, z: number }
+
+---@param region Region
+---@return RegionShape
+function Api.Shape(region)
+	local x, z = Geometry.Centroid(region.vertices)
+	return { area = Geometry.Area(region.vertices), centre = { x = x, z = z } }
+end
+
 ---@param region Region
 ---@param map RegionMap|nil
----@return RegionDescription
+---@return RegionDescription|nil
 function Api.Describe(region, map)
-	local vertices = region.vertices or {}
-	local x, z = Geometry.Centroid(vertices)
-	---@type RegionDescription
-	local shape = { area = Geometry.Area(vertices), centre = { x = x, z = z } }
 	local kind = Types.byKey[region.type]
 	if not kind then
-		return shape
+		return nil
 	end
 	---@type RegionDescribeContext<Region>
-	local ctx = { type = kind, region = region, shape = shape, map = map or {} }
-	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Regions).Describe, ctx) or shape
+	local ctx = { type = kind, region = region, map = map or {} }
+	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Regions).Describe, ctx) or nil
 end
 
 Api.Enums = Enums

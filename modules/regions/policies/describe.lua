@@ -1,29 +1,26 @@
 local Policy = require("modules/policy")
 
----@class RegionDescription
----@field area number
----@field centre { x: number, z: number }
+---@class RegionDescription what the module that owns a type says of one of its regions; nothing for a type nobody owns
 
 ---@class RegionDescribeContext<R>
 ---@field type RegionType
 ---@field region R
----@field shape RegionDescription
 ---@field map RegionMap
 
----@class RegionDescribePolicy: PolicySteps<RegionDescribeContext<Region>, RegionDescription>
----@field Shape "Shape"
+---@class RegionDescribePolicy: PolicySteps<RegionDescribeContext<Region>, RegionDescription|nil>
+---@field Nobody "Nobody"
 
 ---@class (partial) RegionsContract
 ---@field Describe RegionDescribePolicy
 
 ---@type RegionDescribePolicy
 local Describe = {
-	Shape = "Shape",
+	Nobody = "Nobody",
 }
 Policy.Single(Describe)
 
-Policies.On(Describe).Answer(Describe.Shape, function(ctx)
-	return ctx.shape
+Policies.On(Describe).Answer(Describe.Nobody, function()
+	return nil
 end)
 
 return { Describe = Describe }
