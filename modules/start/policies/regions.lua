@@ -49,7 +49,7 @@ Policies.On(RegionsNames)
 	end)
 	.When(RegionsApi.OfType(RegionsApi.Enums.Types.Start))
 
--- Start regions do not overlap (validation used by map editor)
+-- Start regions do not overlap (validation enforced by the map editor)
 --
 ---@class StartRegionsSetSteps: PolicySteps<RegionSetContext<StartRegion>, RegionSetContext<StartRegion>>
 ---@field AreasDisjoint "AreasDisjoint"
