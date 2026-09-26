@@ -120,9 +120,10 @@ A policy file runs with one extra name in scope, `Policies`, bound to a registra
 
 <sub>Type: `PolicySteps<C, T> → PolicyChain<C, T>` · `PolicyFacts<C> → PolicyEnrichment<C>`</sub>
 
-Opens a chain against a contract's step enum, the owner's or another module's.
+Opens a chain against a policy's steps: the owner's own, or the steps this module declared with `Contributes`, which the loader files under the policy they contribute to. Open on your own steps when their context is typed more narrowly than the owner's.
 ```lua
 Policies.On(Contract.Load)
+Policies.On(RegionsNames) -- start's steps on regions' Names, typed over StartRegion
 ```
 
 **`Policies.Contract(Modules.X)`**
@@ -209,6 +210,22 @@ Where the step just added goes. Without either, a new step joins the end of the 
 ```lua
 -- the mod from above: tanks are refused before transport even looks at the water
 .Unless(Contract.Load.TanksStayOnTheGround, isTank).Before(Transport.Load.Submerged)
+```
+
+**`.When(fn)`**
+
+<sub>Type: `(C → bool) → Step`</sub>
+
+A precondition on the step just added: it runs only when this holds. Otherwise the step steps aside rather than deciding: an Apply does nothing, an Answer or a Factor passes to the next, a guard holds. This is how a step that belongs to one region type sits on a policy that runs for every type, and it is why a contributor opens the chain on its *own* steps: they are typed over the contributor's region, and the loader files the chain under the policy they contribute to.
+```lua
+-- modules/start/policies/regions.lua: typed over StartRegion, run for starts only
+Policies.On(RegionsNames)
+	.Apply(RegionsNames.FromTeam, function(ctx)
+		for i, region in ipairs(ctx.regions) do -- StartRegion[], no cast
+			ctx.proposed[i] = tostring(region.team)
+		end
+	end)
+	.When(RegionsApi.OfType(RegionsApi.Enums.Types.Start))
 ```
 
 **`.Replace(step, fn)`**

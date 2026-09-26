@@ -1,11 +1,11 @@
 local Policy = require("modules/policy")
 
----@class RegionNamesContext
+---@class RegionNamesContext<R>
 ---@field type RegionType
----@field regions Region[]
+---@field regions R[]
 ---@field proposed string[]
 
----@class RegionNamesSteps: PolicySteps<RegionNamesContext, RegionNamesContext>
+---@class RegionNamesSteps: PolicySteps<RegionNamesContext<Region>, RegionNamesContext<Region>>
 ---@field Label "Label"
 
 ---@class (partial) RegionsContract

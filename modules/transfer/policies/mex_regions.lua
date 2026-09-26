@@ -13,7 +13,7 @@ local Regions = Policies.Contract(Modules.Regions)
 ---@class (partial) RegionMap
 ---@field spots { x: number, z: number, worth: number|nil }[]|nil
 
----@class TransferMexRegionsSetSteps
+---@class TransferMexRegionsSetSteps: PolicySteps<RegionSetContext<MexRegion>, RegionSetContext<MexRegion>>
 ---@field MexesCovered "MexesCovered"
 
 ---@type TransferMexRegionsSetSteps
@@ -22,7 +22,7 @@ local MexRegionsSet = {
 }
 Policy.Contributes(Regions.CheckSet, MexRegionsSet)
 
----@class TransferMexRegionsNamesSteps
+---@class TransferMexRegionsNamesSteps: PolicySteps<RegionNamesContext<MexRegion>, RegionNamesContext<MexRegion>>
 ---@field FromGroup "FromGroup"
 
 ---@type TransferMexRegionsNamesSteps
@@ -37,7 +37,7 @@ Policy.Contributes(Regions.Names, MexRegionsNames)
 ---@field spots integer|nil
 ---@field worth number|nil
 
----@class TransferMexRegionsDescribeSteps
+---@class TransferMexRegionsDescribeSteps: PolicySteps<RegionDescribeContext<MexRegion>, MexRegionDescription>
 ---@field MexRegion "MexRegion"
 
 ---@type TransferMexRegionsDescribeSteps
@@ -46,50 +46,47 @@ local MexRegionsDescribe = {
 }
 Policy.Contributes(Regions.Describe, MexRegionsDescribe)
 
-Policies.On(Regions.Names).Apply(MexRegionsNames.FromGroup, function(ctx)
-	if ctx.type.key ~= RegionsApi.Enums.Types.MexRegion then
-		return
-	end
-	for i, region in ipairs(ctx.regions) do
-		---@cast region MexRegion
-		local group = region.group
-		if group ~= nil and group ~= "" then
-			ctx.proposed[i] = tostring(group)
+Policies.On(MexRegionsNames)
+	.Apply(MexRegionsNames.FromGroup, function(ctx)
+		for i, region in ipairs(ctx.regions) do
+			local group = region.group
+			if group ~= nil and group ~= "" then
+				ctx.proposed[i] = tostring(group)
+			end
 		end
-	end
-end)
+	end)
+	.When(RegionsApi.OfType(RegionsApi.Enums.Types.MexRegion))
 
-Policies.On(Regions.CheckSet).Apply(MexRegionsSet.MexesCovered, function(ctx)
-	local spots = ctx.map.spots
-	if ctx.type.key ~= RegionsApi.Enums.Types.MexRegion or spots == nil then
-		return
-	end
-	local uncovered, first = 0, nil
-	for _, spot in ipairs(spots) do
-		local covered = false
-		for _, region in ipairs(ctx.regions) do
-			covered = covered or (region.vertices ~= nil and RegionsApi.Contains(spot.x, spot.z, region.vertices))
+Policies.On(MexRegionsSet)
+	.Apply(MexRegionsSet.MexesCovered, function(ctx)
+		local spots = ctx.map.spots
+		if spots == nil then
+			return
 		end
-		if not covered then
-			uncovered = uncovered + 1
-			first = first or { x = spot.x, z = spot.z }
+		local uncovered, first = 0, nil
+		for _, spot in ipairs(spots) do
+			local covered = false
+			for _, region in ipairs(ctx.regions) do
+				covered = covered or (region.vertices ~= nil and RegionsApi.Contains(spot.x, spot.z, region.vertices))
+			end
+			if not covered then
+				uncovered = uncovered + 1
+				first = first or { x = spot.x, z = spot.z }
+			end
 		end
-	end
-	if uncovered > 0 then
-		RegionsApi.ProblemAt(
-			ctx,
-			uncovered .. " metal spot" .. (uncovered == 1 and "" or "s") .. " in no mex region",
-			first
-		)
-	end
-end)
+		if uncovered > 0 then
+			RegionsApi.ProblemAt(
+				ctx,
+				uncovered .. " metal spot" .. (uncovered == 1 and "" or "s") .. " in no mex region",
+				first
+			)
+		end
+	end)
+	.When(RegionsApi.OfType(RegionsApi.Enums.Types.MexRegion))
 
-Policies.On(Regions.Describe)
+Policies.On(MexRegionsDescribe)
 	.Answer(MexRegionsDescribe.MexRegion, function(ctx)
-		if ctx.type.key ~= RegionsApi.Enums.Types.MexRegion then
-			return nil
-		end
-		local region = ctx.region --[[@as MexRegion]]
+		local region = ctx.region
 		---@type MexRegionDescription
 		local description =
 			{ area = ctx.shape.area, centre = ctx.shape.centre, team = region.team, group = region.group }
@@ -107,6 +104,7 @@ Policies.On(Regions.Describe)
 		end
 		return description
 	end)
+	.When(RegionsApi.OfType(RegionsApi.Enums.Types.MexRegion))
 	.Before(Regions.Describe.Shape)
 
 return { MexRegionsSet = MexRegionsSet, MexRegionsNames = MexRegionsNames, MexRegionsDescribe = MexRegionsDescribe }

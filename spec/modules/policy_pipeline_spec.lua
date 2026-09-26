@@ -601,4 +601,31 @@ describe("what a mode makes live", function()
 			"taxRate is provided by both other/p.lua and tech/p.lua under experiments=other, game=standard, transfer=tech_core",
 		}, ModuleHandler.IsolationConflicts(withOther, alwaysLive, { provider("other"), provider("tech") }))
 	end)
+
+	it("a step When'd on a condition steps aside when it does not hold: an Answer passes, a guard holds", function()
+		local steps = Policy.Single({ Bar = "Bar", Quick = "Quick", Slow = "Slow" })
+		Policy.Declare("t", { Steps = steps })
+		local ops = Policy.Chain(steps)
+			.Unless(steps.Bar, function()
+				return true
+			end)
+			.When(function(ctx)
+				return ctx.barred
+			end)
+			.Answer(steps.Quick, function()
+				return "quick"
+			end)
+			.When(function(ctx)
+				return ctx.hurry
+			end)
+			.Answer(steps.Slow, function()
+				return "slow"
+			end)
+			.Build()
+		local policy = { result = "single" }
+		Policy.Assemble(policy, ops, "t")
+		assert.are.equal("slow", run(policy, {}))
+		assert.are.equal("quick", run(policy, { hurry = true }))
+		assert.are.equal(false, run(policy, { barred = true, hurry = true }))
+	end)
 end)

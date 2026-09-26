@@ -399,6 +399,9 @@ local function collectPolicies(load, name, source, run, onReturned)
 		local chain = entry.chain
 		if entry.kind == "policy" then
 			local identity = Policy.IdentityOf(chain.steps)
+			if identity and identity.contributes then
+				identity = identity.contributes
+			end
 			if identity == nil then
 				error(
 					filePath

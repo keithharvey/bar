@@ -11,7 +11,7 @@ local Regions = Policies.Contract(Modules.Regions)
 ---@field name string|nil
 ---@field positions { x: number, z: number }[]|nil
 
----@class StartRegionsNamesSteps
+---@class StartRegionsNamesSteps: PolicySteps<RegionNamesContext<StartRegion>, RegionNamesContext<StartRegion>>
 ---@field FromTeam "FromTeam"
 
 ---@type StartRegionsNamesSteps
@@ -20,19 +20,17 @@ local RegionsNames = {
 }
 Policy.Contributes(Regions.Names, RegionsNames)
 
-Policies.On(Regions.Names).Apply(RegionsNames.FromTeam, function(ctx)
-	if ctx.type.key ~= RegionsApi.Enums.Types.Start then
-		return
-	end
-	for i, region in ipairs(ctx.regions) do
-		---@cast region StartRegion
-		if region.team ~= nil then
-			ctx.proposed[i] = tostring(region.team)
+Policies.On(RegionsNames)
+	.Apply(RegionsNames.FromTeam, function(ctx)
+		for i, region in ipairs(ctx.regions) do
+			if region.team ~= nil then
+				ctx.proposed[i] = tostring(region.team)
+			end
 		end
-	end
-end)
+	end)
+	.When(RegionsApi.OfType(RegionsApi.Enums.Types.Start))
 
----@class StartRegionsSetSteps
+---@class StartRegionsSetSteps: PolicySteps<RegionSetContext<StartRegion>, RegionSetContext<StartRegion>>
 ---@field AreasDisjoint "AreasDisjoint"
 
 ---@type StartRegionsSetSteps
@@ -41,25 +39,24 @@ local RegionsSet = {
 }
 Policy.Contributes(Regions.CheckSet, RegionsSet)
 
-Policies.On(Regions.CheckSet).Apply(RegionsSet.AreasDisjoint, function(ctx)
-	if ctx.type.key ~= RegionsApi.Enums.Types.Start then
-		return
-	end
-	local label = ctx.type.label:lower()
-	for i, a in ipairs(ctx.regions) do
-		for j, b in ipairs(ctx.regions) do
-			if i ~= j and a.vertices and b.vertices and RegionsApi.Overlaps(a.vertices, b.vertices) then
-				RegionsApi.ProblemWith(ctx, i, "overlaps " .. label .. " " .. ctx.names[j])
+Policies.On(RegionsSet)
+	.Apply(RegionsSet.AreasDisjoint, function(ctx)
+		local label = ctx.type.label:lower()
+		for i, a in ipairs(ctx.regions) do
+			for j, b in ipairs(ctx.regions) do
+				if i ~= j and #a.vertices >= 3 and #b.vertices >= 3 and RegionsApi.Overlaps(a.vertices, b.vertices) then
+					RegionsApi.ProblemWith(ctx, i, "overlaps " .. label .. " " .. ctx.names[j])
+				end
 			end
 		end
-	end
-end)
+	end)
+	.When(RegionsApi.OfType(RegionsApi.Enums.Types.Start))
 
 ---@class StartDescription: RegionDescription
 ---@field team integer
 ---@field positions { x: number, z: number }[]
 
----@class StartRegionsDescribeSteps
+---@class StartRegionsDescribeSteps: PolicySteps<RegionDescribeContext<StartRegion>, StartDescription>
 ---@field Start "Start"
 
 ---@type StartRegionsDescribeSteps
@@ -68,20 +65,17 @@ local RegionsDescribe = {
 }
 Policy.Contributes(Regions.Describe, RegionsDescribe)
 
-Policies.On(Regions.Describe)
+Policies.On(RegionsDescribe)
 	.Answer(RegionsDescribe.Start, function(ctx)
-		if ctx.type.key ~= RegionsApi.Enums.Types.Start then
-			return nil
-		end
-		local region = ctx.region --[[@as StartRegion]]
 		---@type StartDescription
 		return {
 			area = ctx.shape.area,
 			centre = ctx.shape.centre,
-			team = region.team,
-			positions = region.positions or {},
+			team = ctx.region.team,
+			positions = ctx.region.positions or {},
 		}
 	end)
+	.When(RegionsApi.OfType(RegionsApi.Enums.Types.Start))
 	.Before(Regions.Describe.Shape)
 
 return { RegionsNames = RegionsNames, RegionsSet = RegionsSet, RegionsDescribe = RegionsDescribe }

@@ -158,6 +158,7 @@ end
 ---@field Apply fun(name: string, evaluate: fun(ctx: C, ...: any)): PolicyChain<C, T> Fold only: runs on the context and passes it on
 ---@field After fun(name: string): PolicyChain<C, T> place the step just added after the named step
 ---@field Before fun(name: string): PolicyChain<C, T> place the step just added before the named step
+---@field When fun(holds: fun(ctx: C, ...: any): boolean): PolicyChain<C, T> the step just added runs only when this holds; otherwise an Apply does nothing, an Answer or Factor passes, a guard holds
 ---@field Replace fun(name: string, evaluate: fun(ctx: C, ...: any): T|nil): PolicyChain<C, T> the named step, with this evaluate
 ---@field Remove fun(name: string): PolicyChain<C, T>
 ---@field Build fun(): PolicyOp[]
@@ -216,6 +217,23 @@ function Policy.Chain(steps)
 	end
 	chain.Before = function(name)
 		lastAdded("Before").before = name
+		return chain
+	end
+	chain.When = function(holds)
+		assert(type(holds) == "function", "PolicyChain: When(holds)")
+		local last = ops[#ops]
+		assert(
+			last ~= nil and last.op == "add",
+			"PolicyChain: .When must follow an If, Unless, Answer, Factor or Apply"
+		)
+		local evaluate, kind = last.evaluate, last.kind
+		local skipped = kind == "if" and true or (kind == "unless" and false) or nil
+		last.evaluate = function(ctx, ...)
+			if holds(ctx, ...) then
+				return evaluate(ctx, ...)
+			end
+			return skipped
+		end
 		return chain
 	end
 	chain.Replace = function(name, evaluate)
