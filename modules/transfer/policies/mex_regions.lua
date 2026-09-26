@@ -87,8 +87,7 @@ Policies.On(MexRegionsSet)
 Policies.On(MexRegionsDescribe)
 	.Answer(MexRegionsDescribe.MexRegion, function(ctx)
 		local region = ctx.region
-		local description =
-			{ area = ctx.shape.area, centre = ctx.shape.centre, team = region.team, group = region.group }
+		local description = { team = region.team, group = region.group }
 		local spots = ctx.map.spots
 		if spots and region.vertices then
 			local count, worth = 0, 0.0
@@ -104,6 +103,6 @@ Policies.On(MexRegionsDescribe)
 		return description
 	end)
 	.When(RegionsApi.OfType(RegionsApi.Enums.Types.MexRegion))
-	.Before(Regions.Describe.Shape)
+	.Before(Regions.Describe.Nobody)
 
 return { MexRegionsSet = MexRegionsSet, MexRegionsNames = MexRegionsNames, MexRegionsDescribe = MexRegionsDescribe }

@@ -2193,13 +2193,17 @@ function R.facts(box)
 	local candidate = R.fieldValues(box)
 	candidate.type = box.type or R.type
 	candidate.vertices = verts
+	local shape = R.api.Shape(candidate)
 	local d = R.api.Describe(candidate, { spots = spots })
 	local lines = { { "Vertices", tostring(#verts) } }
-	if d.area > 0 then
+	if shape.area > 0 then
 		lines[#lines + 1] =
-			{ "Area", string.format("%.0f x %.0f elmos equivalent", math_sqrt(d.area), math_sqrt(d.area)) }
+			{ "Area", string.format("%.0f x %.0f elmos equivalent", math_sqrt(shape.area), math_sqrt(shape.area)) }
 	end
-	lines[#lines + 1] = { "Centre", string.format("%d, %d", d.centre.x, d.centre.z) }
+	lines[#lines + 1] = { "Centre", string.format("%d, %d", shape.centre.x, shape.centre.z) }
+	if d == nil then
+		return lines
+	end
 	if candidate.type == "start" then
 		local s = d --[[@as StartDescription]]
 		lines[#lines + 1] = { "Start", tostring(s.team) }

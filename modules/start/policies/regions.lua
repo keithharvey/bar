@@ -67,14 +67,9 @@ Policy.Contributes(Regions.Describe, RegionsDescribe)
 
 Policies.On(RegionsDescribe)
 	.Answer(RegionsDescribe.Start, function(ctx)
-		return {
-			area = ctx.shape.area,
-			centre = ctx.shape.centre,
-			team = ctx.region.team,
-			positions = ctx.region.positions or {},
-		}
+		return { team = ctx.region.team, positions = ctx.region.positions or {} }
 	end)
 	.When(RegionsApi.OfType(RegionsApi.Enums.Types.Start))
-	.Before(Regions.Describe.Shape)
+	.Before(Regions.Describe.Nobody)
 
 return { RegionsNames = RegionsNames, RegionsSet = RegionsSet, RegionsDescribe = RegionsDescribe }

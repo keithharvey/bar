@@ -73,7 +73,6 @@ describe("what mex splitting says about a region", function()
 			assert.are.equal("g", d.group)
 			assert.are.equal(2, d.spots)
 			assert.are.equal(3.5, d.worth)
-			assert.are.equal(10000, d.area)
 		end
 	)
 

@@ -12,16 +12,20 @@ local function start(fields)
 end
 
 describe("what is said about a region", function()
-	it("is the shape's facts for a type nobody describes, and the type owner's record for one somebody does", function()
-		local d = Regions.Describe({ type = "nobody_knows", vertices = square })
-		assert.are.same({ area = 10000, centre = { x = 50, z = 50 } }, d)
+	it("is nothing for a type nobody owns, and the owner's record for one somebody does", function()
+		assert.is_nil(Regions.Describe({ type = "nobody_knows", vertices = square }))
 		local s = Regions.Describe(start({ team = 1, vertices = square }), {})
-		assert.are.equal(10000, s.area)
-		assert.are.equal(1, s.team, "start answers for its own type, on top of the shape")
+		assert.are.equal(1, s.team, "start answers for its own type")
 	end)
 
-	it("a point has no area and is its own centre", function()
-		local d = Regions.Describe({ type = "nobody_knows", vertices = { { x = 7, z = 9 } } })
-		assert.are.same({ area = 0, centre = { x = 7, z = 9 } }, d)
+	it("the shape is regions' own: area and centre, a point having no area", function()
+		assert.are.same(
+			{ area = 10000, centre = { x = 50, z = 50 } },
+			Regions.Shape({ type = "nobody_knows", vertices = square })
+		)
+		assert.are.same(
+			{ area = 0, centre = { x = 7, z = 9 } },
+			Regions.Shape({ type = "nobody_knows", vertices = { { x = 7, z = 9 } } })
+		)
 	end)
 end)
