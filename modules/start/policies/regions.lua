@@ -67,7 +67,6 @@ Policy.Contributes(Regions.Describe, RegionsDescribe)
 
 Policies.On(RegionsDescribe)
 	.Answer(RegionsDescribe.Start, function(ctx)
-		---@type StartDescription
 		return {
 			area = ctx.shape.area,
 			centre = ctx.shape.centre,

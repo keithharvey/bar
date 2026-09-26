@@ -87,7 +87,6 @@ Policies.On(MexRegionsSet)
 Policies.On(MexRegionsDescribe)
 	.Answer(MexRegionsDescribe.MexRegion, function(ctx)
 		local region = ctx.region
-		---@type MexRegionDescription
 		local description =
 			{ area = ctx.shape.area, centre = ctx.shape.centre, team = region.team, group = region.group }
 		local spots = ctx.map.spots
