@@ -64,7 +64,7 @@ end
 
 ---@param request TechTierRequest
 ---@return string[]
-local function activeModes(request)
+local function activeUnitSharingModes(request)
 	local opts, modes = request.opts, {}
 	local base = opts.unit_sharing_mode
 	if base and base ~= "" and base ~= NONE then
@@ -96,7 +96,7 @@ Policies.On(TechCore).Answer(TechCore.TechCoreLadder, function(request)
 	end
 	local nextLevel = request.level < 2 and 2 or 3
 	return {
-		modes = activeModes(request),
+		modes = activeUnitSharingModes(request),
 		taxRate = currentTax,
 		blocking = {
 			level = request.level,
