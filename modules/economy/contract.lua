@@ -36,7 +36,7 @@ local Redistribution = {
 ---@field springRepo Spring
 ---@field teams table<integer, EconomyTeamResources> by team id
 ---@field seconds number the tick's length
----@field made table<integer, table<ResourceName, number>> what each team's extractors made over the tick, by team id
+---@field income table<integer, table<ResourceName, number>> what each team's extractors made over the tick, by team id: the engine's answer, the fact's unless a mode provides
 
 ---@class EconomyExtractionFacts: PolicyFacts<EconomyExtractionContext>
 ---@field Income "income"

@@ -21,14 +21,15 @@ describe("what extraction pays, under shared mex splitting", function()
 	local resolved = ModuleHandler.LoadEnrichers(EconomyContract.Extraction)
 
 	it("is the ally team's mex metal, split evenly", function()
-		local ctx = { springRepo = spring(TransferEnums.MexSplitting.Shared), teams = teams, seconds = 2, made = made }
+		local ctx =
+			{ springRepo = spring(TransferEnums.MexSplitting.Shared), teams = teams, seconds = 2, income = made }
 		local income = ModuleHandler.EnrichWith(resolved, { transfer = true }, ctx)[EconomyContract.Extraction.Income]
 		assert.are.same({ [0] = { metal = 4, energy = 0 }, [1] = { metal = 4, energy = 0 } }, income)
 	end)
 
 	it("is what the engine paid under any other mex splitting", function()
 		local ctx =
-			{ springRepo = spring(TransferEnums.MexSplitting.MapAssigned), teams = teams, seconds = 2, made = made }
+			{ springRepo = spring(TransferEnums.MexSplitting.MapAssigned), teams = teams, seconds = 2, income = made }
 		assert.is_true(
 			rawequal(
 				made,

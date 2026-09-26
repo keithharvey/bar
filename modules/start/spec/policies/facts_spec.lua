@@ -1,6 +1,7 @@
 local Boxes = require("modules/start/lib/boxes")
 local ModuleHandler = require("modules/module_handler")
 local Modules = require("modules/enums").Modules
+local Positions = require("modules/start/lib/positions")
 
 local Facts = ModuleHandler.Contract(Modules.Start).Facts ---@type StartFacts
 
@@ -40,9 +41,15 @@ local function stubSpring(positions)
 end
 
 describe("start's facts, when no module provides", function()
-	it("the areas are the boxes, whole-map ones left out, in box order", function()
-		local spring = stubSpring({})
-		local boxes = Boxes.Resolve(spring, {
+	it("are what the api gathered under each fact's name: nobody said otherwise", function()
+		local ctx = { springRepo = stubSpring({}), areas = { "a" }, positions = { "p" } }
+		local facts = ModuleHandler.EnrichWith(ModuleHandler.LoadEnrichers(Facts), {}, ctx)
+		assert.is_true(rawequal(ctx.areas, facts[Facts.Areas]))
+		assert.is_true(rawequal(ctx.positions, facts[Facts.Positions]))
+	end)
+
+	it("the areas the api gathers are the boxes, whole-map ones left out, in box order", function()
+		local areas = Boxes.Resolve(stubSpring({}), {
 			byAllyTeam = {
 				[0] = { boxes = { { { 0, 0 }, { 100, 0, 0.5 }, { 100, 100 } } }, nameShort = "N" },
 				[1] = { boxes = { { { 0, 0 }, { 1, 1 }, { 2, 2 }, { 3, 3 } } }, wholeMap = true },
@@ -51,12 +58,6 @@ describe("start's facts, when no module provides", function()
 			source = "modoption_set",
 			explicit = true,
 		})
-		local facts = ModuleHandler.EnrichWith(
-			ModuleHandler.LoadEnrichers(Facts),
-			{},
-			{ springRepo = spring, boxes = boxes }
-		)
-		local areas = facts[Facts.Areas]
 		assert.are.equal(2, #areas)
 		local first, second = assert(areas[1]), assert(areas[2])
 		assert.are.equal(0, first.allyTeamID)
@@ -66,20 +67,15 @@ describe("start's facts, when no module provides", function()
 		assert.are.equal(2, second.allyTeamID)
 	end)
 
-	it("the positions are the engine's, gaia left out, a team at the origin not yet placed", function()
-		local spring = stubSpring({
+	it("the positions the api gathers are the engine's, gaia left out, a team at the origin not yet placed", function()
+		local positions = Positions.Read(stubSpring({
 			{ teamID = 0, allyTeamID = 0, x = 50, z = 50 },
 			{ teamID = 1, allyTeamID = 2, x = 550, z = 550 },
 			{ teamID = 2, allyTeamID = 1, x = 0, z = 0 },
-		})
-		local facts = ModuleHandler.EnrichWith(
-			ModuleHandler.LoadEnrichers(Facts),
-			{},
-			{ springRepo = spring, boxes = {} }
-		)
+		}))
 		assert.are.same({
 			{ allyTeamID = 0, teamID = 0, x = 50, z = 50 },
 			{ allyTeamID = 2, teamID = 1, x = 550, z = 550 },
-		}, facts[Facts.Positions])
+		}, positions)
 	end)
 end)

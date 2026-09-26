@@ -504,13 +504,10 @@ describe("a contract's facts", function()
 			.Build()
 	end
 
-	it("must every one be given a Default by the owner, so a slot is a promise", function()
-		assert.has_error(
-			function()
-				ModuleHandler.ResolveProvisions("transfer.team_terms", "transfer", { "taxRate" }, {})
-			end,
-			"transfer.team_terms declares taxRate without a Default; transfer must say what the slot means when nobody provides it"
-		)
+	it("a slot nobody Defaults or provides is the context's field of its name", function()
+		local resolved = ModuleHandler.ResolveProvisions("transfer.team_terms", "transfer", { "taxRate" }, {})
+		assert.are.equal(0.3, ModuleHandler.EnrichWith(resolved, {}, { taxRate = 0.3 }).taxRate)
+		assert.is_nil(ModuleHandler.EnrichWith(resolved, {}, {}).taxRate)
 		assert.has_error(function()
 			ModuleHandler.ResolveProvisions("k", "transfer", { "taxRate" }, { enrichment("tech", defaults("taxRate")) })
 		end, "tech/policies/x.lua: only transfer may Default taxRate on k")

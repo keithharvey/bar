@@ -910,23 +910,8 @@ function ModuleHandler.ResolveProvisions(key, owner, slots, list)
 			end
 		end
 	end
-	local missing = {}
-	for _, field in ipairs(slots) do
-		if not defaults[field] then
-			missing[#missing + 1] = field
-		end
-	end
-	if #missing > 0 then
-		table.sort(missing)
-		error(
-			key
-				.. " declares "
-				.. table.concat(missing, ", ")
-				.. " without a Default; "
-				.. owner
-				.. " must say what the slot means when nobody provides it"
-		)
-	end
+	-- A slot without a Default is the context's field of its name when nobody provides it: the api gathered the
+	-- engine's answer under that name, and a fact nobody knows better about is that answer.
 	return { providers = providers, defaults = defaults, slots = slots }
 end
 
@@ -1044,8 +1029,12 @@ function ModuleHandler.EnrichWith(resolved, live, ctx, ...)
 		end
 	end
 	for _, field in ipairs(resolved.slots or {}) do
-		if out[field] == nil and resolved.defaults and resolved.defaults[field] then
-			out[field] = resolved.defaults[field].evaluate(ctx, ...)
+		if out[field] == nil then
+			if resolved.defaults and resolved.defaults[field] then
+				out[field] = resolved.defaults[field].evaluate(ctx, ...)
+			else
+				out[field] = ctx[field]
+			end
 		end
 	end
 	return out

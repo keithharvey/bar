@@ -3,6 +3,7 @@ local Export = require("modules/start/lib/export")
 local ModuleHandler = require("modules/module_handler")
 local Modules = require("modules/enums").Modules
 local Placement = require("modules/start/lib/placement")
+local Positions = require("modules/start/lib/positions")
 
 ---@return StartboxConfig
 local function resolveWithGame()
@@ -21,7 +22,11 @@ return {
 	---@return { areas: StartArea[], positions: StartPosition[] }
 	Current = function(springRepo, resolveBoxes)
 		---@type StartContext
-		local ctx = { springRepo = springRepo, boxes = Boxes.Resolve(springRepo, (resolveBoxes or resolveWithGame)()) }
+		local ctx = {
+			springRepo = springRepo,
+			areas = Boxes.Resolve(springRepo, (resolveBoxes or resolveWithGame)()),
+			positions = Positions.Read(springRepo),
+		}
 		---@type StartContract
 		local Start = ModuleHandler.Contract(Modules.Start)
 		local Facts = Start.Facts
