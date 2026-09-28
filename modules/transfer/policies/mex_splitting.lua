@@ -67,9 +67,9 @@ Policies.On(MexSplitting)
 		local starts = Claims.Seat(teams)
 		local held = {} ---@type table<string, integer>
 		for _, start in ipairs(starts) do
-			Claims.Round(start.teams, held, Claims.OwnedBy(start.allyTeamID))
+			Claims.RoundRobin(start.teams, held, Claims.OwnedBy(start.allyTeamID))
 		end
-		Claims.Round(teams, held, Claims.Not(Claims.OfStart(starts)))
+		Claims.RoundRobin(teams, held, Claims.Not(Claims.OfStart(starts)))
 		local emptyHanded = Claims.EmptyHanded(ctx.teams, held)
 		if #emptyHanded > 0 then
 			local n = #emptyHanded

@@ -96,7 +96,7 @@ end
 ---@param teams MexRegionsTeamView[]
 ---@param held table<string, integer> region id -> team; written
 ---@param mayTake fun(region: MexRegion): boolean
-function Claims.Round(teams, held, mayTake)
+function Claims.RoundRobin(teams, held, mayTake)
 	local function take(view)
 		for _, ranked in ipairs(view.regions) do
 			if held[ranked.region.id] == nil and mayTake(ranked.region) then
