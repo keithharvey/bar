@@ -27,13 +27,13 @@ end
 
 -- four starts in the corners; n, s and c belong to a fifth start nobody sits at this match
 local sevenRegions = parse({
-	rect("nw", 1, 0, 0, 40, 40),
-	rect("ne", 2, 160, 0, 200, 40),
-	rect("se", 3, 160, 160, 200, 200),
-	rect("sw", 4, 0, 160, 40, 200),
-	rect("n", 9, 80, 0, 120, 40),
-	rect("s", 9, 80, 160, 120, 200),
-	rect("c", 9, 80, 80, 120, 120),
+	rect("nw", 0, 0, 0, 40, 40),
+	rect("ne", 1, 160, 0, 200, 40),
+	rect("se", 2, 160, 160, 200, 200),
+	rect("sw", 3, 0, 160, 40, 200),
+	rect("n", 8, 80, 0, 120, 40),
+	rect("s", 8, 80, 160, 120, 200),
+	rect("c", 8, 80, 80, 120, 120),
 })
 
 local fourTeams = {
@@ -74,13 +74,13 @@ describe("the deal", function()
 	it("binds a region to the team seated at its start, and deals a start nobody sits at round everyone", function()
 		local d = deal(fourTeams, sevenRegions)
 		assert.are.same({}, d.problems)
-		assert.are.equal(0, d.regions["nw@1"])
-		assert.are.equal(1, d.regions["ne@2"])
-		assert.are.equal(2, d.regions["se@3"])
-		assert.are.equal(3, d.regions["sw@4"])
-		assert.are.equal(0, d.regions["n@9"], "nearest free region for the first team round")
-		assert.are.equal(1, d.regions["c@9"], "n was gone, so team 1 took the centre")
-		assert.are.equal(2, d.regions["s@9"])
+		assert.are.equal(0, d.regions["nw@0"])
+		assert.are.equal(1, d.regions["ne@1"])
+		assert.are.equal(2, d.regions["se@2"])
+		assert.are.equal(3, d.regions["sw@3"])
+		assert.are.equal(0, d.regions["n@8"], "nearest free region for the first team round")
+		assert.are.equal(1, d.regions["c@8"], "n was gone, so team 1 took the centre")
+		assert.are.equal(2, d.regions["s@8"])
 		assert.are.equal(7, count(d.regions))
 	end)
 
@@ -96,10 +96,10 @@ describe("the deal", function()
 
 	it("shares a start's regions between the teams seated there, nearest first, round by round", function()
 		local regions = parse({
-			rect("a", 1, 0, 0, 40, 40),
-			rect("b", 1, 40, 0, 80, 40),
-			rect("c", 1, 80, 0, 120, 40),
-			rect("theirs", 2, 160, 160, 200, 200),
+			rect("a", 0, 0, 0, 40, 40),
+			rect("b", 0, 40, 0, 80, 40),
+			rect("c", 0, 80, 0, 120, 40),
+			rect("theirs", 1, 160, 160, 200, 200),
 		})
 		local allies = {
 			{ teamID = 0, allyTeamID = 0, x = 10, z = 10 },
@@ -108,18 +108,18 @@ describe("the deal", function()
 		}
 		local d = deal(allies, regions, { { x = 20, z = 20 }, { x = 60, z = 20 }, { x = 100, z = 20 } })
 		assert.are.same({}, d.problems, "neighbours may share an edge")
-		assert.are.equal(0, d.regions["a@1"])
-		assert.are.equal(5, d.regions["c@1"])
-		assert.are.equal(0, d.regions["b@1"], "round two: team 0 is nearer b")
-		assert.are.equal(1, d.regions["theirs@2"], "team 1 sits at another start, and holds only what is bound to it")
+		assert.are.equal(0, d.regions["a@0"])
+		assert.are.equal(5, d.regions["c@0"])
+		assert.are.equal(0, d.regions["b@0"], "round two: team 0 is nearer b")
+		assert.are.equal(1, d.regions["theirs@1"], "team 1 sits at another start, and holds only what is bound to it")
 	end)
 
 	it("is refused when a team would hold nothing, and deals nothing to no teams", function()
-		local two = parse({ rect("a", 1, 0, 0, 10, 10), rect("b", 2, 190, 190, 200, 200) })
+		local two = parse({ rect("a", 0, 0, 0, 10, 10), rect("b", 1, 190, 190, 200, 200) })
 		local metal = { { x = 5, z = 5 }, { x = 195, z = 195 } }
 		local d = deal({ fourTeams[1], fourTeams[2] }, two, metal)
-		assert.are.equal(0, d.regions["a@1"])
-		assert.are.equal(1, d.regions["b@2"])
+		assert.are.equal(0, d.regions["a@0"])
+		assert.are.equal(1, d.regions["b@1"])
 		local short = deal(fourTeams, two, metal)
 		assert.are.same({}, short.regions)
 		assert.are.same({ "2 teams would hold no mex region: the layout has too few" }, short.problems)
@@ -130,8 +130,8 @@ describe("the deal", function()
 
 	it("is refused when the layout fails its type, naming the region and the problem", function()
 		local ungrouped = parse({
-			rect("a", 1, 0, 0, 40, 40),
-			{ id = "b@2", name = "b", team = 2, poly = { { x = 160, y = 160 }, { x = 200, y = 200 } } },
+			rect("a", 0, 0, 0, 40, 40),
+			{ id = "b@1", name = "b", team = 1, poly = { { x = 160, y = 160 }, { x = 200, y = 200 } } },
 		})
 		local d = deal({ fourTeams[1], fourTeams[2] }, ungrouped, { { x = 5, z = 5 }, { x = 195, z = 195 } })
 		assert.are.same({}, d.regions)
@@ -140,7 +140,7 @@ describe("the deal", function()
 	end)
 
 	it("lets every team whose region covers a spot hold it", function()
-		local nested = parse({ rect("outer", 1, 0, 0, 100, 100), rect("inner", 2, 40, 40, 60, 60) })
+		local nested = parse({ rect("outer", 0, 0, 0, 100, 100), rect("inner", 1, 40, 40, 60, 60) })
 		local d = deal({ fourTeams[1], fourTeams[2] }, nested, { { x = 50, z = 50 }, { x = 5, z = 5 } })
 		assert.are.same({}, d.problems)
 		assert.are.same({ 0, 1 }, d.spots[Shared.SpotKey(50, 50)], "both regions cover it, so both teams hold it")
@@ -225,17 +225,17 @@ describe("the spot holder fact", function()
 		assert.are.same({ 2 }, Holders.At(repo, 195.4, 194.6))
 		assert.are.same({}, Holders.At(repo, 60, 60), "no region covers it")
 		assert.are.same(
-			{ [0] = { "nw@1", "n@9" }, [1] = { "ne@2", "c@9" }, [2] = { "se@3", "s@9" }, [3] = { "sw@4" } },
+			{ [0] = { "nw@0", "n@8" }, [1] = { "ne@1", "c@8" }, [2] = { "se@2", "s@8" }, [3] = { "sw@3" } },
 			MexRegions.Holdings()
 		)
 	end)
 
 	it("names an ally before an enemy, and is the builder's own when the builder is one of several holders", function()
 		state.mexRegions = parse({
-			rect("outer", 1, 0, 0, 100, 100),
-			rect("inner", 3, 40, 40, 60, 60),
-			rect("far", 2, 150, 150, 200, 200),
-			rect("last", 4, 0, 150, 50, 200),
+			rect("outer", 0, 0, 0, 100, 100),
+			rect("inner", 2, 40, 40, 60, 60),
+			rect("far", 1, 150, 150, 200, 200),
+			rect("last", 3, 0, 150, 50, 200),
 		})
 		MexRegions.Deal(fourTeams, repo, { { x = 50, z = 50 }, { x = 175, z = 175 }, { x = 25, z = 175 } })
 		assert.are.equal(0, holderAt(50, 50, 0), "team 0 holds it through outer")
@@ -249,7 +249,7 @@ describe("the spot holder fact", function()
 			MexRegions.Inherit(0, repo),
 			"teams 1 and 3 are allies gifted nothing; 1 comes first at equal distance"
 		)
-		assert.are.same({ "nw@1", "ne@2", "n@9", "c@9" }, MexRegions.Holdings()[1])
+		assert.are.same({ "nw@0", "ne@1", "n@8", "c@8" }, MexRegions.Holdings()[1])
 		assert.are.equal(1, holderAt(5, 5, 3))
 		assert.is_nil(MexRegions.Holdings()[0])
 		allies[2] = "north"

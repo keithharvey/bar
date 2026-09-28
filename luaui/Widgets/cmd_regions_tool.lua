@@ -298,17 +298,17 @@ local function getWorldMousePosition()
 end
 
 local function getColorForAllyTeam(at)
-	local idx = ((at - 1) % #TEAM_COLORS) + 1
+	local idx = (at % #TEAM_COLORS) + 1
 	return TEAM_COLORS[idx]
 end
 
 -- Unique color per (allyTeam, teamSlot) pair — gives every player a distinct color
--- when multiple teams per allyteam are used. playerIdx = (allyTeam-1)*numTeamsPerAlly + teamSlot.
+-- when multiple teams per allyteam are used. playerIdx = allyTeam*numTeamsPerAlly + teamSlot.
 function R.color(box, bi)
 	if R.validate().byRegion[box] then
 		return R.INVALID
 	end
-	local team = box.team or (R.type == "start" and bi) or nil
+	local team = box.team or (R.type == "start" and bi - 1) or nil
 	return team and getColorForAllyTeam(team) or R.COLOR
 end
 
@@ -377,7 +377,7 @@ local function seats()
 					y = GetGroundHeight(p.x, p.z) or 0,
 					allyTeam = region.team,
 					teamSlot = i,
-					playerIdx = (region.team - 1) * math_max(1, numTeamsPerAlly) + i,
+					playerIdx = region.team * math_max(1, numTeamsPerAlly) + i,
 				}
 			end
 		end
@@ -691,18 +691,17 @@ end
 
 -- Ally team is the box's position in the list, never a running counter: that is what the
 -- modoption format means by order (box 1 is allyTeam 0) and it makes a delete impossible to
--- desync. One box per team falls out of it.
--- The areas are the starts, numbered by order as the modoption has always read them. A start that was only
--- its positions until now hands them to the area that takes its number.
+-- desync. One box per team falls out of it. A start that was only its positions until now hands them to the
+-- area that takes its number.
 local function renumberBoxAllyTeams()
 	local areas = R.list("start")
 	for i, box in ipairs(areas) do
-		box.team = i
+		box.team = i - 1
 	end
 	for _, region in ipairs(R.api.All("start")) do
 		---@cast region +StartRegion
 		if region.vertices == nil or #region.vertices < 3 then
-			local area = areas[region.team or 0]
+			local area = areas[(region.team or -1) + 1]
 			if area and not rawequal(area, region) then
 				area.positions = area.positions or {}
 				for _, p in ipairs(region.positions or {}) do
@@ -1811,15 +1810,15 @@ function R.areaTarget()
 		end
 	end
 	if R.drawForTeam then
-		return math.min(R.drawForTeam, n + 1)
+		return math.min(R.drawForTeam, n)
 	end
 	if R.pending.team then
-		return math.min(R.pending.team, n + 1)
+		return math.min(R.pending.team, n)
 	end
-	if R.selectedStart and not R.start(R.selectedStart) and R.selectedStart <= n + 1 then
+	if R.selectedStart and not R.start(R.selectedStart) and R.selectedStart <= n then
 		return R.selectedStart
 	end
-	return n + 1
+	return n
 end
 
 function R.removeArea(allyTeam)
@@ -1880,9 +1879,9 @@ function R.seedFromMatch()
 	renumberBoxAllyTeams()
 	local slots = {}
 	for _, pos in ipairs(current.positions) do
-		local ordinal = pos.allyTeamID + 1
-		slots[ordinal] = (slots[ordinal] or 0) + 1
-		addPosition(pos.x, pos.z, ordinal, slots[ordinal])
+		local allyTeam = pos.allyTeamID
+		slots[allyTeam] = (slots[allyTeam] or 0) + 1
+		addPosition(pos.x, pos.z, allyTeam, slots[allyTeam])
 	end
 	if #current.areas > 0 or #current.positions > 0 then
 		Echo(
@@ -2028,7 +2027,7 @@ function R.select(idx)
 	if idx == nil or startboxes[idx] then
 		R.selectedIdx = idx
 		if R.type == "start" then
-			R.selectedStart = idx and startboxes[idx] and startboxes[idx].allyTeam or nil
+			R.selectedStart = idx and startboxes[idx] and startboxes[idx].team or nil
 		end
 		R.bump()
 	end
@@ -2044,12 +2043,12 @@ function R.starts()
 	local count = 0
 	for _, region in ipairs(R.api.All("start")) do
 		---@cast region +StartRegion
-		count = math_max(count, region.team or 0)
+		count = math_max(count, (region.team or -1) + 1)
 	end
 	local out = {}
-	for allyTeam = 1, count do
+	for allyTeam = 0, count - 1 do
 		local box = R.start(allyTeam)
-		out[allyTeam] = {
+		out[#out + 1] = {
 			allyTeam = allyTeam,
 			positions = box and box.positions and #box.positions or 0,
 			hasBox = box ~= nil and box.vertices ~= nil and #box.vertices >= 3,
@@ -2097,7 +2096,7 @@ end
 
 function R.teamLabel(team)
 	local start = team and R.start(team)
-	return (start and start.name) or (team and ("Team " .. team)) or nil
+	return (start and start.name) or (team and ("Team " .. (team + 1))) or nil
 end
 
 function R.teamOptions()
@@ -2191,7 +2190,7 @@ function R.facts(box)
 	end
 	if candidate.type == "start" then
 		local s = d --[[@as StartDescription]]
-		lines[#lines + 1] = { "Start", tostring(s.team) }
+		lines[#lines + 1] = { "Start", R.teamLabel(s.team) or tostring(s.team) }
 		lines[#lines + 1] = { "Positions", tostring(#s.positions) }
 	elseif candidate.type == "mex_region" then
 		local m = d --[[@as MexRegionDescription]]
@@ -2708,13 +2707,13 @@ function widget:MousePress(mx, my, button)
 			if containBi and R.editMode == "create" then
 				R.selectedIdx = containBi
 				if R.type == "start" then
-					R.selectedStart = startboxes[containBi].allyTeam
+					R.selectedStart = startboxes[containBi].team
 				end
 				R.bump()
 			elseif containBi then
 				R.selectedIdx = containBi
 				if R.type == "start" then
-					R.selectedStart = startboxes[containBi].allyTeam
+					R.selectedStart = startboxes[containBi].team
 				end
 				R.bump()
 				boxBodyDrag = { bi = containBi, lastX = wx, lastZ = wz }
@@ -4245,7 +4244,7 @@ local TEAM_NAMES = {
 }
 
 local function getTeamName(at)
-	local idx = ((at - 1) % #TEAM_NAMES) + 1
+	local idx = (at % #TEAM_NAMES) + 1
 	return TEAM_NAMES[idx]
 end
 
@@ -4294,7 +4293,7 @@ local function drawScreenBadge(cx, cy, color, allyTeamNum, teamName, playerIdx, 
 	local padX, padY = 14, 10
 	local barW = 5
 	local gap = 10
-	local label = "Team " .. tostring(allyTeamNum)
+	local label = "Team " .. tostring(allyTeamNum + 1)
 
 	-- Measure text widths in pixels (gl.GetTextWidth returns factor to multiply by fontSize)
 	local function measure(s, sz)

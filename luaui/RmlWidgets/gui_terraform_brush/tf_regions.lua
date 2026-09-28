@@ -373,7 +373,7 @@ function M.sync(doc, ctx, rgState, setSummary)
 							.. '" class="ll-preset-item'
 							.. selectedClass
 							.. '"><div class="ll-preset-name">Start '
-							.. start.allyTeam
+							.. (start.allyTeam + 1)
 							.. (start.name and (" · " .. start.name) or "")
 							.. '</div><div class="ll-preset-desc">'
 							.. desc
@@ -382,8 +382,8 @@ function M.sync(doc, ctx, rgState, setSummary)
 							.. "</div>"
 					end
 					onClick = function(i)
-						if st and st.selectStart then
-							st.selectStart(i)
+						if st and st.selectStart and starts[i] then
+							st.selectStart(starts[i].allyTeam)
 						end
 					end
 				else
@@ -395,7 +395,7 @@ function M.sync(doc, ctx, rgState, setSummary)
 						local label = (named and named.name or region.name or "?")
 							.. (region.group and (" (" .. region.group .. ")") or "")
 						if region.team then
-							label = (teamLabels[region.team] or ("Team " .. region.team)) .. " · " .. label
+							label = (teamLabels[region.team] or ("Team " .. (region.team + 1))) .. " · " .. label
 						end
 						local selectedClass = (i == rgState.selectedIdx) and " selected" or ""
 						html[#html + 1] = '<div id="rg-region-item-'

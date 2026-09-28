@@ -937,14 +937,14 @@ local function InitStartPolygons()
 			local xn, zn, xp, zp = Spring.GetAllyTeamStartBox(allyTeamID)
 			if xn and xp and xp > xn then
 				current.areas[#current.areas + 1] = {
-					allyTeam = allyTeamID + 1,
-					anchors = { { x = xn, z = zn }, { x = xp, z = zn }, { x = xp, z = zp }, { x = xn, z = zp } },
+					team = allyTeamID,
+					vertices = { { x = xn, z = zn }, { x = xp, z = zn }, { x = xp, z = zp }, { x = xn, z = zp } },
 				}
 			end
 		end
 	end
 	for _, area in ipairs(current.areas) do
-		local allyTeamID = area.allyTeamID
+		local allyTeamID = area.team
 		if allyTeamID and allyTeamID ~= gaiaAllyTeamID and activeAllyTeams[allyTeamID] then
 			local polygon = {}
 			for i, a in ipairs(area.vertices) do

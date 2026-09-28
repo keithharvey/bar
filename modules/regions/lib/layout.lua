@@ -324,7 +324,7 @@ function Layout.FromStartboxArrangement(arrangement)
 		for j, p in ipairs(type(box) == "table" and type(box.poly) == "table" and box.poly or {}) do
 			poly[j] = { x = p.x, y = p.y, strength = p.strength }
 		end
-		starts[i] = { team = i, poly = poly }
+		starts[i] = { team = i - 1, poly = poly }
 	end
 	return { regions = { [Enums.Types.Start] = starts } }
 end

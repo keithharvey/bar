@@ -56,8 +56,8 @@ local chosen = {} ---@type table<integer, { x: number, z: number }>
 local function teamStarts()
 	local centres = {} ---@type { [integer]: { x: number, z: number } }
 	for _, start in ipairs(Start.Current(Spring).areas) do
-		if start.allyTeamID then
-			centres[start.allyTeamID] = Regions.Shape(start).centre
+		if start.team then
+			centres[start.team] = Regions.Shape(start).centre
 		end
 	end
 	local teams = {} ---@type MexRegionsTeamStart[]

@@ -12,7 +12,7 @@ local ConstructionContract = Policies.Contract(Modules.Construction)
 --
 ---@class MexRegionsTeamStart
 ---@field teamID integer
----@field allyTeamID integer the engine's; the layout seats it at start allyTeamID + 1
+---@field allyTeamID integer
 ---@field x number the team's start point: the centre of its start area
 ---@field z number
 
@@ -67,7 +67,7 @@ Policies.On(MexSplitting)
 		local starts = Claims.Seat(teams)
 		local held = {} ---@type table<string, integer>
 		for _, start in ipairs(starts) do
-			Claims.Round(start.teams, held, Claims.OwnedBy(start.ordinal))
+			Claims.Round(start.teams, held, Claims.OwnedBy(start.allyTeamID))
 		end
 		Claims.Round(teams, held, Claims.Not(Claims.OfStart(starts)))
 		local emptyHanded = Claims.EmptyHanded(ctx.teams, held)

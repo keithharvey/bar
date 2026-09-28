@@ -43,7 +43,7 @@ describe("what start says about a region", function()
 		Regions.Clear()
 	end)
 
-	it("is the start's ordinal and the positions drawn for it, with the shape", function()
+	it("is the start's ally team and the positions drawn for it, with the shape", function()
 		local one = area(1, 0, 0, 100)
 		one.positions = { { x = 10, z = 10 }, { x = 90, z = 90 } }
 		local d = Regions.Describe(one)

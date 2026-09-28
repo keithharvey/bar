@@ -16,8 +16,7 @@ local function startRegion(allyTeamID, anchors, name, source)
 	---@type StartRegion
 	local region = {
 		type = "start",
-		team = allyTeamID + 1,
-		allyTeamID = allyTeamID,
+		team = allyTeamID,
 		name = name,
 		source = source,
 		kind = curved and "spline" or "polygon",

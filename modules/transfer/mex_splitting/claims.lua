@@ -39,27 +39,27 @@ function Claims.Rank(teams, regions)
 	return views
 end
 
----@class MexRegionsStart the teams seated at one start of the layout, and its ordinal there
----@field ordinal integer
+---@class MexRegionsStart the teams seated at one start of the layout
+---@field allyTeamID integer
 ---@field teams MexRegionsTeamView[]
 
 ---@param views MexRegionsTeamView[]
----@return MexRegionsStart[] by ordinal
+---@return MexRegionsStart[] by ally team
 function Claims.Seat(views)
-	local byOrdinal = {} ---@type table<integer, MexRegionsStart>
+	local byAllyTeam = {} ---@type table<integer, MexRegionsStart>
 	local starts = {} ---@type MexRegionsStart[]
 	for _, view in ipairs(views) do
-		local ordinal = view.team.allyTeamID + 1 -- the layout counts starts from 1
-		local start = byOrdinal[ordinal]
+		local allyTeamID = view.team.allyTeamID
+		local start = byAllyTeam[allyTeamID]
 		if start == nil then
-			start = { ordinal = ordinal, teams = {} }
-			byOrdinal[ordinal] = start
+			start = { allyTeamID = allyTeamID, teams = {} }
+			byAllyTeam[allyTeamID] = start
 			starts[#starts + 1] = start
 		end
 		table.insert(start.teams, view)
 	end
 	table.sort(starts, function(a, b)
-		return a.ordinal < b.ordinal
+		return a.allyTeamID < b.allyTeamID
 	end)
 	return starts
 end
@@ -69,18 +69,18 @@ end
 function Claims.OfStart(starts)
 	local seated = {} ---@type table<integer, boolean>
 	for _, start in ipairs(starts) do
-		seated[start.ordinal] = true
+		seated[start.allyTeamID] = true
 	end
 	return function(region)
 		return seated[region.team] == true
 	end
 end
 
----@param ordinal integer
+---@param allyTeamID integer
 ---@return fun(region: MexRegion): boolean
-function Claims.OwnedBy(ordinal)
+function Claims.OwnedBy(allyTeamID)
 	return function(region)
-		return region.team == ordinal
+		return region.team == allyTeamID
 	end
 end
 

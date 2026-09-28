@@ -76,7 +76,7 @@ function Export.StartScript(areas, mapSizeX, mapSizeZ, opts)
 	end
 	L("[Game]")
 	L("{")
-	for idx, team in ipairs(teams) do
+	for _, team in ipairs(teams) do
 		local minX, minZ, maxX, maxZ = mapSizeX, mapSizeZ, 0, 0
 		for _, area in ipairs(areas) do
 			if area.team == team then
@@ -86,7 +86,7 @@ function Export.StartScript(areas, mapSizeX, mapSizeZ, opts)
 				end
 			end
 		end
-		L(string.format("\t[allyTeam%d]", idx - 1))
+		L(string.format("\t[allyTeam%d]", team))
 		L("\t{")
 		L(string.format("\t\tstartrectleft = %.8f;", minX / mapSizeX))
 		L(string.format("\t\tstartrectright = %.8f;", maxX / mapSizeX))
