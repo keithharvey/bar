@@ -15,7 +15,7 @@ local Claims = {}
 ---@param teams MexRegionsTeamStart[]
 ---@param regions MexRegion[]
 ---@return MexRegionsTeamView[]
-function Claims.Rank(teams, regions)
+function Claims.RankRegionsByDistance(teams, regions)
 	local centres = {} ---@type table<MexRegion, { x: number, z: number }>
 	for _, region in ipairs(regions) do
 		local x, z = Regions.Geometry.Centroid(region.vertices)
@@ -39,37 +39,40 @@ function Claims.Rank(teams, regions)
 	return views
 end
 
----@class MexRegionsStart the teams seated at one start of the layout
----@field allyTeamID integer
----@field teams MexRegionsTeamView[]
-
----@param views MexRegionsTeamView[]
----@return MexRegionsStart[] by ally team
-function Claims.Seat(views)
-	local byAllyTeam = {} ---@type table<integer, MexRegionsStart>
-	local starts = {} ---@type MexRegionsStart[]
-	for _, view in ipairs(views) do
-		local allyTeamID = view.team.allyTeamID
-		local start = byAllyTeam[allyTeamID]
-		if start == nil then
-			start = { allyTeamID = allyTeamID, teams = {} }
-			byAllyTeam[allyTeamID] = start
-			starts[#starts + 1] = start
+---@param teamViews MexRegionsTeamView[]
+---@return integer[] the ally teams with a team seated, ascending
+function Claims.Starts(teamViews)
+	local seen, starts = {}, {} ---@type table<integer, boolean>, integer[]
+	for _, teamView in ipairs(teamViews) do
+		local allyTeamID = teamView.team.allyTeamID
+		if not seen[allyTeamID] then
+			seen[allyTeamID] = true
+			starts[#starts + 1] = allyTeamID
 		end
-		table.insert(start.teams, view)
 	end
-	table.sort(starts, function(a, b)
-		return a.allyTeamID < b.allyTeamID
-	end)
+	table.sort(starts)
 	return starts
 end
 
----@param starts MexRegionsStart[]
+---@param teamViews MexRegionsTeamView[]
+---@param allyTeamID integer
+---@return MexRegionsTeamView[] the teams seated at that start
+function Claims.Seated(teamViews, allyTeamID)
+	local out = {} ---@type MexRegionsTeamView[]
+	for _, teamView in ipairs(teamViews) do
+		if teamView.team.allyTeamID == allyTeamID then
+			out[#out + 1] = teamView
+		end
+	end
+	return out
+end
+
+---@param starts integer[]
 ---@return fun(region: MexRegion): boolean
 function Claims.OfStart(starts)
 	local seated = {} ---@type table<integer, boolean>
-	for _, start in ipairs(starts) do
-		seated[start.allyTeamID] = true
+	for _, allyTeamID in ipairs(starts) do
+		seated[allyTeamID] = true
 	end
 	return function(region)
 		return seated[region.team] == true

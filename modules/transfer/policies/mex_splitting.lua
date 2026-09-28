@@ -63,11 +63,11 @@ Policies.On(MexSplitting)
 		return #ctx.spots > 0
 	end)
 	.Answer(MexSplitting.NearestRoundRobin, function(ctx)
-		local teams = Claims.Rank(ctx.teams, ctx.regions)
-		local starts = Claims.Seat(teams)
+		local teams = Claims.RankRegionsByDistance(ctx.teams, ctx.regions)
+		local starts = Claims.Starts(teams)
 		local held = {} ---@type table<string, integer>
-		for _, start in ipairs(starts) do
-			Claims.RoundRobin(start.teams, held, Claims.OwnedBy(start.allyTeamID))
+		for _, allyTeamID in ipairs(starts) do
+			Claims.RoundRobin(Claims.Seated(teams, allyTeamID), held, Claims.OwnedBy(allyTeamID))
 		end
 		Claims.RoundRobin(teams, held, Claims.Not(Claims.OfStart(starts)))
 		local emptyHanded = Claims.EmptyHanded(ctx.teams, held)
