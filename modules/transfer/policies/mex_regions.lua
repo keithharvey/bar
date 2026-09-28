@@ -12,13 +12,16 @@ local Regions = Policies.Contract(Modules.Regions)
 
 ---@class (partial) RegionMap
 ---@field spots { x: number, z: number, worth: number|nil }[]|nil
+---@field starts integer|nil how many starts the map has; a region is bound to one of them
 
 ---@class TransferRegionsCheckSetSteps: PolicySteps<RegionSetContext<MexRegion>, RegionSetContext<MexRegion>>
 ---@field MexesCovered "MexesCovered"
+---@field BoundToAStart "BoundToAStart"
 
 ---@type TransferRegionsCheckSetSteps
 local MexRegionsSet = {
 	MexesCovered = "MexesCovered",
+	BoundToAStart = "BoundToAStart",
 }
 Policy.Contributes(Regions.CheckSet, MexRegionsSet)
 
@@ -58,6 +61,21 @@ Policies.On(MexRegionsNames)
 	.When(RegionsApi.OfType(RegionsApi.Enums.Types.MexRegion))
 
 Policies.On(MexRegionsSet)
+	.Apply(MexRegionsSet.BoundToAStart, function(ctx)
+		local starts = ctx.map.starts
+		if starts == nil then
+			return
+		end
+		for i, region in ipairs(ctx.regions) do
+			if region.team ~= nil and (region.team < 0 or region.team >= starts) then
+				RegionsApi.ProblemWith(
+					ctx,
+					i,
+					"bound to start " .. region.team .. "; the map's starts are 0 to " .. (starts - 1)
+				)
+			end
+		end
+	end)
 	.Apply(MexRegionsSet.MexesCovered, function(ctx)
 		local spots = ctx.map.spots
 		if spots == nil then

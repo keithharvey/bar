@@ -2236,7 +2236,10 @@ function R.validate()
 	end
 	local finder = WG.resource_spot_finder
 	---@type RegionMap
-	local map = { spots = finder and not finder.isMetalMap and finder.metalSpotsList or nil }
+	local map = {
+		spots = finder and not finder.isMetalMap and finder.metalSpotsList or nil,
+		starts = #R.api.All("start"),
+	}
 	local lines, byRegion, ofSet = {}, {}, {}
 	for _, typeKey in ipairs(R.ORDER) do
 		local regions = R.list(typeKey)

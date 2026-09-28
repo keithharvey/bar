@@ -76,6 +76,16 @@ describe("what mex splitting says about a region", function()
 		end
 	)
 
+	it("is bound to a start the map has, when the map says how many it has", function()
+		local regions =
+			{ mex({ team = 1, group = "g", vertices = square }), mex({ team = 4, group = "g", vertices = square }) }
+		local problems = Regions.CheckSet(Regions.Enums.Types.MexRegion, regions, { starts = 4 })
+		assert.are.equal(1, #problems)
+		assert.are.equal(regions[2], problems[1].region)
+		assert.are.equal("bound to start 4; the map's starts are 0 to 3", problems[1].message)
+		assert.are.same({}, Regions.CheckSet(Regions.Enums.Types.MexRegion, regions, {}))
+	end)
+
 	it("knows no spots when the map's are not given", function()
 		local d = Regions.Describe(mexA(), {})
 		assert.is_nil(d.spots)
