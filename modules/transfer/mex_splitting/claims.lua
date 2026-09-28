@@ -39,70 +39,35 @@ function Claims.RankRegionsByDistance(teams, regions)
 	return views
 end
 
----@param teamViews MexRegionsTeamView[]
----@return integer[] the ally teams with a team seated, ascending
-function Claims.Starts(teamViews)
-	local seen, starts = {}, {} ---@type table<integer, boolean>, integer[]
-	for _, teamView in ipairs(teamViews) do
-		local allyTeamID = teamView.team.allyTeamID
-		if not seen[allyTeamID] then
-			seen[allyTeamID] = true
-			starts[#starts + 1] = allyTeamID
-		end
-	end
-	table.sort(starts)
-	return starts
+---A region bound to the start this team sits at
+---@param view MexRegionsTeamView
+---@param region MexRegion
+---@return boolean
+function Claims.OwnStart(view, region)
+	return region.team == view.team.allyTeamID
 end
 
----@param teamViews MexRegionsTeamView[]
----@param allyTeamID integer
----@return MexRegionsTeamView[] the teams seated at that start
-function Claims.Seated(teamViews, allyTeamID)
-	local out = {} ---@type MexRegionsTeamView[]
-	for _, teamView in ipairs(teamViews) do
-		if teamView.team.allyTeamID == allyTeamID then
-			out[#out + 1] = teamView
-		end
-	end
-	return out
-end
-
----@param starts integer[]
----@return fun(region: MexRegion): boolean
-function Claims.OfStart(starts)
+---A region bound to a start nobody sits at
+---@param teams MexRegionsTeamStart[]
+---@return fun(view: MexRegionsTeamView, region: MexRegion): boolean
+function Claims.EmptyStart(teams)
 	local seated = {} ---@type table<integer, boolean>
-	for _, allyTeamID in ipairs(starts) do
-		seated[allyTeamID] = true
+	for _, team in ipairs(teams) do
+		seated[team.allyTeamID] = true
 	end
-	return function(region)
-		return seated[region.team] == true
-	end
-end
-
----@param allyTeamID integer
----@return fun(region: MexRegion): boolean
-function Claims.OwnedBy(allyTeamID)
-	return function(region)
-		return region.team == allyTeamID
-	end
-end
-
----@param takers fun(region: MexRegion): boolean
----@return fun(region: MexRegion): boolean
-function Claims.Not(takers)
-	return function(region)
-		return not takers(region)
+	return function(_, region)
+		return not seated[region.team]
 	end
 end
 
 ---Deals round the teams until nobody can take: each team in turn takes the nearest region still free that it may take.
 ---@param teams MexRegionsTeamView[]
 ---@param held table<string, integer> region id -> team; written
----@param mayTake fun(region: MexRegion): boolean
+---@param mayTake fun(view: MexRegionsTeamView, region: MexRegion): boolean
 function Claims.RoundRobin(teams, held, mayTake)
 	local function take(view)
 		for _, ranked in ipairs(view.regions) do
-			if held[ranked.region.id] == nil and mayTake(ranked.region) then
+			if held[ranked.region.id] == nil and mayTake(view, ranked.region) then
 				held[ranked.region.id] = view.team.teamID
 				return true
 			end
