@@ -77,7 +77,7 @@ Policies.On(MexSplitting)
 		return { regions = held, spots = Claims.SpotHolders(ctx.regions, ctx.spots, held), problems = {} }
 	end)
 
--- A team has left the match: the ally that has inherited the fewest regions takes its; ties go to the nearest start
+-- A team has left the match: the ally that has inherited the fewest regions takes its' regions; ties go to the nearest start
 --
 ---@class MexRegionsHeirContext
 ---@field departing MexRegionsTeamStart
