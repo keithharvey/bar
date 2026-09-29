@@ -1,4 +1,3 @@
-local Identity = require("modules/regions/lib/identity")
 local SplineLib = require("common/lib_spline")
 
 ---@class RegionLayout
@@ -150,7 +149,7 @@ function Layout.Parse(layout, kind, mapSizeX, mapSizeZ)
 		---@type Region
 		local region = {
 			type = kind.key,
-			id = type(entry.id) == "string" and entry.id or Identity.Mint(),
+			id = type(entry.id) == "string" and entry.id or (kind.key .. "@" .. i),
 			vertices = {},
 		}
 		for _, field in ipairs(kind.fields) do

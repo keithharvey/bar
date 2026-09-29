@@ -3,12 +3,12 @@ local Modules = require("modules/enums").Modules
 local Enums = require("modules/regions/enums")
 local Geometry = require("modules/regions/lib/geometry")
 local Hull = require("modules/regions/lib/hull")
-local Identity = require("modules/regions/lib/identity")
 local Layout = require("modules/regions/lib/layout")
 local Names = require("modules/regions/lib/names")
 local Problems = require("modules/regions/lib/problems")
-local Store = require("modules/regions/lib/store")
+local Repository = require("modules/repository")
 local Types = require("modules/regions/types")
+local state = require("modules/regions/state")
 
 ---@class RegionsApi
 ---@field Overlaps fun(a: { x: number, z: number }[], b: { x: number, z: number }[]): boolean
@@ -43,15 +43,16 @@ function Api.Types()
 	return Types.order, Types.byKey
 end
 
+-- A region that is not the repository's: the match's start for an ally team, a region read from a layout. Its
+-- identity is the caller's to give.
 ---@param typeKey RegionTypeKey
----@param fields table|nil
+---@param fields table its id, and whatever else it carries
 ---@return Region
 function Api.Create(typeKey, fields)
-	local region = fields or {}
-	region.type = typeKey
-	region.id = region.id or Identity.Mint()
-	region.vertices = region.vertices or {}
-	return region --[[@as Region]]
+	assert(type(fields) == "table" and type(fields.id) == "string", "Regions.Create: a region has an id")
+	fields.type = typeKey
+	fields.vertices = fields.vertices or {}
+	return fields --[[@as Region]]
 end
 
 ---@param typeKey RegionTypeKey
@@ -139,84 +140,134 @@ function Api.ParseLayout(layout, typeKey, mapSizeX, mapSizeZ)
 	return Layout.Parse(layout, kind, mapSizeX, mapSizeZ)
 end
 
--- The store: the regions of this Lua state, in one insertion-ordered list keyed by id.
--- The editor puts, edits and removes; the game loads a layout into it and reads.
+-- The repository: the regions of this Lua state that checked out, in order, each a copy that is regions' own. What
+-- is offered is any table that says its type and carries a region's data; what is held is a Region.
 
----@return RegionStore
-local function store()
-	local state = ModuleHandler.State(Modules.Regions)
-	state.store = state.store or Store.New()
-	return state.store
+---@param points { x: number, z: number, strength: number|nil }[]|nil
+---@return { x: number, z: number, strength: number|nil }[]|nil
+local function copyOf(points)
+	if type(points) ~= "table" then
+		return nil
+	end
+	local out = {}
+	for i, p in ipairs(points) do
+		out[i] = { x = p.x, z = p.z, strength = p.strength }
+	end
+	return out
 end
 
----@param region Region
+---@param candidate table
+---@param id string|integer
+---@param held Region[]
+---@return Region|nil region
+---@return string[]|nil problems
+local function admit(candidate, id, held)
+	local kind = Types.byKey[candidate.type]
+	if not kind then
+		return nil, { "unknown region type " .. tostring(candidate.type) }
+	end
+	---@type Region
+	local region = {
+		id = tostring(id),
+		type = kind.key,
+		kind = candidate.kind,
+		vertices = copyOf(candidate.vertices) or {},
+		controls = copyOf(candidate.controls),
+	}
+	if region.kind == "spline" and region.controls ~= nil then
+		region.vertices = Layout.Tessellate(region.controls)
+	end
+	for _, field in ipairs(kind.fields) do
+		local value = candidate[field.key]
+		if value == "" then
+			value = nil
+		end
+		if field.kind == "points" then
+			value = copyOf(value)
+		elseif field.kind == "integer" and type(value) == "string" then
+			value = tonumber(value) or value
+		end
+		region[field.key] = value
+	end
+	local siblings = {} ---@type Region[]
+	for _, other in ipairs(held) do
+		if other.type == kind.key then
+			siblings[#siblings + 1] = other
+		end
+	end
+	local problems = Api.Check(kind.key, region, siblings)
+	if #problems > 0 then
+		return nil, problems
+	end
+	return region, nil
+end
+
+---@return Repository<Region>
+local function repository()
+	if state.regions == nil then
+		state.regions = Repository.New({
+			admit = admit,
+			identify = function(n)
+				return tostring(n)
+			end,
+		})
+	end
+	return state.regions
+end
+
+---@param typeKey RegionTypeKey|nil
+---@return (fun(region: Region): boolean)|nil
+local function ofType(typeKey)
+	if typeKey == nil then
+		return nil
+	end
+	return function(region)
+		return region.type == typeKey
+	end
+end
+
+---@param candidate table
 ---@param beforeId string|nil
----@return Region
-function Api.Put(region, beforeId)
-	return Store.Put(store(), Api.Create(region.type, region), beforeId)
+---@return Region|nil region
+---@return string[]|nil problems
+function Api.Put(candidate, beforeId)
+	return repository().Put(candidate, beforeId)
+end
+
+---@param candidates table[]
+---@return Region[] admitted
+---@return RepositoryRefusal[] refused
+function Api.Assign(candidates)
+	return repository().Assign(candidates)
 end
 
 ---@param id string
 ---@return Region|nil
 function Api.Remove(id)
-	return Store.Remove(store(), id)
+	return repository().Remove(id)
 end
 
 ---@param id string
 ---@return Region|nil
 function Api.Get(id)
-	return store().byId[id]
+	return repository().Get(id)
 end
 
 ---@param typeKey RegionTypeKey|nil
 ---@return Region[]
 function Api.All(typeKey)
-	return Store.All(store(), typeKey)
+	return repository().All(ofType(typeKey))
 end
 
 ---@param typeKey RegionTypeKey|nil
 ---@return Region[]
 function Api.Clear(typeKey)
-	return Store.Clear(store(), typeKey)
+	return repository().Clear(ofType(typeKey))
 end
 
 ---@return integer
 function Api.Revision()
-	return store().revision
-end
-
----@param id string
----@param key string
----@param value any
----@return boolean ok
----@return string|nil reason
-function Api.Set(id, key, value)
-	local region = store().byId[id]
-	local kind = region and Types.byKey[region.type]
-	if not region or not kind then
-		return false, "no such region"
-	end
-	local declared = nil
-	for _, field in ipairs(kind.fields) do
-		if field.key == key then
-			declared = field
-		end
-	end
-	if not declared then
-		return false, "a " .. kind.label:lower() .. " has no " .. tostring(key)
-	end
-	if value == "" then
-		value = nil
-	end
-	if value ~= nil and declared.kind == "integer" then
-		value = tonumber(value)
-		if value == nil then
-			return false, declared.label .. " must be a number"
-		end
-	end
-	region[key] = value
-	store().revision = store().revision + 1
-	return true, nil
+	return repository().Revision()
 end
 
 ---@param typeKey RegionTypeKey
@@ -308,8 +359,9 @@ end
 ---@param path string
 ---@param mapSizeX number
 ---@param mapSizeZ number
----@return Region[]|nil regions
+---@return Region[]|nil regions what the repository now holds
 ---@return string|nil reason
+---@return RepositoryRefusal[]|nil refused what the file held that did not check out
 function Api.LoadLayoutFile(path, mapSizeX, mapSizeZ)
 	if not VFS.FileExists(path, VFS.RAW_FIRST) then
 		return nil, "no file at " .. path
@@ -321,12 +373,8 @@ function Api.LoadLayoutFile(path, mapSizeX, mapSizeZ)
 	if type(layout) ~= "table" or type(layout.regions) ~= "table" then
 		return nil, path .. " does not return a layout: { regions = { <type> = { ... } } }"
 	end
-	local regions = Api.ParseAllLayout(layout, mapSizeX, mapSizeZ)
-	Api.Clear()
-	for _, region in ipairs(regions) do
-		Api.Put(region)
-	end
-	return regions, nil
+	local admitted, refused = Api.Assign(Api.ParseAllLayout(layout, mapSizeX, mapSizeZ))
+	return admitted, nil, refused
 end
 
 Api.Tessellate = Layout.Tessellate

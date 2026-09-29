@@ -189,11 +189,150 @@ for _, key in ipairs(R.ORDER) do
 	end
 	R.CATEGORIES[key] = { key = key, label = kind.label, type = key, placing = placesPoints and "points" or "area" }
 end
----@class EditorRegion: Region what the tool keeps on a region while it is on screen
+---@class EditorRegion what the tool draws and edits. It is the tool's own, whole or not; regions holds a copy of it once it checks out
+---@field id string|nil the id regions gave its copy; nothing until regions has admitted it
+---@field type RegionTypeKey
+---@field vertices { x: number, z: number }[]
+---@field kind "point"|"polygon"|"box"|"spline"|nil
+---@field controls { x: number, z: number, strength: number|nil }[]|nil
+---@field name string|nil
+---@field team integer|nil
+---@field group string|nil
+---@field positions { x: number, z: number }[]|nil
+---@field problems string[]|nil why regions would not take it as it stands
 ---@field _fillList integer|nil the ground-fill display list drawn for the area
 ---@field _fillDirty boolean|nil the fill is stale
 ---@field _fillNeedsRebuild boolean|nil rebuild the fill on the next draw
 ---@field _fillLastFrame integer|nil the draw frame the fill was last rebuilt on
+
+-- The tool's working list: every region on screen, in order, whether or not it checks out yet. A draft is known by
+-- the table it is, never by an id: it has none until regions admits it.
+R.drafts = { list = {}, revision = 0 }
+
+---@param typeKey RegionTypeKey|nil
+---@return EditorRegion[]
+function R.drafts.All(typeKey)
+	local out = {}
+	for _, draft in ipairs(R.drafts.list) do
+		if typeKey == nil or draft.type == typeKey then
+			out[#out + 1] = draft
+		end
+	end
+	return out
+end
+
+---@param draft EditorRegion
+---@param before EditorRegion|nil the draft it goes ahead of
+---@return EditorRegion
+function R.drafts.Put(draft, before)
+	local list = R.drafts.list
+	local held, at = false, #list + 1
+	for i, other in ipairs(list) do
+		held = held or other == draft
+		if other == before then
+			at = i
+		end
+	end
+	if not held then
+		table.insert(list, at, draft)
+	end
+	R.drafts.revision = R.drafts.revision + 1
+	return draft
+end
+
+---@param draft EditorRegion
+---@return EditorRegion|nil
+function R.drafts.Remove(draft)
+	for i, other in ipairs(R.drafts.list) do
+		if other == draft then
+			table.remove(R.drafts.list, i)
+			R.drafts.revision = R.drafts.revision + 1
+			return draft
+		end
+	end
+	return nil
+end
+
+---@param typeKey RegionTypeKey|nil
+---@return EditorRegion[]
+function R.drafts.Clear(typeKey)
+	local kept, removed = {}, {}
+	for _, draft in ipairs(R.drafts.list) do
+		if typeKey == nil or draft.type == typeKey then
+			removed[#removed + 1] = draft
+		else
+			kept[#kept + 1] = draft
+		end
+	end
+	if #removed > 0 then
+		R.drafts.list = kept
+		R.drafts.revision = R.drafts.revision + 1
+	end
+	return removed
+end
+
+---@return integer
+function R.drafts.Revision()
+	return R.drafts.revision
+end
+
+---@param value any a region, or anything in one
+---@return any a copy that shares nothing with it
+function R.draftOf(value)
+	if type(value) ~= "table" then
+		return value
+	end
+	local out = {}
+	for k, v in pairs(value) do
+		out[k] = R.draftOf(v)
+	end
+	return out
+end
+
+-- Offer the drafts to regions, whole. Regions keeps its own copy of each that checks out, under an id it gives, and
+-- says what is wrong with the rest; what the tool exports, saves and copies is regions' copy, never a draft.
+R.submitted = ""
+function R.submit()
+	local key = R.revision .. ":" .. R.drafts.Revision()
+	if R.submitted == key then
+		return
+	end
+	R.submitted = key
+	local drafts = R.drafts.All()
+	local admitted, refused = R.api.Assign(drafts)
+	local why = {}
+	for _, refusal in ipairs(refused) do
+		why[refusal.candidate] = refusal.problems
+	end
+	local i = 0
+	for _, draft in ipairs(drafts) do
+		draft.problems = why[draft]
+		if draft.problems == nil then
+			i = i + 1
+			local region = admitted[i]
+			draft.id = region and region.id or draft.id
+		end
+	end
+end
+
+-- What regions holds of a type, the drafts offered first: for a start, the areas, by team.
+---@param typeKey RegionTypeKey
+---@return Region[]
+function R.admitted(typeKey)
+	R.submit()
+	local out = {}
+	for _, region in ipairs(R.api.All(typeKey)) do
+		if typeKey ~= "start" or #region.vertices >= 3 then
+			out[#out + 1] = region
+		end
+	end
+	if typeKey == "start" then
+		table.sort(out, function(a, b)
+			return (a.team or 0) < (b.team or 0)
+		end)
+	end
+	return out
+end
 
 local startboxes = {} ---@type EditorRegion[]
 -- Forward declarations for cached-fill-list helpers defined further down in the drawing section.
@@ -320,7 +459,7 @@ end
 -- it is reached by team, through R.start, and its positions through seats().
 function R.list(typeKey)
 	local out = {}
-	for _, region in ipairs(R.api.All(typeKey)) do
+	for _, region in ipairs(R.drafts.All(typeKey)) do
 		if typeKey ~= "start" or (region.vertices ~= nil and #region.vertices >= 3) then
 			out[#out + 1] = region
 		end
@@ -337,10 +476,9 @@ function R.refresh()
 	startboxes = R.list(R.type)
 end
 
----@return StartRegion|nil
+---@return EditorRegion|nil
 function R.start(team)
-	for _, region in ipairs(R.api.All("start")) do
-		---@cast region +StartRegion
+	for _, region in ipairs(R.drafts.All("start")) do
 		if region.team == team then
 			return region
 		end
@@ -349,7 +487,7 @@ function R.start(team)
 end
 
 ---@class EditorSeat
----@field region StartRegion
+---@field region EditorRegion
 ---@field i integer
 ---@field x number
 ---@field z number
@@ -361,12 +499,11 @@ end
 local seatsCache, seatsCacheKey = {}, ""
 ---@return EditorSeat[]
 local function seats()
-	local key = R.api.Revision() .. ":" .. R.revision
+	local key = R.drafts.Revision() .. ":" .. R.revision
 	if key ~= seatsCacheKey then
 		seatsCacheKey = key
 		seatsCache = {}
-		for _, region in ipairs(R.api.All("start")) do
-			---@cast region +StartRegion
+		for _, region in ipairs(R.drafts.All("start")) do
 			for i, p in ipairs(region.positions or {}) do
 				seatsCache[#seatsCache + 1] = {
 					region = region,
@@ -385,9 +522,9 @@ local function seats()
 end
 
 -- A point start is where its one position is; an area keeps its shape whatever its positions do.
----@param region Region
+---@param region EditorRegion
 local function keepShape(region)
-	local positions = (region --[[@as StartRegion]]).positions or {}
+	local positions = region.positions or {}
 	if region.kind == "point" or (region.vertices ~= nil and #region.vertices == 1) then
 		region.vertices = positions[1] and { { x = positions[1].x, z = positions[1].z } } or {}
 	end
@@ -404,8 +541,7 @@ end
 
 function R.add(box, at)
 	box.type = box.type or R.type
-	local before = at and startboxes[at]
-	R.api.Put(box, before and before.id) -- the store gives it an id, unless it already has one
+	R.drafts.Put(box, at and startboxes[at] or nil)
 	R.refresh()
 	return box
 end
@@ -415,34 +551,34 @@ function R.removeAt(idx)
 	if not box then
 		return nil
 	end
-	R.api.Remove(box.id)
+	R.drafts.Remove(box)
 	R.refresh()
 	return box
 end
 
--- The replacement takes the old region's place in the store: its id, and its position in the order.
+-- The replacement takes the old draft's place: its position in the order, and the id regions knows it by.
 function R.replaceAt(idx, box)
 	local old = startboxes[idx]
 	if not old then
 		return nil
 	end
-	local all = R.api.All()
-	local nextId = nil
+	local all = R.drafts.All()
+	local after = nil
 	for i, region in ipairs(all) do
 		if region == old then
-			nextId = all[i + 1] and all[i + 1].id
+			after = all[i + 1]
 		end
 	end
 	box.type = old.type
 	box.id = old.id
-	R.api.Remove(old.id)
-	R.api.Put(box, nextId)
+	R.drafts.Remove(old)
+	R.drafts.Put(box, after)
 	R.refresh()
 	return old
 end
 
 function R.clear(typeKey)
-	for _, region in ipairs(R.api.Clear(typeKey)) do
+	for _, region in ipairs(R.drafts.Clear(typeKey)) do
 		freeBoxFillList(region)
 	end
 	R.refresh()
@@ -527,7 +663,7 @@ local function addPosition(x, z, allyTeam, teamSlot)
 	end
 	local region = R.start(allyTeam)
 	if not region then
-		region = R.api.Put(R.api.Create("start", { team = allyTeam, kind = "point", vertices = {}, positions = {} })) --[[@as StartRegion]]
+		region = R.drafts.Put({ type = "start", team = allyTeam, kind = "point", vertices = {}, positions = {} })
 	end
 	region.positions = region.positions or {}
 	local positions = region.positions
@@ -547,8 +683,8 @@ local function removeSeat(seat)
 		table.remove(positions, seat.i)
 	end
 	keepShape(region)
-	if #positions == 0 and region.id and (region.vertices == nil or #region.vertices < 3) then
-		R.api.Remove(region.id)
+	if #positions == 0 and (region.vertices == nil or #region.vertices < 3) then
+		R.drafts.Remove(region)
 	end
 	R.bump()
 end
@@ -633,12 +769,11 @@ local function findNearestPosition(wx, wz)
 end
 
 local function clearAllPositions()
-	for _, region in ipairs(R.api.All("start")) do
-		---@cast region +StartRegion
+	for _, region in ipairs(R.drafts.All("start")) do
 		region.positions = nil
 		keepShape(region)
-		if region.id and (region.vertices == nil or #region.vertices < 3) then
-			R.api.Remove(region.id)
+		if region.vertices == nil or #region.vertices < 3 then
+			R.drafts.Remove(region)
 		end
 	end
 	R.bump()
@@ -697,8 +832,7 @@ local function renumberBoxAllyTeams()
 	for i, box in ipairs(areas) do
 		box.team = i - 1
 	end
-	for _, region in ipairs(R.api.All("start")) do
-		---@cast region +StartRegion
+	for _, region in ipairs(R.drafts.All("start")) do
 		if region.vertices == nil or #region.vertices < 3 then
 			local area = areas[(region.team or -1) + 1]
 			if area and not rawequal(area, region) then
@@ -706,9 +840,7 @@ local function renumberBoxAllyTeams()
 				for _, p in ipairs(region.positions or {}) do
 					area.positions[#area.positions + 1] = p
 				end
-				if region.id then
-					R.api.Remove(region.id)
-				end
+				R.drafts.Remove(region)
 			end
 		end
 	end
@@ -752,9 +884,9 @@ function R.stampNew(box)
 	end
 	if R.type == "start" then
 		local existing = R.start(box.team)
-		if existing and existing ~= box and existing.id then
+		if existing and existing ~= box then
 			freeBoxFillList(existing)
-			R.api.Remove(existing.id)
+			R.drafts.Remove(existing)
 		end
 		R.drawForTeam = nil
 		R.selectedStart = box.team
@@ -1066,12 +1198,14 @@ function boxUndo.commit()
 		return
 	end
 	local edited = startboxes[pend.idx]
-	if edited and R.api then
-		local problems = R.api.Check(R.type, edited, startboxes, false)
-		if problems[1] then
+	if edited then
+		R.bump()
+		R.submit()
+		local problem = edited.problems and edited.problems[1]
+		if problem then
 			freeBoxFillList(edited)
-			startboxes[pend.idx] = boxUndo.build(pend.box)
-			R.error = problems[1]
+			R.replaceAt(pend.idx, boxUndo.build(pend.box))
+			R.error = problem
 			R.bump()
 			return
 		end
@@ -1136,7 +1270,7 @@ function boxUndo.apply(entry)
 end
 
 function boxExport.encode()
-	local arrangement = Start.Export.Arrangement(R.list("start"), Game.mapSizeX, Game.mapSizeZ)
+	local arrangement = Start.Export.Arrangement(R.admitted("start"), Game.mapSizeX, Game.mapSizeZ)
 	if #arrangement == 0 then
 		return nil
 	end
@@ -1538,7 +1672,7 @@ local STARTSCRIPT_SAVE_DIR = "Terraform Brush/StartScripts/"
 ---@return string|nil
 local function generateStartScript(opts)
 	opts = opts or {}
-	local script = Start.Export.StartScript(R.list("start"), Game.mapSizeX, Game.mapSizeZ, {
+	local script = Start.Export.StartScript(R.admitted("start"), Game.mapSizeX, Game.mapSizeZ, {
 		mapName = opts.mapname or getMapName(),
 		playerName = opts.playerName,
 		aiShortName = opts.aiShortName,
@@ -1859,15 +1993,16 @@ function R.seedMexRegions()
 	local deal = okDeal and type(Deal) == "table" and Deal.Reader(Game.mapSizeX, Game.mapSizeZ)(Spring) or nil
 	if deal and deal.regions and #deal.regions > 0 then
 		for _, region in ipairs(deal.regions) do
-			region._fillNeedsRebuild = true
-			R.add(region)
+			local draft = R.draftOf(region)
+			draft._fillNeedsRebuild = true
+			R.add(draft)
 		end
 		Echo("[Regions] Opened on the match's " .. #deal.regions .. " mex region(s)")
 	end
 end
 
 function R.seedFromMatch()
-	if not R.seeded and #R.api.All() == 0 then
+	if not R.seeded and #R.drafts.All() == 0 then
 		-- The map maker's own file first: it holds every type, with the anchors they drew.
 		R.load()
 	end
@@ -1878,7 +2013,7 @@ function R.seedFromMatch()
 	R.seeded = true
 	local current = Start.Current(Spring)
 	for _, start in ipairs(current.areas) do
-		R.add(start)
+		R.add(R.draftOf(start))
 	end
 	renumberBoxAllyTeams()
 	local slots = {}
@@ -2045,7 +2180,7 @@ end
 
 function R.starts()
 	local count = 0
-	for _, region in ipairs(R.api.All("start")) do
+	for _, region in ipairs(R.drafts.All("start")) do
 		---@cast region +StartRegion
 		count = math_max(count, (region.team or -1) + 1)
 	end
@@ -2167,8 +2302,24 @@ function R.factsFor(key, compute)
 	return R.factsValue
 end
 
+-- A name is regions' to give, over what it holds; a draft it has not admitted goes by what the form says.
 function R.names()
-	return R.api.Names(R.type, startboxes)
+	R.submit()
+	local held, at = {}, {}
+	for i, draft in ipairs(startboxes) do
+		local region = draft.id and draft.problems == nil and R.api.Get(draft.id) or nil
+		if region then
+			held[#held + 1] = region
+			at[i] = #held
+		end
+	end
+	local named = R.api.Names(R.type, held)
+	local out = {}
+	for i, draft in ipairs(startboxes) do
+		local index = at[i]
+		out[i] = index and named[index] or { name = draft.name or "", derived = false }
+	end
+	return out
 end
 
 function R.facts(box)
@@ -2178,26 +2329,24 @@ function R.facts(box)
 	end
 	local finder = WG.resource_spot_finder
 	local spots = finder and not finder.isMetalMap and finder.metalSpotsList or nil
-	local candidate = R.fieldValues(box)
-	candidate.id = box.id
-	candidate.type = box.type or R.type
-	candidate.vertices = verts
-	local shape = R.api.Shape(candidate)
-	local d = R.api.Describe(candidate, { spots = spots })
+	local area = R.api.Geometry.Area(verts)
+	local cx, cz = R.api.Geometry.Centroid(verts)
+	R.submit()
+	local held = box.id and box.problems == nil and R.api.Get(box.id) or nil
+	local d = held and R.api.Describe(held, { spots = spots }) or nil
 	local lines = { { "Vertices", tostring(#verts) } }
-	if shape.area > 0 then
-		lines[#lines + 1] =
-			{ "Area", string.format("%.0f x %.0f elmos equivalent", math_sqrt(shape.area), math_sqrt(shape.area)) }
+	if area > 0 then
+		lines[#lines + 1] = { "Area", string.format("%.0f x %.0f elmos equivalent", math_sqrt(area), math_sqrt(area)) }
 	end
-	lines[#lines + 1] = { "Centre", string.format("%d, %d", shape.centre.x, shape.centre.z) }
-	if d == nil then
+	lines[#lines + 1] = { "Centre", string.format("%d, %d", cx, cz) }
+	if d == nil or held == nil then
 		return lines
 	end
-	if candidate.type == "start" then
+	if held.type == "start" then
 		local s = d --[[@as StartDescription]]
 		lines[#lines + 1] = { "Start", R.teamLabel(s.team) or tostring(s.team) }
 		lines[#lines + 1] = { "Positions", tostring(#s.positions) }
-	elseif candidate.type == "mex_region" then
+	elseif held.type == "mex_region" then
 		local m = d --[[@as MexRegionDescription]]
 		lines[#lines + 1] = { "Group", tostring(m.group) }
 		if m.spots then
@@ -2236,25 +2385,37 @@ R.INVALID = { 1.0, 0.25, 0.55, 1.0 }
 R.validated = { revision = -1, count = -1, lines = {}, byRegion = {}, ofSet = {} }
 function R.validate()
 	local was = R.validated
-	if was.revision == R.revision and was.count == R.api.Revision() then
+	if was.revision == R.revision and was.count == R.drafts.Revision() then
 		return was
 	end
+	R.submit()
 	local finder = WG.resource_spot_finder
+	local starts = #R.drafts.All("start")
 	---@type RegionMap
 	local map = {
 		spots = finder and not finder.isMetalMap and finder.metalSpotsList or nil,
-		starts = #R.api.All("start"),
+		starts = starts > 0 and starts or nil,
 	}
 	local lines, byRegion, ofSet = {}, {}, {}
+	local byId = {} ---@type table<string, EditorRegion>
+	for _, draft in ipairs(R.drafts.All()) do
+		if draft.problems == nil and draft.id then
+			byId[draft.id] = draft
+		end
+		for _, message in ipairs(draft.problems or {}) do
+			lines[#lines + 1] = R.api.ProblemLine({ message = message, name = draft.name })
+			byRegion[draft] = byRegion[draft] or {}
+			table.insert(byRegion[draft], message)
+		end
+	end
 	for _, typeKey in ipairs(R.ORDER) do
-		local regions = R.list(typeKey)
-		if #regions > 0 then
+		if #R.api.All(typeKey) > 0 then
 			for _, problem in ipairs(R.api.Problems(typeKey, map)) do
 				lines[#lines + 1] = R.api.ProblemLine(problem)
-				local region = problem.region
-				if region then
-					byRegion[region] = byRegion[region] or {}
-					table.insert(byRegion[region], problem.message)
+				local draft = problem.region and byId[problem.region.id] or nil
+				if draft then
+					byRegion[draft] = byRegion[draft] or {}
+					table.insert(byRegion[draft], problem.message)
 				else
 					ofSet[typeKey] = ofSet[typeKey] or {}
 					table.insert(ofSet[typeKey], { message = problem.message, at = problem.at })
@@ -2264,7 +2425,7 @@ function R.validate()
 	end
 	R.validated = {
 		revision = R.revision,
-		count = R.api.Revision(),
+		count = R.drafts.Revision(),
 		lines = lines,
 		byRegion = byRegion,
 		ofSet = ofSet,
@@ -2298,10 +2459,12 @@ function R.problemsState()
 end
 
 function R.exportLayout()
+	R.submit()
 	return R.api.ExportLayout(R.api.All(), Game.mapSizeX, Game.mapSizeZ)
 end
 
 function R.encodeLayout()
+	R.submit()
 	if #R.api.All() == 0 then
 		return nil
 	end
@@ -2332,11 +2495,14 @@ function R.copyLayout()
 	return true
 end
 
+-- What is written is what regions holds: a draft that does not check out is not in the file.
 function R.save(explicitPath)
+	R.submit()
 	local count = #R.api.All()
+	local left = #R.drafts.All() - count
 	if count == 0 then
 		Echo("[Regions] No regions to save.")
-		return false, "no regions drawn"
+		return false, left > 0 and "none of the regions drawn checks out" or "no regions drawn"
 	end
 	if not explicitPath then
 		Spring.CreateDir(REGIONS_SAVE_DIR)
@@ -2359,6 +2525,7 @@ function R.save(explicitPath)
 			.. (count == 1 and "" or "s")
 			.. " to "
 			.. explicitPath
+			.. (left > 0 and ("; " .. left .. " left out, not checking out") or "")
 			.. (
 				#problems > 0
 					and (", with " .. #problems .. " problem" .. (#problems == 1 and "" or "s") .. " still to fix")
@@ -2370,22 +2537,33 @@ end
 
 function R.load(explicitPath)
 	explicitPath = explicitPath or (REGIONS_SAVE_DIR .. getMapName() .. ".lua")
-	for _, region in ipairs(R.api.All()) do
-		freeBoxFillList(region)
-	end
-	local regions, reason = R.api.LoadLayoutFile(explicitPath, Game.mapSizeX, Game.mapSizeZ)
+	local regions, reason, refused = R.api.LoadLayoutFile(explicitPath, Game.mapSizeX, Game.mapSizeZ)
 	if not regions then
 		Echo("[Regions] No saved regions found: " .. explicitPath .. (reason and (" (" .. reason .. ")") or ""))
 		return false
 	end
+	for _, draft in ipairs(R.drafts.Clear()) do
+		freeBoxFillList(draft)
+	end
+	-- what the file held that does not check out is still the map maker's to fix: it comes in as a draft
 	for _, region in ipairs(regions) do
-		region._fillNeedsRebuild = true
+		local draft = R.draftOf(region)
+		draft._fillNeedsRebuild = true
+		R.drafts.Put(draft)
+	end
+	for _, refusal in ipairs(refused or {}) do
+		local draft = R.draftOf(refusal.candidate)
+		draft._fillNeedsRebuild = true
+		R.drafts.Put(draft)
 	end
 	renumberBoxAllyTeams()
 	R.refresh()
 	R.selectedIdx = nil
 	R.bump()
 	Echo("[Regions] Loaded " .. #regions .. " region(s) from: " .. explicitPath)
+	if refused and #refused > 0 then
+		Echo("[Regions] " .. #refused .. " more came in as drafts: they do not check out as they stand")
+	end
 	return true
 end
 
@@ -2399,9 +2577,12 @@ function R.selectedRecord()
 			hasBox = box ~= nil,
 			fields = box and R.fieldValues(box) or { team = R.selectedStart },
 			vertexCount = box and #box.vertices or 0,
-			facts = R.factsFor("start:" .. R.selectedStart .. ":" .. R.revision .. ":" .. R.api.Revision(), function()
-				return R.startFacts(R.selectedStart)
-			end),
+			facts = R.factsFor(
+				"start:" .. R.selectedStart .. ":" .. R.revision .. ":" .. R.drafts.Revision(),
+				function()
+					return R.startFacts(R.selectedStart)
+				end
+			),
 		}
 	end
 	local box = R.selectedIdx and startboxes[R.selectedIdx]
@@ -4570,7 +4751,7 @@ end
 
 function widget:Shutdown()
 	WG.RegionsTool = nil
-	for _, region in ipairs(R.api.All()) do
+	for _, region in ipairs(R.drafts.All()) do
 		freeBoxFillList(region)
 	end
 end

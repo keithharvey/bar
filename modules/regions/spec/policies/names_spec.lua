@@ -3,9 +3,13 @@ local Regions = require("modules/regions/api")
 local square = { { x = 0, z = 0 }, { x = 100, z = 0 }, { x = 100, z = 100 }, { x = 0, z = 100 } }
 local far = { { x = 500, z = 500 }, { x = 600, z = 500 }, { x = 600, z = 600 } }
 
+local made = 0
+
 ---@param fields table
 ---@return Region
 local function start(fields)
+	made = made + 1
+	fields.id = fields.id or ("r" .. made)
 	return Regions.Create(Regions.Enums.Types.Start, fields)
 end
 
