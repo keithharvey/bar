@@ -20,6 +20,13 @@ describe("region geometry", function()
 		assert.is_true(Geometry.Overlaps(square, crossing), "no vertex inside, but the edges cross")
 	end)
 
+	it("knows two areas share ground when their edges run in line", function()
+		local left = { { x = 0, z = 0 }, { x = 100, z = 0 }, { x = 100, z = 100 }, { x = 0, z = 100 } }
+		local right = { { x = 50, z = 0 }, { x = 150, z = 0 }, { x = 150, z = 100 }, { x = 50, z = 100 } }
+		assert.is_true(Geometry.Overlaps(left, right), "half of each lies in the other, and no corner does")
+		assert.is_true(Geometry.Overlaps(right, left))
+	end)
+
 	it("lets neighbours touch: a shared edge or corner is not shared ground", function()
 		local east = { { x = 100, z = 0 }, { x = 200, z = 0 }, { x = 200, z = 100 }, { x = 100, z = 100 } }
 		local corner = { { x = 100, z = 100 }, { x = 200, z = 100 }, { x = 200, z = 200 }, { x = 100, z = 200 } }

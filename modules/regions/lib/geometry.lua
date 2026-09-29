@@ -120,6 +120,16 @@ local function strictlyInside(x, z, vertices)
 	return Geometry.Contains(x, z, vertices) and not Geometry.OnBoundary(x, z, vertices)
 end
 
+---@param ring { x: number, z: number }[]
+---@param i integer
+---@return number x the middle of the edge that starts at the ring's ith corner
+---@return number z
+local function midpoint(ring, i)
+	local from = ring[i] --[[@as { x: number, z: number }]]
+	local to = ring[(i % #ring) + 1] --[[@as { x: number, z: number }]]
+	return (from.x + to.x) * 0.5, (from.z + to.z) * 0.5
+end
+
 ---@param a { x: number, z: number }[]
 ---@param b { x: number, z: number }[]
 ---@return boolean
@@ -149,7 +159,24 @@ function Geometry.Overlaps(a, b)
 	-- one ring lying along the other, or the same ring twice: no corner is strictly inside, no edge crosses
 	local ax, az = Geometry.Centroid(a)
 	local bx, bz = Geometry.Centroid(b)
-	return strictlyInside(ax, az, b) or strictlyInside(bx, bz, a)
+	if strictlyInside(ax, az, b) or strictlyInside(bx, bz, a) then
+		return true
+	end
+	-- two rings sharing ground with their edges in line: every corner and both middles sit on a boundary, and
+	-- the middle of an edge is what lies inside the other
+	for i = 1, na do
+		local x, z = midpoint(a, i)
+		if strictlyInside(x, z, b) then
+			return true
+		end
+	end
+	for j = 1, nb do
+		local x, z = midpoint(b, j)
+		if strictlyInside(x, z, a) then
+			return true
+		end
+	end
+	return false
 end
 
 ---@param ax number
