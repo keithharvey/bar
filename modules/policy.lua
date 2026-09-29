@@ -327,12 +327,12 @@ end
 
 ---@class PolicyEnrichment<C>
 ---@field facts table|nil the facts this enrichment provides for
----@field Provide fun(...: string|fun(ctx: C, ...: any): any): PolicyEnrichment<C> one or more provision names, then the producer
+---@field Provide (fun(name: string, evaluate: fun(ctx: C, ...: any): any): PolicyEnrichment<C>)|(fun(name: string, name2: string, evaluate: fun(ctx: C, ...: any): any, any): PolicyEnrichment<C>)|(fun(name: string, name2: string, name3: string, evaluate: fun(ctx: C, ...: any): any, any, any): PolicyEnrichment<C>) the facts a producer answers, one name per return value, then the producer
 ---@field Default fun(name: string, evaluate: fun(ctx: C, ...: any): any): PolicyEnrichment<C> the owner's value for a fact when no module provides it
 ---@field Build fun(): PolicyProvision[]
 
 ---@param facts table|nil the facts, as the owner declared them
----@return PolicyEnrichment
+---@return PolicyEnrichment<any>
 function Policy.Enrichment(facts)
 	local ops = {} ---@type PolicyProvision[]
 	local chain = { facts = facts }

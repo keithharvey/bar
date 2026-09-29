@@ -31,7 +31,7 @@ end)
 --
 Policies.On(ConstructionContract.PlacementFacts)
 	.Provide(ConstructionContract.PlacementFacts.UtilitySharing, function(ctx)
-		local mode = ctx.modOptions[TransferEnums.ModOptions.UnitSharingMode]
+		local mode = tostring(ctx.modOptions[TransferEnums.ModOptions.UnitSharingMode])
 		return table.contains(Construction.UnitTypesFor(mode), ConstructionEnums.UnitType.Utility)
 	end)
 

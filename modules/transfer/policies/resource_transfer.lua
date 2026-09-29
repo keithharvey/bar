@@ -5,6 +5,10 @@ local TransferEnums = require("modules/transfer/enums")
 
 -- May this team send that one a resource, how much, and what the tax takes
 --
+---@class TransferResourceContext: TransferContext
+---@field resourceType ResourceName
+---@field taxRate number the pairing's, resolved and clamped to 0..1
+
 ---@class ResourceTransferTerms: TransferTerms
 ---@field canShare boolean
 ---@field amountSendable number
@@ -14,7 +18,7 @@ local TransferEnums = require("modules/transfer/enums")
 ---@field resourceType ResourceName
 ---@field techBlocking? TechBlockingContext
 
----@class TransferResourceTransferPolicy: PolicySteps<TransferContext, ResourceTransferTerms>
+---@class TransferResourceTransferPolicy: PolicySteps<TransferResourceContext, ResourceTransferTerms>
 ---@field SharingDisabled "SharingDisabled"
 ---@field Allied "Allied"
 ---@field ReceiverHasNoPlayers "ReceiverHasNoPlayers"
@@ -34,17 +38,14 @@ Policy.Single(ResourceTransfer)
 
 local METAL = TransferEnums.ResourceType.METAL
 
----@param ctx TransferContext
----@param resourceType ResourceName
+---@param ctx TransferResourceContext
 ---@return ResourceTransferTerms
-local function deny(ctx, resourceType)
-	return Shared.CreateDenyPolicy(ctx.senderTeamId, ctx.receiverTeamId, resourceType, ctx.springRepo)
+local function deny(ctx)
+	return Shared.CreateDenyPolicy(ctx.senderTeamId, ctx.receiverTeamId, ctx.resourceType, ctx.springRepo)
 end
 
 Policies.On(ResourceTransfer)
-	.Refusal(function(ctx, resourceType)
-		return deny(ctx, resourceType)
-	end)
+	.Refusal(deny)
 	.Unless(ResourceTransfer.SharingDisabled, function(ctx)
 		return not SharedConfig.isResourceSharingEnabled(ctx.springRepo)
 	end)
@@ -61,28 +62,28 @@ Policies.On(ResourceTransfer)
 		local numActivePlayers = ctx.springRepo.GetTeamRulesParam(ctx.receiverTeamId, "numActivePlayers")
 		return numActivePlayers ~= nil and tonumber(numActivePlayers) == 0
 	end)
-	.Answer(ResourceTransfer.RateAndCapacity, function(ctx, resourceType, rate, result)
+	.Answer(ResourceTransfer.RateAndCapacity, function(ctx)
 		local senderData, receiverData
-		if resourceType == METAL then
+		if ctx.resourceType == METAL then
 			senderData = ctx.sender.metal
 			receiverData = ctx.receiver.metal
 		else
 			senderData = ctx.sender.energy
 			receiverData = ctx.receiver.energy
 		end
+		local rate = ctx.taxRate
 		local taxedSendable = math.max(0, senderData.current) * (1 - rate)
 		local capacity = receiverData.storage - receiverData.current
-		Shared.CombineResourcePolicy(
+		local terms = Shared.CombineResourcePolicy(
 			taxedSendable,
 			rate,
 			capacity,
 			ctx.senderTeamId,
 			ctx.receiverTeamId,
-			resourceType,
-			result
+			ctx.resourceType
 		)
-		result.techBlocking = ctx.techBlocking
-		return result
+		terms.techBlocking = ctx.techBlocking
+		return terms
 	end)
 
 -- The notes other modules attach to a resource-terms record for the player to read; providers get the modoptions

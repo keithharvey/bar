@@ -59,28 +59,19 @@ function Gadgets.ResourceTransfer(ctx)
 	return result
 end
 
-local policyResultPool = {} ---@type table<ResourceName, ResourceTransferTerms>
-
 ---@param ctx TransferContext
----@param resourceType ResourceName
 ---@return number
-local function resolveEffectiveRate(ctx, resourceType)
-	local perResource = ctx.taxRates and ctx.taxRates[resourceType]
-	local taxRate = (perResource or ctx.taxRate or SharedConfig.getTaxConfig(ctx.springRepo)) --[[@as number]]
+local function resolveEffectiveRate(ctx)
+	local taxRate = (ctx.taxRate or SharedConfig.getTaxConfig(ctx.springRepo)) --[[@as number]]
 	return math.min(taxRate, 1)
 end
 
----@param ctx TransferContext
----@param resourceType ResourceName
+---@param ctx TransferContext the pairing
+---@param resourceType ResourceName the resource asked about
 ---@return ResourceTransferTerms
 function Gadgets.CalcResourcePolicy(ctx, resourceType)
-	local result = policyResultPool[resourceType]
-	if not result then
-		result = {} --[[@as ResourceTransferTerms]]
-		policyResultPool[resourceType] = result
-	end
-	local policy = ModuleHandler.Contract(Modules.Transfer).ResourceTransfer
-	return ModuleHandler.Evaluate(policy, ctx, resourceType, resolveEffectiveRate(ctx, resourceType), result)
+	local ask = setmetatable({ resourceType = resourceType, taxRate = resolveEffectiveRate(ctx) }, { __index = ctx }) --[[@as TransferResourceContext]]
+	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transfer).ResourceTransfer, ask)
 end
 
 ---@param springRepo Spring
@@ -100,7 +91,7 @@ end
 ---@param ctx TransferContext self-context (sender==receiver==teamId) so the enricher resolves the team's tax
 function Gadgets.CacheTeamFactor(springRepo, teamId, resourceType, ctx)
 	local data = (resourceType == METAL) and ctx.sender.metal or ctx.sender.energy
-	local effectiveRate = resolveEffectiveRate(ctx, resourceType)
+	local effectiveRate = resolveEffectiveRate(ctx)
 	local isNonPlayer = Shared.IsNonPlayerTeam(springRepo, teamId)
 	local active = teamActive(springRepo, teamId)
 	local factor = {

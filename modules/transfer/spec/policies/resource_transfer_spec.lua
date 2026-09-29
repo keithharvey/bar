@@ -33,6 +33,8 @@ describe("sending an ally metal", function()
 	---@return ResourceTransferTerms
 	local function terms(fields, rate)
 		local ctx = {
+			resourceType = METAL,
+			taxRate = rate,
 			senderTeamId = 1,
 			receiverTeamId = 2,
 			areAlliedTeams = true,
@@ -44,7 +46,7 @@ describe("sending an ally metal", function()
 		for k, v in pairs(fields) do
 			ctx[k] = v
 		end
-		return ModuleHandler.Evaluate(Contract.ResourceTransfer, ctx, METAL, rate, {})
+		return ModuleHandler.Evaluate(Contract.ResourceTransfer, ctx)
 	end
 
 	it("goes through taxed at the lobby's rate, and only as much as the receiver can hold", function()
