@@ -15,13 +15,13 @@ local nextPlayerId = sequence.sequence("player_id", {
 	end,
 })
 
----@class TeamDataMock : TeamData, TeamResourceData
+---@class TeamDataMock : TeamData, EconomyTeamResources
 ---@field isHuman boolean
 ---@field playerName string
 ---@field units table<integer, UnitWrapper|nil>?
 ---@field players PlayerData[]?
----@field metal ResourceData
----@field energy ResourceData
+---@field metal EconomyResource
+---@field energy EconomyResource
 ---@field incomeMultiplier number?
 ---@field customTeamKeys table<string, string>?
 ---@field luaAI string?

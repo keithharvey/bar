@@ -2,8 +2,64 @@
 local Builders = VFS.Include("spec/builders/index.lua")
 local ConstructionEnums = require("modules/construction/enums")
 local ContextFactoryModule = require("modules/transfer/context_factory")
+local Modules = require("modules/enums").Modules
+local ModuleHandler = require("modules/module_handler")
 local TransferEnums = require("modules/transfer/enums")
 local UnitTransfer = require("modules/transfer/unit/synced")
+
+describe("giving an ally a unit", function()
+	local Contract = ModuleHandler.Contract(Modules.Transfer)
+
+	---@param opts table
+	---@param activePlayers integer|nil
+	local function repo(opts, activePlayers)
+		return {
+			GetModOptions = function()
+				return opts
+			end,
+			GetTeamRulesParam = function(_, key)
+				return key == "numActivePlayers" and activePlayers or nil
+			end,
+		}
+	end
+
+	local lobby = {
+		[TransferEnums.ModOptions.UnitSharingMode] = ConstructionEnums.UnitFilterCategory.All,
+		[TransferEnums.ModOptions.UnitShareStunSeconds] = "5",
+	}
+
+	---@param fields table
+	---@return UnitTransferTerms
+	local function terms(fields)
+		local ctx = { senderTeamId = 1, receiverTeamId = 2, areAlliedTeams = true, isCheatingEnabled = false }
+		ctx.springRepo = repo(lobby, 1)
+		ctx.modOptions = lobby
+		for k, v in pairs(fields) do
+			ctx[k] = v
+		end
+		return ModuleHandler.Evaluate(Contract.UnitTransfer, ctx)
+	end
+
+	it("goes through on the lobby's sharing mode, with the stun a gifted unit takes written on the terms", function()
+		local granted = terms({})
+		assert.is_true(granted.canShare)
+		assert.are.same({ ConstructionEnums.UnitFilterCategory.All }, granted.sharingModes)
+		assert.are.equal(5, granted.stunSeconds)
+	end)
+
+	it(
+		"is refused, on the same terms to read, when sharing is off, the teams are enemies, or nobody is home",
+		function()
+			local off = { [TransferEnums.ModOptions.UnitSharingMode] = ConstructionEnums.UnitFilterCategory.None }
+			assert.is_false(terms({ modOptions = off }).canShare)
+			assert.is_false(terms({ areAlliedTeams = false }).canShare)
+			local refused = terms({ springRepo = repo(lobby, 0) })
+			assert.is_false(refused.canShare)
+			assert.are.equal(5, refused.stunSeconds)
+			assert.is_true(terms({ springRepo = repo(lobby, 0), isCheatingEnabled = true }).canShare)
+		end
+	)
+end)
 
 local Units = {
 	AdvancedConstructor = "coracv",
@@ -86,7 +142,7 @@ local testConfigs = {
 	},
 }
 
-describe(TransferEnums.ModOptions.UnitSharingMode .. " #policy", function()
+describe("what each sharing mode lets through, unit by unit", function()
 	local sender = Builders.Team:new():Human()
 	local receiver = Builders.Team:new():Human()
 
@@ -95,7 +151,7 @@ describe(TransferEnums.ModOptions.UnitSharingMode .. " #policy", function()
 	for modeKey, config in pairs(testConfigs) do
 		describe("WHEN unit sharing mode is set to " .. config.mode, function()
 			spring:WithModOption(TransferEnums.ModOptions.UnitSharingMode, config.mode)
-			local result ---@type UnitPolicyResult
+			local result ---@type UnitTransferTerms
 			local unitIds = {} ---@type table<string, integer>
 			local api ---@type SpringSyncedMock
 

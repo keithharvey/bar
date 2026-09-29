@@ -1,4 +1,5 @@
-local Contract = require("modules/transfer/contract")
+local ModuleHandler = require("modules/module_handler")
+local Modules = require("modules/enums").Modules
 local Notes = require("modules/transfer/lib/notes")
 local Published = require("modules/published")
 local TransferEnums = require("modules/transfer/enums")
@@ -9,7 +10,7 @@ local Comms = {
 }
 Comms.__index = Comms
 
----@param policyResult ResourcePolicyResult
+---@param policyResult ResourceTransferTerms
 ---@return integer
 function Comms.DecideCommunicationCase(policyResult)
 	if policyResult.senderTeamId == policyResult.receiverTeamId then
@@ -40,7 +41,8 @@ function Comms.TooltipText(policyResult)
 	local resBase = policyResult.resourceType == TransferEnums.ResourceType.METAL and "ui.playersList.shareMetal"
 		or "ui.playersList.shareEnergy"
 	local pascalResourceType = policyResult.resourceType:gsub("^%l", string.upper)
-	local notes = Notes.For(Contract.ResourceTermsNotes, policyResult)
+	local notes =
+		Notes.For(ModuleHandler.Contract(Modules.Transfer).ResourceTermsNotes, policyResult, Spring.GetModOptions())
 	local taxUnlock, tb = notes.taxUnlock, policyResult.techBlocking
 	local tree = taxUnlock and "tech" or "base"
 	local r = resBase .. "." .. tree
@@ -87,8 +89,8 @@ Comms.SendTransferChatMessageProtocolHighlights = {
 	taxRatePercentage = false,
 }
 
----@param transferResult ResourceTransferResult
----@param policyResult ResourcePolicyResult
+---@param transferResult TransferResourceResult
+---@param policyResult ResourceTransferTerms
 function Comms.SendTransferChatMessages(transferResult, policyResult)
 	if transferResult.sent > 0 then
 		local resourceType = policyResult.resourceType

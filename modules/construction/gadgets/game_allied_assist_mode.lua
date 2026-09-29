@@ -23,8 +23,6 @@ if not gadgetHandler:IsSyncedCode() then
 	return false
 end
 
-local pipelines = ModuleHandler.LoadPolicies(Modules.Construction) ---@type ConstructionPipelines
-
 local spAreTeamsAllied = Spring.AreTeamsAllied
 local spGetUnitCurrentCommand = Spring.GetUnitCurrentCommand
 
@@ -92,7 +90,7 @@ local function mayAssist(unitTeam, targetID, targetIsBuilder)
 		targetIsBuilder = targetIsBuilder,
 		assistEnabled = assistEnabled,
 	}
-	return ModuleHandler.Evaluate(pipelines.assist, ctx) == true
+	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Construction).Assist, ctx) == true
 end
 
 local function isBuilderAllowedCommand(cmdID, p1, p2, p5, p6, unitTeam)

@@ -1,5 +1,5 @@
-local Contract = require("modules/transfer/contract")
 local ModuleHandler = require("modules/module_handler")
+local Modules = require("modules/enums").Modules
 local state = require("modules/transfer/state")
 
 local TAX_KEY = "tax_resource_sharing_amount"
@@ -7,6 +7,18 @@ local TAX_KEY = "tax_resource_sharing_amount"
 local rateByTeam = state.taxRateByTeam
 
 local Tax = {}
+
+---@param opts table<string, string|number|boolean>
+---@return number the modoption's tax rate, clamped to 0..1
+function Tax.ModOption(opts)
+	local rate = tonumber(opts[TAX_KEY]) or 0
+	if rate < 0 then
+		return 0
+	elseif rate > 1 then
+		return 1
+	end
+	return rate
+end
 
 ---@param teamId integer
 ---@param opts table? modoptions (defaults to springRepo.GetModOptions())
@@ -17,9 +29,9 @@ function Tax.GetTaxRate(teamId, opts, springRepo)
 	opts = opts or springRepo.GetModOptions()
 	---@cast opts table<string, string|number|boolean>
 	---@type TransferTeamContext
-	local ctx = { teamId = teamId, opts = opts, springRepo = springRepo }
-	local terms = ModuleHandler.Enrich(Contract.TeamTerms, opts, ctx)
-	local rate = tonumber(terms[Contract.TeamTerms.TaxRate]) ---@type number?
+	local ctx = { teamId = teamId, modOptions = opts, springRepo = springRepo }
+	local terms = ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Transfer).TeamTerms, ctx)
+	local rate = tonumber(terms[ModuleHandler.Contract(Modules.Transfer).TeamTerms.TaxRate]) ---@type number?
 	if not rate or rate < 0 then
 		rate = tonumber(opts[TAX_KEY]) or 0
 	end

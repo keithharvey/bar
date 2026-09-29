@@ -16,13 +16,11 @@ local Debuff = require("modules/construction/lib/build_debuff")
 local ModuleHandler = require("modules/module_handler")
 local Modules = require("modules/enums").Modules
 
-local pipelines = ModuleHandler.LoadPolicies(Modules.Construction) ---@type ConstructionPipelines
-
 ---@param ctx ConstructionBuildContext
 ---@return boolean
 local function mayBuild(ctx)
 	ctx.delayed = Debuff.IsDelayed(ctx.builderID)
-	return ModuleHandler.Evaluate(pipelines.build, ctx) == true
+	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Construction).Build, ctx) == true
 end
 
 local spGetUnitIsBeingBuilt = Spring.GetUnitIsBeingBuilt

@@ -1,13 +1,13 @@
+local AssistTax = require("modules/transfer/lib/assist_tax")
 local ModuleHandler = require("modules/module_handler")
 local Modules = require("modules/enums").Modules
-local AssistTax = require("modules/transfer/lib/assist_tax")
 local TransferEnums = require("modules/transfer/enums")
 
-describe("transfer's gate on construction's build pipeline", function()
-	it("sits on the pipeline, ahead of the terminal", function()
+describe("a build step an ally helps with", function()
+	it("is refused by a step of transfer's on construction's build policy, ahead of its answer", function()
 		local names = {}
-		for i, stage in ipairs(ModuleHandler.LoadPolicies(Modules.Construction).build) do
-			names[i] = stage.name
+		for i, step in ipairs(ModuleHandler.Steps(ModuleHandler.Contract(Modules.Construction).Build)) do
+			names[i] = step.name
 		end
 		assert.are.same({ "BuilderDelayed", "UnaffordableAssistTax", "Allowed" }, names)
 	end)
@@ -71,7 +71,7 @@ describe("transfer's gate on construction's build pipeline", function()
 
 	describe("utility sharing, the fact transfer provides construction", function()
 		it("comes from the unit sharing mode: true when the mode lets utility buildings change hands", function()
-			local Contract = require("modules/construction/contract")
+			local Contract = ModuleHandler.Contract(Modules.Construction)
 			local resolved = ModuleHandler.LoadEnrichers(Contract.PlacementFacts)
 			local function sharing(mode)
 				local ctx =

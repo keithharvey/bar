@@ -24,8 +24,6 @@ local Modules = require("modules/enums").Modules
 local reclaimEnabled = Spring.GetModOptions()[ConstructionEnums.ModOptions.AlliedUnitReclaimMode]
 	== ConstructionEnums.AlliedUnitReclaimMode.Enabled
 
-local pipelines = ModuleHandler.LoadPolicies(Modules.Construction) ---@type ConstructionPipelines
-
 ---@param unitTeam integer
 ---@param targetID integer
 ---@param command "reclaim"|"guard"
@@ -43,7 +41,7 @@ local function mayReclaim(unitTeam, targetID, command)
 		targetCanReclaim = (targetUnitDef and targetUnitDef.canReclaim) == true,
 		reclaimEnabled = reclaimEnabled,
 	}
-	return ModuleHandler.Evaluate(pipelines.reclaim, ctx) == true
+	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Construction).Reclaim, ctx) == true
 end
 
 function gadget:Initialize()

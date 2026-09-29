@@ -1,17 +1,39 @@
 local AssistTax = require("modules/transfer/lib/assist_tax")
-local ConstructionContract = require("modules/construction/contract")
+local Construction = require("modules/construction/api")
 local ConstructionEnums = require("modules/construction/enums")
-local Contract = require("modules/transfer/contract")
+local Modules = require("modules/enums").Modules
+local Policy = require("modules/policy")
 local TransferEnums = require("modules/transfer/enums")
-local UnitCategories = require("modules/construction/lib/unit_categories")
 
-Policies.On(ConstructionContract.Build).Unless(Contract.Build.UnaffordableAssistTax, function(ctx)
+---@type ConstructionContract
+local ConstructionContract = Policies.Contract(Modules.Construction)
+
+-- A build step an ally helps with is taxed, and one the helper cannot pay for does not happen
+--
+---@class TransferConstructionBuildSteps: PolicySteps<ConstructionBuildContext, boolean>
+---@field UnaffordableAssistTax "UnaffordableAssistTax"
+
+---@type TransferConstructionBuildSteps
+local Build = {
+	UnaffordableAssistTax = "UnaffordableAssistTax",
+}
+Policy.Contributes(ConstructionContract.Build, Build)
+
+Policies.On(Build).Unless(Build.UnaffordableAssistTax, function(ctx)
 	local quote = AssistTax.Quote(ctx, Spring)
 	return quote ~= nil and not quote.affordable
 end)
 
+-- Utility buildings may change hands between allies when the sharing mode says so
+--
 Policies.On(ConstructionContract.PlacementFacts)
 	.Provide(ConstructionContract.PlacementFacts.UtilitySharing, function(ctx)
-		local mode = ctx.modOptions[TransferEnums.ModOptions.UnitSharingMode]
-		return table.contains(UnitCategories.TypesFor(mode), ConstructionEnums.UnitType.Utility)
+		local mode = tostring(ctx.modOptions[TransferEnums.ModOptions.UnitSharingMode])
+		return table.contains(Construction.UnitTypesFor(mode), ConstructionEnums.UnitType.Utility)
 	end)
+
+---@class (partial) TransferContract
+local Contract = {}
+Contract.Build = Build
+
+return Contract

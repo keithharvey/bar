@@ -1,3 +1,5 @@
+local ModuleHandler = require("modules/module_handler")
+local Modules = require("modules/enums").Modules
 local ConstructionEnums = require("modules/construction/enums")
 local TransferEnums = require("modules/transfer/enums")
 
@@ -16,20 +18,12 @@ function Comms.CategoryDisplayName(category)
 	return categoryDisplayNames[category] or category
 end
 
----@class TakePolicy
----@field mode string TakeMode enum value
----@field delaySeconds number
----@field delayCategory string UnitCategory enum value
-
 ---@param modOptions table
----@return TakePolicy
+---@return TakeTerms
 function Comms.GetPolicy(modOptions)
-	local ModuleHandler = require("modules/module_handler")
-	local Modules = require("modules/enums").Modules
 	---@type TransferTakeContext
 	local ctx = { modOptions = modOptions }
-	local pipelines = ModuleHandler.LoadPolicies(Modules.Transfer) ---@type TransferPipelines
-	return ModuleHandler.Evaluate(pipelines.take, ctx)
+	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transfer).Take, ctx)
 end
 
 ---@class TakeResult

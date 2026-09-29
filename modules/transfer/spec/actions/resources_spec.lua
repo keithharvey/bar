@@ -64,7 +64,7 @@ describe("transfer.resources", function()
 					to = receiver.id,
 					resource = "metal",
 					amount = 100,
-					grant = ResourceShared.GetCachedPolicyResult(sender.id, receiver.id, "metal", mock),
+					grant = ResourceShared.GetCachedTerms(sender.id, receiver.id, "metal", mock),
 				}
 				assert.is_true(validate("resources", request))
 				local result = registry.byName.resources.execute(request)

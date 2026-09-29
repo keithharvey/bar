@@ -3,6 +3,7 @@ local Modules = require("modules/enums").Modules
 local ResourceShared = require("modules/transfer/resource/shared")
 local TransferEnums = require("modules/transfer/enums")
 local UnitShared = require("modules/transfer/unit/shared")
+local state = require("modules/transfer/state")
 
 local mayUnitScratch = {}
 local mayValidationScratch = {}
@@ -34,12 +35,13 @@ local function perform(name, request)
 end
 
 return {
+
 	---@param unitIDs integer[]
 	---@param toTeamID integer
 	---@param fromTeamID integer the team being asked to give them up
-	---@return UnitTransferResult
+	---@return TransferUnitResult
 	Units = function(unitIDs, toTeamID, fromTeamID)
-		local grant = UnitShared.GetCachedPolicyResult(fromTeamID, toTeamID, Spring)
+		local grant = UnitShared.GetCachedTerms(fromTeamID, toTeamID, Spring)
 		return perform("units", {
 			from = fromTeamID,
 			to = toTeamID,
@@ -53,14 +55,14 @@ return {
 	---@param amount number
 	---@param toTeamID integer
 	---@param fromTeamID integer
-	---@return ResourceTransferResult
+	---@return TransferResourceResult
 	Resources = function(resource, amount, toTeamID, fromTeamID)
 		return perform("resources", {
 			from = fromTeamID,
 			to = toTeamID,
 			resource = resource,
 			amount = amount,
-			grant = ResourceShared.GetCachedPolicyResult(fromTeamID, toTeamID, resource, Spring),
+			grant = ResourceShared.GetCachedTerms(fromTeamID, toTeamID, resource, Spring),
 		})
 	end,
 
@@ -79,7 +81,7 @@ return {
 		if Spring.GetGameRulesParam("isGiveInProgress") == 1 then
 			return true
 		end
-		local policyResult = UnitShared.GetCachedPolicyResult(fromTeamID, toTeamID, Spring)
+		local policyResult = UnitShared.GetCachedTerms(fromTeamID, toTeamID, Spring)
 		mayUnitScratch[1] = unitID
 		local validation = UnitShared.ValidateUnits(policyResult, mayUnitScratch, Spring, nil, mayValidationScratch)
 		return validation.status ~= TransferEnums.UnitValidationOutcome.Failure

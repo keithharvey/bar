@@ -21,8 +21,8 @@ end
 
 GG = GG or {}
 
-local Contract = require("modules/economy/contract")
 local ModuleHandler = require("modules/module_handler")
+local Modules = require("modules/enums").Modules
 local ResourceTypes = require("gamedata/resource_types")
 local ShareStats = require("modules/economy/lib/share_stats")
 local TeamResourceData = require("modules/economy/lib/team_resource_data")
@@ -42,6 +42,7 @@ local spGetTeamList = springRepo.GetTeamList
 local spGetGameFrame = springRepo.GetGameFrame
 
 local gaiaTeamID = springRepo.GetGaiaTeamID()
+local modOptions = springRepo.GetModOptions()
 
 local CADENCE = 30
 
@@ -49,27 +50,27 @@ local CADENCE = 30
 ---@return number
 local function taxRateFor(_, teamId)
 	---@type EconomyTeamContext
-	local ctx = { teamId = teamId, springRepo = springRepo }
-	local terms = ModuleHandler.Enrich(Contract.Distribution, springRepo.GetModOptions(), ctx)
-	return tonumber(terms[Contract.Distribution.TaxRate]) or 0
+	local ctx = { teamId = teamId, springRepo = springRepo, modOptions = modOptions }
+	local terms = ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Economy).Distribution, ctx)
+	return tonumber(terms[ModuleHandler.Contract(Modules.Economy).Distribution.TaxRate]) or 0
 end
 
 ---@param results EconomyTeamResult[]
 ---@return EconomyTeamResult[]
 local function amended(results)
 	---@type EconomyRedistributionContext
-	local ctx = { results = results }
-	local amendedResults = ModuleHandler.Enrich(Contract.Redistribution, springRepo.GetModOptions(), ctx)
-	return amendedResults[Contract.Redistribution.Results] or results
+	local ctx = { results = results, modOptions = modOptions }
+	local amendedResults = ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Economy).Redistribution, ctx)
+	return amendedResults[ModuleHandler.Contract(Modules.Economy).Redistribution.Results] or results
 end
 
 local overflowAccum = {} ---@type table<integer, [number, number]>
 
-local snapshotPool = {} ---@type table<integer, TeamResourceData>
+local snapshotPool = {} ---@type table<integer, EconomyTeamResources>
 
----@return table<integer, TeamResourceData>
+---@return table<integer, EconomyTeamResources>
 local function buildSnapshot()
-	local teams = {} ---@type table<integer, TeamResourceData>
+	local teams = {} ---@type table<integer, EconomyTeamResources>
 	local teamList = spGetTeamList()
 	for i = 1, #teamList do
 		local teamID = teamList[i]
@@ -108,13 +109,13 @@ local function buildSnapshot()
 			entry.allyTeam = allyTeam
 			entry.isDead = isDead
 
-			local m = entry.metal --[[@as ResourceData]]
+			local m = entry.metal --[[@as EconomyResource]]
 			m.current = mCur
 			m.storage = mStor
 			m.shareSlider = mShare
 			m.excess = acc and acc[1] or 0
 
-			local e = entry.energy --[[@as ResourceData]]
+			local e = entry.energy --[[@as EconomyResource]]
 			e.current = eCur
 			e.storage = eStor
 			e.shareSlider = eShare

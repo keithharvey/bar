@@ -1,8 +1,8 @@
 local ModuleHandler = require("modules/module_handler")
+local Modules = require("modules/enums").Modules
 local Rules = require("modules/transport/lib/rules")
 local Traits = require("modules/transport/lib/traits")
 local TransportEnums = require("modules/transport/enums")
-local Modules = require("modules/enums").Modules
 
 ---@class TransportApi
 ---@field IsCarried fun(unitID: integer): boolean
@@ -39,11 +39,6 @@ local function canEverCarry(transportDefID, unitDefID)
 		perCarrier[unitDefID] = verdict
 	end
 	return verdict
-end
-
----@return TransportPipelines
-local function pipelines()
-	return ModuleHandler.LoadPolicies(Modules.Transport)
 end
 
 ---@param name string action file name under actions/
@@ -141,7 +136,7 @@ local TransportApi = {
 	---@return boolean
 	MayCarry = function(carrierDefID, passengerID, passengerDefID)
 		local _, y = Spring.GetUnitPosition(passengerID)
-		return ModuleHandler.Evaluate(pipelines().load, {
+		return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transport).Load, {
 			goalY = y,
 			height = Spring.GetUnitHeight(passengerID),
 			carrierDef = UnitDefs[carrierDefID],
@@ -159,7 +154,7 @@ local TransportApi = {
 	---@return boolean
 	MayLoad = function(carrierID, carrierDefID, passengerID, passengerDefID, goalX, goalY, goalZ)
 		local reach = Traits.Of(carrierDefID).reach
-		local allowed = ModuleHandler.Evaluate(pipelines().load, {
+		local allowed = ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transport).Load, {
 			carrierDef = UnitDefs[carrierDefID],
 			passengerDef = UnitDefs[passengerDefID],
 			goalY = goalY,
@@ -184,7 +179,7 @@ local TransportApi = {
 	---@return boolean
 	MayUnload = function(carrierID, carrierDefID, passengerID, goalX, goalY, goalZ)
 		local reach = Traits.Of(carrierDefID).reach
-		local allowed = ModuleHandler.Evaluate(pipelines().unload, {
+		local allowed = ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transport).Unload, {
 			goalY = goalY,
 			height = Spring.GetUnitHeight(passengerID),
 			reach = reach,
@@ -205,7 +200,7 @@ local TransportApi = {
 		local targetTeam = Spring.GetUnitTeam(targetID)
 		local targetDefID = Spring.GetUnitDefID(targetID)
 		local _, y = Spring.GetUnitPosition(targetID)
-		return ModuleHandler.Evaluate(pipelines().load, {
+		return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transport).Load, {
 			goalY = y,
 			height = Spring.GetUnitHeight(targetID),
 			carrierDef = UnitDefs[carrierDefID],
@@ -224,7 +219,7 @@ local TransportApi = {
 	---@return boolean
 	MayOrderUnload = function(goalX, goalY, goalZ)
 		local _, normalY = Spring.GetGroundNormal(goalX, goalZ)
-		return ModuleHandler.Evaluate(pipelines().unload, {
+		return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transport).Unload, {
 			goalY = goalY,
 			height = 0,
 			nano = true,
@@ -282,7 +277,7 @@ local TransportApi = {
 				carriesCommander = true
 			end
 		end
-		return ModuleHandler.Evaluate(pipelines().loaded_speed, {
+		return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transport).LoadedSpeed, {
 			carriesCommander = carriesCommander,
 			transportSpeed = Traits.OfUnit(carrierID).speed or 0,
 			dragEnabled = Spring.GetModOptions()[TransportEnums.ModOptions.CommanderTransportSlow] == true,

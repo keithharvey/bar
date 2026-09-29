@@ -8,11 +8,10 @@ local Synced = {
 	GetModeUnitTypes = Shared.GetModeUnitTypes,
 }
 
----@param ctx TransferPolicyContext
----@return UnitPolicyResult
+---@param ctx TransferContext
+---@return UnitTransferTerms
 function Synced.GetPolicy(ctx)
-	local pipelines = ModuleHandler.LoadPolicies(Modules.Transfer) ---@type TransferPipelines
-	return ModuleHandler.Evaluate(pipelines.unit_transfer, ctx)
+	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transfer).UnitTransfer, ctx)
 end
 
 ---@param springRepo Spring
@@ -28,7 +27,7 @@ end
 
 ---@param springRepo Spring
 ---@param teamId integer
----@param ctx TransferPolicyContext self-context (sender==receiver==teamId) so the enricher resolves the team's modes
+---@param ctx TransferContext self-context (sender==receiver==teamId) so the enricher resolves the team's modes
 function Synced.CacheTeamFactor(springRepo, teamId, ctx)
 	local modes = ctx.unitSharingModes
 		or { springRepo.GetModOptions().unit_sharing_mode or ConstructionEnums.UnitFilterCategory.None }

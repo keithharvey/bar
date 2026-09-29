@@ -59,7 +59,7 @@ end
 ---@param receiverTeamId integer
 ---@param resourceType ResourceName
 ---@param result table? optional reusable result table
----@return ResourcePolicyResult
+---@return ResourceTransferTerms
 function Shared.CombineResourcePolicy(
 	taxedSendable,
 	taxRate,
@@ -87,9 +87,9 @@ end
 ---@param receiverTeamId integer
 ---@param resourceType ResourceName
 ---@param springApi Spring?
----@return ResourcePolicyResult
+---@return ResourceTransferTerms
 function Shared.CreateDenyPolicy(senderTeamId, receiverTeamId, resourceType, springApi)
-	---@type ResourcePolicyResult
+	---@type ResourceTransferTerms
 	local result = {
 		senderTeamId = senderTeamId,
 		receiverTeamId = receiverTeamId,
@@ -103,7 +103,7 @@ function Shared.CreateDenyPolicy(senderTeamId, receiverTeamId, resourceType, spr
 	return result
 end
 
----@param policyResult ResourcePolicyResult
+---@param policyResult ResourceTransferTerms
 ---@param desired number
 ---@return number received, number sent
 function Shared.CalculateSenderTaxedAmount(policyResult, desired)
@@ -130,8 +130,8 @@ end
 ---@param receiverId integer
 ---@param resourceType ResourceName
 ---@param springApi Spring?
----@return ResourcePolicyResult
-function Shared.GetCachedPolicyResult(senderId, receiverId, resourceType, springApi)
+---@return ResourceTransferTerms
+function Shared.GetCachedTerms(senderId, receiverId, resourceType, springApi)
 	local spring = springApi or Spring
 	if not SharedConfig.isResourceSharingEnabled(spring) then
 		return Shared.CreateDenyPolicy(senderId, receiverId, resourceType, spring)

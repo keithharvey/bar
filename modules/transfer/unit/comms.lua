@@ -1,4 +1,5 @@
-local Contract = require("modules/transfer/contract")
+local ModuleHandler = require("modules/module_handler")
+local Modules = require("modules/enums").Modules
 local Notes = require("modules/transfer/lib/notes")
 local TransferEnums = require("modules/transfer/enums")
 
@@ -15,8 +16,8 @@ local function displayModes(modes)
 	return table.concat(names, " + ")
 end
 
----@param policy UnitPolicyResult
----@param validationResult UnitValidationResult?
+---@param policy UnitTransferTerms
+---@param validationResult TransferUnitValidation?
 ---@return number TransferEnums.UnitCommunicationCase
 function Comms.DecideCommunicationCase(policy, validationResult)
 	if policy.senderTeamId == policy.receiverTeamId then
@@ -39,8 +40,8 @@ function Comms.DecideCommunicationCase(policy, validationResult)
 end
 
 ---@param text string
----@param policy UnitPolicyResult
----@param validationResult UnitValidationResult?
+---@param policy UnitTransferTerms
+---@param validationResult TransferUnitValidation?
 ---@return string
 local function withPolicyEffects(text, policy, validationResult)
 	if not validationResult then
@@ -73,10 +74,10 @@ local function withPolicyEffects(text, policy, validationResult)
 	return text
 end
 
----@param policy UnitPolicyResult
----@param validationResult UnitValidationResult?
+---@param policy UnitTransferTerms
+---@param validationResult TransferUnitValidation?
 function Comms.TooltipText(policy, validationResult)
-	local notes = Notes.For(Contract.UnitTermsNotes, policy)
+	local notes = Notes.For(ModuleHandler.Contract(Modules.Transfer).UnitTermsNotes, policy, Spring.GetModOptions())
 	local hasTechUnlock = policy.techBlocking ~= nil
 	local futureUnlock = hasTechUnlock and notes.futureUnlock == true
 	local tree = (hasTechUnlock and futureUnlock) and "tech" or "base"

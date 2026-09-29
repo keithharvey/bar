@@ -1,9 +1,17 @@
+local Comms = require("modules/transfer/resource/comms")
 local ModuleHandler = require("modules/module_handler")
 local Modules = require("modules/enums").Modules
-local Comms = require("modules/transfer/resource/comms")
 local Shared = require("modules/transfer/resource/shared")
 local SharedConfig = require("modules/transfer/economy/shared_config")
 local TransferEnums = require("modules/transfer/enums")
+
+---@class TransferResourceResult
+---@field success boolean
+---@field sent number
+---@field received number
+---@field senderTeamId integer
+---@field receiverTeamId integer
+---@field policyResult ResourceTransferTerms? absent when the transfer was denied before a policy resolved
 
 local ResourceType = TransferEnums.ResourceType
 local METAL = ResourceType.METAL
@@ -13,13 +21,13 @@ local Gadgets = {
 	SendTransferChatMessages = Comms.SendTransferChatMessages,
 }
 
----@param ctx ResourceTransferRequest
----@return ResourceTransferResult
+---@param ctx TransferResourceRequest
+---@return TransferResourceResult
 function Gadgets.ResourceTransfer(ctx)
 	local policyResult = ctx.policyResult
 	local desiredAmount = ctx.desiredAmount
 	if (not policyResult or not policyResult.canShare) or (not desiredAmount or desiredAmount <= 0) then
-		---@type ResourceTransferResult
+		---@type TransferResourceResult
 		return {
 			success = false,
 			sent = 0,
@@ -38,7 +46,7 @@ function Gadgets.ResourceTransfer(ctx)
 	springRepo.SetTeamResource(ctx.senderTeamId, resourceType, math.max(0, senderCurrent - sent))
 	springRepo.AddTeamResource(ctx.receiverTeamId, resourceType, received)
 
-	---@type ResourceTransferResult
+	---@type TransferResourceResult
 	local result = {
 		success = true,
 		sent = sent,
@@ -51,29 +59,19 @@ function Gadgets.ResourceTransfer(ctx)
 	return result
 end
 
-local policyResultPool = {} ---@type table<ResourceName, ResourcePolicyResult>
-
----@param ctx TransferPolicyContext
----@param resourceType ResourceName
+---@param ctx TransferContext
 ---@return number
-local function resolveEffectiveRate(ctx, resourceType)
-	local perResource = ctx.taxRates and ctx.taxRates[resourceType]
-	local taxRate = (perResource or ctx.taxRate or SharedConfig.getTaxConfig(ctx.springRepo)) --[[@as number]]
+local function resolveEffectiveRate(ctx)
+	local taxRate = (ctx.taxRate or SharedConfig.getTaxConfig(ctx.springRepo)) --[[@as number]]
 	return math.min(taxRate, 1)
 end
 
----@param ctx TransferPolicyContext
----@param resourceType ResourceName
----@return ResourcePolicyResult
+---@param ctx TransferContext the pairing
+---@param resourceType ResourceName the resource asked about
+---@return ResourceTransferTerms
 function Gadgets.CalcResourcePolicy(ctx, resourceType)
-	local result = policyResultPool[resourceType]
-	if not result then
-		result = {} --[[@as ResourcePolicyResult]]
-		policyResultPool[resourceType] = result
-	end
-	local pipelines = ModuleHandler.LoadPolicies(Modules.Transfer) ---@type TransferPipelines
-	local pipeline = pipelines.resource_transfer
-	return ModuleHandler.Evaluate(pipeline, ctx, resourceType, resolveEffectiveRate(ctx, resourceType), result)
+	local ask = setmetatable({ resourceType = resourceType, taxRate = resolveEffectiveRate(ctx) }, { __index = ctx }) --[[@as TransferResourceContext]]
+	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transfer).ResourceTransfer, ask)
 end
 
 ---@param springRepo Spring
@@ -90,10 +88,10 @@ end
 ---@param springRepo Spring
 ---@param teamId integer
 ---@param resourceType ResourceName
----@param ctx TransferPolicyContext self-context (sender==receiver==teamId) so the enricher resolves the team's tax
+---@param ctx TransferContext self-context (sender==receiver==teamId) so the enricher resolves the team's tax
 function Gadgets.CacheTeamFactor(springRepo, teamId, resourceType, ctx)
 	local data = (resourceType == METAL) and ctx.sender.metal or ctx.sender.energy
-	local effectiveRate = resolveEffectiveRate(ctx, resourceType)
+	local effectiveRate = resolveEffectiveRate(ctx)
 	local isNonPlayer = Shared.IsNonPlayerTeam(springRepo, teamId)
 	local active = teamActive(springRepo, teamId)
 	local factor = {

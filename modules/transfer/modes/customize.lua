@@ -1,7 +1,7 @@
 local ModeDSL = require("modules/transfer/mode_dsl")
 local Mode, Transfer, Construction, Take, Tech =
 	ModeDSL.Mode, ModeDSL.Transfer, ModeDSL.Construction, ModeDSL.Take, ModeDSL.Tech
-local TechModule = require("modules/tech/contract")
+local Modules = require("modules/enums").Modules
 
 return Mode("Customize")
 	.Desc(
@@ -9,7 +9,7 @@ return Mode("Customize")
 	)
 	.Ranked()
 	.RetainValues()
-	.Uses(TechModule)
+	.Uses(Modules.Tech)
 	.Open(Tech, 1, 1.5)
 	.Unlocked()
 	.Allow(Transfer.Units)

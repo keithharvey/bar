@@ -1,10 +1,27 @@
 local ConstructionEnums = require("modules/construction/enums")
-local Contract = require("modules/transfer/contract")
+local Policy = require("modules/policy")
 local TransferEnums = require("modules/transfer/enums")
-local take = Contract.Take
 
-Policies.On(take).Answer(take.TakeTerms, function(ctx)
-	local modOptions = (ctx and ctx.modOptions) or Spring.GetModOptions()
+-- The terms a team may take a leaver's units on
+--
+---@class TransferTakeContext: PolicyContext
+
+---@class TakeTerms
+---@field mode string
+---@field delaySeconds number
+---@field delayCategory string
+
+---@class TransferTakePolicy: PolicySteps<TransferTakeContext, TakeTerms>
+---@field TakeTerms "TakeTerms"
+
+---@type TransferTakePolicy
+local Take = {
+	TakeTerms = "TakeTerms",
+}
+Policy.Single(Take)
+
+Policies.On(Take).Answer(Take.TakeTerms, function(ctx)
+	local modOptions = ctx.modOptions
 	return {
 		mode = modOptions[TransferEnums.ModOptions.TakeMode] or TransferEnums.TakeMode.Enabled,
 		delaySeconds = tonumber(modOptions[TransferEnums.ModOptions.TakeDelaySeconds]) or 30,
@@ -12,3 +29,9 @@ Policies.On(take).Answer(take.TakeTerms, function(ctx)
 			or ConstructionEnums.UnitCategory.Resource,
 	}
 end)
+
+---@class (partial) TransferContract
+local Contract = {}
+Contract.Take = Take
+
+return Contract
