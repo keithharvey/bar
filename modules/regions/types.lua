@@ -93,7 +93,7 @@ table.sort(order, function(a, b)
 end)
 
 ---@param key RegionTypeKey
----@return string the key as a name: mex_region is MexRegion
+---@return string the key as a name: two_words is TwoWords
 local function nameOf(key)
 	return (key:gsub("(%a)([%w]*)_?", function(first, rest)
 		return first:upper() .. rest
