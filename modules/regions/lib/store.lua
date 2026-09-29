@@ -1,8 +1,8 @@
 local Store = {}
 
 ---@class RegionStore
----@field list StoredRegion[]
----@field byId table<string, StoredRegion|nil>
+---@field list Region[]
+---@field byId table<string, Region|nil>
 ---@field revision integer
 
 ---@param state RegionStore
@@ -25,7 +25,7 @@ end
 
 ---@param state RegionStore
 ---@param id string
----@return StoredRegion|nil
+---@return Region|nil
 local function remove(state, id)
 	local region = state.byId[id]
 	if not region then
@@ -43,9 +43,9 @@ local function remove(state, id)
 end
 
 ---@param state RegionStore
----@param region StoredRegion
+---@param region Region
 ---@param beforeId string|nil
----@return StoredRegion
+---@return Region
 function Store.Put(state, region, beforeId)
 	local id = region.id
 	local held = state.byId[id]
@@ -64,7 +64,7 @@ Store.Remove = remove
 
 ---@param state RegionStore
 ---@param typeKey RegionTypeKey|nil
----@return StoredRegion[]
+---@return Region[]
 function Store.All(state, typeKey)
 	local out = {}
 	for _, region in ipairs(state.list) do
@@ -77,7 +77,7 @@ end
 
 ---@param state RegionStore
 ---@param typeKey RegionTypeKey|nil
----@return StoredRegion[]
+---@return Region[]
 function Store.Clear(state, typeKey)
 	local removed = {}
 	for i = #state.list, 1, -1 do

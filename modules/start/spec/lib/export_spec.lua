@@ -5,8 +5,9 @@ local square = { { x = 0, z = 0 }, { x = 500, z = 0 }, { x = 500, z = 500 }, { x
 describe("the startbox arrangement export", function()
 	it("normalises anchors to 0..200, ships a rect as two corners, and snaps strength", function()
 		local out = Export.Arrangement({
-			{ type = "start", team = 1, kind = "box", vertices = square },
+			{ id = "a", type = "start", team = 1, kind = "box", vertices = square },
 			{
+				id = "b",
 				type = "start",
 				team = 2,
 				kind = "spline",
@@ -15,6 +16,7 @@ describe("the startbox arrangement export", function()
 					{ x = 1000, z = 500, strength = 0.01 },
 					{ x = 500, z = 500 },
 				},
+				vertices = {},
 			},
 		}, 1000, 1000)
 		local first, second = assert(out[1]), assert(out[2])
@@ -27,8 +29,8 @@ end)
 describe("the start script", function()
 	it("gives each team its areas' bounding rect, one AI per team past the first, and the mod options", function()
 		local script = assert(Export.StartScript({
-			{ type = "start", team = 1, vertices = square },
-			{ type = "start", team = 2, vertices = { { x = 500, z = 500 }, { x = 1000, z = 1000 } } },
+			{ id = "a", type = "start", team = 1, vertices = square },
+			{ id = "b", type = "start", team = 2, vertices = { { x = 500, z = 500 }, { x = 1000, z = 1000 } } },
 		}, 1000, 1000, { mapName = "Some Map", modOptions = { deathmode = "neverend" } }))
 		assert.matches("startrectright = 0.50000000;", script)
 		assert.matches("%[allyTeam1%]", script)

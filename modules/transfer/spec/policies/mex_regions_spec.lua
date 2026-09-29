@@ -5,8 +5,7 @@ local square = { { x = 0, z = 0 }, { x = 100, z = 0 }, { x = 100, z = 100 }, { x
 ---@param fields table
 ---@return Region
 local function mex(fields)
-	fields.type = Regions.Enums.Types.MexRegion
-	return fields
+	return Regions.Create(Regions.Enums.Types.MexRegion, fields)
 end
 
 describe("what transfer says a mex region is: named, covered, described", function()
@@ -49,13 +48,12 @@ end)
 
 ---@return MexRegion
 local function mexA()
-	return {
-		type = Regions.Enums.Types.MexRegion,
+	return Regions.Create(Regions.Enums.Types.MexRegion, {
 		name = "a",
 		team = 1,
 		group = "g",
 		vertices = { { x = 0, z = 0 }, { x = 100, z = 0 }, { x = 100, z = 100 }, { x = 0, z = 100 } },
-	}
+	}) --[[@as MexRegion]]
 end
 
 describe("what mex splitting says about a region", function()

@@ -5,8 +5,7 @@ local square = { { x = 0, z = 0 }, { x = 100, z = 0 }, { x = 100, z = 100 }, { x
 ---@param fields table
 ---@return Region
 local function mex(fields)
-	fields.type = Regions.Enums.Types.MexRegion
-	return fields
+	return Regions.Create(Regions.Enums.Types.MexRegion, fields)
 end
 
 describe("the mex region type", function()

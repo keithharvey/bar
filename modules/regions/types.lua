@@ -1,15 +1,12 @@
 local ModuleHandler = require("modules/module_handler")
 
 ---@class Region
+---@field id string
 ---@field type RegionTypeKey
----@field id string|nil
 ---@field vertices { x: number, z: number }[]
 ---@field kind "point"|"polygon"|"box"|"spline"|nil
 ---@field controls { x: number, z: number, strength: number|nil }[]|nil
 ---@field name string|nil
-
----@class StoredRegion: Region
----@field id string
 
 ---@class RegionField
 ---@field key string

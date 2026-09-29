@@ -1,4 +1,5 @@
 local Enums = require("modules/regions/enums")
+local Identity = require("modules/regions/lib/identity")
 local SplineLib = require("common/lib_spline")
 
 ---@class RegionLayout
@@ -150,7 +151,7 @@ function Layout.Parse(layout, kind, mapSizeX, mapSizeZ)
 		---@type Region
 		local region = {
 			type = kind.key,
-			id = type(entry.id) == "string" and entry.id or nil,
+			id = type(entry.id) == "string" and entry.id or Identity.Mint(),
 			vertices = {},
 		}
 		for _, field in ipairs(kind.fields) do

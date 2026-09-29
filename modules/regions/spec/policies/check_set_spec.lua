@@ -7,8 +7,7 @@ local far = { { x = 500, z = 500 }, { x = 600, z = 500 }, { x = 600, z = 600 } }
 ---@param fields table
 ---@return Region
 local function start(fields)
-	fields.type = Enums.Types.Start
-	return fields
+	return Regions.Create(Enums.Types.Start, fields)
 end
 
 describe("a set of regions", function()

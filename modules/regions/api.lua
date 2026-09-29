@@ -3,6 +3,7 @@ local Modules = require("modules/enums").Modules
 local Enums = require("modules/regions/enums")
 local Geometry = require("modules/regions/lib/geometry")
 local Hull = require("modules/regions/lib/hull")
+local Identity = require("modules/regions/lib/identity")
 local Layout = require("modules/regions/lib/layout")
 local Names = require("modules/regions/lib/names")
 local Problems = require("modules/regions/lib/problems")
@@ -43,20 +44,15 @@ function Api.Types()
 	return Types.order, Types.byKey
 end
 
----@return string
-local function mintId()
-	return string.format("%06x%06x", math.random(0, 0xffffff), math.random(0, 0xffffff))
-end
-
 ---@param typeKey RegionTypeKey
 ---@param fields table|nil
----@return StoredRegion
+---@return Region
 function Api.Create(typeKey, fields)
-	local region = fields or {} ---@type Region
+	local region = fields or {}
 	region.type = typeKey
-	region.id = region.id or mintId()
+	region.id = region.id or Identity.Mint()
 	region.vertices = region.vertices or {}
-	return region --[[@as StoredRegion]]
+	return region --[[@as Region]]
 end
 
 ---@param typeKey RegionTypeKey
@@ -141,11 +137,7 @@ function Api.ParseLayout(layout, typeKey, mapSizeX, mapSizeZ)
 	if not kind then
 		return nil, "unknown region type " .. tostring(typeKey)
 	end
-	local regions, reason = Layout.Parse(layout, kind, mapSizeX, mapSizeZ)
-	for _, region in ipairs(regions or {}) do
-		Api.Create(typeKey, region) -- every region the api hands out has an id; a layout without them (the startbox shim's) gets them here
-	end
-	return regions, reason
+	return Layout.Parse(layout, kind, mapSizeX, mapSizeZ)
 end
 
 -- The store: the regions of this Lua state, in one insertion-ordered list keyed by id.
@@ -160,31 +152,31 @@ end
 
 ---@param region Region
 ---@param beforeId string|nil
----@return StoredRegion
+---@return Region
 function Api.Put(region, beforeId)
 	return Store.Put(store(), Api.Create(region.type, region), beforeId)
 end
 
 ---@param id string
----@return StoredRegion|nil
+---@return Region|nil
 function Api.Remove(id)
 	return Store.Remove(store(), id)
 end
 
 ---@param id string
----@return StoredRegion|nil
+---@return Region|nil
 function Api.Get(id)
 	return store().byId[id]
 end
 
 ---@param typeKey RegionTypeKey|nil
----@return StoredRegion[]
+---@return Region[]
 function Api.All(typeKey)
 	return Store.All(store(), typeKey)
 end
 
 ---@param typeKey RegionTypeKey|nil
----@return StoredRegion[]
+---@return Region[]
 function Api.Clear(typeKey)
 	return Store.Clear(store(), typeKey)
 end

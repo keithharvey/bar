@@ -7,13 +7,12 @@ local far = { { x = 500, z = 500 }, { x = 600, z = 500 }, { x = 600, z = 600 } }
 ---@param fields table
 ---@return Region
 local function start(fields)
-	fields.type = Enums.Types.Start
-	return fields
+	return Regions.Create(Enums.Types.Start, fields)
 end
 
 describe("what is said about a region", function()
 	it("is nothing for a type nobody owns, and the owner's record for one somebody does", function()
-		assert.is_nil(Regions.Describe({ type = "nobody_knows", vertices = square }))
+		assert.is_nil(Regions.Describe({ id = "n", type = "nobody_knows", vertices = square }))
 		local s = Regions.Describe(start({ team = 1, vertices = square }), {})
 		assert.are.equal(1, s.team, "start answers for its own type")
 	end)
@@ -21,11 +20,11 @@ describe("what is said about a region", function()
 	it("the shape is regions' own: area and centre, a point having no area", function()
 		assert.are.same(
 			{ area = 10000, centre = { x = 50, z = 50 } },
-			Regions.Shape({ type = "nobody_knows", vertices = square })
+			Regions.Shape({ id = "n", type = "nobody_knows", vertices = square })
 		)
 		assert.are.same(
 			{ area = 0, centre = { x = 7, z = 9 } },
-			Regions.Shape({ type = "nobody_knows", vertices = { { x = 7, z = 9 } } })
+			Regions.Shape({ id = "n", type = "nobody_knows", vertices = { { x = 7, z = 9 } } })
 		)
 	end)
 end)

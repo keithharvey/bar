@@ -55,20 +55,21 @@ describe("a region layout", function()
 	it("exports every type under its key with the fields its type declares, and reads them back", function()
 		local layout = Layout.Export({
 			{
+				id = "a",
 				type = "start",
 				team = 2,
 				name = "",
 				stray = "dropped",
 				vertices = { { x = 0, z = 0 }, { x = 200, z = 0 }, { x = 0, z = 200 } },
 			},
-			{ type = "start", team = 1, vertices = { { x = 100, z = 50 } } },
-			{ type = "nobody_knows", vertices = {} },
+			{ id = "b", type = "start", team = 1, vertices = { { x = 100, z = 50 } } },
+			{ id = "n", type = "nobody_knows", vertices = {} },
 		}, byKey, 200, 200)
 		assert.are.same(
-			{ team = 2, poly = { { x = 0, y = 0 }, { x = 200, y = 0 }, { x = 0, y = 200 } } },
+			{ id = "a", team = 2, poly = { { x = 0, y = 0 }, { x = 200, y = 0 }, { x = 0, y = 200 } } },
 			layout.regions.start[1]
 		)
-		assert.are.same({ team = 1, x = 100, y = 50 }, layout.regions.start[2])
+		assert.are.same({ id = "b", team = 1, x = 100, y = 50 }, layout.regions.start[2])
 		assert.is_nil(layout.regions.nobody_knows)
 		local back = assert(Layout.Parse(layout, byKey.start, 200, 200))
 		assert.are.equal(2, back[1].team)
@@ -112,15 +113,17 @@ describe("a region layout", function()
 		assert.are.equal(4, #back[2].vertices)
 	end)
 
-	it("carries a region's id out and back, and assigns none of its own", function()
+	it("carries a region's id out and back, and gives one to an entry that came without", function()
 		local layout = Layout.Export({
 			{ type = "start", id = "abc", team = 1, vertices = { { x = 100, z = 50 } } },
-			{ type = "start", team = 2, vertices = { { x = 10, z = 50 } } },
+			{ type = "start", id = "def", team = 2, vertices = { { x = 10, z = 50 } } },
 		}, byKey, 200, 200)
 		assert.are.equal("abc", layout.regions.start[1].id)
-		assert.is_nil(layout.regions.start[2].id)
+		assert.are.equal("def", layout.regions.start[2].id)
+		layout.regions.start[2].id = nil
 		local back = assert(Layout.Parse(layout, byKey.start, 200, 200))
 		assert.are.equal("abc", back[1].id)
-		assert.is_nil(back[2].id)
+		assert.is_string(back[2].id)
+		assert.are_not.equal("abc", back[2].id)
 	end)
 end)

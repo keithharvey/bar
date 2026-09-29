@@ -719,6 +719,11 @@ function R.bump()
 	R.revision = R.revision + 1
 end
 
+---@class EditorRegionDraft what the form holds for a region not yet made: no identity until it is
+---@field type RegionTypeKey
+---@field vertices { x: number, z: number }[]
+
+---@return EditorRegionDraft
 function R.pendingCandidate(vertices)
 	local candidate = { type = R.type, vertices = vertices }
 	for _, field in ipairs(R.fieldDefs()) do
@@ -2174,6 +2179,7 @@ function R.facts(box)
 	local finder = WG.resource_spot_finder
 	local spots = finder and not finder.isMetalMap and finder.metalSpotsList or nil
 	local candidate = R.fieldValues(box)
+	candidate.id = box.id
 	candidate.type = box.type or R.type
 	candidate.vertices = verts
 	local shape = R.api.Shape(candidate)

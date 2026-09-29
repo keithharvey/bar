@@ -13,15 +13,13 @@ local function startRegion(allyTeamID, anchors, name, source)
 	for _, a in ipairs(anchors) do
 		curved = curved or (a.strength ~= nil and a.strength > 0)
 	end
-	---@type StartRegion
-	local region = {
-		type = "start",
+	local region = Regions.Create("start", {
+		id = "start@" .. allyTeamID,
 		team = allyTeamID,
 		name = name,
 		source = source,
 		kind = curved and "spline" or "polygon",
-		vertices = {},
-	}
+	}) --[[@as StartRegion]]
 	if curved then
 		region.controls = anchors
 		region.vertices = Regions.Tessellate(anchors)
