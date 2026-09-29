@@ -1,4 +1,4 @@
----@class MexRegionsHull
+---@class RegionHull
 local Hull = {}
 
 ---@param points { x: number, z: number }[]

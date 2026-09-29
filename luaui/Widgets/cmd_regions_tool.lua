@@ -178,7 +178,6 @@ local R = {
 }
 R.api = require("modules/regions/api")
 local Start = require("modules/start/api")
-local Transfer = require("modules/transfer/api")
 R.ORDER, R.TYPES = R.api.Types()
 R.CATEGORY_ORDER = R.ORDER
 R.CATEGORIES = {}
@@ -1699,7 +1698,7 @@ end
 
 -- The ring the Mexes tool closes around the picked spots: their hull, padded by an extractor's reach and a half.
 function R.hullFor(points)
-	return Transfer.MexSplitting.Hull.Around(points, (Game.extractorRadius or 80) * 1.5)
+	return R.api.Hull.Around(points, (Game.extractorRadius or 80) * 1.5)
 end
 
 function R.applyMode()

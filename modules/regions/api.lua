@@ -2,6 +2,7 @@ local ModuleHandler = require("modules/module_handler")
 local Modules = require("modules/enums").Modules
 local Enums = require("modules/regions/enums")
 local Geometry = require("modules/regions/lib/geometry")
+local Hull = require("modules/regions/lib/hull")
 local Layout = require("modules/regions/lib/layout")
 local Names = require("modules/regions/lib/names")
 local Problems = require("modules/regions/lib/problems")
@@ -19,6 +20,7 @@ local Types = require("modules/regions/types")
 ---@field ProblemAt fun(ctx: RegionSetContext<Region>, message: string, at: { x: number, z: number }|nil)
 ---@field Enums RegionEnums
 ---@field Geometry RegionGeometry
+---@field Hull RegionHull
 ---@field GeometryOf fun(vertices: { x: number, z: number }[]): RegionGeometryKey|nil
 ---@field EncodeLayout fun(layout: table): string|nil
 ---@field DecodeLayout fun(raw: string): table|nil
@@ -364,6 +366,7 @@ end
 
 Api.Enums = Enums
 Api.Geometry = Geometry
+Api.Hull = Hull
 Api.Overlaps = Geometry.Overlaps
 Api.Contains = Geometry.Contains
 Api.GeometryOf = Geometry.Of

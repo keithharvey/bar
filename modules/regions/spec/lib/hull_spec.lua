@@ -1,7 +1,7 @@
-local Hull = require("modules/transfer/mex_splitting/hull")
+local Hull = require("modules/regions/lib/hull")
 local Regions = require("modules/regions/api")
 
-describe("the ring around picked metal spots", function()
+describe("the ring around picked points", function()
 	it("is nothing for no spots, and a square around one or two", function()
 		assert.is_nil(Hull.Around({}, 50))
 		local ring = assert(Hull.Around({ { x = 100, z = 100 } }, 50))
