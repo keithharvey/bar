@@ -25,7 +25,6 @@ local Types = require("modules/regions/types")
 ---@field GeometryOf fun(vertices: { x: number, z: number }[]): RegionGeometryKey|nil
 ---@field EncodeLayout fun(layout: table): string|nil
 ---@field DecodeLayout fun(raw: string): table|nil
----@field LayoutFromStartboxArrangement fun(arrangement: table|nil): table|nil
 local Api = {}
 
 ---@param kind RegionType
@@ -356,7 +355,7 @@ function Api.Describe(region, map)
 	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Regions).Describe, ctx) or nil
 end
 
-Api.Enums = Enums
+Api.Enums = { Geometry = Enums.Geometry, Types = Types.keys }
 Api.Geometry = Geometry
 Api.Hull = Hull
 Api.Overlaps = Geometry.Overlaps
@@ -388,6 +387,5 @@ Api.ProblemAt = Problems.OfSet
 
 Api.EncodeLayout = Layout.Encode
 Api.DecodeLayout = Layout.Decode
-Api.LayoutFromStartboxArrangement = Layout.FromStartboxArrangement -- SHIM, see lib/layout.lua
 
 return Api

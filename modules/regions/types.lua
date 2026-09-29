@@ -92,7 +92,21 @@ table.sort(order, function(a, b)
 	return a < b
 end)
 
+---@param key RegionTypeKey
+---@return string the key as a name: mex_region is MexRegion
+local function nameOf(key)
+	return (key:gsub("(%a)([%w]*)_?", function(first, rest)
+		return first:upper() .. rest
+	end))
+end
+
+local keys = {} ---@type table<string, RegionTypeKey>
+for _, key in ipairs(order) do
+	keys[nameOf(key)] = key
+end
+
 return {
 	order = order,
 	byKey = byKey,
+	keys = keys --[[@as RegionTypeFields]],
 }

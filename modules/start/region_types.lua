@@ -1,6 +1,11 @@
 local Enums = require("modules/regions/enums")
 local Fields = require("modules/start/fields")
 
+local START = "start"
+
+---@class (partial) RegionTypeFields
+---@field Start "start"
+
 -- A start: an ally team's seat, drawn as the area its positions lie in, or a point.
 ---@class StartRegion: Region
 ---@field type "start"
@@ -9,8 +14,8 @@ local Fields = require("modules/start/fields")
 ---@field source string|nil where the match's shape came from: the modoption that set it, or "engine"
 
 return {
-	[Enums.Types.Start] = {
-		key = Enums.Types.Start,
+	[START] = {
+		key = START,
 		label = "Start",
 		geometries = { Enums.Geometry.Point, Enums.Geometry.Polygon },
 		fields = {

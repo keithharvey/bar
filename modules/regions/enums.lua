@@ -1,6 +1,6 @@
 ---@class RegionEnums
 ---@field Geometry RegionGeometryFields
----@field Types RegionTypeFields
+---@field Types RegionTypeFields every type's key, by its name; each is declared by the module that owns the type
 local M = {}
 
 ---@alias RegionGeometryKey "point"|"polygon"
@@ -14,15 +14,8 @@ M.Geometry = {
 	Polygon = "polygon",
 }
 
----@alias RegionTypeKey "start"|"mex_region"
----@class RegionTypeFields
----@field Start "start"
----@field MexRegion "mex_region"
+---@alias RegionTypeKey string
 
----@type RegionTypeFields
-M.Types = {
-	Start = "start",
-	MexRegion = "mex_region",
-}
+---@class (partial) RegionTypeFields
 
 return M

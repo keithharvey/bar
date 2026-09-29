@@ -1,4 +1,3 @@
-local Enums = require("modules/regions/enums")
 local Regions = require("modules/regions/api")
 
 local square = { { x = 0, z = 0 }, { x = 100, z = 0 }, { x = 100, z = 100 }, { x = 0, z = 100 } }
@@ -7,7 +6,7 @@ local far = { { x = 500, z = 500 }, { x = 600, z = 500 }, { x = 600, z = 600 } }
 ---@param fields table
 ---@return Region
 local function start(fields)
-	return Regions.Create(Enums.Types.Start, fields)
+	return Regions.Create(Regions.Enums.Types.Start, fields)
 end
 
 describe("the region types", function()

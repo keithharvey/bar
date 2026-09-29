@@ -1,4 +1,3 @@
-local Enums = require("modules/regions/enums")
 local Identity = require("modules/regions/lib/identity")
 local SplineLib = require("common/lib_spline")
 
@@ -295,39 +294,6 @@ function Layout.Decode(raw)
 		return parsed
 	end
 	return nil
-end
-
--- =====================================================================================================================
--- SHIM: the old startbox mod option format, translated into a region layout.
---
--- The lobby and SPADS already carry start boxes in `mapmetadata_startbox_override` (one arrangement) and
--- `mapmetadata_startboxes_set` (one arrangement per team count), decoded by the same ModoptionPayload as our layouts.
--- An arrangement is maps-metadata's `startboxesInfo`: { startboxes = { { poly = { { x, y, strength? }, ... } }, ... } },
--- in the same 0..200 space, box i belonging to start i. This turns ONE arrangement into
--- { regions = { start = { { team = i, poly = ... } } } }, so Layout.Parse reads it like any other layout and regions
--- does not wait on a new mod option key being accepted anywhere.
---
--- It translates the format and nothing else. Which arrangement applies to a match (the override, else the set's entry
--- for the team count, else the nearest) is luarules/gadgets/include/startbox_utilities.lua's to decide; hand this the
--- one it picked. Anchor strength comes through: a curved box parses as a spline, like any other.
---
--- Delete this once start boxes are published as a region layout in their own right.
--- =====================================================================================================================
----@param arrangement table|nil
----@return table|nil
-function Layout.FromStartboxArrangement(arrangement)
-	if type(arrangement) ~= "table" or type(arrangement.startboxes) ~= "table" then
-		return nil
-	end
-	local starts = {}
-	for i, box in ipairs(arrangement.startboxes) do
-		local poly = {}
-		for j, p in ipairs(type(box) == "table" and type(box.poly) == "table" and box.poly or {}) do
-			poly[j] = { x = p.x, y = p.y, strength = p.strength }
-		end
-		starts[i] = { team = i - 1, poly = poly }
-	end
-	return { regions = { [Enums.Types.Start] = starts } }
 end
 
 return Layout

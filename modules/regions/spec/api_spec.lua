@@ -1,4 +1,3 @@
-local Enums = require("modules/regions/enums")
 local ModuleHandler = require("modules/module_handler")
 local Regions = require("modules/regions/api")
 
@@ -8,17 +7,17 @@ local square = { { x = 0, z = 0 }, { x = 100, z = 0 }, { x = 100, z = 100 }, { x
 ---@param name string|nil
 ---@return StartRegion
 local function start(team, name)
-	return { type = Enums.Types.Start, team = team, name = name, vertices = square }
+	return { type = Regions.Enums.Types.Start, team = team, name = name, vertices = square }
 end
 
 describe("a new region", function()
 	it("is given its type and an id by Create, and keeps an id it already has", function()
-		local a = Regions.Create(Enums.Types.Start, { team = 1 })
-		local b = Regions.Create(Enums.Types.Start, { team = 2 })
+		local a = Regions.Create(Regions.Enums.Types.Start, { team = 1 })
+		local b = Regions.Create(Regions.Enums.Types.Start, { team = 2 })
 		assert.are.equal("start", a.type)
 		assert.is_string(a.id)
 		assert.are_not.equal(a.id, b.id)
-		assert.are.equal("kept", Regions.Create(Enums.Types.Start, { id = "kept" }).id)
+		assert.are.equal("kept", Regions.Create(Regions.Enums.Types.Start, { id = "kept" }).id)
 	end)
 end)
 
@@ -33,7 +32,7 @@ describe("the region store", function()
 		assert.is_string(a.id)
 		assert.are_not.equal(a.id, b.id)
 		assert.are.same({ a, b }, Regions.All())
-		assert.are.same({ a, b }, Regions.All(Enums.Types.Start))
+		assert.are.same({ a, b }, Regions.All(Regions.Enums.Types.Start))
 		assert.are.same({}, Regions.All("nobody_knows" --[[@as RegionTypeKey]]))
 		assert.is_true(rawequal(a, Regions.Get(a.id)))
 	end)
@@ -55,7 +54,7 @@ describe("the region store", function()
 		assert.is_nil(Regions.Remove(a.id))
 		assert.are.equal(1, #Regions.All())
 		assert.are.equal(0, #Regions.Clear("nobody_knows" --[[@as RegionTypeKey]]))
-		assert.are.equal(1, #Regions.Clear(Enums.Types.Start))
+		assert.are.equal(1, #Regions.Clear(Regions.Enums.Types.Start))
 		assert.are.same({}, Regions.All())
 		assert.is_true(Regions.Revision() > before)
 	end)
@@ -80,12 +79,12 @@ describe("the region store", function()
 		Regions.Put(start(1))
 		local b = Regions.Put(start(1, "twin"))
 		b.vertices = { { x = 500, z = 500 }, { x = 600, z = 500 }, { x = 600, z = 600 } }
-		local problems = Regions.Problems(Enums.Types.Start)
+		local problems = Regions.Problems(Regions.Enums.Types.Start)
 		assert.are.equal(2, #problems, "both carry team 1; apart, so no overlap")
 		assert.is_true(rawequal(b, assert(problems[2]).region))
-		local names = Regions.NamesById(Enums.Types.Start)
+		local names = Regions.NamesById(Regions.Enums.Types.Start)
 		assert.are.equal("twin", names[b.id])
-		assert.are.same({}, Regions.Suggestions(Enums.Types.Start), "no start field offers suggestions")
+		assert.are.same({}, Regions.Suggestions(Regions.Enums.Types.Start), "no start field offers suggestions")
 	end)
 
 	it("is one per Lua state, shared by every include of the api", function()
@@ -106,7 +105,7 @@ describe("the layout as a file", function()
 		function()
 			local flat = Regions.Put(start(1, "north"))
 			local curved = Regions.Put({
-				type = Enums.Types.Start,
+				type = Regions.Enums.Types.Start,
 				team = 2,
 				kind = "spline",
 				controls = {

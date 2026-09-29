@@ -1,6 +1,11 @@
 local Enums = require("modules/regions/enums")
 local Fields = require("modules/start/fields")
 
+local MEX_REGION = "mex_region"
+
+---@class (partial) RegionTypeFields
+---@field MexRegion "mex_region"
+
 -- A mex region: an area of the layout whose metal is dealt to the teams seated at one start. The deal is keyed by
 -- its id; a name is the map's to give, and Regions.Names derives one from the group otherwise.
 ---@class MexRegion: Region
@@ -9,8 +14,8 @@ local Fields = require("modules/start/fields")
 ---@field group string
 
 return {
-	[Enums.Types.MexRegion] = {
-		key = Enums.Types.MexRegion,
+	[MEX_REGION] = {
+		key = MEX_REGION,
 		label = "Mex region",
 		geometries = { Enums.Geometry.Polygon },
 		fields = {
