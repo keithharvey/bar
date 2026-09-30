@@ -1,26 +1,23 @@
 local Repository = require("modules/repository")
 
 ---@class SpecThing
----@field id string|integer
+---@field id string
 ---@field name string
 ---@field colour string|nil
 
 ---@return Repository<SpecThing>
 local function strict()
-	return Repository.New({
-		admit = function(candidate, _, held)
-			if type(candidate.name) ~= "string" or candidate.name == "" then
-				return nil, { "a thing needs a name" }
+	return Repository.New(function(candidate, _, held)
+		if type(candidate.name) ~= "string" or candidate.name == "" then
+			return nil, { "a thing needs a name" }
+		end
+		for _, other in ipairs(held) do
+			if other.name == candidate.name then
+				return nil, { "a thing named " .. candidate.name .. " already exists" }
 			end
-			for _, other in ipairs(held) do
-				if other.name == candidate.name then
-					return nil, { "a thing named " .. candidate.name .. " already exists" }
-				end
-			end
-			return { name = candidate.name, colour = candidate.colour }
-		end,
-		identify = tostring,
-	})
+		end
+		return { name = candidate.name, colour = candidate.colour }
+	end)
 end
 
 describe("a repository", function()
@@ -28,10 +25,10 @@ describe("a repository", function()
 		local things = Repository.New()
 		local a = assert(things.Put({ name = "a" }))
 		local b = assert(things.Put({ name = "b" }))
-		assert.are.equal(1, a.id)
-		assert.are.equal(2, b.id)
+		assert.are.equal("1", a.id)
+		assert.are.equal("2", b.id)
 		assert.are.same({ a, b }, things.All())
-		assert.is_true(rawequal(a, things.Get(1)))
+		assert.is_true(rawequal(a, things.Get("1")))
 	end)
 
 	it("keeps the id an entity brings, and never gives that id to another", function()

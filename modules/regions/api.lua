@@ -157,7 +157,7 @@ local function copyOf(points)
 end
 
 ---@param candidate table
----@param id string|integer
+---@param id string
 ---@param held Region[]
 ---@return Region|nil region
 ---@return string[]|nil problems
@@ -168,7 +168,7 @@ local function admit(candidate, id, held)
 	end
 	---@type Region
 	local region = {
-		id = tostring(id),
+		id = id,
 		type = kind.key,
 		kind = candidate.kind,
 		vertices = copyOf(candidate.vertices) or {},
@@ -205,12 +205,7 @@ end
 ---@return Repository<Region>
 local function repository()
 	if state.regions == nil then
-		state.regions = Repository.New({
-			admit = admit,
-			identify = function(n)
-				return tostring(n)
-			end,
-		})
+		state.regions = Repository.New(admit)
 	end
 	return state.regions
 end

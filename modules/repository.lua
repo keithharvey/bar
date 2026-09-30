@@ -1,37 +1,30 @@
 local Repository = {}
 
----@class RepositoryOptions<T>
----@field admit (fun(candidate: table, id: string|integer, held: T[]): T|nil, string[]|nil)|nil what a candidate becomes on entry, or what is wrong with it; held is what it would stand beside
----@field identify (fun(n: integer): string|integer)|nil the id of the nth entity that arrives without one; the integer itself when absent
-
 ---@class RepositoryRefusal
 ---@field candidate table
 ---@field problems string[]
 
+-- Entities under string ids: what a layout carries, and what a counter mints for one that arrives without.
 ---@class Repository<T>
----@field Put fun(candidate: table, beforeId: string|integer|nil): T|nil, string[]|nil
+---@field Put fun(candidate: table, beforeId: string|nil): T|nil, string[]|nil
 ---@field Assign fun(candidates: table[]): T[], RepositoryRefusal[]
----@field Get fun(id: string|integer): T|nil
----@field Remove fun(id: string|integer): T|nil
+---@field Get fun(id: string): T|nil
+---@field Remove fun(id: string): T|nil
 ---@field All fun(where: (fun(entity: T): boolean)|nil): T[]
 ---@field Clear fun(where: (fun(entity: T): boolean)|nil): T[]
 ---@field Revision fun(): integer
 
 ---@generic T
----@param options RepositoryOptions<T>|nil
+---@param admit (fun(candidate: table, id: string, held: T[]): T|nil, string[]|nil)|nil what a candidate becomes on entry, or what is wrong with it; held is what it would stand beside. Without one, the candidate is what is stored
 ---@return Repository<T>
-function Repository.New(options)
-	local admit = options and options.admit or nil
-	local identify = options and options.identify or function(n)
-		return n
-	end
-
+function Repository.New(admit)
 	local list = {} ---@type table[]
-	local byId = {} ---@type table<string|integer, table|nil>
+	local byId = {} ---@type table<string, table|nil>
 	local revision = 0
 	local count = 0
 
-	---@param id string|integer
+	-- An id once seen is never minted: the counter stays past the largest number that has come through.
+	---@param id string
 	local function seen(id)
 		local n = tonumber(id)
 		if n and n > count and n == math.floor(n) then
@@ -39,20 +32,18 @@ function Repository.New(options)
 		end
 	end
 
-	---@param taken table<string|integer, any>
-	---@return string|integer id
+	---@param taken table<string, any>
+	---@return string id
 	---@return integer n
-	local function nextFree(taken)
+	local function mint(taken)
 		local n = count
-		local id
 		repeat
 			n = n + 1
-			id = identify(n)
-		until taken[id] == nil
-		return id, n
+		until taken[tostring(n)] == nil
+		return tostring(n), n
 	end
 
-	---@param id string|integer
+	---@param id string
 	---@return integer|nil
 	local function indexOf(id)
 		for i, entity in ipairs(list) do
@@ -64,16 +55,15 @@ function Repository.New(options)
 	end
 
 	---@param candidate table
-	---@param id string|integer
+	---@param id string
 	---@param held table[]
 	---@return table|nil entity
 	---@return string[]|nil problems
 	local function entering(candidate, id, held)
-		if admit == nil then
-			candidate.id = id
-			return candidate, nil
+		local entity, problems = candidate, nil
+		if admit then
+			entity, problems = admit(candidate, id, held)
 		end
-		local entity, problems = admit(candidate, id, held)
 		if entity == nil then
 			return nil, problems or {}
 		end
@@ -86,14 +76,14 @@ function Repository.New(options)
 	repository.Put = function(candidate, beforeId)
 		local id, n = candidate.id, nil
 		if id == nil then
-			id, n = nextFree(byId)
+			id, n = mint(byId)
 		end
-		local replaced = byId[id]
 		local held = list
-		if replaced ~= nil then
+		local at = indexOf(id)
+		if at then
 			held = {}
-			for _, entity in ipairs(list) do
-				if entity ~= replaced then
+			for i, entity in ipairs(list) do
+				if i ~= at then
 					held[#held + 1] = entity
 				end
 			end
@@ -107,15 +97,13 @@ function Repository.New(options)
 		else
 			seen(id)
 		end
-		local at = replaced ~= nil and indexOf(id) or nil
 		if at and beforeId == nil then
 			list[at] = entity
 		else
 			if at then
 				table.remove(list, at)
 			end
-			local before = beforeId ~= nil and indexOf(beforeId) or nil
-			table.insert(list, before or (#list + 1), entity)
+			table.insert(list, (beforeId and indexOf(beforeId)) or (#list + 1), entity)
 		end
 		byId[id] = entity
 		revision = revision + 1
@@ -123,7 +111,7 @@ function Repository.New(options)
 	end
 
 	repository.Assign = function(candidates)
-		local taken = {} ---@type table<string|integer, boolean>
+		local taken = {} ---@type table<string, boolean>
 		for _, candidate in ipairs(candidates) do
 			if candidate.id ~= nil then
 				taken[candidate.id] = true
@@ -134,11 +122,11 @@ function Repository.New(options)
 		for _, candidate in ipairs(candidates) do
 			local id, n = candidate.id, nil
 			if id == nil then
-				id, n = nextFree(taken)
+				id, n = mint(taken)
 			end
 			local entity, problems
 			if index[id] ~= nil then
-				problems = { "another with id " .. tostring(id) .. " was offered first" }
+				problems = { "another with id " .. id .. " was offered first" }
 			else
 				entity, problems = entering(candidate, id, accepted)
 			end
