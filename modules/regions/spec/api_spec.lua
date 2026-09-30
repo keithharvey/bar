@@ -106,11 +106,12 @@ describe("the region repository", function()
 		assert.are.same({ "a start needs a team" }, refusal.problems)
 	end)
 
-	it("puts ahead of another region on request", function()
-		local a = assert(Regions.Put(start(1)))
-		local b = assert(Regions.Put(start(2, nil, 500)))
-		local c = assert(Regions.Put(start(3, nil, 900), b.id))
-		assert.are.same({ a, c, b }, Regions.All())
+	it("refuses the second of two offered under one id", function()
+		local first, second = start(1), start(2, nil, 500)
+		first.id, second.id = "north", "north"
+		local admitted, refused = Regions.Assign({ first, second })
+		assert.are.equal(1, #admitted)
+		assert.are.same({ "another with id north was offered first" }, assert(refused[1]).problems)
 	end)
 
 	it("removes by id, clears by type, and bumps its revision on every change", function()

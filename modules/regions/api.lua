@@ -156,19 +156,23 @@ local function copyOf(points)
 	return out
 end
 
+---@class RegionRefusal
+---@field candidate table what was offered
+---@field problems string[]
+
+-- What a candidate becomes on entry: regions' own copy of what its type declares, once it checks out beside the
+-- regions it would stand with. Its id is the one it brings; the repository gives one to a region that brings none.
 ---@param candidate table
----@param id string
----@param held Region[]
----@return Region|nil region
+---@param beside Region[]
+---@return table|nil region
 ---@return string[]|nil problems
-local function admit(candidate, id, held)
+local function admit(candidate, beside)
 	local kind = Types.byKey[candidate.type]
 	if not kind then
 		return nil, { "unknown region type " .. tostring(candidate.type) }
 	end
-	---@type Region
 	local region = {
-		id = id,
+		id = candidate.id,
 		type = kind.key,
 		kind = candidate.kind,
 		vertices = copyOf(candidate.vertices) or {},
@@ -190,7 +194,7 @@ local function admit(candidate, id, held)
 		region[field.key] = value
 	end
 	local siblings = {} ---@type Region[]
-	for _, other in ipairs(held) do
+	for _, other in ipairs(beside) do
 		if other.type == kind.key then
 			siblings[#siblings + 1] = other
 		end
@@ -204,10 +208,13 @@ end
 
 ---@return Repository<Region>
 local function repository()
-	if state.regions == nil then
-		state.regions = Repository.New(admit)
+	local regions = state.regions
+	if regions == nil then
+		---@type Repository<Region>
+		regions = Repository.New()
+		state.regions = regions
 	end
-	return state.regions
+	return regions
 end
 
 ---@param typeKey RegionTypeKey|nil
@@ -221,19 +228,45 @@ local function ofType(typeKey)
 	end
 end
 
+-- One region in, checked beside the rest: under the id it brings it replaces the region held there, whole.
 ---@param candidate table
----@param beforeId string|nil
 ---@return Region|nil region
 ---@return string[]|nil problems
-function Api.Put(candidate, beforeId)
-	return repository().Put(candidate, beforeId)
+function Api.Put(candidate)
+	local beside = repository().All(function(held)
+		return held.id ~= candidate.id
+	end)
+	local region, problems = admit(candidate, beside)
+	if region == nil then
+		return nil, problems
+	end
+	return repository().Put(region), nil
 end
 
+-- The set whole: each candidate is checked beside those of the set admitted ahead of it, not beside what was held.
 ---@param candidates table[]
 ---@return Region[] admitted
----@return RepositoryRefusal[] refused
+---@return RegionRefusal[] refused
 function Api.Assign(candidates)
-	return repository().Assign(candidates)
+	local admitted, refused = {}, {} ---@type table[], RegionRefusal[]
+	local offered = {} ---@type table<string, boolean>
+	for _, candidate in ipairs(candidates) do
+		local region, problems
+		if candidate.id ~= nil and offered[candidate.id] then
+			problems = { "another with id " .. candidate.id .. " was offered first" }
+		else
+			region, problems = admit(candidate, admitted)
+		end
+		if region == nil then
+			refused[#refused + 1] = { candidate = candidate, problems = problems or {} }
+		else
+			if region.id ~= nil then
+				offered[region.id] = true
+			end
+			admitted[#admitted + 1] = region
+		end
+	end
+	return repository().Assign(admitted), refused
 end
 
 ---@param id string
@@ -356,7 +389,7 @@ end
 ---@param mapSizeZ number
 ---@return Region[]|nil regions what the repository now holds
 ---@return string|nil reason
----@return RepositoryRefusal[]|nil refused what the file held that did not check out
+---@return RegionRefusal[]|nil refused what the file held that did not check out
 function Api.LoadLayoutFile(path, mapSizeX, mapSizeZ)
 	if not VFS.FileExists(path, VFS.RAW_FIRST) then
 		return nil, "no file at " .. path
