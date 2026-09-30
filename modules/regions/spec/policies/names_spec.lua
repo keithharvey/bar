@@ -10,7 +10,7 @@ local made = 0
 local function start(fields)
 	made = made + 1
 	fields.id = fields.id or ("r" .. made)
-	return Regions.Create(Regions.Enums.Types.Start, fields)
+	return Regions.New(Regions.Enums.Types.Start, fields)
 end
 
 describe("a region's name", function()

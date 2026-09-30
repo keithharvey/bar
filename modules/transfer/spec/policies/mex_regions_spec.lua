@@ -9,7 +9,7 @@ local made = 0
 local function mex(fields)
 	made = made + 1
 	fields.id = fields.id or ("r" .. made)
-	return Regions.Create(Regions.Enums.Types.MexRegion, fields)
+	return Regions.New(Regions.Enums.Types.MexRegion, fields)
 end
 
 describe("what transfer says a mex region is: named, covered, described", function()
@@ -52,7 +52,7 @@ end)
 
 ---@return MexRegion
 local function mexA()
-	return Regions.Create(Regions.Enums.Types.MexRegion, {
+	return Regions.New(Regions.Enums.Types.MexRegion, {
 		id = "a",
 		name = "a",
 		team = 1,

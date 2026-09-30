@@ -48,8 +48,8 @@ end
 ---@param typeKey RegionTypeKey
 ---@param fields table its id, and whatever else it carries
 ---@return Region
-function Api.Create(typeKey, fields)
-	assert(type(fields) == "table" and type(fields.id) == "string", "Regions.Create: a region has an id")
+function Api.New(typeKey, fields)
+	assert(type(fields) == "table" and type(fields.id) == "string", "Regions.New: a region has an id")
 	fields.type = typeKey
 	fields.vertices = fields.vertices or {}
 	return fields --[[@as Region]]
@@ -232,7 +232,7 @@ end
 ---@param candidate table
 ---@return Region|nil region
 ---@return string[]|nil problems
-function Api.Put(candidate)
+function Api.Submit(candidate)
 	local beside = repository().All(function(held)
 		return held.id ~= candidate.id
 	end)

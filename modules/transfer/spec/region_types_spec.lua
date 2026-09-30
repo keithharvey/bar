@@ -9,7 +9,7 @@ local made = 0
 local function mex(fields)
 	made = made + 1
 	fields.id = fields.id or ("r" .. made)
-	return Regions.Create(Regions.Enums.Types.MexRegion, fields)
+	return Regions.New(Regions.Enums.Types.MexRegion, fields)
 end
 
 describe("the mex region type", function()
@@ -56,8 +56,8 @@ end)
 describe("a mex region in the store", function()
 	it("offers the groups its siblings already carry", function()
 		Regions.Clear()
-		Regions.Put(mex({ team = 1, group = "anti", vertices = square }))
-		Regions.Put(mex({ team = 2, group = "tech", vertices = square }))
+		Regions.Submit(mex({ team = 1, group = "anti", vertices = square }))
+		Regions.Submit(mex({ team = 2, group = "tech", vertices = square }))
 		assert.are.same({ group = { "anti", "tech" } }, Regions.Suggestions(Regions.Enums.Types.MexRegion))
 		Regions.Clear()
 	end)

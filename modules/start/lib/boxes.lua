@@ -13,7 +13,7 @@ local function startRegion(allyTeamID, anchors, name, source)
 	for _, a in ipairs(anchors) do
 		curved = curved or (a.strength ~= nil and a.strength > 0)
 	end
-	local region = Regions.Create("start", {
+	local region = Regions.New("start", {
 		id = "start@" .. allyTeamID,
 		team = allyTeamID,
 		name = name,

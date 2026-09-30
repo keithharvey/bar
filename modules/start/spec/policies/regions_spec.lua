@@ -6,7 +6,7 @@ local Regions = require("modules/regions/api")
 ---@param size number
 ---@return StartRegion
 local function area(team, x, z, size)
-	return Regions.Create(Regions.Enums.Types.Start, {
+	return Regions.New(Regions.Enums.Types.Start, {
 		id = "area" .. team,
 		team = team,
 		vertices = {
@@ -31,7 +31,7 @@ describe("a map's starts, as a set", function()
 
 	it("may touch along an edge, and a start that is a point overlaps nothing", function()
 		local point =
-			Regions.Create(Regions.Enums.Types.Start, { id = "point", team = 3, vertices = { { x = 50, z = 50 } } })
+			Regions.New(Regions.Enums.Types.Start, { id = "point", team = 3, vertices = { { x = 50, z = 50 } } })
 		assert.are.same(
 			{},
 			Regions.CheckSet(Regions.Enums.Types.Start, { area(1, 0, 0, 100), area(2, 100, 0, 100), point })
@@ -54,8 +54,8 @@ describe("what start says about a region", function()
 	end)
 
 	it("says nothing about a region of another type", function()
-		Regions.Put(area(1, 0, 0, 100))
-		local d = Regions.Describe(Regions.Create("mex_region", { id = "m", vertices = area(0, 0, 0, 100).vertices }))
+		Regions.Submit(area(1, 0, 0, 100))
+		local d = Regions.Describe(Regions.New("mex_region", { id = "m", vertices = area(0, 0, 0, 100).vertices }))
 		assert.is_nil(d and d.team)
 	end)
 end)
