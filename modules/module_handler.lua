@@ -9,12 +9,12 @@ local Policy = require("modules/policy")
 
 local MODULES_DIR = "modules/"
 
--- A module has three faces. api.lua is neutral: it runs in any Lua state, so it calls nothing the engine offers on one
--- side only, and the same is true of policies/, lib/ and every other file not named here. api_synced.lua is the
--- module's synced face, with actions/, gadgets/ and any file named synced.lua behind it; api_unsynced.lua is its
--- unsynced face, with widgets/, rml_widgets/ and any file named unsynced.lua. Neutral code requires no side file, and
--- a side requires no file of the other side. The loader does not enforce that at run time, since it cannot see a
--- require; spec/modules/sides_spec.lua holds the stack to it.
+-- A module has three faces. api.lua runs in any Lua handle, so it calls nothing the engine offers in one handle only,
+-- and the same is true of policies/, lib/ and every other file not named here. api_synced.lua is the module's face in
+-- the synced handle, with actions/, gadgets/ and any file named synced.lua behind it; api_unsynced.lua is its face in
+-- the unsynced one, with widgets/, rml_widgets/ and any file named unsynced.lua. Code that runs in any handle requires
+-- nothing bound to one, and code bound to a handle requires nothing bound to the other. The loader does not enforce
+-- that at run time, since it cannot see a require; spec/modules/handles_spec.lua holds the stack to it.
 local LAYOUT = {
 	manifest = "manifest.lua",
 	widgets = "widgets/",
