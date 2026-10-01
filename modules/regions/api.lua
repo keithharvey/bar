@@ -167,7 +167,7 @@ local function problem(message)
 end
 
 -- What a candidate becomes on entry: regions' own copy of what its type declares, once it checks out beside the
--- regions it would stand with.
+-- regions it would stand with. Its identity is not among what it declares: that is given, never taken.
 ---@param kind RegionType
 ---@param candidate table
 ---@param beside Region[] the regions held, less the one it would replace
@@ -175,12 +175,12 @@ end
 ---@return RegionProblem[]|nil problems
 local function admit(kind, candidate, beside)
 	local region = {
-		id = candidate.id,
 		type = kind.key,
 		kind = candidate.kind,
 		vertices = copyOf(candidate.vertices) or {},
 		controls = copyOf(candidate.controls),
 	}
+	---@cast region Region its id is given after, on entry
 	if region.kind == "spline" and region.controls ~= nil then
 		region.vertices = Layout.Tessellate(region.controls)
 	end
@@ -206,8 +206,7 @@ local function admit(kind, candidate, beside)
 	if #problems > 0 then
 		return nil, problems
 	end
-	return region, --[[@as Region]]
-		nil
+	return region, nil
 end
 
 ---@return Repository<Region>
@@ -232,17 +231,14 @@ local function ofType(typeKey)
 	end
 end
 
--- A new region, checked beside those held. It keeps the id it brings, a layout's; the repository gives one otherwise.
----@param candidate table any table that says its type and carries a region's data
+-- A new region, checked beside those held, under the id the repository gives it.
+---@param candidate table any table that says its type and carries a region's data; an id it carries is not taken
 ---@return Region|nil region
 ---@return RegionProblem[]|nil problems
 function Api.Create(candidate)
 	local kind = Types.byKey[candidate.type]
 	if not kind then
 		return nil, problem("unknown region type " .. tostring(candidate.type))
-	end
-	if candidate.id ~= nil and repository().Get(candidate.id) ~= nil then
-		return nil, problem("a region with id " .. tostring(candidate.id) .. " already exists")
 	end
 	local region, problems = admit(kind, candidate, repository().All())
 	if region == nil then
@@ -264,15 +260,11 @@ function Api.Update(id, candidate)
 	local beside = repository().All(function(other)
 		return other.id ~= id
 	end)
-	local offered = {}
-	for key, value in pairs(candidate) do
-		offered[key] = value
-	end
-	offered.id, offered.type = id, held.type
-	local region, problems = admit(Types.byKey[held.type], offered, beside)
+	local region, problems = admit(Types.byKey[held.type], candidate, beside)
 	if region == nil then
 		return nil, problems
 	end
+	region.id = id
 	return repository().Update(region), nil
 end
 
@@ -288,23 +280,35 @@ function Api.Get(id)
 	return repository().Get(id)
 end
 
--- What the repository holds becomes these, each created in turn: what does not check out beside those ahead of it
--- is refused.
+-- What was saved, read back: the repository holds these, each under the id it was saved with. Each is checked beside
+-- those of the set admitted ahead of it; what does not check out, or brings no id or one already taken, is refused.
 ---@param candidates table[]
----@return Region[] created
+---@return Region[] loaded
 ---@return RegionRefusal[] refused
 function Api.Load(candidates)
-	repository().Clear()
-	local created, refused = {}, {} ---@type Region[], RegionRefusal[]
+	local loaded, refused = {}, {} ---@type Region[], RegionRefusal[]
+	local taken = {} ---@type table<string, boolean>
 	for _, candidate in ipairs(candidates) do
-		local region, problems = Api.Create(candidate)
+		local kind = Types.byKey[candidate.type]
+		local region, problems
+		if type(candidate.id) ~= "string" then
+			problems = problem("a saved region has an id")
+		elseif taken[candidate.id] then
+			problems = problem("a region with id " .. candidate.id .. " is already loaded")
+		elseif not kind then
+			problems = problem("unknown region type " .. tostring(candidate.type))
+		else
+			region, problems = admit(kind, candidate, loaded)
+		end
 		if region == nil then
 			refused[#refused + 1] = { candidate = candidate, problems = problems or {} }
 		else
-			created[#created + 1] = region
+			region.id = candidate.id
+			taken[candidate.id] = true
+			loaded[#loaded + 1] = region
 		end
 	end
-	return created, refused
+	return repository().Load(loaded), refused
 end
 
 ---@param typeKey RegionTypeKey|nil

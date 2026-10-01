@@ -1,6 +1,6 @@
 local Repository = {}
 
--- A list of entities in memory, each under a string id: the one it brings, or the next a counter gives.
+-- A list of entities in memory, each under a string id: the next a counter gives, or the one it was saved with.
 ---@generic T
 ---@return Repository<T>
 function Repository.New()
@@ -29,20 +29,36 @@ function Repository.New()
 	---@class Repository<T>
 	local repository = {}
 
-	-- A new entity: under the id it brings, which must be free, or under the next the counter gives.
+	-- A new entity, under the next id the counter gives: the repository's to assign, never the caller's.
 	---@param entity T
 	---@return T
 	function repository.Create(entity)
-		if entity.id == nil then
-			entity.id = mint()
-		else
-			assert(byId[entity.id] == nil, "Repository: an entity under id " .. tostring(entity.id) .. " is held")
-			seen(entity.id)
-		end
+		assert(entity.id == nil, "Repository: an entity is given its id on creation")
+		entity.id = mint()
 		list[#list + 1] = entity
 		byId[entity.id] = entity
 		revision = revision + 1
 		return entity
+	end
+
+	-- What was saved, read back: the repository holds exactly these, in order, each under the id it was saved with.
+	---@param entities T[]
+	---@return T[]
+	function repository.Load(entities)
+		local index = {} ---@type table<string, table|nil>
+		for _, entity in ipairs(entities) do
+			assert(entity.id ~= nil, "Repository: a loaded entity brings its id")
+			assert(index[entity.id] == nil, "Repository: two entities under id " .. tostring(entity.id))
+			index[entity.id] = entity
+			seen(entity.id)
+		end
+		local held = {}
+		for i, entity in ipairs(entities) do
+			held[i] = entity
+		end
+		list, byId = held, index
+		revision = revision + 1
+		return held
 	end
 
 	-- The entity under its id, replaced where it stood.

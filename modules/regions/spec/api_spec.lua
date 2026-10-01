@@ -92,13 +92,11 @@ describe("the region repository", function()
 		)
 	end)
 
-	it("creates under the id a layout brings, and not over one it holds", function()
-		local loaded = start(1)
-		loaded.id = "north"
-		assert.are.equal("north", assert(Regions.Create(loaded)).id)
-		local again = start(2, nil, 500)
-		again.id = "north"
-		assert.are.same({ { message = "a region with id north already exists" } }, select(2, Regions.Create(again)))
+	it("gives a new region its id, and takes none from what is offered", function()
+		local offered = start(1)
+		offered.id = "north"
+		local a = assert(Regions.Create(offered))
+		assert.are_not.equal("north", a.id)
 	end)
 
 	it("updates a region whole under its id, or leaves it as it was", function()
@@ -126,17 +124,19 @@ describe("the region repository", function()
 		assert.are.equal("start", assert(Regions.Update(a.id, offered)).type)
 	end)
 
-	it("loads a set: what it held is gone, and each is checked beside those ahead of it", function()
+	it("loads a set under its saved ids: what it held is gone, and each is checked beside those ahead of it", function()
 		assert(Regions.Create(start(5)))
-		local first, twin, nobody = start(1), start(1, nil, 500), start(nil, nil, 900)
-		first.id, twin.id = "north", "north"
-		local created, refused = Regions.Load({ first, twin, nobody })
-		assert.are.equal(1, #created)
-		assert.are.same(created, Regions.All())
-		assert.are.equal(2, #refused)
+		local first, twin, nobody, anonymous = start(1), start(2, nil, 500), start(nil, nil, 900), start(3, nil, 1300)
+		first.id, twin.id, nobody.id = "north", "north", "south"
+		local loaded, refused = Regions.Load({ first, twin, nobody, anonymous })
+		assert.are.equal(1, #loaded)
+		assert.are.equal("north", assert(loaded[1]).id)
+		assert.are.same(loaded, Regions.All())
+		assert.are.equal(3, #refused)
 		assert.is_true(rawequal(twin, assert(refused[1]).candidate))
-		assert.are.same({ { message = "a region with id north already exists" } }, assert(refused[1]).problems)
+		assert.are.same({ { message = "a region with id north is already loaded" } }, assert(refused[1]).problems)
 		assert.are.same({ { message = "a start needs a team" } }, assert(refused[2]).problems)
+		assert.are.same({ { message = "a saved region has an id" } }, assert(refused[3]).problems)
 	end)
 
 	it("deletes by id, clears by type, and bumps its revision on every change", function()
