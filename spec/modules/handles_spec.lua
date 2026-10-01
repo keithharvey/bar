@@ -1,16 +1,17 @@
 local ModuleHandler = require("modules/module_handler")
 
 -- Which Lua handle a module file runs in, as modules/module_handler.lua states it above LAYOUT: api.lua and the rest
--- run in any, api_synced.lua with actions/, gadgets/ and any synced.lua behind it in the synced handle,
--- api_unsynced.lua with widgets/, rml_widgets/ and any unsynced.lua in the unsynced one. This holds every module to
--- that. The engine's own split comes from the recoil-lua-library's generated listings, one file per handle.
+-- run in any, api_synced.lua with actions/ and any synced.lua behind it in the synced handle, api_unsynced.lua with
+-- widgets/, rml_widgets/ and any unsynced.lua in the unsynced one; a gadget runs in both, and says itself which half
+-- is which. This holds every module to that. The engine's own split comes from the recoil-lua-library's generated
+-- listings, one file per handle.
 local ENGINE_DIR = "recoil-lua-library/library/generated/rts/Lua/"
 local SYNCED_HANDLES = { "LuaSyncedCtrl.cpp.lua", "LuaSyncedMoveCtrl.cpp.lua" }
 local UNSYNCED_HANDLES = { "LuaUnsyncedCtrl.cpp.lua", "LuaUnsyncedRead.cpp.lua" }
 -- Listed under one handle in the library, offered on both by the engine.
 local ON_BOTH = { SendMessageToPlayer = true, SendLuaUIMsg = true }
 
----@alias LuaHandle "synced"|"unsynced"
+---@alias LuaHandle "synced"|"unsynced"|"both" both: a gadget, with a half for each
 
 ---@param path string a file path under modules/
 ---@return LuaHandle|nil handle nil for code that runs in any
@@ -20,7 +21,10 @@ local function handleOf(path)
 		return nil
 	end
 	local base = rest:match("([^/]+)$")
-	if base == "api_synced.lua" or base == "synced.lua" or rest:find("^actions/") or rest:find("^gadgets/") then
+	if rest:find("^gadgets/") then
+		return "both"
+	end
+	if base == "api_synced.lua" or base == "synced.lua" or rest:find("^actions/") then
 		return "synced"
 	end
 	if base == "api_unsynced.lua" or base == "unsynced.lua" or rest:find("^widgets/") or rest:find("^rml_widgets/") then
@@ -125,7 +129,7 @@ describe("the handle a module file runs in", function()
 		assert.are.equal("synced", handleOf("modules/transport/api_synced.lua"))
 		assert.are.equal("synced", handleOf("modules/transfer/unit/synced.lua"))
 		assert.are.equal("synced", handleOf("modules/transport/actions/unloaded.lua"))
-		assert.are.equal("synced", handleOf("modules/transfer/gadgets/cmd_take.lua"))
+		assert.are.equal("both", handleOf("modules/transfer/gadgets/cmd_take.lua"))
 		assert.are.equal("unsynced", handleOf("modules/transfer/api_unsynced.lua"))
 		assert.are.equal("unsynced", handleOf("modules/transfer/unit/unsynced.lua"))
 		assert.are.equal("unsynced", handleOf("modules/transfer/widgets/cmd_take.lua"))
@@ -163,10 +167,10 @@ describe("the handle a module file runs in", function()
 		it("code bound to a handle requires nothing bound to the other", function()
 			local crossings = {}
 			for _, file in ipairs(files) do
-				if file.handle ~= nil then
+				if file.handle == "synced" or file.handle == "unsynced" then
 					for _, required in ipairs(requiredModules(file.text)) do
 						local handle = handleOf(required)
-						if handle ~= nil and handle ~= file.handle then
+						if handle ~= nil and handle ~= "both" and handle ~= file.handle then
 							crossings[#crossings + 1] = file.path .. " requires " .. required
 						end
 					end
