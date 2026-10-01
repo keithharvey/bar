@@ -1267,12 +1267,12 @@ function boxUndo.commit()
 	end
 	-- A click that only selects a handle must not leave a no-op entry behind, or Ctrl+Z
 	-- appears to do nothing.
-	local now = boxUndo.snap(pend.box)
-	if now and #now.anchors == #pend.snap.anchors then
-		local same = now.kind == pend.snap.kind
+	local now, before = boxUndo.snap(pend.box), pend.snap
+	if now and before and #now.anchors == #before.anchors then
+		local same = now.kind == before.kind
 		for k = 1, #now.anchors do
 			local a = now.anchors[k]
-			local b = pend.snap.anchors[k]
+			local b = before.anchors[k]
 			if not a or not b or a.x ~= b.x or a.z ~= b.z or a.strength ~= b.strength then
 				same = false
 				break
@@ -1293,6 +1293,19 @@ function boxUndo.commit()
 	R.touched()
 end
 
+-- A region made again under a new id: the entries that name it by the old one name it by the new.
+---@param from string
+---@param to string
+function boxUndo.renamed(from, to)
+	for _, stack in ipairs({ undoHistory, boxUndo.redo }) do
+		for _, entry in ipairs(stack) do
+			if entry.mode == "startbox" and entry.box and entry.box.id == from then
+				entry.box.id = to
+			end
+		end
+	end
+end
+
 -- Applies an entry and returns the one that reverses it.
 function boxUndo.apply(entry)
 	local mirror = { mode = "startbox", region = entry.region, op = entry.op, form = entry.form }
@@ -1310,11 +1323,14 @@ function boxUndo.apply(entry)
 		mirror.op, mirror.box = "remove", boxUndo.snap(held)
 		R.api.Delete(entry.box.id)
 	elseif entry.op == "remove" then
-		-- Made again as a new region: its id is regions' to give.
+		-- Made again as a new region: its id is regions' to give. The history still names the region by the id it
+		-- had, so every entry that does is told the new one, or the next step back would look for a region that is gone.
 		local made, problems = R.api.Create(boxUndo.build(entry.box))
 		mirror.op, mirror.box = "add", boxUndo.snap(made) or entry.box
 		if made == nil then
 			Echo("[Regions] Undo: " .. table.concat(R.messages(problems), "; "))
+		else
+			boxUndo.renamed(entry.box.id, made.id)
 		end
 	else
 		local held = R.api.Get(entry.box.id)
@@ -3505,10 +3521,10 @@ function R.step(isUndo)
 			break
 		end
 	end
-	local entry = at and table.remove(fromStack, at)
-	if not entry then
+	if at == nil then
 		return
 	end
+	local entry = table.remove(fromStack, at)
 	if entry.mode == "startbox" then
 		table.insert(toStack, boxUndo.apply(entry))
 	else

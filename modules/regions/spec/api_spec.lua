@@ -26,7 +26,7 @@ local function start(team, name, at)
 end
 
 describe("a region that is not the repository's", function()
-	it("is given its type by Create, under the id its maker gave it", function()
+	it("is given its type by New, under the id its maker gave it", function()
 		local a = Regions.New(Regions.Enums.Types.Start, { id = "start@0", team = 0 })
 		assert.are.equal("start", a.type)
 		assert.are.equal("start@0", a.id)
