@@ -20,6 +20,8 @@ local LAYOUT = {
 	actions = "actions/",
 	policies = "policies/",
 	modOptions = "modoptions.lua",
+	syncedApi = "api_synced.lua",
+	unsyncedApi = "api_unsynced.lua",
 }
 
 --- @class ModuleHandler
@@ -33,6 +35,40 @@ local function logError(message)
 	else
 		print("[" .. LOG_TAG .. "] ERROR: " .. message)
 	end
+end
+
+-- A module has three faces. api.lua is neutral: it runs in any Lua state, so it calls nothing the engine offers on one
+-- side only, and the same is true of policies/, lib/ and every other file not named below. api_synced.lua is the
+-- module's synced face, with actions/, gadgets/ and any file named synced.lua behind it; api_unsynced.lua is its
+-- unsynced face, with widgets/, rml_widgets/ and any file named unsynced.lua. Neutral code requires no side file, and
+-- a side requires no file of the other side. spec/modules/sides_spec.lua holds the stack to that.
+---@alias ModuleSide "synced"|"unsynced"
+
+---@param path string a file path under modules/
+---@return ModuleSide|nil side nil for neutral code
+function ModuleHandler.SideOf(path)
+	local rest = path:match("^" .. MODULES_DIR .. "[^/]+/(.*)$")
+	if rest == nil then
+		return nil
+	end
+	local base = rest:match("([^/]+)$")
+	if
+		base == LAYOUT.syncedApi
+		or base == "synced.lua"
+		or rest:find("^" .. LAYOUT.actions)
+		or rest:find("^" .. LAYOUT.gadgets)
+	then
+		return "synced"
+	end
+	if
+		base == LAYOUT.unsyncedApi
+		or base == "unsynced.lua"
+		or rest:find("^" .. LAYOUT.widgets)
+		or rest:find("^" .. LAYOUT.rmlWidgets)
+	then
+		return "unsynced"
+	end
+	return nil
 end
 
 ---@param dir string directory with trailing slash

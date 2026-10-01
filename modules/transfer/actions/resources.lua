@@ -1,7 +1,7 @@
 local Comms = require("modules/transfer/resource/comms")
 local ContextFactory = require("modules/transfer/context_factory")
 local ManualShareLedger = require("modules/transfer/economy/manual_share_ledger")
-local ResourceTransfer = require("modules/transfer/resource/synced")
+local ResourceTransfer = require("modules/transfer/api_synced").Resources
 
 ---@class TransferResourcesRequest
 ---@field from integer giving team

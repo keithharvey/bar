@@ -1,3 +1,7 @@
+-- Transport's synced face: setting a passenger down where it will not stand on an ally, which is the one thing the
+-- module does to the synced engine that a gadget or an action asks for by name.
+local Synced = {}
+
 local Traits = require("modules/transport/lib/traits")
 
 local MAP_SIZE_X, MAP_SIZE_Z = Game.mapSizeX, Game.mapSizeZ
@@ -20,6 +24,7 @@ end
 
 ---@class TransportUnstack
 local Unstack = {}
+Synced.Unstack = Unstack
 
 ---@param unitID integer
 ---@return table<integer, integer> turrets nano turret -> its def
@@ -110,4 +115,4 @@ function Unstack.Step(unitID, unitDefID)
 	return false
 end
 
-return Unstack
+return Synced

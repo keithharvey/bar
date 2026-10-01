@@ -1,5 +1,5 @@
 local Rules = require("modules/transport/lib/rules")
-local Unstack = require("modules/transport/lib/unstack")
+local Unstack = require("modules/transport/api_synced").Unstack
 local state = require("modules/transport/state")
 
 ---@class TransportUnloadedRequest a passenger was just set down

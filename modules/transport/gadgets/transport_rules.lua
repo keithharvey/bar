@@ -17,7 +17,7 @@ if not gadgetHandler:IsSyncedCode() then
 end
 
 local Transport = require("modules/transport/api")
-local Unstack = require("modules/transport/lib/unstack")
+local Unstack = require("modules/transport/api_synced").Unstack
 local state = require("modules/transport/state")
 
 ---@param unitID integer

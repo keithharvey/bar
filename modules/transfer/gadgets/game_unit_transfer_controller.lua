@@ -25,7 +25,7 @@ end
 local ContextFactoryModule = require("modules/transfer/context_factory")
 local LuaRulesMsg = require("modules/transfer/lib/lua_rules_msg")
 local TransferApi = require("modules/transfer/api")
-local UnitTransfer = require("modules/transfer/unit/synced")
+local UnitTransfer = require("modules/transfer/api_synced").Units
 
 local springRepo = Spring
 local contextFactory = ContextFactoryModule.create(springRepo)
