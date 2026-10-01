@@ -59,14 +59,27 @@ function Support.Tool()
 	return upvalue(widget.Shutdown, "R"), environment.WG.RegionsTool
 end
 
+-- Draw a shape into the form, opening a new one when none is open, the way finishing a shape with the tools does.
 ---@param R table
 ---@param vertices { x: number, z: number }[]
----@return table draft what drawing those corners leaves in the tool
+---@return table region the form's copy, with the shape drawn
 function Support.Draw(R, vertices)
-	local box = { vertices = vertices }
-	R.add(box)
-	R.stampNew(box)
-	return box
+	R.setFormShape({ vertices = vertices })
+	return R.form.region
+end
+
+-- Draw a shape in a new form, set its fields, and submit it.
+---@param R table
+---@param vertices { x: number, z: number }[]
+---@param fields table<string, string>|nil
+---@return boolean created
+function Support.Create(R, vertices, fields)
+	R.openNew()
+	for key, value in pairs(fields or {}) do
+		R.setFormField(key, value)
+	end
+	Support.Draw(R, vertices)
+	return R.submitForm()
 end
 
 return Support

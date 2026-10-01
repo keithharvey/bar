@@ -194,24 +194,23 @@
 			<div id="section-rg-mode">
 			<div class="text-lg text-light font-bold mb-1">CATEGORY</div>
 			<div id="rg-category-chips" class="flex flex-row gap-1 mb-1 tf-chip-row"></div>
-			<div class="text-lg text-light font-bold mb-1">MODE</div>
-			<div class="flex flex-row gap-1 mb-1 tf-chip-row">
+			<div class="text-lg text-light font-bold mb-1" data-if="rgView == 'list' &amp;&amp; rgRegionType == 'start'">MODE</div>
+			<div class="flex flex-row gap-1 mb-1 tf-chip-row" data-if="rgView == 'list' &amp;&amp; rgRegionType == 'start'">
 				<div id="btn-rg-mode-select" class="tf-overlay-chip" data-class-active="rgEditMode == 'select'" data-event-mousedown="onRgSetEditMode('select')">
 					<div class="tf-overlay-chip-label">Select</div>
 				</div>
 				<div id="btn-rg-mode-create" class="tf-overlay-chip" data-class-active="rgEditMode == 'create'" data-event-mousedown="onRgSetEditMode('create')">
-					<div class="tf-overlay-chip-label">Create</div>
+					<div class="tf-overlay-chip-label">Positions</div>
 				</div>
 			</div>
-			<div class="text-lg text-light font-bold mb-1" data-if="rgEditMode == 'create'">DRAW</div>
-			<div id="rg-geometry-chips" class="flex flex-row gap-1 mb-1 tf-chip-row" data-if="rgEditMode == 'create'"></div>
-			<div class="text-sm text-keybind mb-1" data-if="rgHint == 'select'">LMB: select a region or a position · Drag positions, vertices and edges · Nothing is created</div>
+			<div class="text-lg text-light font-bold mb-1" data-if="rgView == 'form'">DRAW</div>
+			<div id="rg-geometry-chips" class="flex flex-row gap-1 mb-1 tf-chip-row" data-if="rgView == 'form'"></div>
+			<div class="text-sm text-keybind mb-1" data-if="rgHint == 'select'">LMB: open a region to edit it · Drag a start's positions · NEW to make a region</div>
 			<div class="text-sm text-keybind mb-1" data-if="rgHint == 'points'">LMB: place a start position · Drag to move · RMB: remove</div>
 			<div class="text-sm text-keybind mb-1" data-if="rgHint == 'mexes'">LMB drag: select the mexes inside · Alt+drag: deselect · Click a mex: toggle · Ctrl+Z: one step back · RMB: close the region · Esc: clear</div>
 			<div class="text-sm text-keybind mb-1" data-if="rgGatheredSpots != '0'">{{rgGatheredSpots}} spots selected · RMB closes the region shown</div>
 			<div class="text-sm text-keybind mb-1" data-if="rgHint == 'square'">LMB drag: a square · Drag edges to resize · Click inside to select</div>
 			<div class="text-sm text-keybind mb-1" data-if="rgHint == 'polygon'">LMB: add vertex · LMB drag from empty: free-draw · RMB: close (3+ vertices) · Esc: cancel · Drag vertices to move · Click inside to select</div>
-			<div class="text-sm text-keybind mb-1" data-if="rgAreaTarget != ''">The next area drawn becomes Start {{rgAreaTarget}}'s</div>
 
 			</div><!-- /section-rg-mode -->
 			</div><!-- /frame-rg-mode -->
@@ -226,37 +225,29 @@
 				<div class="tf-collapsible-title">{{rgDetailsTitle}}</div>
 			</div>
 		<div id="section-st-details">
-			<div class="text-xs text-keybind mb-1" data-if="rgDetailsMode == 'prompt'">Click a region on the map, or a row above, to see it here.</div>
-			<div data-if="rgDetailsMode == 'new'">
-				<div class="text-sm mb-1" style="color: #ff8080;" data-if="rgRegionError != ''">{{rgRegionError}}</div>
-				<div id="rg-new-fields"></div>
-			</div>
-			<div id="rg-details" data-if="rgSelected">
-				<div class="flex flex-row gap-1 mb-1">
-					<div id="btn-rg-region-remove" class="tf-action-btn" style="flex:1;" data-if="rgRegionType != 'start'" data-event-mousedown="onRgRegionRemove()">
-						<div class="tf-action-btn-text">REMOVE</div>
-					</div>
-					<div id="btn-rg-region-deselect" class="tf-action-btn" style="flex:1;" data-event-mousedown="onRgRegionDeselect()">
-						<div class="tf-action-btn-text">DESELECT</div>
-					</div>
-				</div>
-				<div data-if="rgRegionType == 'start'">
-					<div class="text-sm text-light mb-1">Start {{rgSelectedTeam}}</div>
-					<div class="text-xs text-keybind mb-1" data-if="!rgSelectedHasBox">No area drawn yet: the next area drawn becomes this start's.</div>
-					<div class="flex flex-row gap-1 mb-1" data-if="rgSelectedHasBox">
-						<div id="btn-rg-draw-area" class="tf-action-btn" style="flex:1;" data-if="!rgDrawingArea" data-event-mousedown="onRgDrawArea()">
-							<div class="tf-action-btn-text">REDRAW AREA</div>
-						</div>
-						<div id="btn-rg-cancel-area" class="tf-action-btn" style="flex:1;" data-if="rgDrawingArea" data-event-mousedown="onRgCancelArea()">
-							<div class="tf-action-btn-text">KEEP AREA</div>
-						</div>
-						<div id="btn-rg-remove-area" class="tf-action-btn" style="flex:1;" data-event-mousedown="onRgRemoveArea()">
-							<div class="tf-action-btn-text">REMOVE AREA</div>
-						</div>
-					</div>
-				</div>
-				<div id="rg-detail-fields" data-if="rgSelectedHasBox"></div>
+			<div class="text-xs text-keybind mb-1" data-if="rgView == 'list'">Click a region on the map or a row below to edit it, or make a new one.</div>
+			<div id="rg-form" data-if="rgView == 'form'">
+				<div id="rg-form-fields"></div>
 				<div class="text-sm text-light mb-1" data-if="rgSelectedHasBox">{{rgSelectedVertices}} vertices</div>
+				<div class="text-xs text-keybind mb-1" data-if="!rgSelectedHasBox">Draw its shape on the map.</div>
+				<div id="rg-form-problems" class="mb-1"></div>
+				<div class="text-xs text-keybind mb-1" data-if="rgFormChanged">Unsaved changes</div>
+				<div class="flex flex-row gap-1 mb-1">
+					<div id="btn-rg-submit" class="tf-action-btn" style="flex:1;" data-event-mousedown="onRgSubmit()">
+						<div class="tf-action-btn-text">{{rgSubmitLabel}}</div>
+					</div>
+					<div id="btn-rg-cancel" class="tf-action-btn" style="flex:1;" data-event-mousedown="onRgCancel()">
+						<div class="tf-action-btn-text">CANCEL</div>
+					</div>
+				</div>
+				<div class="flex flex-row gap-1 mb-1">
+					<div id="btn-rg-remove-area" class="tf-action-btn" style="flex:1;" data-if="rgRegionType == 'start' &amp;&amp; rgSelectedHasBox" data-event-mousedown="onRgRemoveArea()">
+						<div class="tf-action-btn-text">REMOVE AREA</div>
+					</div>
+					<div id="btn-rg-delete" class="tf-action-btn" style="flex:1;" data-if="!rgFormNew" data-event-mousedown="onRgDelete()">
+						<div class="tf-action-btn-text">DELETE</div>
+					</div>
+				</div>
 				<div class="text-lg text-light font-bold mb-1">FACTS</div>
 				<div id="rg-detail-facts" class="mb-1"></div>
 			</div>
@@ -271,6 +262,11 @@
 			</div>
 		<div id="section-st-region">
 			<div class="text-sm mb-1" style="color: #ff8080;" data-if="rgRegionError != ''">{{rgRegionError}}</div>
+			<div class="flex flex-row gap-1 mb-1" data-if="rgView == 'list'">
+				<div id="btn-rg-new" class="tf-action-btn" style="flex:1;" data-event-mousedown="onRgNew()">
+					<div class="tf-action-btn-text">{{rgNewLabel}}</div>
+				</div>
+			</div>
 
 			<div id="rg-set-problems"></div>
 			<div id="rg-region-list" class="mb-1"></div>

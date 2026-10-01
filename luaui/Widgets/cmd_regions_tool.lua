@@ -146,13 +146,11 @@ local shapeCount = 4 -- number of positions to place with shape
 ---@field selectedStart integer|nil
 ---@field pendingVertex { wx: number, wz: number, mx: number, my: number }|nil
 ---@field category string
----@field drawForTeam integer|nil
 ---@field geometry string
 ---@field editMode "select"|"create"
 ---@field radial { cx: number, cz: number, r: number }|nil
 ---@field radialPending table
 ---@field radialHistory table
----@field pending table<string, any>
 ---@field error string
 ---@field revision integer
 ---@field COLOR number[]
@@ -165,13 +163,11 @@ local R = {
 	selectedStart = nil,
 	pendingVertex = nil,
 	category = "start",
-	drawForTeam = nil,
 	geometry = "point",
 	editMode = "select",
 	radial = nil,
 	radialPending = {},
 	radialHistory = {},
-	pending = {},
 	error = "",
 	revision = 0,
 	COLOR = { 0.35, 0.85, 1.0, 1.0 },
@@ -189,8 +185,8 @@ for _, key in ipairs(R.ORDER) do
 	end
 	R.CATEGORIES[key] = { key = key, label = kind.label, type = key, placing = placesPoints and "points" or "area" }
 end
----@class EditorRegion what the tool draws and edits. It is the tool's own, whole or not; regions holds a copy of it once it checks out
----@field id string|nil the id regions gave its copy; nothing until regions has admitted it
+---@class EditorRegion what the tool draws: a region regions holds, or the form's copy of one
+---@field id string|nil
 ---@field type RegionTypeKey
 ---@field vertices { x: number, z: number }[]
 ---@field kind "point"|"polygon"|"box"|"spline"|nil
@@ -199,129 +195,91 @@ end
 ---@field team integer|nil
 ---@field group string|nil
 ---@field positions { x: number, z: number }[]|nil
----@field problems string[]|nil why regions would not take it as it stands
----@field _fillList integer|nil the ground-fill display list drawn for the area
----@field _fillDirty boolean|nil the fill is stale
----@field _fillNeedsRebuild boolean|nil rebuild the fill on the next draw
----@field _fillLastFrame integer|nil the draw frame the fill was last rebuilt on
 
--- The tool's working list: every region on screen, in order, whether or not it checks out yet. A draft is known by
--- the table it is, never by an id: it has none until regions admits it.
-R.drafts = { list = {}, revision = 0 }
+---@class HeldRegion: EditorRegion a region regions holds, as the tool reads it
+---@field id string
 
----@param typeKey RegionTypeKey|nil
----@return EditorRegion[]
-function R.drafts.All(typeKey)
-	local out = {}
-	for _, draft in ipairs(R.drafts.list) do
-		if typeKey == nil or draft.type == typeKey then
-			out[#out + 1] = draft
-		end
-	end
-	return out
-end
-
----@param draft EditorRegion
----@param before EditorRegion|nil the draft it goes ahead of
----@return EditorRegion
-function R.drafts.Put(draft, before)
-	local list = R.drafts.list
-	local held, at = false, #list + 1
-	for i, other in ipairs(list) do
-		held = held or other == draft
-		if other == before then
-			at = i
-		end
-	end
-	if not held then
-		table.insert(list, at, draft)
-	end
-	R.drafts.revision = R.drafts.revision + 1
-	return draft
-end
-
----@param draft EditorRegion
----@return EditorRegion|nil
-function R.drafts.Remove(draft)
-	for i, other in ipairs(R.drafts.list) do
-		if other == draft then
-			table.remove(R.drafts.list, i)
-			R.drafts.revision = R.drafts.revision + 1
-			return draft
-		end
-	end
-	return nil
-end
-
----@param typeKey RegionTypeKey|nil
----@return EditorRegion[]
-function R.drafts.Clear(typeKey)
-	local kept, removed = {}, {}
-	for _, draft in ipairs(R.drafts.list) do
-		if typeKey == nil or draft.type == typeKey then
-			removed[#removed + 1] = draft
-		else
-			kept[#kept + 1] = draft
-		end
-	end
-	if #removed > 0 then
-		R.drafts.list = kept
-		R.drafts.revision = R.drafts.revision + 1
-	end
-	return removed
-end
-
----@return integer
-function R.drafts.Revision()
-	return R.drafts.revision
-end
+-- The form: the one region the tool edits, as its own copy, until it is committed whole. A region regions holds is
+-- edited through a form opened on it; a new one is made in a form opened empty. Nothing else changes a region's
+-- shape or fields, so every region in the list has checked out.
+---@class EditorForm
+---@field id string|nil the region it edits; nothing for a new one
+---@field region EditorRegion the form's copy: what the tools draw into and the fields edit
+---@field problems RegionProblem[] what regions said when the form was last submitted
+---@field changed boolean edited since it was opened or last submitted
+R.form = nil ---@type EditorForm|nil
+-- What the last region made was given from a list (a team, usually): the next new form starts with it.
+R.lastPicks = {}
 
 ---@param value any a region, or anything in one
 ---@return any a copy that shares nothing with it
-function R.draftOf(value)
+function R.copyOf(value)
 	if type(value) ~= "table" then
 		return value
 	end
 	local out = {}
 	for k, v in pairs(value) do
-		out[k] = R.draftOf(v)
+		out[k] = R.copyOf(v)
 	end
 	return out
 end
 
--- Offer the drafts to regions, whole. Regions keeps its own copy of each that checks out, under an id it gives, and
--- says what is wrong with the rest; what the tool exports, saves and copies is regions' copy, never a draft.
-R.submitted = ""
-function R.submit()
-	local key = R.revision .. ":" .. R.drafts.Revision()
-	if R.submitted == key then
-		return
+-- The problems regions gives back, one line each; and those that say where on the map they are.
+---@param problems RegionProblem[]|nil
+---@return string[]
+function R.messages(problems)
+	local out = {}
+	for i, problem in ipairs(problems or {}) do
+		out[i] = problem.message
 	end
-	R.submitted = key
-	local drafts = R.drafts.All()
-	local admitted, refused = R.api.Assign(drafts)
-	local why = {}
-	for _, refusal in ipairs(refused) do
-		why[refusal.candidate] = refusal.problems
-	end
-	local i = 0
-	for _, draft in ipairs(drafts) do
-		draft.problems = why[draft]
-		if draft.problems == nil then
-			i = i + 1
-			local region = admitted[i]
-			draft.id = region and region.id or draft.id
-		end
+	return out
+end
+
+---@param refusals RegionRefusal[]|nil
+---@param what string
+function R.echoRefusals(refusals, what)
+	for _, refusal in ipairs(refusals or {}) do
+		local candidate = refusal.candidate or {}
+		Echo(
+			"[Regions] "
+				.. what
+				.. " "
+				.. tostring(candidate.type)
+				.. " "
+				.. tostring(candidate.name or candidate.id or "")
+				.. ": "
+				.. table.concat(R.messages(refusal.problems), "; ")
+		)
 	end
 end
 
--- What regions holds of a type, the drafts offered first: for a start, the areas, by team.
+-- One region changed and committed: the change is made to a copy, and regions takes the copy whole or not at all.
+---@param region HeldRegion
+---@param change fun(copy: EditorRegion)
+---@return Region|nil
+function R.commit(region, change)
+	local copy = R.copyOf(region)
+	change(copy)
+	local held, problems = R.api.Update(region.id, copy)
+	if held == nil then
+		Echo("[Regions] " .. table.concat(R.messages(problems), "; "))
+	end
+	R.bump()
+	return held
+end
+
+-- What regions holds, as the tool reads it: any field a type declares.
+---@param typeKey RegionTypeKey|nil
+---@return HeldRegion[]
+function R.held(typeKey)
+	return R.api.All(typeKey) --[[@as HeldRegion[] ]]
+end
+
 ---@param typeKey RegionTypeKey
----@return Region[]
+---@return HeldRegion[]
 function R.admitted(typeKey)
-	R.submit()
 	local out = {}
-	for _, region in ipairs(R.api.All(typeKey)) do
+	for _, region in ipairs(R.held(typeKey)) do
 		if typeKey ~= "start" or #region.vertices >= 3 then
 			out[#out + 1] = region
 		end
@@ -443,7 +401,8 @@ end
 -- Unique color per (allyTeam, teamSlot) pair — gives every player a distinct color
 -- when multiple teams per allyteam are used. playerIdx = allyTeam*numTeamsPerAlly + teamSlot.
 function R.color(box, bi)
-	if R.validate().byRegion[box] then
+	local failing = R.form and R.form.region == box and #R.form.problems > 0
+	if failing or R.validate().byRegion[box] then
 		return R.INVALID
 	end
 	local team = box.team or (R.type == "start" and bi - 1) or nil
@@ -451,18 +410,36 @@ function R.color(box, bi)
 end
 
 function R.nextColor()
-	local team = (R.type == "start" and R.areaTarget()) or R.pending.team
+	local team = R.form and R.form.region.team
 	return team and getColorForAllyTeam(team) or R.COLOR
 end
 
--- The regions the area tools draw and pick by index. A start that is only its positions is not among them:
--- it is reached by team, through R.start, and its positions through seats().
+-- Only the form's region has handles: what the tools change is the form's copy, never a region regions holds.
+---@param box EditorRegion|nil
+---@return boolean
+function R.editable(box)
+	return box ~= nil and R.form ~= nil and R.form.region == box
+end
+
+-- The regions the area tools draw and pick by index: what regions holds of a type, with the form's copy standing in
+-- for the region it edits, or after them when it is new. A start that is only its positions is not among them: it
+-- is reached by team, through R.start, and its positions through seats().
 function R.list(typeKey)
 	local out = {}
-	for _, region in ipairs(R.drafts.All(typeKey)) do
+	local form = R.form
+	local placed = false
+	for _, held in ipairs(R.held(typeKey)) do
+		local region = held
+		if form and form.id == held.id then
+			region = form.region
+			placed = true
+		end
 		if typeKey ~= "start" or (region.vertices ~= nil and #region.vertices >= 3) then
 			out[#out + 1] = region
 		end
+	end
+	if form and not placed and form.region.type == typeKey and #form.region.vertices >= 3 then
+		out[#out + 1] = form.region
 	end
 	if typeKey == "start" then
 		table.sort(out, function(a, b)
@@ -474,11 +451,29 @@ end
 
 function R.refresh()
 	startboxes = R.list(R.type)
+	R.selectedIdx = nil
+	for i, region in ipairs(startboxes) do
+		if R.editable(region) then
+			R.selectedIdx = i
+		end
+	end
+	R.selectedStart = R.form and R.form.region.type == "start" and R.form.region.team or nil
 end
 
----@return EditorRegion|nil
+-- The regions whose handles answer the cursor, by their place in the list: the form's, or none.
+---@return table<integer, EditorRegion>
+function R.handles()
+	local out = {} ---@type table<integer, EditorRegion>
+	local box = R.selectedIdx and startboxes[R.selectedIdx]
+	if box and R.editable(box) then
+		out[R.selectedIdx] = box
+	end
+	return out
+end
+
+---@return HeldRegion|nil
 function R.start(team)
-	for _, region in ipairs(R.drafts.All("start")) do
+	for _, region in ipairs(R.held("start")) do
 		if region.team == team then
 			return region
 		end
@@ -487,7 +482,7 @@ function R.start(team)
 end
 
 ---@class EditorSeat
----@field region EditorRegion
+---@field region HeldRegion
 ---@field i integer
 ---@field x number
 ---@field z number
@@ -499,11 +494,11 @@ end
 local seatsCache, seatsCacheKey = {}, ""
 ---@return EditorSeat[]
 local function seats()
-	local key = R.drafts.Revision() .. ":" .. R.revision
+	local key = R.api.Revision() .. ":" .. R.revision
 	if key ~= seatsCacheKey then
 		seatsCacheKey = key
 		seatsCache = {}
-		for _, region in ipairs(R.drafts.All("start")) do
+		for _, region in ipairs(R.held("start")) do
 			for i, p in ipairs(region.positions or {}) do
 				seatsCache[#seatsCache + 1] = {
 					region = region,
@@ -513,7 +508,7 @@ local function seats()
 					y = GetGroundHeight(p.x, p.z) or 0,
 					allyTeam = region.team,
 					teamSlot = i,
-					playerIdx = region.team * math_max(1, numTeamsPerAlly) + i,
+					playerIdx = (region.team or 0) * math_max(1, numTeamsPerAlly) + i,
 				}
 			end
 		end
@@ -525,63 +520,10 @@ end
 ---@param region EditorRegion
 local function keepShape(region)
 	local positions = region.positions or {}
-	if region.kind == "point" or (region.vertices ~= nil and #region.vertices == 1) then
+	if region.kind == "point" or (region.vertices ~= nil and #region.vertices < 3) then
+		region.kind = "point"
 		region.vertices = positions[1] and { { x = positions[1].x, z = positions[1].z } } or {}
 	end
-end
-
-function R.viewIndexOf(region)
-	for i, other in ipairs(startboxes) do
-		if other == region then
-			return i
-		end
-	end
-	return nil
-end
-
-function R.add(box, at)
-	box.type = box.type or R.type
-	R.drafts.Put(box, at and startboxes[at] or nil)
-	R.refresh()
-	return box
-end
-
-function R.removeAt(idx)
-	local box = startboxes[idx]
-	if not box then
-		return nil
-	end
-	R.drafts.Remove(box)
-	R.refresh()
-	return box
-end
-
--- The replacement takes the old draft's place: its position in the order, and the id regions knows it by.
-function R.replaceAt(idx, box)
-	local old = startboxes[idx]
-	if not old then
-		return nil
-	end
-	local all = R.drafts.All()
-	local after = nil
-	for i, region in ipairs(all) do
-		if region == old then
-			after = all[i + 1]
-		end
-	end
-	box.type = old.type
-	box.id = old.id
-	R.drafts.Remove(old)
-	R.drafts.Put(box, after)
-	R.refresh()
-	return old
-end
-
-function R.clear(typeKey)
-	for _, region in ipairs(R.drafts.Clear(typeKey)) do
-		freeBoxFillList(region)
-	end
-	R.refresh()
 end
 
 -- The fields a form edits; a points field is a tool's to keep, not a form's.
@@ -663,30 +605,43 @@ local function addPosition(x, z, allyTeam, teamSlot)
 	end
 	local region = R.start(allyTeam)
 	if not region then
-		region = R.drafts.Put({ type = "start", team = allyTeam, kind = "point", vertices = {}, positions = {} })
+		local created, problems = R.api.Create({
+			type = "start",
+			team = allyTeam,
+			kind = "point",
+			vertices = { { x = x, z = z } },
+			positions = { { x = x, z = z } },
+		})
+		if created == nil then
+			Echo("[Regions] " .. table.concat(R.messages(problems), "; "))
+			return false
+		end
+		R.bump()
+		return true
 	end
-	region.positions = region.positions or {}
-	local positions = region.positions
-	local at = math_min(teamSlot or (#positions + 1), #positions + 1)
-	table.insert(positions, at, { x = x, z = z })
-	keepShape(region)
-	R.bump()
-	return true
+	return R.commit(region, function(copy)
+		copy.positions = copy.positions or {}
+		local at = math_min(teamSlot or (#copy.positions + 1), #copy.positions + 1)
+		table.insert(copy.positions, at, { x = x, z = z })
+		keepShape(copy)
+	end) ~= nil
 end
 
 -- Take the seat back: the position, and the point start it was when it was the last one.
 ---@param seat EditorSeat
 local function removeSeat(seat)
 	local region = seat.region
-	local positions = region.positions or {}
-	if positions[seat.i] then
-		table.remove(positions, seat.i)
+	local positions = R.copyOf(region.positions or {})
+	table.remove(positions, seat.i)
+	if #positions == 0 and #region.vertices < 3 then
+		R.api.Delete(region.id)
+		R.bump()
+		return
 	end
-	keepShape(region)
-	if #positions == 0 and (region.vertices == nil or #region.vertices < 3) then
-		R.drafts.Remove(region)
-	end
-	R.bump()
+	R.commit(region, function(copy)
+		copy.positions = #positions > 0 and positions or nil
+		keepShape(copy)
+	end)
 end
 
 -- Advance (nextAllyTeam, nextTeamSlot) per placement mode; returns the pair AFTER advancing.
@@ -769,11 +724,13 @@ local function findNearestPosition(wx, wz)
 end
 
 local function clearAllPositions()
-	for _, region in ipairs(R.drafts.All("start")) do
-		region.positions = nil
-		keepShape(region)
-		if region.vertices == nil or #region.vertices < 3 then
-			R.drafts.Remove(region)
+	for _, region in ipairs(R.held("start")) do
+		if #region.vertices < 3 then
+			R.api.Delete(region.id)
+		else
+			R.commit(region, function(copy)
+				copy.positions = nil
+			end)
 		end
 	end
 	R.bump()
@@ -823,25 +780,32 @@ local function addStartboxVertex(x, z)
 	currentBoxVerts[#currentBoxVerts + 1] = { x = x, z = z }
 end
 
--- Ally team is the box's position in the list, never a running counter: that is what the
--- modoption format means by order (box 1 is allyTeam 0) and it makes a delete impossible to
--- desync. One box per team falls out of it. A start that was only its positions until now hands them to the
--- area that takes its number.
+-- Ally team is the area's place among the areas, never a running counter: that is what the modoption format means
+-- by order (area 1 is allyTeam 0). After an area goes, those after it move down a team, one commit each. A start that
+-- is only its positions hands them to the area that takes its number, and goes first, so no two starts ever share a
+-- team between commits: each area only moves down into a team no other start holds by then.
 local function renumberBoxAllyTeams()
-	local areas = R.list("start")
-	for i, box in ipairs(areas) do
-		box.team = i - 1
-	end
-	for _, region in ipairs(R.drafts.All("start")) do
-		if region.vertices == nil or #region.vertices < 3 then
-			local area = areas[(region.team or -1) + 1]
-			if area and not rawequal(area, region) then
-				area.positions = area.positions or {}
-				for _, p in ipairs(region.positions or {}) do
-					area.positions[#area.positions + 1] = p
-				end
-				R.drafts.Remove(region)
+	local areas = R.admitted("start")
+	local handed = {} ---@type table<HeldRegion, { x: number, z: number }[]>
+	for _, region in ipairs(R.held("start")) do
+		local area = #region.vertices < 3 and areas[(region.team or -1) + 1] or nil
+		if area then
+			R.api.Delete(region.id)
+			handed[area] = handed[area] or {}
+			for _, p in ipairs(region.positions or {}) do
+				table.insert(handed[area], { x = p.x, z = p.z })
 			end
+		end
+	end
+	for i, area in ipairs(areas) do
+		if area.team ~= i - 1 or handed[area] then
+			R.commit(area, function(copy)
+				copy.team = i - 1
+				for _, p in ipairs(handed[area] or {}) do
+					copy.positions = copy.positions or {}
+					copy.positions[#copy.positions + 1] = p
+				end
+			end)
 		end
 	end
 	R.refresh()
@@ -851,72 +815,189 @@ function R.bump()
 	R.revision = R.revision + 1
 end
 
----@class EditorRegionDraft what the form holds for a region not yet made: no identity until it is
----@field type RegionTypeKey
----@field vertices { x: number, z: number }[]
-
----@return EditorRegionDraft
-function R.pendingCandidate(vertices)
-	local candidate = { type = R.type, vertices = vertices }
-	for _, field in ipairs(R.fieldDefs()) do
-		local value = R.pending[field.key]
-		if value == "" then
-			value = nil
+-- The team a new start is given: the first no start holds.
+---@return integer
+function R.nextTeam()
+	local taken = {}
+	for _, region in ipairs(R.held("start")) do
+		if region.team then
+			taken[region.team] = true
 		end
-		candidate[field.key] = value
 	end
-	if R.type == "start" and candidate.team == nil then
-		candidate.team = R.areaTarget()
+	local team = 0
+	while taken[team] do
+		team = team + 1
 	end
-	return candidate
+	return team
 end
 
----@param box table
----@return integer
-function R.stampNew(box)
-	local candidate = R.pendingCandidate(box.vertices)
+-- Open a form on a new region of the current type: empty, but for what was last picked from a list.
+function R.openNew()
+	R.closeForm()
+	local region = { type = R.type, vertices = {} }
 	for _, field in ipairs(R.fieldDefs()) do
-		box[field.key] = candidate[field.key]
-		-- The next region starts with a clear form, except what was picked from a list: the same team, usually.
-		if not field.picks then
-			R.pending[field.key] = nil
+		if field.picks then
+			region[field.key] = R.lastPicks[field.key]
 		end
 	end
 	if R.type == "start" then
-		local existing = R.start(box.team)
-		if existing and existing ~= box then
-			freeBoxFillList(existing)
-			R.drafts.Remove(existing)
-		end
-		R.drawForTeam = nil
-		R.selectedStart = box.team
+		region.team = R.nextTeam()
 	end
+	R.form = { region = region, problems = {}, changed = false }
 	R.error = ""
-	renumberBoxAllyTeams()
-	R.selectedIdx = R.viewIndexOf(box)
-	R.newIdx = R.selectedIdx
+	R.applyMode()
+end
+
+-- Open a form on a region regions holds: the form edits its own copy until it is saved.
+---@param id string
+---@return boolean
+function R.openEdit(id)
+	local held = R.api.Get(id)
+	if not held then
+		return false
+	end
+	R.closeForm()
+	R.type = held.type
+	R.category = held.type
+	R.form = { id = id, region = R.copyOf(held), problems = {}, changed = false }
+	R.error = ""
+	R.applyMode()
+	return true
+end
+
+-- The form's edits are dropped, and what was drawn for it; regions holds what it held.
+function R.closeForm()
+	if R.form then
+		freeBoxFillList(R.form.region)
+		for i = #undoHistory, 1, -1 do
+			if undoHistory[i].form then
+				table.remove(undoHistory, i)
+			end
+		end
+		boxUndo.redo = {}
+	end
+	R.form = nil
+	strengthEdit.selBox, strengthEdit.selVert = nil, nil
+	currentBoxVerts = {}
+	drawingBox = false
+	R.radialPending = {}
+	R.radialHistory = {}
+end
+
+function R.cancelForm()
+	R.closeForm()
+	R.applyMode()
+end
+
+-- The form has been edited: what regions said of it before no longer describes it.
+function R.touched()
+	if R.form then
+		R.form.changed = true
+		R.form.problems = {}
+		R.error = ""
+	end
 	R.bump()
-	return R.selectedIdx
+end
+
+-- Commit the form: a new region is created, an edited one updated, whole. What regions refuses stays in the form
+-- with what is wrong with it. A new start for a team that is only its positions so far is that start's area.
+---@return boolean
+function R.submitForm()
+	local form = R.form
+	if not form then
+		return false
+	end
+	local region = R.copyOf(form.region)
+	local id = form.id
+	local before = id and R.api.Get(id) or nil ---@type table|nil
+	if id == nil and region.type == "start" then
+		local seated = R.start(region.team)
+		if seated and #seated.vertices < 3 then
+			id, before = seated.id, seated
+			region.positions = R.copyOf(seated.positions)
+		end
+	end
+	local held, problems
+	if id then
+		held, problems = R.api.Update(id, region)
+	else
+		held, problems = R.api.Create(region)
+	end
+	if held == nil then
+		form.problems = problems or {}
+		form.changed = false
+		R.bump()
+		return false
+	end
+	for _, field in ipairs(R.fieldDefs(held.type)) do
+		if field.picks then
+			R.lastPicks[field.key] = held[field.key]
+		end
+	end
+	if before then
+		boxUndo.push("edit", before)
+	else
+		boxUndo.push("add", held)
+	end
+	R.closeForm()
+	R.applyMode()
+	R.say((before and "Saved " or "Created ") .. (R.TYPES[held.type] and R.TYPES[held.type].label:lower() or "region"))
+	return true
+end
+
+-- Delete the region the form is on.
+---@return boolean
+function R.deleteForm()
+	local form = R.form
+	local held = form and form.id and R.api.Get(form.id)
+	if not held then
+		R.cancelForm()
+		return false
+	end
+	boxUndo.push("remove", held)
+	R.api.Delete(held.id)
+	R.closeForm()
+	if held.type == "start" then
+		renumberBoxAllyTeams()
+	end
+	R.applyMode()
+	R.bump()
+	return true
+end
+
+-- A shape drawn with the tools: it becomes the form's, replacing what the form had drawn. Drawing with no form open
+-- opens one on a new region.
+---@param shape { vertices: { x: number, z: number }[], kind: string|nil, controls: table|nil }
+function R.setFormShape(shape)
+	if not R.form then
+		R.openNew()
+	end
+	local form = R.form --[[@as EditorForm]]
+	boxUndo.push("edit", form.region)
+	freeBoxFillList(form.region)
+	form.region.kind = shape.kind
+	form.region.controls = shape.controls
+	form.region.vertices = shape.vertices
+	if shape.kind == "spline" then
+		R.tessellate(form.region)
+	end
+	R.touched()
+	R.refresh()
 end
 
 ---@param strength number|nil
-local function finishStartbox(strength)
+---@param kind "box"|nil
+local function finishStartbox(strength, kind)
 	if #currentBoxVerts >= 3 then
-		local box = {}
 		if strength ~= nil then
-			box.kind = "spline"
-			box.controls = {}
+			local controls = {}
 			for i, v in ipairs(currentBoxVerts) do
-				box.controls[i] = { x = v.x, z = v.z, strength = strength }
+				controls[i] = { x = v.x, z = v.z, strength = strength }
 			end
-			box.vertices = {}
-			R.tessellate(box)
+			R.setFormShape({ kind = "spline", controls = controls, vertices = {} })
 		else
-			box.vertices = currentBoxVerts
+			R.setFormShape({ kind = kind, vertices = currentBoxVerts })
 		end
-		R.add(box)
-		local idx = R.stampNew(box)
-		boxUndo.push("add", idx, box)
 	end
 	currentBoxVerts = {}
 	drawingBox = false
@@ -1037,7 +1118,7 @@ local function retessellateSpline(box)
 		out[i] = nil
 	end
 	box.vertices = out
-	box._fillNeedsRebuild = true
+	invalidateBoxFill(box)
 end
 R.tessellate = retessellateSpline
 
@@ -1095,41 +1176,19 @@ function strengthEdit.setBox(box, s)
 	return true
 end
 
-local function removeLastStartbox()
-	if #startboxes > 0 then
-		boxUndo.push("remove", #startboxes, startboxes[#startboxes])
-		freeBoxFillList(startboxes[#startboxes])
-		R.removeAt(#startboxes)
-		if R.selectedIdx and not startboxes[R.selectedIdx] then
-			R.selectedIdx = nil
-		end
-		R.bump()
-		renumberBoxAllyTeams()
-	end
-end
-
+-- Clearing commits at once and is not undoable: what undo held of this type's regions goes with them.
 local function clearAllStartboxes()
-	strengthEdit.selBox = nil
-	strengthEdit.selVert = nil
+	R.closeForm()
 	strengthEdit.dragging = false
-	for i = 1, #startboxes do
-		freeBoxFillList(startboxes[i])
-	end
-	for k in pairs(startboxes) do
-		startboxes[k] = nil
-	end
-	R.selectedIdx = nil
-	R.bump()
-	-- Entries indexed into the list we just emptied are not reversible, so drop them rather
-	-- than let Ctrl+Z act on stale positions. Clearing is not itself undoable.
+	R.api.Clear(R.type)
 	for i = #undoHistory, 1, -1 do
-		if undoHistory[i].mode == "startbox" then
+		if undoHistory[i].mode == "startbox" and (undoHistory[i].region or "start") == R.type then
 			table.remove(undoHistory, i)
 		end
 	end
 	boxUndo.redo = {}
-	currentBoxVerts = {}
-	drawingBox = false
+	R.applyMode()
+	R.bump()
 end
 
 function boxUndo.snap(box)
@@ -1141,6 +1200,7 @@ function boxUndo.snap(box)
 	out.type = box.type
 	out.id = box.id
 	out.fields = R.fieldValues(box)
+	out.positions = R.copyOf(box.positions)
 	for k = 1, #anchors do
 		local a = anchors[k]
 		out.anchors[k] = { x = a.x, z = a.z, strength = a.strength }
@@ -1158,6 +1218,7 @@ function boxUndo.build(snap)
 	local box = { kind = snap.kind, team = snap.team }
 	box.type = snap.type
 	box.id = snap.id
+	box.positions = R.copyOf(snap.positions)
 	for key, value in pairs(snap.fields or {}) do
 		box[key] = value
 	end
@@ -1172,14 +1233,18 @@ function boxUndo.build(snap)
 	return box
 end
 
--- op is what the user just did, so undo knows how to reverse it: "add" drops the box at idx,
--- "remove" puts it back, "edit" swaps the stored anchors in.
-function boxUndo.push(op, idx, box)
+-- Two kinds of entry. One made while a form is open is the form's: it puts back the form's copy as it was, and goes
+-- when the form closes. One made with no form open is a commit's: "add" deletes the region it made, "remove" makes it
+-- again under its id, "edit" puts back what the region was; each is itself one commit.
+---@param op "add"|"remove"|"edit"
+---@param box table the region as it stands before the change; for "add", the region made
+function boxUndo.push(op, box)
+	local form = R.form and R.form.region == box and R.form or nil
 	undoHistory[#undoHistory + 1] = {
 		mode = "startbox",
-		region = R.type,
+		region = box.type or R.type,
 		op = op,
-		idx = idx,
+		form = form,
 		box = boxUndo.snap(box),
 	}
 	boxUndo.redo = {}
@@ -1188,36 +1253,26 @@ end
 -- A drag fires MouseMove continuously, so the snapshot is taken once on press and only
 -- committed on release if the gesture actually changed something. One Ctrl+Z per gesture.
 function boxUndo.begin(idx)
-	boxUndo.pending = { idx = idx, box = boxUndo.snap(startboxes[idx]) }
+	local box = startboxes[idx]
+	if R.editable(box) then
+		boxUndo.pending = { box = box, snap = boxUndo.snap(box) }
+	end
 end
 
 function boxUndo.commit()
 	local pend = boxUndo.pending
 	boxUndo.pending = nil
-	if not pend or not pend.box then
+	if not pend or not R.editable(pend.box) then
 		return
-	end
-	local edited = startboxes[pend.idx]
-	if edited then
-		R.bump()
-		R.submit()
-		local problem = edited.problems and edited.problems[1]
-		if problem then
-			freeBoxFillList(edited)
-			R.replaceAt(pend.idx, boxUndo.build(pend.box))
-			R.error = problem
-			R.bump()
-			return
-		end
 	end
 	-- A click that only selects a handle must not leave a no-op entry behind, or Ctrl+Z
 	-- appears to do nothing.
-	local now = boxUndo.snap(startboxes[pend.idx])
-	if now and #now.anchors == #pend.box.anchors then
-		local same = now.kind == pend.box.kind
+	local now = boxUndo.snap(pend.box)
+	if now and #now.anchors == #pend.snap.anchors then
+		local same = now.kind == pend.snap.kind
 		for k = 1, #now.anchors do
 			local a = now.anchors[k]
-			local b = pend.box.anchors[k]
+			local b = pend.snap.anchors[k]
 			if not a or not b or a.x ~= b.x or a.z ~= b.z or a.strength ~= b.strength then
 				same = false
 				break
@@ -1229,48 +1284,58 @@ function boxUndo.commit()
 	end
 	undoHistory[#undoHistory + 1] = {
 		mode = "startbox",
+		region = R.type,
 		op = "edit",
-		idx = pend.idx,
-		box = pend.box,
+		form = R.form,
+		box = pend.snap,
 	}
 	boxUndo.redo = {}
+	R.touched()
 end
 
--- Applies one entry and returns its mirror, so undo and redo share this and the caller just
--- moves the mirror onto the other stack.
+-- Applies an entry and returns the one that reverses it.
 function boxUndo.apply(entry)
-	local mirror = { mode = "startbox", op = entry.op, idx = entry.idx }
+	local mirror = { mode = "startbox", region = entry.region, op = entry.op, form = entry.form }
+	if entry.form then
+		local form = entry.form
+		mirror.box = boxUndo.snap(form.region)
+		freeBoxFillList(form.region)
+		form.region = boxUndo.build(entry.box)
+		R.touched()
+		R.refresh()
+		return mirror
+	end
 	if entry.op == "add" then
-		mirror.box = boxUndo.snap(startboxes[entry.idx])
-		mirror.op = "remove"
-		if startboxes[entry.idx] then
-			freeBoxFillList(startboxes[entry.idx])
-			R.removeAt(entry.idx)
-		end
+		local held = R.api.Get(entry.box.id)
+		mirror.op, mirror.box = "remove", boxUndo.snap(held)
+		R.api.Delete(entry.box.id)
 	elseif entry.op == "remove" then
-		mirror.op = "add"
-		local at = entry.idx
-		if at < 1 then
-			at = 1
-		elseif at > #startboxes + 1 then
-			at = #startboxes + 1
+		-- Made again as a new region: its id is regions' to give.
+		local made, problems = R.api.Create(boxUndo.build(entry.box))
+		mirror.op, mirror.box = "add", boxUndo.snap(made) or entry.box
+		if made == nil then
+			Echo("[Regions] Undo: " .. table.concat(R.messages(problems), "; "))
 		end
-		mirror.idx = at
-		R.add(boxUndo.build(entry.box), at)
 	else
-		mirror.box = boxUndo.snap(startboxes[entry.idx])
-		if startboxes[entry.idx] then
-			freeBoxFillList(startboxes[entry.idx])
-			R.replaceAt(entry.idx, boxUndo.build(entry.box))
+		local held = R.api.Get(entry.box.id)
+		mirror.box = boxUndo.snap(held)
+		local put, problems = R.api.Update(entry.box.id, boxUndo.build(entry.box))
+		if put == nil then
+			Echo("[Regions] Undo: " .. table.concat(R.messages(problems), "; "))
 		end
 	end
-	renumberBoxAllyTeams()
+	if entry.region == "start" then
+		renumberBoxAllyTeams()
+	end
+	R.refresh()
+	R.bump()
 
 	return mirror
 end
 
 function boxExport.encode()
-	local arrangement = Start.Export.Arrangement(R.admitted("start"), Game.mapSizeX, Game.mapSizeZ)
+	local arrangement =
+		Start.Export.Arrangement(R.admitted("start") --[[@as StartRegion[] ]], Game.mapSizeX, Game.mapSizeZ)
 	if #arrangement == 0 then
 		return nil
 	end
@@ -1310,7 +1375,7 @@ local function copyStartboxOverride()
 end
 
 local function findNearestBoxVertex(wx, wz)
-	for bi, box in ipairs(startboxes) do
+	for bi, box in pairs(R.handles()) do
 		if box.kind == "box" then
 			-- Axis-aligned rectangles: corners ARE drag handles too (in addition to edges).
 			-- Dragging a corner moves both adjacent edges so the rect stays axis-aligned.
@@ -1374,7 +1439,7 @@ end
 -- Returns bi, edgeName where edgeName is one of "T","B","L","R" (based on min/max bounds).
 local function findNearestBoxEdge(wx, wz)
 	local EDGE_PICK_DIST = 55.0 -- world units from edge line
-	for bi, box in ipairs(startboxes) do
+	for bi, box in pairs(R.handles()) do
 		if box.kind == "box" and #box.vertices == 4 then
 			local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
 			for _, v in ipairs(box.vertices) do
@@ -1635,7 +1700,7 @@ local function findNearestPolygonEdgeMid(wx, wz)
 	local bestEi = nil
 	local bestMx = nil
 	local bestMz = nil
-	for bi, box in ipairs(startboxes) do
+	for bi, box in pairs(R.handles()) do
 		local handles = getEditHandles(box)
 		if handles and #handles >= 3 then
 			local n = #handles
@@ -1672,14 +1737,15 @@ local STARTSCRIPT_SAVE_DIR = "Terraform Brush/StartScripts/"
 ---@return string|nil
 local function generateStartScript(opts)
 	opts = opts or {}
-	local script = Start.Export.StartScript(R.admitted("start"), Game.mapSizeX, Game.mapSizeZ, {
-		mapName = opts.mapname or getMapName(),
-		playerName = opts.playerName,
-		aiShortName = opts.aiShortName,
-		aiVersion = opts.aiVersion,
-		startPosType = opts.startpostype,
-		modOptions = opts.modoptions,
-	})
+	local script =
+		Start.Export.StartScript(R.admitted("start") --[[@as StartRegion[] ]], Game.mapSizeX, Game.mapSizeZ, {
+			mapName = opts.mapname or getMapName(),
+			playerName = opts.playerName,
+			aiShortName = opts.aiShortName,
+			aiVersion = opts.aiVersion,
+			startPosType = opts.startpostype,
+			modOptions = opts.modoptions,
+		})
 	if not script then
 		Echo("[Regions] No startboxes to export.")
 	end
@@ -1840,8 +1906,22 @@ function R.hullFor(points)
 	return R.api.Hull.Around(points, (Game.extractorRadius or 80) * 1.5)
 end
 
+-- The geometries the panel offers: a form draws a shape; the list places a start's positions, and nothing else.
+---@return string[]
+function R.geometryChoices()
+	local out = {}
+	for _, g in ipairs(R.geometriesFor(R.type)) do
+		if (R.form ~= nil) ~= (g == "point") then
+			out[#out + 1] = g
+		end
+	end
+	return out
+end
+
+-- The list selects: a click on a region opens a form on it. For starts it also places positions, each one a commit.
+-- A form draws and edits its own region's shape.
 function R.applyMode()
-	local allowed = R.geometriesFor(R.type)
+	local allowed = R.geometryChoices()
 	local ok = false
 	for _, g in ipairs(allowed) do
 		ok = ok or g == R.geometry
@@ -1850,17 +1930,17 @@ function R.applyMode()
 		R.geometry = allowed[1] or "polygon"
 	end
 	R.refresh()
-	if R.editMode == "select" then
-		R.placing = (R.geometry == "point") and "points" or "area"
-		subMode = "startbox"
-		startboxMode = "polygon"
-	elseif R.geometry == "point" then
-		R.placing = "points"
-		subMode = "express"
-	else
+	if R.form then
 		R.placing = "area"
 		subMode = "startbox"
 		startboxMode = (R.geometry == "square") and "box" or (R.geometry == "mexes") and "radial" or "polygon"
+	elseif R.type == "start" and R.editMode == "create" then
+		R.placing = "points"
+		subMode = R.strategy
+	else
+		R.placing = "area"
+		subMode = "startbox"
+		startboxMode = "polygon"
 	end
 	R.radial = nil
 	R.radialPending = {}
@@ -1873,16 +1953,13 @@ function R.applyMode()
 	freeDrawPts = {}
 	R.pendingVertex = nil
 	strengthEdit.selBox, strengthEdit.selVert = nil, nil
-	if R.selectedIdx and not startboxes[R.selectedIdx] then
-		R.selectedIdx = nil
-	end
 	R.bump()
 end
 
 function R.setType(t)
 	if R.TYPES[t] and t ~= R.type then
+		R.closeForm()
 		R.type = t
-		R.selectedIdx = nil
 		R.error = ""
 		R.applyMode()
 	end
@@ -1895,15 +1972,10 @@ function R.setCategory(key)
 	end
 	R.category = key
 	if cat.type ~= R.type then
-		R.selectedIdx = nil
+		R.closeForm()
 		R.error = ""
-		R.drawForTeam = nil
-		R.geometry = R.geometriesFor(cat.type)[1] or "polygon"
 	end
 	R.type = cat.type
-	if R.type ~= "start" and R.pending.team == nil and R.selectedStart then
-		R.pending.team = R.selectedStart
-	end
 	R.applyMode()
 end
 
@@ -1921,52 +1993,21 @@ function R.setGeometry(g)
 	end
 end
 
-function R.drawArea(allyTeam)
-	if R.type ~= "start" or not allyTeam then
+-- A start's area goes and its positions stay: the start becomes a point where its first position is.
+function R.removeArea()
+	local form = R.form
+	if not form or form.region.type ~= "start" then
 		return false
 	end
-	R.error = ""
-	R.drawForTeam = allyTeam
-	R.selectedStart = allyTeam
-	if R.geometry == "point" then
-		R.geometry = "polygon"
-	end
-	R.applyMode()
+	boxUndo.push("edit", form.region)
+	freeBoxFillList(form.region)
+	form.region.kind = "point"
+	form.region.controls = nil
+	form.region.vertices = {}
+	keepShape(form.region)
+	R.touched()
+	R.refresh()
 	return true
-end
-
-function R.cancelArea()
-	R.drawForTeam = nil
-	R.bump()
-end
-
-function R.areaTarget()
-	local n = 0
-	for _, box in ipairs(R.list("start")) do
-		if box.team then
-			n = n + 1
-		end
-	end
-	if R.drawForTeam then
-		return math.min(R.drawForTeam, n)
-	end
-	if R.pending.team then
-		return math.min(R.pending.team, n)
-	end
-	if R.selectedStart and not R.start(R.selectedStart) and R.selectedStart <= n then
-		return R.selectedStart
-	end
-	return n
-end
-
-function R.removeArea(allyTeam)
-	if R.type ~= "start" or not R.start(allyTeam) then
-		return false
-	end
-	local ok = R.remove(allyTeam)
-	R.selectedStart = allyTeam
-	R.bump()
-	return ok
 end
 
 function R.setStrategy(st)
@@ -1983,8 +2024,24 @@ function R.setPlacing(pl)
 	end
 end
 
+---@param regions table[]
+---@return integer created
+function R.createAll(regions, what)
+	local created, refused = 0, {}
+	for _, region in ipairs(regions) do
+		local made, problems = R.api.Create(R.copyOf(region))
+		if made then
+			created = created + 1
+		else
+			refused[#refused + 1] = { candidate = region, problems = problems }
+		end
+	end
+	R.echoRefusals(refused, what)
+	return created
+end
+
 function R.seedMexRegions()
-	if #R.list("mex_region") > 0 then
+	if #R.api.All("mex_region") > 0 then
 		return
 	end
 	-- The match's deal carries the layout the game plays with, anchors and all: the fallback for a layout that came
@@ -1992,29 +2049,30 @@ function R.seedMexRegions()
 	local okDeal, Deal = pcall(VFS.Include, "modules/transfer/mex_splitting/deal.lua")
 	local deal = okDeal and type(Deal) == "table" and Deal.Reader(Game.mapSizeX, Game.mapSizeZ)(Spring) or nil
 	if deal and deal.regions and #deal.regions > 0 then
+		-- Read back as published, ids and all: the deal is keyed by them.
+		local all = R.api.All()
 		for _, region in ipairs(deal.regions) do
-			local draft = R.draftOf(region)
-			draft._fillNeedsRebuild = true
-			R.add(draft)
+			all[#all + 1] = region
 		end
-		Echo("[Regions] Opened on the match's " .. #deal.regions .. " mex region(s)")
+		local _, refused = R.api.Load(all)
+		R.echoRefusals(refused, "Left out the match's")
+		Echo("[Regions] Opened on the match's " .. (#deal.regions - #refused) .. " mex region(s)")
+		R.refresh()
 	end
 end
 
 function R.seedFromMatch()
-	if not R.seeded and #R.drafts.All() == 0 then
+	if not R.seeded and #R.api.All() == 0 then
 		-- The map maker's own file first: it holds every type, with the anchors they drew.
 		R.load()
 	end
 	R.seedMexRegions()
-	if R.seeded or #R.list("start") > 0 then
+	if R.seeded or #R.admitted("start") > 0 then
 		return
 	end
 	R.seeded = true
 	local current = Start.Current(Spring)
-	for _, start in ipairs(current.areas) do
-		R.add(R.draftOf(start))
-	end
+	R.createAll(current.areas, "Left out the match's")
 	renumberBoxAllyTeams()
 	local slots = {}
 	for _, pos in ipairs(current.positions) do
@@ -2162,25 +2220,26 @@ local function decimatePoints(pts, minDistSq)
 	return out
 end
 
+-- The list's row, or the region on the map, opened in a form.
 function R.select(idx)
-	if idx == nil or startboxes[idx] then
-		R.selectedIdx = idx
-		if R.type == "start" then
-			R.selectedStart = idx and startboxes[idx] and startboxes[idx].team or nil
-		end
-		R.bump()
+	local box = idx and startboxes[idx]
+	if box and box.id then
+		R.openEdit(box.id)
+	elseif idx == nil then
+		R.cancelForm()
 	end
 end
 
 function R.selectStart(allyTeam)
-	R.selectedStart = allyTeam
-	R.selectedIdx = allyTeam and R.start(allyTeam) and allyTeam or nil
-	R.bump()
+	local start = allyTeam and R.start(allyTeam)
+	if start then
+		R.openEdit(start.id)
+	end
 end
 
 function R.starts()
 	local count = 0
-	for _, region in ipairs(R.drafts.All("start")) do
+	for _, region in ipairs(R.held("start")) do
 		---@cast region +StartRegion
 		count = math_max(count, (region.team or -1) + 1)
 	end
@@ -2189,6 +2248,7 @@ function R.starts()
 		local box = R.start(allyTeam)
 		out[#out + 1] = {
 			allyTeam = allyTeam,
+			id = box and box.id or nil,
 			positions = box and box.positions and #box.positions or 0,
 			hasBox = box ~= nil and box.vertices ~= nil and #box.vertices >= 3,
 			name = box and box.name or nil,
@@ -2197,15 +2257,15 @@ function R.starts()
 	return out
 end
 
-function R.startFacts(allyTeam)
-	local box = R.start(allyTeam)
-	local facts = box and R.facts(box) or {}
+---@param box EditorRegion
+function R.startFacts(box)
+	local facts = R.facts(box)
 	local count, cx, cz = 0, 0.0, 0.0
-	for _, pos in ipairs(box and box.positions or {}) do
+	for _, pos in ipairs(box.positions or {}) do
 		count = count + 1
 		cx, cz = cx + pos.x, cz + pos.z
 	end
-	if not (box and box.vertices and #box.vertices >= 3) then
+	if not (box.vertices and #box.vertices >= 3) then
 		facts[#facts + 1] = { "Area", "none drawn" }
 		if count > 0 then
 			facts[#facts + 1] = { "Positions centre", string.format("%d, %d", cx / count, cz / count) }
@@ -2215,18 +2275,22 @@ function R.startFacts(allyTeam)
 	return facts
 end
 
-function R.setPendingField(key, value)
-	for _, field in ipairs(R.fieldDefs()) do
+-- A field typed into the form: kept as typed, a number when it reads as one; regions says what is wrong on submit.
+function R.setFormField(key, value)
+	local form = R.form
+	if not form then
+		return false
+	end
+	for _, field in ipairs(R.fieldDefs(form.region.type)) do
 		if field.key == key then
 			if value == nil or value == "" then
-				R.pending[key] = nil
+				form.region[key] = nil
 			elseif field.kind == "integer" then
-				R.pending[key] = tonumber(value)
+				form.region[key] = tonumber(value) or value
 			else
-				R.pending[key] = value
+				form.region[key] = value
 			end
-			R.error = ""
-			R.bump()
+			R.touched()
 			return true
 		end
 	end
@@ -2246,54 +2310,6 @@ function R.teamOptions()
 	return out
 end
 
-function R.setField(key, value)
-	local box = R.selectedIdx and startboxes[R.selectedIdx]
-	local kind = R.TYPES[R.type]
-	if not box or not kind then
-		return false
-	end
-	local declared = nil
-	for _, field in ipairs(kind.fields) do
-		if field.key == key then
-			declared = field
-		end
-	end
-	if not declared then
-		return false
-	end
-	value = value or ""
-	if declared.kind == "integer" and value ~= "" then
-		-- The one edit refused here: a number field is what the tool itself indexes by. Everything else the
-		-- set validation reports on the region's row.
-		if tonumber(value) == nil then
-			R.error = declared.label .. " must be a number"
-			R.bump()
-			return false
-		end
-		value = tonumber(value)
-	end
-	box[key] = value ~= "" and value or nil
-	R.error = ""
-	R.bump()
-	return true
-end
-
-function R.remove(idx)
-	local box = startboxes[idx]
-	if not box then
-		return false
-	end
-	boxUndo.push("remove", idx, box)
-	freeBoxFillList(box)
-	R.removeAt(idx)
-	if R.type == "start" then
-		renumberBoxAllyTeams()
-	end
-	R.selectedIdx = nil
-	R.bump()
-	return true
-end
-
 function R.factsFor(key, compute)
 	if R.factsKey ~= key then
 		R.factsKey = key
@@ -2302,24 +2318,9 @@ function R.factsFor(key, compute)
 	return R.factsValue
 end
 
--- A name is regions' to give, over what it holds; a draft it has not admitted goes by what the form says.
+-- A name is regions' to give, over the list as it stands: the form's copy among what regions holds.
 function R.names()
-	R.submit()
-	local held, at = {}, {}
-	for i, draft in ipairs(startboxes) do
-		local region = draft.id and draft.problems == nil and R.api.Get(draft.id) or nil
-		if region then
-			held[#held + 1] = region
-			at[i] = #held
-		end
-	end
-	local named = R.api.Names(R.type, held)
-	local out = {}
-	for i, draft in ipairs(startboxes) do
-		local index = at[i]
-		out[i] = index and named[index] or { name = draft.name or "", derived = false }
-	end
-	return out
+	return R.api.Names(R.type, startboxes --[[@as Region[] ]])
 end
 
 function R.facts(box)
@@ -2331,9 +2332,8 @@ function R.facts(box)
 	local spots = finder and not finder.isMetalMap and finder.metalSpotsList or nil
 	local area = R.api.Geometry.Area(verts)
 	local cx, cz = R.api.Geometry.Centroid(verts)
-	R.submit()
-	local held = box.id and box.problems == nil and R.api.Get(box.id) or nil
-	local d = held and R.api.Describe(held, { spots = spots }) or nil
+	local held = box
+	local d = R.api.Describe(box, { spots = spots })
 	local lines = { { "Vertices", tostring(#verts) } }
 	if area > 0 then
 		lines[#lines + 1] = { "Area", string.format("%.0f x %.0f elmos equivalent", math_sqrt(area), math_sqrt(area)) }
@@ -2385,37 +2385,24 @@ R.INVALID = { 1.0, 0.25, 0.55, 1.0 }
 R.validated = { revision = -1, count = -1, lines = {}, byRegion = {}, ofSet = {} }
 function R.validate()
 	local was = R.validated
-	if was.revision == R.revision and was.count == R.drafts.Revision() then
+	if was.revision == R.revision and was.count == R.api.Revision() then
 		return was
 	end
-	R.submit()
 	local finder = WG.resource_spot_finder
-	local starts = #R.drafts.All("start")
+	local starts = #R.held("start")
 	---@type RegionMap
 	local map = {
 		spots = finder and not finder.isMetalMap and finder.metalSpotsList or nil,
 		starts = starts > 0 and starts or nil,
 	}
 	local lines, byRegion, ofSet = {}, {}, {}
-	local byId = {} ---@type table<string, EditorRegion>
-	for _, draft in ipairs(R.drafts.All()) do
-		if draft.problems == nil and draft.id then
-			byId[draft.id] = draft
-		end
-		for _, message in ipairs(draft.problems or {}) do
-			lines[#lines + 1] = R.api.ProblemLine({ message = message, name = draft.name })
-			byRegion[draft] = byRegion[draft] or {}
-			table.insert(byRegion[draft], message)
-		end
-	end
 	for _, typeKey in ipairs(R.ORDER) do
 		if #R.api.All(typeKey) > 0 then
 			for _, problem in ipairs(R.api.Problems(typeKey, map)) do
 				lines[#lines + 1] = R.api.ProblemLine(problem)
-				local draft = problem.region and byId[problem.region.id] or nil
-				if draft then
-					byRegion[draft] = byRegion[draft] or {}
-					table.insert(byRegion[draft], problem.message)
+				if problem.region then
+					byRegion[problem.region] = byRegion[problem.region] or {}
+					table.insert(byRegion[problem.region], problem.message)
 				else
 					ofSet[typeKey] = ofSet[typeKey] or {}
 					table.insert(ofSet[typeKey], { message = problem.message, at = problem.at })
@@ -2425,7 +2412,7 @@ function R.validate()
 	end
 	R.validated = {
 		revision = R.revision,
-		count = R.drafts.Revision(),
+		count = R.api.Revision(),
 		lines = lines,
 		byRegion = byRegion,
 		ofSet = ofSet,
@@ -2449,22 +2436,21 @@ function R.problemsState()
 	local validated = R.validate()
 	local byIndex, byTeam = {}, {}
 	for i, region in ipairs(startboxes) do
-		byIndex[i] = validated.byRegion[region]
-		local team = (region --[[@as table<string, any>]]).team
-		if team then
-			byTeam[team] = validated.byRegion[region]
+		byIndex[i] = validated.byRegion[R.api.Get(region.id or "") or region]
+	end
+	for _, region in ipairs(R.held("start")) do
+		if region.team then
+			byTeam[region.team] = validated.byRegion[region]
 		end
 	end
 	return { ofSet = validated.ofSet[R.type] or {}, byIndex = byIndex, byTeam = byTeam }
 end
 
 function R.exportLayout()
-	R.submit()
 	return R.api.ExportLayout(R.api.All(), Game.mapSizeX, Game.mapSizeZ)
 end
 
 function R.encodeLayout()
-	R.submit()
 	if #R.api.All() == 0 then
 		return nil
 	end
@@ -2495,14 +2481,13 @@ function R.copyLayout()
 	return true
 end
 
--- What is written is what regions holds: a draft that does not check out is not in the file.
+-- What is written is what regions holds: a form's edits are not in the file until the form is saved.
 function R.save(explicitPath)
-	R.submit()
 	local count = #R.api.All()
-	local left = #R.drafts.All() - count
+	local unsaved = R.form ~= nil and R.form.changed
 	if count == 0 then
 		Echo("[Regions] No regions to save.")
-		return false, left > 0 and "none of the regions drawn checks out" or "no regions drawn"
+		return false, "no regions to save"
 	end
 	if not explicitPath then
 		Spring.CreateDir(REGIONS_SAVE_DIR)
@@ -2525,7 +2510,7 @@ function R.save(explicitPath)
 			.. (count == 1 and "" or "s")
 			.. " to "
 			.. explicitPath
-			.. (left > 0 and ("; " .. left .. " left out, not checking out") or "")
+			.. (unsaved and "; the open form's edits are not saved yet" or "")
 			.. (
 				#problems > 0
 					and (", with " .. #problems .. " problem" .. (#problems == 1 and "" or "s") .. " still to fix")
@@ -2535,72 +2520,57 @@ function R.save(explicitPath)
 	return true
 end
 
+-- What the file holds replaces what regions holds; what does not check out is left out, and said.
 function R.load(explicitPath)
 	explicitPath = explicitPath or (REGIONS_SAVE_DIR .. getMapName() .. ".lua")
-	local regions, reason, refused = R.api.LoadLayoutFile(explicitPath, Game.mapSizeX, Game.mapSizeZ)
-	if not regions then
-		Echo("[Regions] No saved regions found: " .. explicitPath .. (reason and (" (" .. reason .. ")") or ""))
+	if not VFS.FileExists(explicitPath, VFS.RAW_FIRST) then
+		Echo("[Regions] No saved regions found: " .. explicitPath)
 		return false
 	end
-	for _, draft in ipairs(R.drafts.Clear()) do
-		freeBoxFillList(draft)
+	R.closeForm()
+	local regions, reason, refused = R.api.LoadLayoutFile(explicitPath, Game.mapSizeX, Game.mapSizeZ)
+	if not regions then
+		Echo("[Regions] Could not load " .. explicitPath .. (reason and (": " .. reason) or ""))
+		return false
 	end
-	-- what the file held that does not check out is still the map maker's to fix: it comes in as a draft
-	for _, region in ipairs(regions) do
-		local draft = R.draftOf(region)
-		draft._fillNeedsRebuild = true
-		R.drafts.Put(draft)
+	for i = #undoHistory, 1, -1 do
+		if undoHistory[i].mode == "startbox" then
+			table.remove(undoHistory, i)
+		end
 	end
-	for _, refusal in ipairs(refused or {}) do
-		local draft = R.draftOf(refusal.candidate)
-		draft._fillNeedsRebuild = true
-		R.drafts.Put(draft)
-	end
+	boxUndo.redo = {}
 	renumberBoxAllyTeams()
-	R.refresh()
-	R.selectedIdx = nil
-	R.bump()
+	R.applyMode()
 	Echo("[Regions] Loaded " .. #regions .. " region(s) from: " .. explicitPath)
+	R.echoRefusals(refused, "Left out")
 	if refused and #refused > 0 then
-		Echo("[Regions] " .. #refused .. " more came in as drafts: they do not check out as they stand")
+		R.say("Loaded " .. #regions .. "; left out " .. #refused .. " that do not check out (see the chat for why)")
 	end
 	return true
 end
 
+-- The form, as the panel shows it.
 function R.selectedRecord()
-	if R.type == "start" and R.selectedStart then
-		local box = R.start(R.selectedStart)
-		return {
-			idx = R.selectedIdx,
-			type = R.type,
-			team = R.selectedStart,
-			hasBox = box ~= nil,
-			fields = box and R.fieldValues(box) or { team = R.selectedStart },
-			vertexCount = box and #box.vertices or 0,
-			facts = R.factsFor(
-				"start:" .. R.selectedStart .. ":" .. R.revision .. ":" .. R.drafts.Revision(),
-				function()
-					return R.startFacts(R.selectedStart)
-				end
-			),
-		}
-	end
-	local box = R.selectedIdx and startboxes[R.selectedIdx]
-	if not box then
+	local form = R.form
+	if not form then
 		return nil
 	end
-	local named = R.names()[R.selectedIdx]
+	local box = form.region
+	local named = R.selectedIdx and R.names()[R.selectedIdx] or nil
 	return {
 		idx = R.selectedIdx,
-		type = R.type,
+		id = form.id,
+		isNew = form.id == nil,
+		changed = form.changed,
+		type = box.type,
 		team = box.team,
-		hasBox = true,
+		hasBox = box.vertices ~= nil and #box.vertices >= 3,
 		fields = R.fieldValues(box),
 		derived = named and named.derived and { name = named.name } or nil,
-		problems = R.validate().byRegion[box] or {},
+		problems = R.messages(form.problems),
 		vertexCount = #box.vertices,
-		facts = R.factsFor(R.type .. ":" .. R.selectedIdx .. ":" .. R.revision, function()
-			return R.facts(box)
+		facts = R.factsFor(R.type .. ":" .. tostring(form.id) .. ":" .. R.revision, function()
+			return box.type == "start" and R.startFacts(box) or R.facts(box)
 		end),
 	}
 end
@@ -2635,12 +2605,11 @@ local function getState()
 		startboxMode = startboxMode,
 		regionType = R.type,
 		category = R.category,
-		drawForTeam = R.drawForTeam,
 		geometry = R.geometry,
 		editMode = R.editMode,
 		gatheredSpots = #R.radialPending,
-		geometries = R.geometriesFor(R.type),
-		areaTarget = R.type == "start" and R.placing == "area" and R.areaTarget() or nil,
+		geometries = R.geometryChoices(),
+		view = R.form and "form" or "list",
 		categories = R.CATEGORY_ORDER,
 		categoryLabels = R.CATEGORIES,
 		regionTypes = R.ORDER,
@@ -2655,7 +2624,6 @@ local function getState()
 		starts = R.type == "start" and R.starts() or nil,
 		selected = R.selectedRecord(),
 		regionFields = R.fieldDefs(),
-		pendingRegion = R.pending,
 		teamOptions = R.teamOptions(),
 		suggestions = R.suggestions(),
 		regionError = R.error,
@@ -2708,14 +2676,6 @@ function widget:MousePress(mx, my, button)
 
 	if subMode == "express" then
 		if button == 1 then
-			do
-				local nearIdx = findNearestPosition(wx, wz)
-				local containBi = (not nearIdx) and findBoxContaining(wx, wz) or nil
-				local team = (nearIdx and seats()[nearIdx].allyTeam) or containBi
-				if team and team ~= R.selectedStart then
-					R.selectStart(team)
-				end
-			end
 			-- LMB: Check if clicking near existing position (start drag)
 			local nearIdx = findNearestPosition(wx, wz)
 			if nearIdx then
@@ -2870,6 +2830,7 @@ function widget:MousePress(mx, my, button)
 			-- Edge drag for axis-aligned "box"-kind startboxes (4 corners, no vertex handles).
 			local ebi, edge = findNearestBoxEdge(wx, wz)
 			if ebi and edge then
+				boxUndo.begin(ebi)
 				boxEdgeDrag = { bi = ebi, edge = edge }
 				dragStartX = mx
 				dragStartY = my
@@ -2877,50 +2838,34 @@ function widget:MousePress(mx, my, button)
 				return true
 			end
 
-			if R.editMode == "select" and R.type == "start" then
-				local nearIdx = findNearestPosition(wx, wz)
+			-- The list: a click on a start's position drags it, one commit per move; a click in a region opens a
+			-- form on it. Nothing else is changed from the list.
+			if not R.form then
+				local nearIdx = R.type == "start" and findNearestPosition(wx, wz) or nil
 				if nearIdx then
-					R.selectStart(seats()[nearIdx].allyTeam)
 					dragIdx = nearIdx
 					dragStartX = mx
 					dragStartY = my
 					dragging = false
 					return true
 				end
+				local containBi = findBoxContaining(wx, wz)
+				if containBi then
+					R.select(containBi)
+				end
+				return true
 			end
 
-			-- Body drag: if the click is inside an existing startbox (and not on any handle/edge
-			-- per the checks above), start a whole-box translation so the user can reposition
-			-- the entire polygon by grabbing it mid-area.
+			-- Body drag: a click inside the form's region (and not on any handle/edge per the checks above) moves
+			-- the whole of it.
 			local containBi = findBoxContaining(wx, wz)
-			if containBi and R.editMode == "create" then
-				R.selectedIdx = containBi
-				if R.type == "start" then
-					R.selectedStart = startboxes[containBi].team
-				end
-				R.bump()
-			elseif containBi then
-				R.selectedIdx = containBi
-				if R.type == "start" then
-					R.selectedStart = startboxes[containBi].team
-				end
-				R.bump()
+			if containBi and R.editable(startboxes[containBi]) then
+				boxUndo.begin(containBi)
 				boxBodyDrag = { bi = containBi, lastX = wx, lastZ = wz }
 				dragStartX = mx
 				dragStartY = my
 				dragging = false
 				return true
-			end
-
-			if R.editMode == "select" then
-				return true
-			end
-			if
-				R.type ~= "start"
-				and R.selectedIdx ~= nil
-				and (startboxMode == "radial" or startboxMode == "polygon")
-			then
-				R.select(nil)
 			end
 			if startboxMode == "radial" then
 				R.radial = { cx = wx, cz = wz, r = 0 }
@@ -2962,12 +2907,14 @@ function widget:MousePress(mx, my, button)
 				if dbi and dvi then
 					local box = startboxes[dbi]
 					local handles = box and getEditHandles(box)
-					if handles and #handles > 3 then
+					if box and handles and #handles > 3 then
+						boxUndo.push("edit", box)
 						table.remove(handles, dvi)
 						if box.kind == "spline" then
 							retessellateSpline(box)
 						end
 						invalidateBoxFill(box)
+						R.touched()
 						return true
 					end
 				end
@@ -2988,8 +2935,6 @@ function widget:MousePress(mx, my, button)
 			elseif freeDrawActive then
 				freeDrawActive = false
 				freeDrawPts = {}
-			elseif R.editMode == "create" then
-				removeLastStartbox()
 			end
 			return true
 		end
@@ -3033,13 +2978,12 @@ function widget:MouseMove(mx, my, dx, dy, button)
 			if wx and seat then
 				local cx, cz = clampToMap(wx, wz)
 				-- Only move if the new spot is commander-spawnable; else keep position (silent).
-				if isPlaceableForCommander(cx, cz) then
-					local p = (seat.region.positions or {})[seat.i]
-					if p then
-						p.x, p.z = cx, cz
-						keepShape(seat.region)
-						R.bump()
-					end
+				if isPlaceableForCommander(cx, cz) and (seat.region.positions or {})[seat.i] then
+					R.commit(seat.region, function(copy)
+						copy.positions = copy.positions or {}
+						copy.positions[seat.i] = { x = cx, z = cz }
+						keepShape(copy)
+					end)
 				end
 			end
 			return true
@@ -3359,12 +3303,8 @@ function widget:MouseRelease(mx, my, button)
 					{ x = x1, z = z2 },
 				}
 				drawingBox = true
-				finishStartbox()
-				-- Tag the just-added box as axis-aligned rectangle (edge-drag only, no vertex handles).
-				local added = startboxes[#startboxes]
-				if added then
-					added.kind = "box"
-				end
+				-- An axis-aligned rectangle: edge-drag only, no vertex handles.
+				finishStartbox(nil, "box")
 			end
 		end
 		boxRectStartX, boxRectStartZ, boxRectEndX, boxRectEndZ = nil, nil, nil, nil
@@ -3432,10 +3372,7 @@ function widget:MouseRelease(mx, my, button)
 				for _, c in ipairs(controls) do
 					c.strength = 1
 				end
-				local box = R.add({ vertices = {}, controls = controls, kind = "spline" })
-				local idx = R.stampNew(box)
-				retessellateSpline(box)
-				boxUndo.push("add", idx, box)
+				R.setFormShape({ vertices = {}, controls = controls, kind = "spline" })
 			end
 		end
 		freeDrawPts = {}
@@ -3480,7 +3417,11 @@ function widget:KeyPress(key, mods, isRepeat)
 	if not active then
 		return false
 	end
-	if key == 27 and (drawingBox or boxRectActive or freeDrawActive or R.drawForTeam) then
+	if key == 27 and not (drawingBox or boxRectActive or freeDrawActive or #R.radialPending > 0) and R.form then
+		R.cancelForm()
+		return true
+	end
+	if key == 27 and (drawingBox or boxRectActive or freeDrawActive or #R.radialPending > 0) then
 		currentBoxVerts = {}
 		drawingBox = false
 		boxRectActive = false
@@ -3501,51 +3442,92 @@ function widget:KeyPress(key, mods, isRepeat)
 		local box = startboxes[strengthEdit.selBox]
 		local handles = box and getEditHandles(box)
 		if handles and handles[strengthEdit.selVert] then
-			boxUndo.push("edit", strengthEdit.selBox, box)
+			boxUndo.push("edit", box)
 			strengthEdit.setBox(box, handles[strengthEdit.selVert].strength or 0)
+			R.touched()
 			return true
 		end
 	end
 
 	-- Ctrl+Z undoes, Ctrl+Shift+Z redoes: the editor's convention (the clone tool and the
-	-- terraform brush bind redo the same way). Only entries from the current submode are
-	-- eligible: positions and startboxes coexist, so undoing in one submode must not
-	-- silently rewind the other.
+	-- terraform brush bind redo the same way).
 	if key == 122 and mods.ctrl then -- 122 = 'z'
-		local isUndo = not mods.shift
-		local fromStack = isUndo and undoHistory or boxUndo.redo
-		local toStack = isUndo and boxUndo.redo or undoHistory
-		local at
-		for i = #fromStack, 1, -1 do
-			if (fromStack[i].mode or "express") == subMode and (fromStack[i].region or "start") == R.type then
-				at = i
-				break
-			end
-		end
-		if not at then
-			return true
-		end
-
-		local entry = fromStack[at]
-		table.remove(fromStack, at)
-		if not entry then
-			return true
-		end
-		if entry.mode == "startbox" then
-			table.insert(toStack, boxUndo.apply(entry))
-		else
-			-- Positions rewind by count, the way they always have; the counter pair is
-			-- restored from the snapshot rather than guessed at.
-			for _ = 1, (entry.count or 0) do
-				removeLastSeat()
-			end
-			nextAllyTeam = entry.prevNextAllyTeam or 1
-			nextTeamSlot = entry.prevNextTeamSlot or 1
-		end
-
+		R.step(not mods.shift)
 		return true
 	end
 	return false
+end
+
+-- What regions said of the form's region, on the map: each problem where its shape says, else at the region's middle.
+function R.drawProblemLabels()
+	local form = R.form
+	if not form or #form.problems == 0 then
+		return
+	end
+	local verts = form.region.vertices or {}
+	local cx, cz = 0.0, 0.0
+	for _, v in ipairs(verts) do
+		cx, cz = cx + v.x, cz + v.z
+	end
+	if #verts > 0 then
+		cx, cz = cx / #verts, cz / #verts
+	end
+	local stacked = {} ---@type table<string, integer>
+	for _, problem in ipairs(form.problems) do
+		local at = problem.at or (#verts > 0 and { x = cx, z = cz }) or nil
+		if at then
+			local sx, sy, sz = WorldToScreenCoords(at.x, GetGroundHeight(at.x, at.z) or 0, at.z)
+			if sx and sy and sz and sz > 0 and sz < 1 then
+				local key = math_floor(sx) .. ":" .. math_floor(sy)
+				local row = stacked[key] or 0
+				stacked[key] = row + 1
+				glColor(0, 0, 0, 0.8)
+				glText(problem.message, sx + 1, sy - 1 - row * 18, 15, "cdo")
+				glColor(R.INVALID[1], R.INVALID[2], R.INVALID[3], 1)
+				glText(problem.message, sx, sy - row * 18, 15, "cdo")
+			end
+		end
+	end
+end
+
+-- One step back, or forward again. Only entries from the current submode are eligible: positions and startboxes
+-- coexist, so undoing in one submode must not silently rewind the other. With a form open, only the form's own.
+---@param isUndo boolean
+function R.step(isUndo)
+	local fromStack = isUndo and undoHistory or boxUndo.redo
+	local toStack = isUndo and boxUndo.redo or undoHistory
+	local at
+	for i = #fromStack, 1, -1 do
+		local entry = fromStack[i]
+		local here = (entry.mode or "express") == subMode and (entry.region or "start") == R.type
+		if here and (entry.mode ~= "startbox" or entry.form == R.form) then
+			at = i
+			break
+		end
+	end
+	local entry = at and table.remove(fromStack, at)
+	if not entry then
+		return
+	end
+	if entry.mode == "startbox" then
+		table.insert(toStack, boxUndo.apply(entry))
+	else
+		-- Positions rewind by count, the way they always have; the counter pair is
+		-- restored from the snapshot rather than guessed at.
+		for _ = 1, (entry.count or 0) do
+			removeLastSeat()
+		end
+		nextAllyTeam = entry.prevNextAllyTeam or 1
+		nextTeamSlot = entry.prevNextTeamSlot or 1
+	end
+end
+
+function R.undo()
+	R.step(true)
+end
+
+function R.redo()
+	R.step(false)
 end
 
 -- Drawing
@@ -3657,9 +3639,17 @@ end
 local BOX_FILL_CELL = 20 -- world units per tessellation cell (lower = higher fidelity)
 local BOX_FILL_LIFT = 2
 local BOX_FILL_DRAG_INTERVAL = 4 -- during drag, rebuild list at most every Nth draw frame
+-- The fills live beside the regions, never on them: a region regions holds is its own, and the copy that replaces it
+-- on a commit is a new table. A fill whose region has left the list is freed on the next draw.
+R.fills = {} ---@type table<table, { list: integer|nil, dirty: boolean|nil, lastFrame: integer|nil }>
 ensureBoxFillList = function(box)
-	if box._fillList and not box._fillDirty then
-		return box._fillList
+	local fill = R.fills[box]
+	if not fill then
+		fill = {}
+		R.fills[box] = fill
+	end
+	if fill.list and not fill.dirty then
+		return fill.list
 	end
 	-- During drag, large polygon/spline shapes (>12 verts) defer the expensive triangulation
 	-- to MouseRelease — buildPolygonFillList does O(N^2) fan subdivision that can burn thousands
@@ -3668,45 +3658,60 @@ ensureBoxFillList = function(box)
 	-- size during drag so even mid-size polys stay responsive.
 	local verts = box.vertices
 	local nv = verts and #verts or 0
-	if isDraggingBox and box._fillList then
+	if isDraggingBox and fill.list then
 		if nv > 12 then
-			return box._fillList
+			return fill.list
 		end
 		-- Throttle rebuild rate during drag so the GL display list isn't recreated every frame
 		-- (each rebuild allocates ~N² entries in the row scratch buffer + one new GL list, which
 		-- previously triggered the 1.2GB LuaRAM emergency GC during edge drags). Visually this
 		-- is ~15Hz updates instead of ~60Hz — still reads as live without the alloc storm.
 		local frame = GetDrawFrame and GetDrawFrame() or 0
-		if box._fillLastFrame and (frame - box._fillLastFrame) < BOX_FILL_DRAG_INTERVAL then
-			return box._fillList
+		if fill.lastFrame and (frame - fill.lastFrame) < BOX_FILL_DRAG_INTERVAL then
+			return fill.list
 		end
-		box._fillLastFrame = frame
+		fill.lastFrame = frame
 	end
-	if box._fillList then
-		glDeleteList(box._fillList)
-		box._fillList = nil
+	if fill.list then
+		glDeleteList(fill.list)
+		fill.list = nil
 	end
 	local cell = isDraggingBox and (BOX_FILL_CELL * 3) or BOX_FILL_CELL
-	box._fillList = buildPolygonFillList(verts, BOX_FILL_LIFT, cell)
-	box._fillDirty = isDraggingBox -- final crisp rebuild on release
-	box._fillNeedsRebuild = false
+	fill.list = buildPolygonFillList(verts, BOX_FILL_LIFT, cell)
+	fill.dirty = isDraggingBox -- final crisp rebuild on release
 	if not isDraggingBox then
-		box._fillLastFrame = nil
+		fill.lastFrame = nil
 	end
-	return box._fillList
+	return fill.list
 end
 
 invalidateBoxFill = function(box)
-	if box then
-		box._fillDirty = true
+	local fill = box and R.fills[box]
+	if fill then
+		fill.dirty = true
 	end
 end
 
 freeBoxFillList = function(box)
-	if box and box._fillList then
-		glDeleteList(box._fillList)
-		box._fillList = nil
-		box._fillDirty = true
+	local fill = box and R.fills[box]
+	if fill then
+		if fill.list then
+			glDeleteList(fill.list)
+		end
+		R.fills[box] = nil
+	end
+end
+
+---@param drawn table[] the regions drawn this frame
+function R.sweepFills(drawn)
+	local keep = {}
+	for _, box in ipairs(drawn) do
+		keep[box] = true
+	end
+	for box in pairs(R.fills) do
+		if not keep[box] then
+			freeBoxFillList(box)
+		end
 	end
 end
 
@@ -4068,6 +4073,7 @@ function widget:DrawWorld()
 		end
 	end
 
+	R.sweepFills(startboxes)
 	for bi, box in ipairs(startboxes) do
 		local color = R.color(box, bi)
 		local verts = box.vertices
@@ -4095,7 +4101,9 @@ function widget:DrawWorld()
 					end
 				end
 			end)
-			if box.kind == "box" and #verts == 4 then
+			if not R.editable(box) then
+				-- Handles are the form's alone: a region regions holds is edited through a form opened on it.
+			elseif box.kind == "box" and #verts == 4 then
 				-- Draw edge resize handles as pairs of arrow tips (filled triangles) straddling
 				-- the edge and pointing in opposite directions along the edge's normal axis.
 				local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
@@ -4605,6 +4613,8 @@ function widget:DrawScreenEffects()
 		end
 	end
 
+	R.drawProblemLabels()
+
 	for _, box in ipairs(R.type == "start" and startboxes or {}) do
 		if #box.vertices >= 3 then
 			-- Place the badge above the box's TOP screen edge so it doesn't sit on top of
@@ -4718,18 +4728,19 @@ function widget:Initialize()
 		setStartboxMode = setStartboxMode,
 		setRegionType = R.setType,
 		setCategory = R.setCategory,
-		drawArea = R.drawArea,
 		setGeometry = R.setGeometry,
 		setEditMode = R.setEditMode,
-		cancelArea = R.cancelArea,
 		removeArea = R.removeArea,
 		setStrategy = R.setStrategy,
 		setPlacing = R.setPlacing,
 		selectRegion = R.select,
 		selectStart = R.selectStart,
-		setPendingField = R.setPendingField,
-		setRegionField = R.setField,
-		removeRegion = R.remove,
+		openNew = R.openNew,
+		openEdit = R.openEdit,
+		setFormField = R.setFormField,
+		submitForm = R.submitForm,
+		cancelForm = R.cancelForm,
+		deleteForm = R.deleteForm,
 		exportLayout = R.exportLayout,
 		encodeLayout = R.encodeLayout,
 		copyLayout = R.copyLayout,
@@ -4751,7 +4762,7 @@ end
 
 function widget:Shutdown()
 	WG.RegionsTool = nil
-	for _, region in ipairs(R.drafts.All()) do
-		freeBoxFillList(region)
+	for box in pairs(R.fills) do
+		freeBoxFillList(box)
 	end
 end

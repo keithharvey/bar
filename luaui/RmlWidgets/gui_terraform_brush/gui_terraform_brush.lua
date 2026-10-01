@@ -6181,11 +6181,9 @@ local initialModel = {
 	rgStartboxMode = "",
 	rgRegionType = "start",
 	rgCategory = "start",
-	rgDrawingArea = false,
 	rgGeometry = "point",
 	rgEditMode = "select",
 	rgGatheredSpots = "0",
-	rgAreaTarget = "",
 	rgSelectedHasBox = false,
 	rgStrategy = "express",
 	rgPlacing = "points",
@@ -6200,6 +6198,11 @@ local initialModel = {
 	rgRegionListTitle = "STARTS",
 	rgDetailsTitle = "DETAILS",
 	rgDetailsMode = "prompt",
+	rgView = "list",
+	rgFormNew = false,
+	rgFormChanged = false,
+	rgNewLabel = "NEW START",
+	rgSubmitLabel = "CREATE",
 	rgClearLabel = "CLEAR ALL",
 	-- Diffuse painter (Phase A MVP)
 	dfpRadiusStr = "128",
@@ -7254,15 +7257,6 @@ local initialModel = {
 			WG.RegionsTool.setRegionType(typeKey)
 		end
 	end,
-	onRgDrawArea = function(_event)
-		local st = WG.RegionsTool
-		if st and st.drawArea and st.getState then
-			local team = st.getState().selectedStart
-			if team and st.drawArea(team) then
-				playSound("modeSwitch")
-			end
-		end
-	end,
 	onRgSetEditMode = function(_event, mode)
 		playSound("modeSwitch")
 		if WG.RegionsTool and WG.RegionsTool.setEditMode then
@@ -7275,34 +7269,35 @@ local initialModel = {
 			WG.RegionsTool.setGeometry(g)
 		end
 	end,
-	onRgCancelArea = function(_event)
-		if WG.RegionsTool and WG.RegionsTool.cancelArea then
-			WG.RegionsTool.cancelArea()
-		end
-	end,
 	onRgRemoveArea = function(_event)
 		local st = WG.RegionsTool
-		if st and st.removeArea and st.getState then
-			local team = st.getState().selectedStart
-			if team then
-				playSound("reset")
-				st.removeArea(team)
-			end
+		if st and st.removeArea and st.removeArea() then
+			playSound("reset")
 		end
 	end,
-	onRgRegionRemove = function(_event)
+	onRgNew = function(_event)
 		local st = WG.RegionsTool
-		if st and st.removeRegion and st.getState then
-			local sel = st.getState().selectedIdx
-			if sel then
-				playSound("reset")
-				st.removeRegion(sel)
-			end
+		if st and st.openNew then
+			playSound("modeSwitch")
+			st.openNew()
 		end
 	end,
-	onRgRegionDeselect = function(_event)
-		if WG.RegionsTool and WG.RegionsTool.selectRegion then
-			WG.RegionsTool.selectRegion(nil)
+	onRgSubmit = function(_event)
+		local st = WG.RegionsTool
+		if st and st.submitForm then
+			playSound(st.submitForm() and "apply" or "reset")
+		end
+	end,
+	onRgCancel = function(_event)
+		local st = WG.RegionsTool
+		if st and st.cancelForm then
+			st.cancelForm()
+		end
+	end,
+	onRgDelete = function(_event)
+		local st = WG.RegionsTool
+		if st and st.deleteForm and st.deleteForm() then
+			playSound("reset")
 		end
 	end,
 	onRgRegionCopy = function(_event)

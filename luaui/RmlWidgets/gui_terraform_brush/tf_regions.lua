@@ -183,8 +183,6 @@ function M.sync(doc, ctx, rgState, setSummary)
 	local typeLabel = labels[rgState.regionType] and labels[rgState.regionType].label or "Region"
 	setRg("rgRegionType", rgState.regionType or "start")
 	setRg("rgCategory", rgState.category or "start")
-	setRg("rgDrawingArea", rgState.drawForTeam ~= nil)
-	setRg("rgSelectedHasBox", (rgState.selected and rgState.selected.hasBox) == true)
 	setRg("rgStrategy", rgState.strategy or "express")
 	setRg("rgPlacing", rgState.placing or "points")
 	local polygonMode = rgState.regionType ~= "start" or rgState.placing == "area"
@@ -193,9 +191,9 @@ function M.sync(doc, ctx, rgState, setSummary)
 	setRg("rgGeometry", rgState.geometry or "point")
 	setRg("rgEditMode", rgState.editMode or "select")
 	setRg("rgGatheredSpots", tostring(rgState.gatheredSpots or 0))
-	setRg("rgAreaTarget", tostring(rgState.areaTarget or ""))
+	local view = rgState.view or "list"
 	local hint
-	if rgState.editMode == "select" then
+	if view == "list" and not (rgState.regionType == "start" and rgState.editMode == "create") then
 		hint = "select"
 	elseif rgState.geometry == "point" then
 		hint = "points"
@@ -243,74 +241,63 @@ function M.sync(doc, ctx, rgState, setSummary)
 		end
 	end
 
-	setRg("rgSelected", rgState.selected ~= nil)
-	setRg("rgSelectedTeam", tostring(rgState.selected and rgState.selected.team or ""))
-	setRg("rgSelectedVertices", tostring(rgState.selected and rgState.selected.vertexCount or 0))
+	local selected = rgState.selected
+	setRg("rgView", view)
+	setRg("rgSelected", selected ~= nil)
+	setRg("rgFormNew", (selected and selected.isNew) == true)
+	setRg("rgFormChanged", (selected and selected.changed) == true)
+	setRg("rgSelectedHasBox", (selected and selected.hasBox) == true)
+	setRg("rgSelectedTeam", tostring(selected and selected.team or ""))
+	setRg("rgSelectedVertices", tostring(selected and selected.vertexCount or 0))
 	setRg("rgRegionError", rgState.regionError or "")
 	setRg("rgRegionNotice", rgState.regionNotice or "")
 	setRg("rgRegionListTitle", (rgState.regionType == "start") and "STARTS" or (typeLabel:upper() .. "S"))
-	local detailsMode = "prompt"
-	if rgState.selected then
-		detailsMode = "details"
-	elseif rgState.editMode == "create" and #(rgState.regionFields or {}) > 0 then
-		detailsMode = "new"
+	setRg("rgNewLabel", "NEW " .. typeLabel:upper())
+	setRg("rgSubmitLabel", (selected and selected.isNew) and "CREATE" or "SAVE")
+	setRg("rgDetailsMode", view == "form" and (selected and selected.isNew and "new" or "details") or "prompt")
+	local title = "DETAILS"
+	if selected and selected.isNew then
+		title = "NEW " .. typeLabel:upper()
+	elseif selected then
+		local named = (selected.fields and selected.fields.name) or (selected.derived and selected.derived.name)
+		title = "EDIT " .. (named and tostring(named):upper() or typeLabel:upper())
 	end
-	setRg("rgDetailsMode", detailsMode)
-	setRg("rgDetailsTitle", (detailsMode == "new") and ("NEW " .. typeLabel:upper()) or "DETAILS")
+	setRg("rgDetailsTitle", title)
 	setRg("rgClearLabel", (rgState.regionType == "start") and "CLEAR ALL" or ("CLEAR " .. typeLabel:upper() .. "S"))
 
-	local selKey = tostring(rgState.regionType)
-		.. ":"
-		.. tostring(rgState.selectedIdx)
-		.. ":"
-		.. tostring(rgState.selectedStart)
-		.. ":"
-		.. detailsMode
-		.. ":"
-		.. tostring(rgState.selected and rgState.selected.hasBox)
-	if doc and (widgetState.rgRegionRevision ~= rgState.regionRevision or widgetState.rgSelKey ~= selKey) then
+	-- The form's inputs are drawn once per form: what is typed stays in them while the form is open.
+	local formKey = tostring(rgState.regionType) .. ":" .. view .. ":" .. tostring(selected and (selected.id or "new"))
+	if doc and (widgetState.rgRegionRevision ~= rgState.regionRevision or widgetState.rgSelKey ~= formKey) then
 		widgetState.rgRegionRevision = rgState.regionRevision
-		local selectionChanged = widgetState.rgSelKey ~= selKey
-		widgetState.rgSelKey = selKey
+		local formChanged = widgetState.rgSelKey ~= formKey
+		widgetState.rgSelKey = formKey
 		local defs = rgState.regionFields or {}
-		local pending = rgState.pendingRegion or {}
-		local selected = rgState.selected
-		local function setPending(key, value)
-			if st and st.setPendingField then
-				st.setPendingField(key, value)
-			end
-		end
 		local function setField(key, value)
-			if st and st.setRegionField then
-				st.setRegionField(key, value)
+			if st and st.setFormField then
+				st.setFormField(key, value)
 			end
 		end
 
-		safely(widgetState, "details", function()
-			if selectionChanged then
-				if detailsMode == "new" then
-					renderFields(doc, widgetState, "rg-new-fields", "rg-new", defs, pending, setPending)
-				end
-				if selected and selected.hasBox then
+		safely(widgetState, "form", function()
+			if selected then
+				if formChanged then
 					renderFields(
 						doc,
 						widgetState,
-						"rg-detail-fields",
-						"rg-detail",
+						"rg-form-fields",
+						"rg-form",
 						defs,
 						selected.fields or {},
 						setField,
 						selected.derived
 					)
 				end
+				fieldPickers(doc, "rg-form", defs, selected.fields or {}, rgState, setField)
 			end
-			if detailsMode == "new" then
-				fieldPickers(doc, "rg-new", defs, pending, rgState, setPending)
+			local problemsEl = doc:GetElementById("rg-form-problems")
+			if problemsEl then
+				problemsEl.inner_rml = problemLines(selected and selected.problems)
 			end
-			if selected and selected.hasBox then
-				fieldPickers(doc, "rg-detail", defs, selected.fields or {}, rgState, setField)
-			end
-
 			local factsEl = doc:GetElementById("rg-detail-facts")
 			if factsEl then
 				local html = {}
@@ -321,7 +308,7 @@ function M.sync(doc, ctx, rgState, setSummary)
 						.. fact[2]
 						.. "</span></div>"
 				end
-				factsEl.inner_rml = table.concat(html) .. problemLines(selected and selected.problems)
+				factsEl.inner_rml = table.concat(html)
 			end
 		end)
 		safely(widgetState, "list", function()
@@ -362,7 +349,8 @@ function M.sync(doc, ctx, rgState, setSummary)
 					local starts = rgState.starts or {}
 					count = #starts
 					for i, start in ipairs(starts) do
-						local selectedClass = (start.allyTeam == rgState.selectedStart) and " selected" or ""
+						local selectedClass = (selected and start.id ~= nil and start.id == selected.id) and " selected"
+							or ""
 						local desc = start.positions
 							.. " position"
 							.. (start.positions == 1 and "" or "s")
@@ -382,8 +370,8 @@ function M.sync(doc, ctx, rgState, setSummary)
 							.. "</div>"
 					end
 					onClick = function(i)
-						if st and st.selectStart and starts[i] then
-							st.selectStart(starts[i].allyTeam)
+						if st and st.openEdit and starts[i] and starts[i].id then
+							st.openEdit(starts[i].id)
 						end
 					end
 				else
@@ -397,7 +385,9 @@ function M.sync(doc, ctx, rgState, setSummary)
 						if region.team then
 							label = (teamLabels[region.team] or ("Team " .. (region.team + 1))) .. " · " .. label
 						end
-						local selectedClass = (i == rgState.selectedIdx) and " selected" or ""
+						local selectedClass = (selected and region.id ~= nil and region.id == selected.id)
+								and " selected"
+							or ""
 						html[#html + 1] = '<div id="rg-region-item-'
 							.. i
 							.. '" class="ll-preset-item'
@@ -412,8 +402,8 @@ function M.sync(doc, ctx, rgState, setSummary)
 							.. "</div>"
 					end
 					onClick = function(i)
-						if st and st.selectRegion then
-							st.selectRegion(i)
+						if st and st.openEdit and regions[i] and regions[i].id then
+							st.openEdit(regions[i].id)
 						end
 					end
 				end
