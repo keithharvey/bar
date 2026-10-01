@@ -9,10 +9,10 @@ local Policy = require("modules/policy")
 
 local MODULES_DIR = "modules/"
 
--- A module has three faces. api.lua runs in any Lua handle, so it calls nothing the engine offers in one handle only,
--- and the same is true of policies/, lib/ and every other file not named here. api_synced.lua is the module's face in
--- the synced handle, with actions/, gadgets/ and any file named synced.lua behind it; api_unsynced.lua is its face in
--- the unsynced one, with widgets/, rml_widgets/ and any file named unsynced.lua. Code that runs in any handle requires
+-- A module's api.lua runs in any Lua handle, so it calls nothing the engine offers in one handle only, and the same is
+-- true of policies/, lib/ and every other file not named here. api_synced.lua is the module's api in the synced
+-- handle, with actions/, gadgets/ and any file named synced.lua behind it; api_unsynced.lua is its api in the
+-- unsynced one, with widgets/, rml_widgets/ and any file named unsynced.lua. Code that runs in any handle requires
 -- nothing bound to one, and code bound to a handle requires nothing bound to the other. The loader does not enforce
 -- that at run time, since it cannot see a require; spec/modules/handles_spec.lua holds the stack to it.
 local LAYOUT = {

@@ -1,4 +1,4 @@
--- Transport's synced face: setting a passenger down where it will not stand on an ally, which is the one thing the
+-- Transport's api in the synced handle: setting a passenger down where it will not stand on an ally, which is the one thing the
 -- module does to the synced engine that a gadget or an action asks for by name.
 local Synced = {}
 

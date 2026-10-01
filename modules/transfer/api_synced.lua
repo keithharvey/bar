@@ -1,4 +1,4 @@
--- Transfer's synced face: what a gadget may ask of the module that touches the synced engine.
+-- Transfer's api in the synced handle: what a gadget may ask of the module that touches the synced engine.
 local Synced = {}
 
 Synced.Units = require("modules/transfer/unit/synced")
