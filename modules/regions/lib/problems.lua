@@ -4,8 +4,10 @@ local Problems = {}
 ---@param ctx RegionSetContext<Region>
 ---@param index integer
 ---@param message string
-function Problems.OfRegion(ctx, index, message)
-	ctx.problems[#ctx.problems + 1] = { message = message, region = ctx.regions[index], name = ctx.names[index] }
+---@param at { x: number, z: number }|nil where on the region, when that says more than the region itself
+function Problems.OfRegion(ctx, index, message, at)
+	ctx.problems[#ctx.problems + 1] =
+		{ message = message, region = ctx.regions[index], name = ctx.names[index], at = at }
 end
 
 ---@param ctx RegionSetContext<Region>

@@ -40,7 +40,7 @@ Policies.On(CheckSet).Apply(CheckSet.Each, function(ctx)
 		local one = { type = ctx.type, region = region, siblings = ctx.regions, names = names, problems = {} }
 		ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Regions).Check, one)
 		for _, problem in ipairs(one.problems) do
-			Problems.OfRegion(ctx, i, problem)
+			Problems.OfRegion(ctx, i, problem.message, problem.at)
 		end
 	end
 end)

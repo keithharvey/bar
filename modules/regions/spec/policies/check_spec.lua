@@ -25,16 +25,19 @@ describe("checking a region", function()
 	it("collects every problem rather than stopping at the first", function()
 		local problems =
 			Regions.Check(Regions.Enums.Types.Start, start({ vertices = { { x = 0, z = 0 }, { x = 1, z = 1 } } }), {})
-		assert.are.same({ "two vertices make neither a point nor a polygon", "a start needs a team" }, problems)
+		assert.are.same({
+			{ message = "two vertices make neither a point nor a polygon", at = { x = 1, z = 1 } },
+			{ message = "a start needs a team" },
+		}, problems)
 		assert.are.same(
-			{ "a region is a point or a polygon" },
+			{ { message = "a region is a point or a polygon" } },
 			Regions.Check(Regions.Enums.Types.Start, start({ team = 1 }), {})
 		)
 	end)
 
 	it("refuses a value a sibling already has where the type says it is unique", function()
 		assert.are.same(
-			{ "a start with team 1 already exists" },
+			{ { message = "a start with team 1 already exists" } },
 			Regions.Check(
 				Regions.Enums.Types.Start,
 				start({ team = 1, vertices = square }),
@@ -42,13 +45,16 @@ describe("checking a region", function()
 			)
 		)
 		assert.are.same(
-			{ "Team must be a number" },
+			{ { message = "Team must be a number" } },
 			Regions.Check(Regions.Enums.Types.Start, start({ team = "north", vertices = square }), {})
 		)
 	end)
 
 	it("checks only the fields when the region has no shape yet", function()
 		assert.are.same({}, Regions.Check(Regions.Enums.Types.Start, start({ team = 1 }), {}, true))
-		assert.are.same({ "a start needs a team" }, Regions.Check(Regions.Enums.Types.Start, start({}), {}, true))
+		assert.are.same(
+			{ { message = "a start needs a team" } },
+			Regions.Check(Regions.Enums.Types.Start, start({}), {}, true)
+		)
 	end)
 end)

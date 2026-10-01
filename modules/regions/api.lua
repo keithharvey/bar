@@ -59,11 +59,11 @@ end
 ---@param region Region
 ---@param siblings Region[]|nil
 ---@param fieldsOnly boolean|nil
----@return string[]
+---@return RegionProblem[]
 function Api.Check(typeKey, region, siblings, fieldsOnly)
 	local kind = Types.byKey[typeKey]
 	if not kind then
-		return { "unknown region type " .. tostring(typeKey) }
+		return { { message = "unknown region type " .. tostring(typeKey) } }
 	end
 	local all = { region }
 	for _, other in ipairs(siblings or {}) do
@@ -158,19 +158,22 @@ end
 
 ---@class RegionRefusal
 ---@field candidate table what was offered
----@field problems string[]
+---@field problems RegionProblem[]
+
+---@param message string
+---@return RegionProblem[]
+local function problem(message)
+	return { { message = message } }
+end
 
 -- What a candidate becomes on entry: regions' own copy of what its type declares, once it checks out beside the
--- regions it would stand with. Its id is the one it brings; the repository gives one to a region that brings none.
+-- regions it would stand with.
+---@param kind RegionType
 ---@param candidate table
----@param beside Region[]
----@return table|nil region
----@return string[]|nil problems
-local function admit(candidate, beside)
-	local kind = Types.byKey[candidate.type]
-	if not kind then
-		return nil, { "unknown region type " .. tostring(candidate.type) }
-	end
+---@param beside Region[] the regions held, less the one it would replace
+---@return Region|nil region
+---@return RegionProblem[]|nil problems
+local function admit(kind, candidate, beside)
 	local region = {
 		id = candidate.id,
 		type = kind.key,
@@ -203,7 +206,8 @@ local function admit(candidate, beside)
 	if #problems > 0 then
 		return nil, problems
 	end
-	return region, nil
+	return region, --[[@as Region]]
+		nil
 end
 
 ---@return Repository<Region>
@@ -228,57 +232,79 @@ local function ofType(typeKey)
 	end
 end
 
--- One region in, checked beside the rest: under the id it brings it replaces the region held there, whole.
----@param candidate table
+-- A new region, checked beside those held. It keeps the id it brings, a layout's; the repository gives one otherwise.
+---@param candidate table any table that says its type and carries a region's data
 ---@return Region|nil region
----@return string[]|nil problems
-function Api.Submit(candidate)
-	local beside = repository().All(function(held)
-		return held.id ~= candidate.id
-	end)
-	local region, problems = admit(candidate, beside)
+---@return RegionProblem[]|nil problems
+function Api.Create(candidate)
+	local kind = Types.byKey[candidate.type]
+	if not kind then
+		return nil, problem("unknown region type " .. tostring(candidate.type))
+	end
+	if candidate.id ~= nil and repository().Get(candidate.id) ~= nil then
+		return nil, problem("a region with id " .. tostring(candidate.id) .. " already exists")
+	end
+	local region, problems = admit(kind, candidate, repository().All())
 	if region == nil then
 		return nil, problems
 	end
-	return repository().Put(region), nil
+	return repository().Create(region), nil
 end
 
--- The set whole: each candidate is checked beside those of the set admitted ahead of it, not beside what was held.
----@param candidates table[]
----@return Region[] admitted
----@return RegionRefusal[] refused
-function Api.Assign(candidates)
-	local admitted, refused = {}, {} ---@type table[], RegionRefusal[]
-	local offered = {} ---@type table<string, boolean>
-	for _, candidate in ipairs(candidates) do
-		local region, problems
-		if candidate.id ~= nil and offered[candidate.id] then
-			problems = { "another with id " .. candidate.id .. " was offered first" }
-		else
-			region, problems = admit(candidate, admitted)
-		end
-		if region == nil then
-			refused[#refused + 1] = { candidate = candidate, problems = problems or {} }
-		else
-			if region.id ~= nil then
-				offered[region.id] = true
-			end
-			admitted[#admitted + 1] = region
-		end
+-- The region under an id, replaced whole by what is offered, checked beside the rest; or left as it was.
+---@param id string
+---@param candidate table the region's data; its id and type are the held region's
+---@return Region|nil region
+---@return RegionProblem[]|nil problems
+function Api.Update(id, candidate)
+	local held = repository().Get(id)
+	if held == nil then
+		return nil, problem("no region with id " .. tostring(id))
 	end
-	return repository().Assign(admitted), refused
+	local beside = repository().All(function(other)
+		return other.id ~= id
+	end)
+	local offered = {}
+	for key, value in pairs(candidate) do
+		offered[key] = value
+	end
+	offered.id, offered.type = id, held.type
+	local region, problems = admit(Types.byKey[held.type], offered, beside)
+	if region == nil then
+		return nil, problems
+	end
+	return repository().Update(region), nil
 end
 
 ---@param id string
 ---@return Region|nil
-function Api.Remove(id)
-	return repository().Remove(id)
+function Api.Delete(id)
+	return repository().Delete(id)
 end
 
 ---@param id string
 ---@return Region|nil
 function Api.Get(id)
 	return repository().Get(id)
+end
+
+-- What the repository holds becomes these, each created in turn: what does not check out beside those ahead of it
+-- is refused.
+---@param candidates table[]
+---@return Region[] created
+---@return RegionRefusal[] refused
+function Api.Load(candidates)
+	repository().Clear()
+	local created, refused = {}, {} ---@type Region[], RegionRefusal[]
+	for _, candidate in ipairs(candidates) do
+		local region, problems = Api.Create(candidate)
+		if region == nil then
+			refused[#refused + 1] = { candidate = candidate, problems = problems or {} }
+		else
+			created[#created + 1] = region
+		end
+	end
+	return created, refused
 end
 
 ---@param typeKey RegionTypeKey|nil
@@ -401,8 +427,8 @@ function Api.LoadLayoutFile(path, mapSizeX, mapSizeZ)
 	if type(layout) ~= "table" or type(layout.regions) ~= "table" then
 		return nil, path .. " does not return a layout: { regions = { <type> = { ... } } }"
 	end
-	local admitted, refused = Api.Assign(Api.ParseAllLayout(layout, mapSizeX, mapSizeZ))
-	return admitted, nil, refused
+	local created, refused = Api.Load(Api.ParseAllLayout(layout, mapSizeX, mapSizeZ))
+	return created, nil, refused
 end
 
 Api.Tessellate = Layout.Tessellate

@@ -54,7 +54,7 @@ describe("what start says about a region", function()
 	end)
 
 	it("says nothing about a region of another type", function()
-		Regions.Submit(area(1, 0, 0, 100))
+		Regions.Create(area(1, 0, 0, 100))
 		local d = Regions.Describe(Regions.New("mex_region", { id = "m", vertices = area(0, 0, 0, 100).vertices }))
 		assert.is_nil(d and d.team)
 	end)

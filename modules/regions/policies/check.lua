@@ -7,7 +7,7 @@ local Policy = require("modules/policy")
 ---@field siblings R[]
 ---@field names table<Region, string>
 ---@field fieldsOnly boolean|nil
----@field problems string[]
+---@field problems RegionProblem[] each with where it is, when the shape says
 
 ---@class RegionCheckPolicy: PolicySteps<RegionCheckContext<Region>, RegionCheckContext<Region>>
 ---@field Shape string
@@ -41,8 +41,9 @@ Policies.On(Check)
 		local vertices = ctx.region.vertices or {}
 		local shape = Geometry.Of(vertices)
 		if shape == nil then
-			ctx.problems[#ctx.problems + 1] = #vertices == 2 and "two vertices make neither a point nor a polygon"
-				or "a region is a point or a polygon"
+			ctx.problems[#ctx.problems + 1] = #vertices == 2
+					and { message = "two vertices make neither a point nor a polygon", at = vertices[2] }
+				or { message = "a region is a point or a polygon", at = vertices[1] }
 			return
 		end
 		local allowed = false
@@ -50,7 +51,8 @@ Policies.On(Check)
 			allowed = allowed or g == shape
 		end
 		if not allowed then
-			ctx.problems[#ctx.problems + 1] = "a " .. ctx.type.label:lower() .. " cannot be a " .. shape
+			ctx.problems[#ctx.problems + 1] =
+				{ message = "a " .. ctx.type.label:lower() .. " cannot be a " .. shape, at = vertices[1] }
 		end
 	end)
 	.Apply(Check.Fields, function(ctx)
@@ -58,20 +60,23 @@ Policies.On(Check)
 			local value = valueOf(ctx, ctx.region, field)
 			local missing = value == nil or value == ""
 			if field.required and missing then
-				ctx.problems[#ctx.problems + 1] = "a " .. ctx.type.label:lower() .. " needs a " .. field.label:lower()
+				ctx.problems[#ctx.problems + 1] =
+					{ message = "a " .. ctx.type.label:lower() .. " needs a " .. field.label:lower() }
 			elseif not missing and field.kind == "integer" and type(value) ~= "number" then
-				ctx.problems[#ctx.problems + 1] = field.label .. " must be a number"
+				ctx.problems[#ctx.problems + 1] = { message = field.label .. " must be a number" }
 			end
 			if field.unique and not missing then
 				for _, other in ipairs(ctx.siblings) do
 					if other ~= ctx.region and valueOf(ctx, other, field) == value then
-						ctx.problems[#ctx.problems + 1] = "a "
-							.. ctx.type.label:lower()
-							.. " with "
-							.. field.label:lower()
-							.. " "
-							.. tostring(value)
-							.. " already exists"
+						ctx.problems[#ctx.problems + 1] = {
+							message = "a "
+								.. ctx.type.label:lower()
+								.. " with "
+								.. field.label:lower()
+								.. " "
+								.. tostring(value)
+								.. " already exists",
+						}
 						break
 					end
 				end

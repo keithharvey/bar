@@ -42,10 +42,10 @@ describe("the region repository", function()
 		Regions.Clear()
 	end)
 
-	it("holds its own copy of what is offered, in the order it came, under an id it gives", function()
+	it("creates its own copy of what is offered, in the order it came, under an id it gives", function()
 		local offered = start(1)
-		local a = assert(Regions.Submit(offered))
-		local b = assert(Regions.Submit(start(2, nil, 500)))
+		local a = assert(Regions.Create(offered))
+		local b = assert(Regions.Create(start(2, nil, 500)))
 		assert.is_false(rawequal(a, offered))
 		assert.is_nil(offered.id, "what was offered is left as it was")
 		offered.vertices[1].x = 50
@@ -62,64 +62,89 @@ describe("the region repository", function()
 		local offered = start(1, "north")
 		offered._fillList = 7
 		offered.stray = "dropped"
-		local a = assert(Regions.Submit(offered))
+		local a = assert(Regions.Create(offered))
 		assert.are.equal("north", a.name)
 		assert.is_nil(a._fillList)
 		assert.is_nil(a.stray)
 	end)
 
-	it("admits only what checks out, and says what is wrong with the rest", function()
-		assert(Regions.Submit(start(1)))
+	it("creates only what checks out, and says what is wrong with the rest", function()
+		assert(Regions.Create(start(1)))
 		local before = Regions.Revision()
-		local twin, problems = Regions.Submit(start(1, "twin", 500))
+		local twin, problems = Regions.Create(start(1, "twin", 500))
 		assert.is_nil(twin)
-		assert.are.same({ "a start with team 1 already exists" }, problems)
-		assert.are.same({ "a start needs a team" }, select(2, Regions.Submit(start(nil))))
-		assert.are.same({ "unknown region type nobody_knows" }, select(2, Regions.Submit({ type = "nobody_knows" })))
+		assert.are.same({ { message = "a start with team 1 already exists" } }, problems)
+		assert.are.same({ { message = "a start needs a team" } }, select(2, Regions.Create(start(nil))))
+		assert.are.same(
+			{ { message = "unknown region type nobody_knows" } },
+			select(2, Regions.Create({ type = "nobody_knows" }))
+		)
 		assert.are.equal(1, #Regions.All())
 		assert.are.equal(before, Regions.Revision())
 	end)
 
-	it("replaces a region whole under its id, or leaves it as it was", function()
-		local a = assert(Regions.Submit(start(1)))
-		local named = start(1, "north")
-		named.id = a.id
-		assert.are.equal("north", assert(Regions.Submit(named)).name)
-		local broken = start(nil, "south")
-		broken.id = a.id
-		assert.is_nil((Regions.Submit(broken)))
+	it("says where on the shape a problem is, when the shape says", function()
+		local line = start(1)
+		line.vertices = { { x = 0, z = 0 }, { x = 40, z = 0 } }
+		assert.are.same(
+			{ { message = "two vertices make neither a point nor a polygon", at = { x = 40, z = 0 } } },
+			select(2, Regions.Create(line))
+		)
+	end)
+
+	it("creates under the id a layout brings, and not over one it holds", function()
+		local loaded = start(1)
+		loaded.id = "north"
+		assert.are.equal("north", assert(Regions.Create(loaded)).id)
+		local again = start(2, nil, 500)
+		again.id = "north"
+		assert.are.same({ { message = "a region with id north already exists" } }, select(2, Regions.Create(again)))
+	end)
+
+	it("updates a region whole under its id, or leaves it as it was", function()
+		local a = assert(Regions.Create(start(1)))
+		local b = assert(Regions.Create(start(2, nil, 500)))
+		local named = assert(Regions.Update(a.id, start(1, "north")))
+		assert.are.equal(a.id, named.id)
+		assert.are.equal("north", named.name)
+		assert.are.same({ named, b }, Regions.All(), "where it stood")
+		assert.are.same({ { message = "a start needs a team" } }, select(2, Regions.Update(a.id, start(nil, "south"))))
+		assert.are.same(
+			{ { message = "a start with team 2 already exists" } },
+			select(2, Regions.Update(a.id, start(2))),
+			"checked beside the others"
+		)
 		assert.are.equal("north", assert(Regions.Get(a.id)).name)
 		assert.are.equal(1, assert(Regions.Get(a.id)).team)
+		assert.are.same({ { message = "no region with id nobody" } }, select(2, Regions.Update("nobody", start(3))))
 	end)
 
-	it("is assigned a set whole, each region checked against the set it came with", function()
-		local a = assert(Regions.Submit(start(1)))
-		local b = assert(Regions.Submit(start(2, nil, 500)))
-		local first, second, nobody = start(2), start(1, nil, 500), start(nil, nil, 900)
-		first.id, second.id = a.id, b.id
-		local admitted, refused = Regions.Assign({ first, second, nobody })
-		assert.are.equal(2, #admitted)
-		assert.are.equal(2, assert(Regions.Get(a.id)).team, "two starts may swap teams in one step")
-		assert.are.equal(1, #refused)
-		local refusal = assert(refused[1])
-		assert.is_true(rawequal(nobody, refusal.candidate))
-		assert.are.same({ "a start needs a team" }, refusal.problems)
+	it("keeps an updated region's type, whatever is offered", function()
+		local a = assert(Regions.Create(start(1)))
+		local offered = start(1)
+		offered.type = "nobody_knows"
+		assert.are.equal("start", assert(Regions.Update(a.id, offered)).type)
 	end)
 
-	it("refuses the second of two offered under one id", function()
-		local first, second = start(1), start(2, nil, 500)
-		first.id, second.id = "north", "north"
-		local admitted, refused = Regions.Assign({ first, second })
-		assert.are.equal(1, #admitted)
-		assert.are.same({ "another with id north was offered first" }, assert(refused[1]).problems)
+	it("loads a set: what it held is gone, and each is checked beside those ahead of it", function()
+		assert(Regions.Create(start(5)))
+		local first, twin, nobody = start(1), start(1, nil, 500), start(nil, nil, 900)
+		first.id, twin.id = "north", "north"
+		local created, refused = Regions.Load({ first, twin, nobody })
+		assert.are.equal(1, #created)
+		assert.are.same(created, Regions.All())
+		assert.are.equal(2, #refused)
+		assert.is_true(rawequal(twin, assert(refused[1]).candidate))
+		assert.are.same({ { message = "a region with id north already exists" } }, assert(refused[1]).problems)
+		assert.are.same({ { message = "a start needs a team" } }, assert(refused[2]).problems)
 	end)
 
-	it("removes by id, clears by type, and bumps its revision on every change", function()
+	it("deletes by id, clears by type, and bumps its revision on every change", function()
 		local before = Regions.Revision()
-		local a = assert(Regions.Submit(start(1)))
-		assert(Regions.Submit(start(2, nil, 500)))
-		assert.is_true(rawequal(a, Regions.Remove(a.id)))
-		assert.is_nil(Regions.Remove(a.id))
+		local a = assert(Regions.Create(start(1)))
+		assert(Regions.Create(start(2, nil, 500)))
+		assert.is_true(rawequal(a, Regions.Delete(a.id)))
+		assert.is_nil(Regions.Delete(a.id))
 		assert.are.equal(1, #Regions.All())
 		assert.are.equal(0, #Regions.Clear("nobody_knows"))
 		assert.are.equal(1, #Regions.Clear(Regions.Enums.Types.Start))
@@ -128,8 +153,8 @@ describe("the region repository", function()
 	end)
 
 	it("answers the set check and the names over what it holds", function()
-		assert(Regions.Submit(start(1)))
-		local b = assert(Regions.Submit(start(2, "twin", 50)))
+		assert(Regions.Create(start(1)))
+		local b = assert(Regions.Create(start(2, "twin", 50)))
 		local problems = Regions.Problems(Regions.Enums.Types.Start)
 		assert.are.equal(2, #problems, "each is valid alone; as a set, the two share ground")
 		assert.is_true(rawequal(b, assert(problems[2]).region))
@@ -139,7 +164,7 @@ describe("the region repository", function()
 	end)
 
 	it("is one per Lua state, shared by every include of the api", function()
-		local a = assert(Regions.Submit(start(1)))
+		local a = assert(Regions.Create(start(1)))
 		local Again = require("modules/regions/api")
 		assert.is_true(rawequal(a, Again.Get(a.id)))
 		ModuleHandler.ResetCaches()
@@ -154,8 +179,8 @@ describe("the layout as a file", function()
 	it(
 		"serializes what it holds as Lua that returns the layout, and reads it back with ids, fields and curvature",
 		function()
-			local flat = assert(Regions.Submit(start(1, "north")))
-			local curved = assert(Regions.Submit({
+			local flat = assert(Regions.Create(start(1, "north")))
+			local curved = assert(Regions.Create({
 				type = Regions.Enums.Types.Start,
 				team = 2,
 				kind = "spline",
@@ -187,7 +212,7 @@ describe("the layout as a file", function()
 	it("carries a points field normalised like the anchors, and reads it back in elmos", function()
 		local offered = start(1)
 		offered.positions = { { x = 250, z = 500 }, { x = 1000, z = 0 } }
-		assert(Regions.Submit(offered))
+		assert(Regions.Create(offered))
 		local source = Regions.SerializeLayout(Regions.All(), 1000, 1000)
 		assert.matches("positions = { { x = 50, y = 100 }, { x = 200, y = 0 } }", source)
 		local back = Regions.ParseAllLayout(assert(loadstring(source))(), 1000, 1000)

@@ -19,7 +19,7 @@ describe("the mex region type", function()
 		assert.are.same({ "polygon" }, byKey.mex_region.geometries)
 		assert.are.equal("transfer", byKey.mex_region.module)
 		assert.are.same(
-			{ "a mex region cannot be a point" },
+			{ { message = "a mex region cannot be a point", at = { x = 1, z = 1 } } },
 			Regions.Check(
 				Regions.Enums.Types.MexRegion,
 				mex({ team = 1, group = "g", vertices = { { x = 1, z = 1 } } }),
@@ -31,7 +31,7 @@ describe("the mex region type", function()
 	it("needs its team and group before its first vertex; a name is optional", function()
 		assert.are.same({}, Regions.Check(Regions.Enums.Types.MexRegion, mex({ team = 1, group = "g" }), {}, true))
 		assert.are.same(
-			{ "a mex region needs a team", "a mex region needs a group" },
+			{ { message = "a mex region needs a team" }, { message = "a mex region needs a group" } },
 			Regions.Check(Regions.Enums.Types.MexRegion, mex({}), {}, true)
 		)
 		assert.are.same(
@@ -56,8 +56,8 @@ end)
 describe("a mex region in the store", function()
 	it("offers the groups its siblings already carry", function()
 		Regions.Clear()
-		Regions.Submit(mex({ team = 1, group = "anti", vertices = square }))
-		Regions.Submit(mex({ team = 2, group = "tech", vertices = square }))
+		Regions.Create(mex({ team = 1, group = "anti", vertices = square }))
+		Regions.Create(mex({ team = 2, group = "tech", vertices = square }))
 		assert.are.same({ group = { "anti", "tech" } }, Regions.Suggestions(Regions.Enums.Types.MexRegion))
 		Regions.Clear()
 	end)
