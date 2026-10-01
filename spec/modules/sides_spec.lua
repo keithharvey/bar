@@ -1,12 +1,33 @@
 local ModuleHandler = require("modules/module_handler")
 
--- Which side a module file is on is the loader's to say (ModuleHandler.SideOf); this holds every module to it. The
--- engine's own split comes from the recoil-lua-library's generated listings, one file per Lua handle.
+-- A module's three faces, as modules/module_handler.lua states them above LAYOUT: api.lua and the rest neutral,
+-- api_synced.lua with actions/, gadgets/ and any synced.lua behind it, api_unsynced.lua with widgets/, rml_widgets/
+-- and any unsynced.lua. This holds every module to that. The engine's own split comes from the recoil-lua-library's
+-- generated listings, one file per Lua handle.
 local ENGINE_DIR = "recoil-lua-library/library/generated/rts/Lua/"
 local SYNCED_HANDLES = { "LuaSyncedCtrl.cpp.lua", "LuaSyncedMoveCtrl.cpp.lua" }
 local UNSYNCED_HANDLES = { "LuaUnsyncedCtrl.cpp.lua", "LuaUnsyncedRead.cpp.lua" }
 -- Listed under one handle in the library, offered on both by the engine.
 local ON_BOTH = { SendMessageToPlayer = true, SendLuaUIMsg = true }
+
+---@alias ModuleSide "synced"|"unsynced"
+
+---@param path string a file path under modules/
+---@return ModuleSide|nil side nil for neutral code
+local function sideOf(path)
+	local rest = path:match("^modules/[^/]+/(.*)$")
+	if rest == nil then
+		return nil
+	end
+	local base = rest:match("([^/]+)$")
+	if base == "api_synced.lua" or base == "synced.lua" or rest:find("^actions/") or rest:find("^gadgets/") then
+		return "synced"
+	end
+	if base == "api_unsynced.lua" or base == "unsynced.lua" or rest:find("^widgets/") or rest:find("^rml_widgets/") then
+		return "unsynced"
+	end
+	return nil
+end
 
 ---@param path string
 ---@return string|nil
@@ -97,19 +118,19 @@ local function engineSides()
 end
 
 describe("a module's sides", function()
-	it("are what the loader reads off a path", function()
-		assert.is_nil(ModuleHandler.SideOf("modules/regions/api.lua"))
-		assert.is_nil(ModuleHandler.SideOf("modules/regions/policies/check.lua"))
-		assert.is_nil(ModuleHandler.SideOf("modules/transfer/unit/shared.lua"))
-		assert.are.equal("synced", ModuleHandler.SideOf("modules/transport/api_synced.lua"))
-		assert.are.equal("synced", ModuleHandler.SideOf("modules/transfer/unit/synced.lua"))
-		assert.are.equal("synced", ModuleHandler.SideOf("modules/transport/actions/unloaded.lua"))
-		assert.are.equal("synced", ModuleHandler.SideOf("modules/transfer/gadgets/cmd_take.lua"))
-		assert.are.equal("unsynced", ModuleHandler.SideOf("modules/transfer/api_unsynced.lua"))
-		assert.are.equal("unsynced", ModuleHandler.SideOf("modules/transfer/unit/unsynced.lua"))
-		assert.are.equal("unsynced", ModuleHandler.SideOf("modules/transfer/widgets/cmd_take.lua"))
-		assert.are.equal("unsynced", ModuleHandler.SideOf("modules/game/rml_widgets/x/x.lua"))
-		assert.is_nil(ModuleHandler.SideOf("luaui/Widgets/gui_pip.lua"), "not a module file")
+	it("are read off a path", function()
+		assert.is_nil(sideOf("modules/regions/api.lua"))
+		assert.is_nil(sideOf("modules/regions/policies/check.lua"))
+		assert.is_nil(sideOf("modules/transfer/unit/shared.lua"))
+		assert.are.equal("synced", sideOf("modules/transport/api_synced.lua"))
+		assert.are.equal("synced", sideOf("modules/transfer/unit/synced.lua"))
+		assert.are.equal("synced", sideOf("modules/transport/actions/unloaded.lua"))
+		assert.are.equal("synced", sideOf("modules/transfer/gadgets/cmd_take.lua"))
+		assert.are.equal("unsynced", sideOf("modules/transfer/api_unsynced.lua"))
+		assert.are.equal("unsynced", sideOf("modules/transfer/unit/unsynced.lua"))
+		assert.are.equal("unsynced", sideOf("modules/transfer/widgets/cmd_take.lua"))
+		assert.are.equal("unsynced", sideOf("modules/game/rml_widgets/x/x.lua"))
+		assert.is_nil(sideOf("luaui/Widgets/gui_pip.lua"), "not a module file")
 	end)
 
 	describe("across the stack", function()
@@ -119,7 +140,7 @@ describe("a module's sides", function()
 			ModuleHandler.ResetCaches()
 			for _, manifest in pairs(ModuleHandler.Register()) do
 				for _, path in ipairs(luaFilesUnder(manifest.dir)) do
-					files[#files + 1] = { path = path, side = ModuleHandler.SideOf(path), text = assert(read(path)) }
+					files[#files + 1] = { path = path, side = sideOf(path), text = assert(read(path)) }
 				end
 			end
 			assert.is_true(#files > 0)
@@ -130,7 +151,7 @@ describe("a module's sides", function()
 			for _, file in ipairs(files) do
 				if file.side == nil then
 					for _, required in ipairs(requiredModules(file.text)) do
-						if ModuleHandler.SideOf(required) ~= nil then
+						if sideOf(required) ~= nil then
 							crossings[#crossings + 1] = file.path .. " requires " .. required
 						end
 					end
@@ -144,7 +165,7 @@ describe("a module's sides", function()
 			for _, file in ipairs(files) do
 				if file.side ~= nil then
 					for _, required in ipairs(requiredModules(file.text)) do
-						local side = ModuleHandler.SideOf(required)
+						local side = sideOf(required)
 						if side ~= nil and side ~= file.side then
 							crossings[#crossings + 1] = file.path .. " requires " .. required
 						end
