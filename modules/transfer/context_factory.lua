@@ -45,6 +45,8 @@ function ContextFactory.create(springRepo, enrichers)
 	---@param extensions? table
 	---@return TransferContext
 	local function buildContext(senderTeamID, receiverTeamID, extensions)
+		---@type TransferContract
+		local Transfer = ModuleHandler.Contract(Modules.Transfer)
 		---@type TransferTeamResources
 		local senderResources = {
 			metal = getResource(senderTeamID, TransferEnums.ResourceType.METAL),
@@ -69,7 +71,7 @@ function ContextFactory.create(springRepo, enrichers)
 			isCheatingEnabled = springRepo.IsCheatingEnabled(),
 		}
 
-		local resolved = enrichers or ModuleHandler.LoadEnrichers(ModuleHandler.Contract(Modules.Transfer).TeamPairing)
+		local resolved = enrichers or ModuleHandler.LoadEnrichers(Transfer.TeamPairing)
 		local live = nil
 		if not enrichers then
 			live = ModuleHandler.LiveModulesFor(modOptions)

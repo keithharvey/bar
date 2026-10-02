@@ -38,11 +38,12 @@ end
 Comms.FormatNumberForUI = FormatNumberForUI
 
 function Comms.TooltipText(policyResult)
+	---@type TransferContract
+	local Transfer = ModuleHandler.Contract(Modules.Transfer)
 	local resBase = policyResult.resourceType == TransferEnums.ResourceType.METAL and "ui.playersList.shareMetal"
 		or "ui.playersList.shareEnergy"
 	local pascalResourceType = policyResult.resourceType:gsub("^%l", string.upper)
-	local notes =
-		Notes.For(ModuleHandler.Contract(Modules.Transfer).ResourceTermsNotes, policyResult, Spring.GetModOptions())
+	local notes = Notes.For(Transfer.ResourceTermsNotes, policyResult, Spring.GetModOptions())
 	local taxUnlock, tb = notes.taxUnlock, policyResult.techBlocking
 	local tree = taxUnlock and "tech" or "base"
 	local r = resBase .. "." .. tree

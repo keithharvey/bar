@@ -29,6 +29,8 @@ local reclaimEnabled = Spring.GetModOptions()[ConstructionEnums.ModOptions.Allie
 ---@param command "reclaim"|"guard"
 ---@return boolean
 local function mayReclaim(unitTeam, targetID, command)
+	---@type ConstructionContract
+	local Construction = ModuleHandler.Contract(Modules.Construction)
 	local targetTeam = Spring.GetUnitTeam(targetID)
 	if targetTeam == nil then
 		return true
@@ -41,7 +43,7 @@ local function mayReclaim(unitTeam, targetID, command)
 		targetCanReclaim = (targetUnitDef and targetUnitDef.canReclaim) == true,
 		reclaimEnabled = reclaimEnabled,
 	}
-	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Construction).Reclaim, ctx) == true
+	return ModuleHandler.Evaluate(Construction.Reclaim, ctx) == true
 end
 
 function gadget:Initialize()

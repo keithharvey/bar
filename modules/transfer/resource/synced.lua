@@ -70,8 +70,10 @@ end
 ---@param resourceType ResourceName the resource asked about
 ---@return ResourceTransferTerms
 function Gadgets.CalcResourcePolicy(ctx, resourceType)
+	---@type TransferContract
+	local Transfer = ModuleHandler.Contract(Modules.Transfer)
 	local ask = setmetatable({ resourceType = resourceType, taxRate = resolveEffectiveRate(ctx) }, { __index = ctx }) --[[@as TransferResourceContext]]
-	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transfer).ResourceTransfer, ask)
+	return ModuleHandler.Evaluate(Transfer.ResourceTransfer, ask)
 end
 
 ---@param springRepo Spring

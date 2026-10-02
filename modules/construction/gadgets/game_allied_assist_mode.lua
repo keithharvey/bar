@@ -83,6 +83,8 @@ end
 ---@param targetIsBuilder boolean
 ---@return boolean
 local function mayAssist(unitTeam, targetID, targetIsBuilder)
+	---@type ConstructionContract
+	local Construction = ModuleHandler.Contract(Modules.Construction)
 	---@type ConstructionAssistContext
 	local ctx = {
 		allied = isAlliedUnit(unitTeam, targetID) == true,
@@ -90,7 +92,7 @@ local function mayAssist(unitTeam, targetID, targetIsBuilder)
 		targetIsBuilder = targetIsBuilder,
 		assistEnabled = assistEnabled,
 	}
-	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Construction).Assist, ctx) == true
+	return ModuleHandler.Evaluate(Construction.Assist, ctx) == true
 end
 
 local function isBuilderAllowedCommand(cmdID, p1, p2, p5, p6, unitTeam)

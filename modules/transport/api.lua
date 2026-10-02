@@ -135,8 +135,10 @@ local TransportApi = {
 	---@param passengerDefID integer
 	---@return boolean
 	MayCarry = function(carrierDefID, passengerID, passengerDefID)
+		---@type TransportContract
+		local Transport = ModuleHandler.Contract(Modules.Transport)
 		local _, y = Spring.GetUnitPosition(passengerID)
-		return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transport).Load, {
+		return ModuleHandler.Evaluate(Transport.Load, {
 			goalY = y,
 			height = Spring.GetUnitHeight(passengerID),
 			carrierDef = UnitDefs[carrierDefID],
@@ -153,8 +155,10 @@ local TransportApi = {
 	---@param goalZ number
 	---@return boolean
 	MayLoad = function(carrierID, carrierDefID, passengerID, passengerDefID, goalX, goalY, goalZ)
+		---@type TransportContract
+		local Transport = ModuleHandler.Contract(Modules.Transport)
 		local reach = Traits.Of(carrierDefID).reach
-		local allowed = ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transport).Load, {
+		local allowed = ModuleHandler.Evaluate(Transport.Load, {
 			carrierDef = UnitDefs[carrierDefID],
 			passengerDef = UnitDefs[passengerDefID],
 			goalY = goalY,
@@ -178,8 +182,10 @@ local TransportApi = {
 	---@param goalZ number
 	---@return boolean
 	MayUnload = function(carrierID, carrierDefID, passengerID, goalX, goalY, goalZ)
+		---@type TransportContract
+		local Transport = ModuleHandler.Contract(Modules.Transport)
 		local reach = Traits.Of(carrierDefID).reach
-		local allowed = ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transport).Unload, {
+		local allowed = ModuleHandler.Evaluate(Transport.Unload, {
 			goalY = goalY,
 			height = Spring.GetUnitHeight(passengerID),
 			reach = reach,
@@ -197,10 +203,12 @@ local TransportApi = {
 	---@param targetID integer
 	---@return boolean
 	MayOrderLoad = function(carrierID, carrierDefID, teamID, targetID)
+		---@type TransportContract
+		local Transport = ModuleHandler.Contract(Modules.Transport)
 		local targetTeam = Spring.GetUnitTeam(targetID)
 		local targetDefID = Spring.GetUnitDefID(targetID)
 		local _, y = Spring.GetUnitPosition(targetID)
-		return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transport).Load, {
+		return ModuleHandler.Evaluate(Transport.Load, {
 			goalY = y,
 			height = Spring.GetUnitHeight(targetID),
 			carrierDef = UnitDefs[carrierDefID],
@@ -218,8 +226,10 @@ local TransportApi = {
 	---@param goalZ number
 	---@return boolean
 	MayOrderUnload = function(goalX, goalY, goalZ)
+		---@type TransportContract
+		local Transport = ModuleHandler.Contract(Modules.Transport)
 		local _, normalY = Spring.GetGroundNormal(goalX, goalZ)
-		return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transport).Unload, {
+		return ModuleHandler.Evaluate(Transport.Unload, {
 			goalY = goalY,
 			height = 0,
 			nano = true,
@@ -266,6 +276,8 @@ local TransportApi = {
 	---@param carrierID integer
 	---@return number|nil
 	LoadedSpeed = function(carrierID)
+		---@type TransportContract
+		local Transport = ModuleHandler.Contract(Modules.Transport)
 		local cargo = Spring.GetUnitIsTransporting(carrierID)
 		if cargo == nil then
 			return nil
@@ -277,7 +289,7 @@ local TransportApi = {
 				carriesCommander = true
 			end
 		end
-		return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transport).LoadedSpeed, {
+		return ModuleHandler.Evaluate(Transport.LoadedSpeed, {
 			carriesCommander = carriesCommander,
 			transportSpeed = Traits.OfUnit(carrierID).speed or 0,
 			dragEnabled = Spring.GetModOptions()[TransportEnums.ModOptions.CommanderTransportSlow] == true,

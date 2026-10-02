@@ -21,9 +21,11 @@ end
 ---@param modOptions table
 ---@return TakeTerms
 function Comms.GetPolicy(modOptions)
+	---@type TransferContract
+	local Transfer = ModuleHandler.Contract(Modules.Transfer)
 	---@type TransferTakeContext
 	local ctx = { modOptions = modOptions }
-	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transfer).Take, ctx)
+	return ModuleHandler.Evaluate(Transfer.Take, ctx)
 end
 
 ---@class TakeResult

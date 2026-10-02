@@ -27,6 +27,8 @@ local spGetFeatureResources = Spring.GetFeatureResources
 local spSetFeatureResurrect = Spring.SetFeatureResurrect
 
 function gadget:AllowFeatureBuildStep(builderID, builderTeam, featureID, featureDefID, part)
+	---@type ConstructionContract
+	local Construction = ModuleHandler.Contract(Modules.Construction)
 	if part >= 0 then
 		return true
 	end
@@ -35,7 +37,7 @@ function gadget:AllowFeatureBuildStep(builderID, builderTeam, featureID, feature
 	if metal == defMetal then
 		---@type ConstructionResurrectContext
 		local ctx = { partialAllowed = allowPartialResurrection }
-		if not ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Construction).Resurrect, ctx) then
+		if not ModuleHandler.Evaluate(Construction.Resurrect, ctx) then
 			spSetFeatureResurrect(featureID, false)
 		end
 	end

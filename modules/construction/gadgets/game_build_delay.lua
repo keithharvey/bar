@@ -19,8 +19,10 @@ local Modules = require("modules/enums").Modules
 ---@param ctx ConstructionBuildContext
 ---@return boolean
 local function mayBuild(ctx)
+	---@type ConstructionContract
+	local Construction = ModuleHandler.Contract(Modules.Construction)
 	ctx.delayed = Debuff.IsDelayed(ctx.builderID)
-	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Construction).Build, ctx) == true
+	return ModuleHandler.Evaluate(Construction.Build, ctx) == true
 end
 
 local spGetUnitIsBeingBuilt = Spring.GetUnitIsBeingBuilt

@@ -81,10 +81,12 @@ local MexSplitting = {
 	---@param spots { x: number, z: number }[] the map's metal spots
 	---@return MexRegionsDeal
 	Deal = function(teams, springRepo, spots)
+		---@type TransferContract
+		local Transfer = ModuleHandler.Contract(Modules.Transfer)
 		local regions = state.mexRegions or {}
 		---@type MexRegionsDealContext
 		local ctx = { regions = regions, spots = spots or {}, teams = teams }
-		local deal = ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transfer).MexSplitting, ctx)
+		local deal = ModuleHandler.Evaluate(Transfer.MexSplitting, ctx)
 		state.mexDeal = deal
 		state.mexTeams = teams
 		state.mexGifted = {}
@@ -97,6 +99,8 @@ local MexSplitting = {
 	---@param springRepo Spring
 	---@return integer|nil heir the team that took them; nil when the team held nothing or nobody is left to take it
 	Inherit = function(departingTeamID, springRepo)
+		---@type TransferContract
+		local Transfer = ModuleHandler.Contract(Modules.Transfer)
 		local deal, teams = state.mexDeal, state.mexTeams or {}
 		local departing ---@type MexRegionsTeamStart|nil
 		for _, team in ipairs(teams) do
@@ -119,10 +123,7 @@ local MexSplitting = {
 				heirs[#heirs + 1] = { teamID = team.teamID, x = team.x, z = team.z, gifted = gifted[team.teamID] or 0 }
 			end
 		end
-		local heir = ModuleHandler.Evaluate(
-			ModuleHandler.Contract(Modules.Transfer).MexSplittingHeir,
-			{ departing = departing, heirs = heirs }
-		)
+		local heir = ModuleHandler.Evaluate(Transfer.MexSplittingHeir, { departing = departing, heirs = heirs })
 		if not heir then
 			return nil
 		end

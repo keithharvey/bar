@@ -25,13 +25,15 @@ end
 ---@param springRepo Spring? defaults to Spring (pass a repo to stay testable)
 ---@return number
 function Tax.GetTaxRate(teamId, opts, springRepo)
+	---@type TransferContract
+	local Transfer = ModuleHandler.Contract(Modules.Transfer)
 	springRepo = springRepo or Spring
 	opts = opts or springRepo.GetModOptions()
 	---@cast opts table<string, string|number|boolean>
 	---@type TransferTeamContext
 	local ctx = { teamId = teamId, modOptions = opts, springRepo = springRepo }
-	local terms = ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Transfer).TeamTerms, ctx)
-	local rate = tonumber(terms[ModuleHandler.Contract(Modules.Transfer).TeamTerms.TaxRate]) ---@type number?
+	local terms = ModuleHandler.Enrich(Transfer.TeamTerms, ctx)
+	local rate = tonumber(terms[Transfer.TeamTerms.TaxRate]) ---@type number?
 	if not rate or rate < 0 then
 		rate = tonumber(opts[TAX_KEY]) or 0
 	end

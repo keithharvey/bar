@@ -77,7 +77,9 @@ end
 ---@param policy UnitTransferTerms
 ---@param validationResult TransferUnitValidation?
 function Comms.TooltipText(policy, validationResult)
-	local notes = Notes.For(ModuleHandler.Contract(Modules.Transfer).UnitTermsNotes, policy, Spring.GetModOptions())
+	---@type TransferContract
+	local Transfer = ModuleHandler.Contract(Modules.Transfer)
+	local notes = Notes.For(Transfer.UnitTermsNotes, policy, Spring.GetModOptions())
 	local hasTechUnlock = policy.techBlocking ~= nil
 	local futureUnlock = hasTechUnlock and notes.futureUnlock == true
 	local tree = (hasTechUnlock and futureUnlock) and "tech" or "base"

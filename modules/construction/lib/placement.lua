@@ -43,6 +43,8 @@ local Placement = {}
 ---@param springRepo Spring
 ---@return boolean
 function Placement.Decide(unitDefID, builderTeam, x, y, z, springRepo)
+	---@type ConstructionContract
+	local Construction = ModuleHandler.Contract(Modules.Construction)
 	local opts = springRepo.GetModOptions()
 	local kind = extractorKinds()[unitDefID]
 	local spotX, spotZ
@@ -69,12 +71,12 @@ function Placement.Decide(unitDefID, builderTeam, x, y, z, springRepo)
 		spotHolder = builderTeam,
 		spotHolderAllied = false,
 	}
-	local facts = ModuleHandler.Enrich(ModuleHandler.Contract(Modules.Construction).PlacementFacts, ctx, springRepo)
-	ctx.spotHolder = facts[ModuleHandler.Contract(Modules.Construction).PlacementFacts.SpotHolder]
-	ctx.utilitySharing = facts[ModuleHandler.Contract(Modules.Construction).PlacementFacts.UtilitySharing] == true
+	local facts = ModuleHandler.Enrich(Construction.PlacementFacts, ctx, springRepo)
+	ctx.spotHolder = facts[Construction.PlacementFacts.SpotHolder]
+	ctx.utilitySharing = facts[Construction.PlacementFacts.UtilitySharing] == true
 	ctx.spotHolderAllied = ctx.spotHolder ~= builderTeam
 		and springRepo.AreTeamsAllied(builderTeam, ctx.spotHolder) == true
-	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Construction).Placement, ctx) == true
+	return ModuleHandler.Evaluate(Construction.Placement, ctx) == true
 end
 
 local anyMex ---@type integer|nil

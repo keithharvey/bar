@@ -28,6 +28,8 @@ local CheckSet = {
 Policy.Fold(CheckSet)
 
 Policies.On(CheckSet).Apply(CheckSet.Each, function(ctx)
+	---@type RegionsContract
+	local Regions = ModuleHandler.Contract(Modules.Regions)
 	local names = {} ---@type table<Region, string>
 	for i, region in ipairs(ctx.regions) do
 		names[region] = ctx.names[i]
@@ -35,7 +37,7 @@ Policies.On(CheckSet).Apply(CheckSet.Each, function(ctx)
 	for i, region in ipairs(ctx.regions) do
 		---@type RegionCheckContext<Region>
 		local one = { type = ctx.type, region = region, siblings = ctx.regions, names = names, problems = {} }
-		ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Regions).Check, one)
+		ModuleHandler.Evaluate(Regions.Check, one)
 		for _, problem in ipairs(one.problems) do
 			Problems.OfRegion(ctx, i, problem.message, problem.at)
 		end

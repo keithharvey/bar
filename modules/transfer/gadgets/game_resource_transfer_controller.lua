@@ -90,12 +90,14 @@ end
 ---@param ctx ConstructionBuildContext
 ---@return boolean
 local function payAssistTax(ctx)
+	---@type ConstructionContract
+	local ConstructionContract = ModuleHandler.Contract(Modules.Construction)
 	local quote = AssistTax.Quote(ctx, springRepo)
 	if quote == nil then
 		return true
 	end
 	ctx.delayed = Construction.IsBuilderDelayed(ctx.builderID)
-	if not ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Construction).Build, ctx) then
+	if not ModuleHandler.Evaluate(ConstructionContract.Build, ctx) then
 		return false
 	end
 	spUseUnitResource(ctx.builderID, "metal", quote.metalTax)

@@ -31,9 +31,11 @@ local Api = {}
 ---@param regions Region[]
 ---@return { name: string, derived: boolean }[]
 local function namesOf(kind, regions)
+	---@type RegionsContract
+	local Regions = ModuleHandler.Contract(Modules.Regions)
 	---@type RegionNamesContext<Region>
 	local ctx = { type = kind, regions = regions, proposed = {} }
-	ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Regions).Names, ctx)
+	ModuleHandler.Evaluate(Regions.Names, ctx)
 	return Names.Of(regions, ctx.proposed)
 end
 
@@ -61,6 +63,8 @@ end
 ---@param fieldsOnly boolean|nil
 ---@return RegionProblem[]
 function Api.Check(typeKey, region, siblings, fieldsOnly)
+	---@type RegionsContract
+	local Regions = ModuleHandler.Contract(Modules.Regions)
 	local kind = Types.byKey[typeKey]
 	if not kind then
 		return { { message = "unknown region type " .. tostring(typeKey) } }
@@ -84,7 +88,7 @@ function Api.Check(typeKey, region, siblings, fieldsOnly)
 		fieldsOnly = fieldsOnly,
 		problems = {},
 	}
-	ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Regions).Check, ctx)
+	ModuleHandler.Evaluate(Regions.Check, ctx)
 	return ctx.problems
 end
 
@@ -93,6 +97,8 @@ end
 ---@param map RegionMap|nil
 ---@return RegionProblem[]
 function Api.CheckSet(typeKey, regions, map)
+	---@type RegionsContract
+	local Regions = ModuleHandler.Contract(Modules.Regions)
 	local kind = Types.byKey[typeKey]
 	if not kind then
 		return { { message = "unknown region type " .. tostring(typeKey) } }
@@ -103,7 +109,7 @@ function Api.CheckSet(typeKey, regions, map)
 	end
 	---@type RegionSetContext<Region>
 	local ctx = { type = kind, regions = regions, names = names, map = map or {}, problems = {} }
-	ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Regions).CheckSet, ctx)
+	ModuleHandler.Evaluate(Regions.CheckSet, ctx)
 	return ctx.problems
 end
 
@@ -452,13 +458,15 @@ end
 ---@param map RegionMap|nil
 ---@return RegionDescription|nil
 function Api.Describe(region, map)
+	---@type RegionsContract
+	local Regions = ModuleHandler.Contract(Modules.Regions)
 	local kind = Types.byKey[region.type]
 	if not kind then
 		return nil
 	end
 	---@type RegionDescribeContext<Region>
 	local ctx = { type = kind, region = region, map = map or {} }
-	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Regions).Describe, ctx) or nil
+	return ModuleHandler.Evaluate(Regions.Describe, ctx) or nil
 end
 
 Api.Enums = { Geometry = Enums.Geometry, Types = Types.keys }

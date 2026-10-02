@@ -11,7 +11,9 @@ local Synced = {
 ---@param ctx TransferContext
 ---@return UnitTransferTerms
 function Synced.GetPolicy(ctx)
-	return ModuleHandler.Evaluate(ModuleHandler.Contract(Modules.Transfer).UnitTransfer, ctx)
+	---@type TransferContract
+	local Transfer = ModuleHandler.Contract(Modules.Transfer)
+	return ModuleHandler.Evaluate(Transfer.UnitTransfer, ctx)
 end
 
 ---@param springRepo Spring
