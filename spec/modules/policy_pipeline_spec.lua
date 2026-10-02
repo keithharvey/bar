@@ -533,17 +533,22 @@ end)
 describe("what a mode makes live", function()
 	local byCategory = {
 		transfer = {
-			enabled = { key = "enabled", category = "transfer", module = "transfer", uses = {} },
-			tech_core = { key = "tech_core", category = "transfer", module = "tech", uses = {} },
-			customize = { key = "customize", category = "transfer", module = "transfer", uses = { "tech" } },
+			enabled = { key = "enabled", category = "transfer", module = "transfer", modules = { "transfer" } },
+			tech_core = { key = "tech_core", category = "transfer", module = "tech", modules = { "tech" } },
+			customize = {
+				key = "customize",
+				category = "transfer",
+				module = "transfer",
+				modules = { "tech", "transfer" },
+			},
 		},
 		game = {
-			standard = { key = "standard", category = "game", module = "modes", uses = {} },
+			standard = { key = "standard", category = "game", module = "modes", modules = { "modes" } },
 		},
 	}
 	local alwaysLive = { economy = true, construction = true }
 
-	it("is the preset's module, what it Uses, and every module that ships no presets", function()
+	it("is what the picked presets make live, and every module that ships no presets", function()
 		assert.are.same(
 			{ economy = true, construction = true, transfer = true, modes = true },
 			ModuleHandler.LiveModules(byCategory, alwaysLive, { transfer = "enabled", game = "standard" })
@@ -573,7 +578,9 @@ describe("what a mode makes live", function()
 		local withOther = {
 			transfer = byCategory.transfer,
 			game = byCategory.game,
-			experiments = { other = { key = "other", category = "experiments", module = "other", uses = {} } },
+			experiments = {
+				other = { key = "other", category = "experiments", module = "other", modules = { "other" } },
+			},
 		}
 		assert.are.same({
 			"taxRate is provided by both other/p.lua and tech/p.lua under experiments=other, game=standard, transfer=customize",

@@ -4,7 +4,6 @@
 ---@field Desc fun(desc: string): TransferModeChain
 ---@field Ranked fun(enabled: boolean?): TransferModeChain permission is a flag; Ranked(false) pins ranked_game off, lockable like any policy
 ---@field RetainValues fun(): TransferModeChain
----@field Uses fun(moduleName: string): TransferModeChain A module whose fact providers this preset makes live, besides the module that ships the preset; named by its contract.lua, never a string.
 ---@field Hidden fun(): TransferModeChain
 ---@field Unlocked fun(): TransferModeChain
 ---@field Locked fun(): TransferModeChain
@@ -15,8 +14,6 @@
 ---@field Stun fun(noun: TransferGrant, seconds: number?): TransferModeChain
 ---@field Defer fun(noun: TransferGrant): TransferModeChain
 ---@field Delay fun(noun: TransferGrant, seconds: number): TransferModeChain
----@field Gate fun(noun: TransferGrant, t2: number, t3: number): TransferModeChain
----@field Open fun(noun: TransferGrant, t2: number, t3: number): TransferModeChain
 ---@field MexSplitting fun(which: MexSplittingKey): TransferModeChain How a lobby chooses to allocate a team's mex income
 
 ---@param name string

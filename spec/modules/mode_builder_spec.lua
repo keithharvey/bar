@@ -147,21 +147,6 @@ describe("mode builder", function()
 		end)
 	end)
 
-	describe("Uses", function()
-		it("names the modules a preset makes live besides its own", function()
-			local Modules = require("modules/enums").Modules
-			local mode = grammar()("Customize").Uses(Modules.Tech).Uses(Modules.Economy)
-			assert.are.same({ "tech", "economy" }, mode.uses)
-			assert.is_nil(grammar()("Plain").uses)
-		end)
-
-		it("refuses a name that is no module's", function()
-			assert.has_error(function()
-				grammar()("Customize").Uses("teck")
-			end, "Customize: .Uses expects a module (Modules.X, from modules/enums.lua)")
-		end)
-	end)
-
 	describe("Ranked", function()
 		it("permission is a flag: nothing pinned", function()
 			local mode = grammar()("R").Ranked()

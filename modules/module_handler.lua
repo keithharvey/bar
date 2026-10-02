@@ -638,7 +638,7 @@ end
 ---@field key string
 ---@field category string
 ---@field module string the module whose modes/ holds it
----@field uses string[] modules the preset makes live besides its own
+---@field modules string[] what the preset makes live: its own module, and every module whose modoptions it writes
 
 local modeVerbsCache = {} ---@type table<string, table<string, ModeVerb>>
 
@@ -690,6 +690,26 @@ function ModuleHandler.ModeVerbs(category, vfsMode)
 end
 
 ---@param vfsMode string?
+---@return table<string, string> owner module by modoption key
+local function modOptionOwners(vfsMode)
+	local owners = {}
+	for name, manifest in pairs(ModuleHandler.Manifests(vfsMode)) do
+		local path = manifest.dir .. LAYOUT.modOptions
+		if VFS.FileExists(path, vfsMode) then
+			local options = VFS.Include(path, nil, vfsMode)
+			for _, option in ipairs(type(options) == "table" and options or {}) do
+				if type(option.key) == "string" then
+					owners[option.key] = name
+				end
+			end
+		end
+	end
+	return owners
+end
+
+-- A preset makes live its own module and every module whose modoptions it writes: a mode that opens a module's
+-- dials wants that module's rules on.
+---@param vfsMode string?
 ---@return table<string, table<string, ModulePreset>> presets by category, by key
 ---@return table<string, boolean> modules that ship no presets: always live
 function ModuleHandler.Presets(vfsMode)
@@ -697,6 +717,7 @@ function ModuleHandler.Presets(vfsMode)
 		return presetsCache.byCategory, presetsCache.alwaysLive
 	end
 	local manifests = ModuleHandler.Manifests(vfsMode)
+	local owners = modOptionOwners(vfsMode)
 	local byCategory = {} ---@type table<string, table<string, ModulePreset>>
 	local alwaysLive = {} ---@type table<string, boolean>
 	for name, manifest in pairs(manifests) do
@@ -707,12 +728,21 @@ function ModuleHandler.Presets(vfsMode)
 			local ok, mode = pcall(VFS.Include, filePath, nil, vfsMode)
 			if ok and type(mode) == "table" and mode.key and mode.category then
 				shipped = true
+				local modules, seen = { name }, { [name] = true }
+				for key in pairs(mode.modOptions or {}) do
+					local owner = owners[key]
+					if owner and not seen[owner] then
+						seen[owner] = true
+						modules[#modules + 1] = owner
+					end
+				end
+				table.sort(modules)
 				byCategory[mode.category] = byCategory[mode.category] or {}
 				byCategory[mode.category][mode.key] = {
 					key = mode.key,
 					category = mode.category,
 					module = name,
-					uses = mode.uses or {},
+					modules = modules,
 				}
 			end
 		end
@@ -759,9 +789,8 @@ function ModuleHandler.LiveModules(byCategory, alwaysLive, selection)
 	for category, presets in pairs(byCategory) do
 		local preset = selection[category] and presets[selection[category]]
 		if preset then
-			live[preset.module] = true
-			for _, used in ipairs(preset.uses) do
-				live[used] = true
+			for _, name in ipairs(preset.modules) do
+				live[name] = true
 			end
 		end
 	end

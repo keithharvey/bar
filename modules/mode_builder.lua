@@ -1,10 +1,5 @@
 local Policy = require("modules/policy")
 
-local MODULE_NAMES = {}
-for _, moduleName in pairs(require("modules/enums").Modules) do
-	MODULE_NAMES[moduleName] = true
-end
-
 ---@class ModOptionConfig
 ---@field value string|number|boolean
 ---@field locked boolean
@@ -31,7 +26,6 @@ end
 ---@field allowRanked boolean
 ---@field retainValues boolean|nil non-sticky preset: expose, keep current values
 ---@field bots string[]|nil AI short names the lobby fields
----@field uses string[]|nil modules this preset makes live besides its own
 ---@field policies ModePolicyRef[]
 ---@field modOptions table<string, ModOptionConfig>
 
@@ -181,14 +175,6 @@ function ModeBuilder.Grammar(grammar)
 			assert(type(aiName) == "string", "Mode(...).Bot expects an AI short name")
 			chain.bots = chain.bots or {}
 			chain.bots[#chain.bots + 1] = aiName
-			return chain
-		end
-
-		---@param moduleName string a Modules entry (modules/enums.lua)
-		chain.Uses = function(moduleName)
-			assert(MODULE_NAMES[moduleName], name .. ": .Uses expects a module (Modules.X, from modules/enums.lua)")
-			chain.uses = chain.uses or {}
-			chain.uses[#chain.uses + 1] = moduleName
 			return chain
 		end
 

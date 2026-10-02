@@ -1,6 +1,7 @@
 local Actions = require("modules/transfer/lib/actions")
 local ConstructionEnums = require("modules/construction/enums")
 local ModeBuilder = require("modules/mode_builder")
+local ModuleHandler = require("modules/module_handler")
 local TransferEnums = require("modules/transfer/enums")
 
 ---@class TransferModeDSL
@@ -97,19 +98,6 @@ local deny = {
 	end,
 }
 
----@param t2 number
----@param t3 number
----@param blocking boolean
----@param lock { noun: boolean, dial: boolean }
----@return table<string, ModOptionConfig>
-local function techGate(t2, t3, blocking, lock)
-	return {
-		[Opt.TechBlocking] = { value = blocking, locked = lock.noun },
-		[Opt.T2TechThreshold] = { value = t2, locked = lock.dial },
-		[Opt.T3TechThreshold] = { value = t3, locked = lock.dial },
-	}
-end
-
 ---@param parse fun(name: string, ...): table
 ---@param write fun(p: table, lock: { noun: boolean, dial: boolean }): table<string, ModOptionConfig>
 ---@return ModeVerb
@@ -191,20 +179,6 @@ local verbs = {
 		}
 	end),
 
-	Gate = rule(function(name, noun, t2, t3)
-		DomainOf(name, "Gate", noun, { tech = true }, "Tech")
-		return { t2 = t2, t3 = t3 }
-	end, function(p, lock)
-		return techGate(p.t2, p.t3, true, lock)
-	end),
-
-	Open = rule(function(name, noun, t2, t3)
-		DomainOf(name, "Open", noun, { tech = true }, "Tech")
-		return { t2 = t2, t3 = t3 }
-	end, function(p, lock)
-		return techGate(p.t2, p.t3, false, lock)
-	end),
-
 	MexSplitting = rule(function(name, which)
 		ModeBuilder.OneOf(name, "MexSplitting", TransferEnums.MexSplitting, which)
 		return { which = which }
@@ -215,7 +189,7 @@ local verbs = {
 
 M.Mode = ModeBuilder.Grammar({
 	category = TransferEnums.ModeCategories.Transfer,
-	verbs = verbs,
+	verbs = ModeBuilder.Verbs(verbs, ModuleHandler.ModeVerbs(TransferEnums.ModeCategories.Transfer)),
 }) --[[@as fun(name: string): TransferModeChain]]
 
 return M

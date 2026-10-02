@@ -2,6 +2,7 @@
 local Builders = VFS.Include("spec/builders/index.lua")
 local ConstructionEnums = require("modules/construction/enums")
 local H = require("modules/transfer/spec/support/mode_test_helpers")
+local TechEnums = require("modules/tech/enums")
 local TransferEnums = require("modules/transfer/enums")
 
 local techCoreMode = require("modules/tech/modes/tech_core")
@@ -31,8 +32,8 @@ local function techCoreEnricher(techLevel, modeConfig)
 				return {
 					level = techLevel,
 					points = techLevel - 1,
-					t2Threshold = modeConfig.modOptions[TransferEnums.ModOptions.T2TechThreshold].value,
-					t3Threshold = modeConfig.modOptions[TransferEnums.ModOptions.T3TechThreshold].value,
+					t2Threshold = modeConfig.modOptions[TechEnums.ModOptions.T2TechThreshold].value,
+					t3Threshold = modeConfig.modOptions[TechEnums.ModOptions.T3TechThreshold].value,
 				},
 					effectiveTax
 			end,
@@ -478,9 +479,9 @@ describe("Tech Core mode policy bundle", function()
 	it("serializes to the exact modOptions the literal preset declared", function()
 		assert.same({
 			[TransferEnums.ModOptions.MexSplitting] = { value = TransferEnums.MexSplitting.Shared, locked = true },
-			[TransferEnums.ModOptions.TechBlocking] = { value = true, locked = true },
-			[TransferEnums.ModOptions.T2TechThreshold] = { value = 1, locked = false },
-			[TransferEnums.ModOptions.T3TechThreshold] = { value = 1.5, locked = false },
+			[TechEnums.ModOptions.TechBlocking] = { value = true, locked = true },
+			[TechEnums.ModOptions.T2TechThreshold] = { value = 1, locked = false },
+			[TechEnums.ModOptions.T3TechThreshold] = { value = 1.5, locked = false },
 			[TransferEnums.ModOptions.UnitSharingMode] = {
 				value = ConstructionEnums.UnitFilterCategory.None,
 				locked = true,

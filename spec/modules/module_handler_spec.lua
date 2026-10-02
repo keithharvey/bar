@@ -28,8 +28,9 @@ describe("ModuleHandler", function()
 	end)
 
 	describe("LiveModulesFor", function()
-		-- One module on a fake VFS, so the spec stands on its own at every point in the stack:
-		-- a manifest, a modoptions file with a <category>_mode option, and two presets.
+		-- Two modules on a fake VFS, so the spec stands on its own at every point in the stack: fixture has a
+		-- modoptions file with a <category>_mode option and two presets, one of which writes dials' option;
+		-- dials owns that option and ships a preset of its own on fixture's axis, so it is not always live.
 		local FILES = {
 			["modules/fixture/manifest.lua"] = function()
 				return { name = "fixture" }
@@ -38,10 +39,19 @@ describe("ModuleHandler", function()
 				return { { key = "fixture_mode", type = "list", def = "on" } }
 			end,
 			["modules/fixture/modes/on.lua"] = function()
-				return { key = "on", category = "fixture" }
+				return { key = "on", category = "fixture", modOptions = { dials_depth = { value = 2 } } }
 			end,
 			["modules/fixture/modes/off.lua"] = function()
 				return { key = "off", category = "fixture" }
+			end,
+			["modules/dials/manifest.lua"] = function()
+				return { name = "dials" }
+			end,
+			["modules/dials/modoptions.lua"] = function()
+				return { { key = "dials_depth", type = "number", def = 1 } }
+			end,
+			["modules/dials/modes/deep.lua"] = function()
+				return { key = "deep", category = "fixture" }
 			end,
 		}
 		local real = {}
@@ -52,7 +62,7 @@ describe("ModuleHandler", function()
 				real[fn] = VFS[fn]
 			end
 			VFS.SubDirs = function()
-				return { "modules/fixture/" }
+				return { "modules/fixture/", "modules/dials/" }
 			end
 			VFS.DirList = function(dir)
 				local found = {}
@@ -99,7 +109,13 @@ describe("ModuleHandler", function()
 			assert.are.equal(afterFirst, includes, "later asks read nothing")
 			assert.is_true(rawequal(first, second))
 			assert.is_false(rawequal(first, third), "a different selection is its own live set")
-			assert.are.same({ fixture = true }, first)
+			assert.are.same({ fixture = true, dials = true }, first)
+		end)
+
+		it("makes live the module whose options the picked preset writes, as well as the preset's own", function()
+			assert.are.same({ fixture = true, dials = true }, ModuleHandler.LiveModulesFor({ fixture_mode = "on" }))
+			assert.are.same({ fixture = true }, ModuleHandler.LiveModulesFor({ fixture_mode = "off" }))
+			assert.are.same({ dials = true }, ModuleHandler.LiveModulesFor({ fixture_mode = "deep" }))
 		end)
 
 		it("forgets both on ResetCaches", function()

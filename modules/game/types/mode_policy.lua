@@ -4,7 +4,6 @@
 ---@field Desc fun(desc: string): GameModeChain The sentence the lobby shows under the mode's name.
 ---@field Ranked fun(enabled: boolean?): GameModeChain Whether the mode may count for rating. Ranked() allows it; Ranked(false), or never saying Ranked, pins ranked_game off, lockable like any claim.
 ---@field Bot fun(aiName: string): GameModeChain An AI the lobby fields for this mode, by short name; repeat for more.
----@field Uses fun(moduleName: string): GameModeChain A module whose fact providers this preset makes live, besides the module that ships the preset; named by its contract.lua, never a string. The mode decides who answers a slot; two live providers for one slot is a load error.
 ---@field RetainValues fun(): GameModeChain A non-sticky preset (Customize): picking it exposes and unlocks its claims but keeps the current values instead of resetting the category to defaults.
 ---@field Hidden fun(): GameModeChain The last claim stays out of the lobby UI; its pin still applies.
 ---@field Unlocked fun(): GameModeChain The last claim is fully editable, noun and dials.

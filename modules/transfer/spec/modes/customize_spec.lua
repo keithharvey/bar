@@ -1,4 +1,5 @@
 local ConstructionEnums = require("modules/construction/enums")
+local TechEnums = require("modules/tech/enums")
 local TransferEnums = require("modules/transfer/enums")
 
 local customizeMode = require("modules/transfer/modes/customize")
@@ -12,9 +13,9 @@ describe("Customize mode policy bundle", function()
 	it("serializes to the exact modOptions the literal preset declared", function()
 		assert.same({
 			[TransferEnums.ModOptions.MexSplitting] = { value = TransferEnums.MexSplitting.None, locked = false },
-			[TransferEnums.ModOptions.TechBlocking] = { value = false, locked = false },
-			[TransferEnums.ModOptions.T2TechThreshold] = { value = 1, locked = false },
-			[TransferEnums.ModOptions.T3TechThreshold] = { value = 1.5, locked = false },
+			[TechEnums.ModOptions.TechBlocking] = { value = false, locked = false },
+			[TechEnums.ModOptions.T2TechThreshold] = { value = 1, locked = false },
+			[TechEnums.ModOptions.T3TechThreshold] = { value = 1.5, locked = false },
 			[TransferEnums.ModOptions.UnitSharingMode] = {
 				value = ConstructionEnums.UnitFilterCategory.All,
 				locked = false,
