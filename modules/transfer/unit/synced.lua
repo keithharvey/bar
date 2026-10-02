@@ -45,13 +45,6 @@ end
 ---@field validationResult TransferUnitValidation
 ---@field policyResult UnitTransferTerms
 
----@param reason string
----@return nil
-local function refused(reason)
-	Spring.Log("transfer", LOG.WARNING, "transfer.units refused: " .. reason)
-	return nil
-end
-
 ---@param unitID integer
 ---@param unitDefID integer
 ---@param terms UnitTransferTerms
@@ -68,28 +61,15 @@ local function applyStun(unitID, unitDefID, terms)
 	Spring.AddUnitDamage(unitID, maxHealth * 5, stunSeconds)
 end
 
--- Units shared under the policy: the pair's terms say whether they may pass and what happens to them, each unit is
--- validated against the terms, and what passes is transferred as a gift, stunned if the terms say so.
+-- Units shared under the policy: the pair's terms say whether they may pass and what happens to them, the validation
+-- says which do, and those are transferred as a gift, stunned if the terms say so. What did not pass is in the result.
 ---@param unitIDs integer[]
 ---@param toTeamID integer
 ---@param fromTeamID integer the team being asked to give them up
----@return TransferUnitResult|nil result nil when the share is refused outright
+---@return TransferUnitResult
 function Synced.Share(unitIDs, toTeamID, fromTeamID)
-	if fromTeamID == toTeamID then
-		return refused("a team cannot share with itself")
-	end
-	if #unitIDs == 0 then
-		return refused("nothing to share")
-	end
 	local terms = Shared.GetCachedTerms(fromTeamID, toTeamID, Spring)
-	if terms == nil or not terms.canShare then
-		return refused("the active mode does not allow unit transfer between these teams")
-	end
 	local validation = Shared.ValidateUnits(terms, unitIDs, Spring)
-	if validation.status == TransferEnums.UnitValidationOutcome.Failure then
-		return refused("none of the units may pass under the active mode")
-	end
-
 	for _, unitID in ipairs(validation.validUnitIds) do
 		Spring.TransferUnit(unitID, toTeamID, true)
 		local unitDefID = Spring.GetUnitDefID(unitID) --[[@as integer?]]
@@ -97,11 +77,12 @@ function Synced.Share(unitIDs, toTeamID, fromTeamID)
 			applyStun(unitID, unitDefID, terms)
 		end
 	end
-	Spring.SendLuaUIMsg("unit_transfer:success:" .. fromTeamID, "")
-
+	if validation.validUnitCount > 0 then
+		Spring.SendLuaUIMsg("unit_transfer:success:" .. fromTeamID, "")
+	end
 	---@type TransferUnitResult
 	return {
-		success = true,
+		success = validation.status ~= TransferEnums.UnitValidationOutcome.Failure,
 		outcome = validation.status,
 		senderTeamId = fromTeamID,
 		receiverTeamId = toTeamID,

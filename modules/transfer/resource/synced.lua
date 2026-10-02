@@ -131,34 +131,15 @@ function Gadgets.UpdatePolicyCache(springRepo, frame, lastUpdate, updateRate, co
 	return frame
 end
 
----@param reason string
----@return nil
-local function refused(reason)
-	Spring.Log("transfer", LOG.WARNING, "transfer.resources refused: " .. reason)
-	return nil
-end
-
--- A resource shared under the policy: the pair's terms for that resource tax and cap it, the ledger records what
--- moved, and both teams are told.
+-- A resource shared under the policy: the pair's terms for that resource say whether, and tax and cap it; the ledger
+-- records what moved and both teams are told. A share the terms refuse is a result that says so.
 ---@param resource ResourceName
 ---@param amount number
 ---@param toTeamID integer
 ---@param fromTeamID integer
----@return TransferResourceResult|nil result nil when the share is refused outright
+---@return TransferResourceResult
 function Gadgets.Share(resource, amount, toTeamID, fromTeamID)
-	if fromTeamID == toTeamID then
-		return refused("a team cannot send resources to itself")
-	end
-	if resource ~= METAL and resource ~= ENERGY then
-		return refused("a resource is metal or energy")
-	end
-	if amount <= 0 then
-		return refused("nothing to send")
-	end
 	local terms = Shared.GetCachedTerms(fromTeamID, toTeamID, resource, Spring)
-	if terms == nil then
-		return refused("no terms are cached for these teams yet")
-	end
 	local ctx = ContextFactory.create(Spring).resourceTransfer(fromTeamID, toTeamID, resource, amount, terms)
 	local result = Gadgets.ResourceTransfer(ctx)
 	local applied = result.policyResult
@@ -184,9 +165,6 @@ end
 ---@param fromTeamID integer
 ---@return number moved
 function Gadgets.Give(resource, amount, toTeamID, fromTeamID)
-	if fromTeamID == toTeamID or amount <= 0 then
-		return 0
-	end
 	adjust(fromTeamID, resource, -amount)
 	adjust(toTeamID, resource, amount)
 	return amount
