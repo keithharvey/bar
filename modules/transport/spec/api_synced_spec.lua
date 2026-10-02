@@ -1,15 +1,12 @@
-local ModuleHandler = require("modules/module_handler")
-local Modules = require("modules/enums").Modules
 local Traits = require("modules/transport/lib/traits")
 
-describe("transport's actions", function()
-	local actions = ModuleHandler.LoadActions(Modules.Transport)
+describe("transport's api in the synced handle", function()
+	local Synced = require("modules/transport/api_synced")
 	local savedSpring, savedUnitDefs
-	local calls
-	local nearby, defOf
+	local calls = {} ---@type table[]
+	local nearby, defOf = {}, {} ---@type integer[], table<integer, integer>
 
 	before_each(function()
-		ModuleHandler.ResetCaches()
 		calls = {}
 		nearby, defOf = {}, {}
 		savedSpring, savedUnitDefs = _G.Spring, _G.UnitDefs
@@ -38,6 +35,12 @@ describe("transport's actions", function()
 			GetUnitDefID = function(unitID)
 				return defOf[unitID] or 2
 			end,
+			GetUnitIsTransporting = function()
+				return nil
+			end,
+			GetGameFrame = function()
+				return 100
+			end,
 		}, { __index = savedSpring })
 		---@diagnostic disable-next-line: global-in-non-module
 		_G.UnitDefs = {
@@ -51,6 +54,7 @@ describe("transport's actions", function()
 			[2] = { customParams = {}, xsize = 2, zsize = 2, leavesGhost = true },
 			[3] = { customParams = { isnanoturret = "1" }, xsize = 2, zsize = 2 },
 		}
+		Synced = require("modules/transport/api_synced")
 	end)
 
 	after_each(function()
@@ -58,43 +62,22 @@ describe("transport's actions", function()
 		_G.Spring, _G.UnitDefs = savedSpring, savedUnitDefs
 	end)
 
-	it("ships loaded, unloaded and halt, each with a validate", function()
-		for _, name in ipairs({ "loaded", "unloaded", "halt" }) do
-			assert.is_not_nil(actions.byName[name], name)
-			assert.is_function(actions.byName[name].validate, name)
-		end
+	it("halts a carrier dead", function()
+		Synced.Halt(9)
+		assert.are.same({ "SetUnitVelocity", 9, 0, 0, 0 }, calls[1])
 	end)
 
-	it("validate refuses a request with no units in it", function()
-		assert.is_false((actions.byName.loaded.validate({})))
-		assert.is_false((actions.byName.unloaded.validate({ unitID = 1 })))
-		assert.is_false((actions.byName.halt.validate({})))
-	end)
-
-	it("loaded hides a passenger on a stealthy carrier and drops its ghost, and records the loaded speed", function()
-		local state = require("modules/transport/state")
-		local request =
-			{ unitID = 7, transportID = 9, carrier = Traits.Of(1), passenger = Traits.Of(2), loadedSpeed = 4 }
-		assert.is_true((actions.byName.loaded.validate(request)))
-		actions.byName.loaded.execute(request)
+	it("loaded hides a passenger on a stealthy carrier and drops its ghost", function()
+		defOf[9] = 1
+		Synced.Loaded(7, 2, 9)
 		assert.are.same({ "SetUnitStealth", 7, true }, calls[1])
 		assert.are.same({ "SetUnitLeavesGhost", 7, false, true }, calls[2])
-		assert.are.equal(4, state.loadedSpeed[9])
 	end)
 
 	it("unloaded reverses that and pins the unit where it landed a few frames on", function()
 		local state = require("modules/transport/state")
-		local request = {
-			unitID = 7,
-			unitDefID = 2,
-			transportID = 9,
-			carrier = Traits.Of(1),
-			passenger = Traits.Of(2),
-			loadedSpeed = false,
-			frame = 100,
-		}
-		assert.is_true((actions.byName.unloaded.validate(request)))
-		actions.byName.unloaded.execute(request)
+		defOf[9] = 1
+		Synced.Unloaded(7, 2, 9)
 		assert.are.same({ "SetUnitStealth", 7, false }, calls[1])
 		assert.are.same({ "SetUnitLeavesGhost", 7, true }, calls[2])
 		assert.is_nil(state.loadedSpeed[9])
@@ -105,17 +88,8 @@ describe("transport's actions", function()
 	it("unloaded wakes the nano turrets an immobile unit was set down onto, and only those", function()
 		local state = require("modules/transport/state")
 		state.unstacking = {}
-		nearby, defOf = { 7, 8, 11 }, { [8] = 3 }
-		local request = {
-			unitID = 7,
-			unitDefID = 2,
-			transportID = 9,
-			carrier = Traits.Of(1),
-			passenger = Traits.Of(2),
-			loadedSpeed = false,
-			frame = 100,
-		}
-		actions.byName.unloaded.execute(request)
+		nearby, defOf = { 7, 8, 11 }, { [8] = 3, [9] = 1 }
+		Synced.Unloaded(7, 2, 9)
 		assert.are.same({ [8] = 3 }, state.unstacking)
 	end)
 end)

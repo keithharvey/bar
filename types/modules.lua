@@ -9,11 +9,6 @@
 ---@class ModuleManifest : ModuleManifestFile
 ---@field dir string Module directory with trailing slash (loader-stamped)
 
----@class ActionDescriptor
----@field name string From the filename; loader-stamped
----@field validate function|nil Pure precondition check over the action's inputs (no mutation)
----@field execute function Performs the action
-
 ---@class ActionRegistrar
 ---@field RegisterValidate fun(fn: function)
 ---@field RegisterExecute fun(fn: function)

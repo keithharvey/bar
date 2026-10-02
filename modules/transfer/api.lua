@@ -2,7 +2,6 @@ local Claims = require("modules/transfer/mex_splitting/claims")
 local Deal = require("modules/transfer/mex_splitting/deal")
 local ModuleHandler = require("modules/module_handler")
 local Modules = require("modules/enums").Modules
-local ResourceShared = require("modules/transfer/resource/shared")
 local Sources = require("modules/transfer/mex_splitting/sources")
 local TransferEnums = require("modules/transfer/enums")
 local UnitShared = require("modules/transfer/unit/shared")
@@ -10,32 +9,6 @@ local state = require("modules/transfer/state")
 
 local mayUnitScratch = {}
 local mayValidationScratch = {}
-local unitsValidationScratch = {}
-
----@param name string action file name under actions/
----@param request table
----@return any result
-local function perform(name, request)
-	local action = ModuleHandler.LoadActions(Modules.Transfer).byName[name]
-	if action == nil then
-		Spring.Log(
-			"transfer",
-			LOG.ERROR,
-			"transfer has no action named "
-				.. tostring(name)
-				.. " (added since the game started? restart to pick it up)"
-		)
-		return nil
-	end
-	if action.validate then
-		local allowed, reason = action.validate(request)
-		if not allowed then
-			Spring.Log("transfer", LOG.WARNING, "transfer." .. name .. " refused: " .. tostring(reason))
-			return nil
-		end
-	end
-	return action.execute(request)
-end
 
 ---@param springRepo Spring
 ---@param regions MexRegion[]
@@ -162,36 +135,6 @@ local MexSplitting = {
 return {
 	MexSplitting = MexSplitting,
 
-	---@param unitIDs integer[]
-	---@param toTeamID integer
-	---@param fromTeamID integer the team being asked to give them up
-	---@return TransferUnitResult
-	Units = function(unitIDs, toTeamID, fromTeamID)
-		local grant = UnitShared.GetCachedTerms(fromTeamID, toTeamID, Spring)
-		return perform("units", {
-			from = fromTeamID,
-			to = toTeamID,
-			unitIDs = unitIDs,
-			grant = grant,
-			validation = UnitShared.ValidateUnits(grant, unitIDs, Spring, nil, unitsValidationScratch),
-		})
-	end,
-
-	---@param resource ResourceName
-	---@param amount number
-	---@param toTeamID integer
-	---@param fromTeamID integer
-	---@return TransferResourceResult
-	Resources = function(resource, amount, toTeamID, fromTeamID)
-		return perform("resources", {
-			from = fromTeamID,
-			to = toTeamID,
-			resource = resource,
-			amount = amount,
-			grant = ResourceShared.GetCachedTerms(fromTeamID, toTeamID, resource, Spring),
-		})
-	end,
-
 	---@param unitID integer
 	---@param fromTeamID integer
 	---@param toTeamID integer
@@ -211,26 +154,5 @@ return {
 		mayUnitScratch[1] = unitID
 		local validation = UnitShared.ValidateUnits(policyResult, mayUnitScratch, Spring, nil, mayValidationScratch)
 		return validation.status ~= TransferEnums.UnitValidationOutcome.Failure
-	end,
-
-	---@param resource ResourceName
-	---@param amount number
-	---@param toTeamID integer
-	---@param fromTeamID integer
-	---@return number moved
-	GiveResources = function(resource, amount, toTeamID, fromTeamID)
-		return perform("give_resources", {
-			from = fromTeamID,
-			to = toTeamID,
-			resource = resource,
-			amount = amount,
-		})
-	end,
-
-	---@param unitIDs integer[]
-	---@param toTeamID integer
-	---@return integer transferred
-	Give = function(unitIDs, toTeamID)
-		return perform("give", { to = toTeamID, unitIDs = unitIDs })
 	end,
 }

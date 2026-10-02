@@ -1,4 +1,6 @@
 local Comms = require("modules/transfer/resource/comms")
+local ContextFactory = require("modules/transfer/context_factory")
+local ManualShareLedger = require("modules/transfer/economy/manual_share_ledger")
 local ModuleHandler = require("modules/module_handler")
 local Modules = require("modules/enums").Modules
 local Shared = require("modules/transfer/resource/shared")
@@ -127,6 +129,67 @@ function Gadgets.UpdatePolicyCache(springRepo, frame, lastUpdate, updateRate, co
 	end
 
 	return frame
+end
+
+---@param reason string
+---@return nil
+local function refused(reason)
+	Spring.Log("transfer", LOG.WARNING, "transfer.resources refused: " .. reason)
+	return nil
+end
+
+-- A resource shared under the policy: the pair's terms for that resource tax and cap it, the ledger records what
+-- moved, and both teams are told.
+---@param resource ResourceName
+---@param amount number
+---@param toTeamID integer
+---@param fromTeamID integer
+---@return TransferResourceResult|nil result nil when the share is refused outright
+function Gadgets.Share(resource, amount, toTeamID, fromTeamID)
+	if fromTeamID == toTeamID then
+		return refused("a team cannot send resources to itself")
+	end
+	if resource ~= METAL and resource ~= ENERGY then
+		return refused("a resource is metal or energy")
+	end
+	if amount <= 0 then
+		return refused("nothing to send")
+	end
+	local terms = Shared.GetCachedTerms(fromTeamID, toTeamID, resource, Spring)
+	if terms == nil then
+		return refused("no terms are cached for these teams yet")
+	end
+	local ctx = ContextFactory.create(Spring).resourceTransfer(fromTeamID, toTeamID, resource, amount, terms)
+	local result = Gadgets.ResourceTransfer(ctx)
+	local applied = result.policyResult
+	if result.success and applied then
+		ManualShareLedger.Record(fromTeamID, toTeamID, applied.resourceType, result.sent, result.received)
+		Comms.SendTransferChatMessages(result, applied)
+	end
+	return result
+end
+
+---@param teamID integer
+---@param resource ResourceName
+---@param delta number
+local function adjust(teamID, resource, delta)
+	local current = Spring.GetTeamResources(teamID, resource) or 0
+	Spring.SetTeamResource(teamID, resource, current + delta)
+end
+
+-- A resource handed over by fiat: the whole amount, both sides, untaxed, no policy asked.
+---@param resource ResourceName
+---@param amount number
+---@param toTeamID integer
+---@param fromTeamID integer
+---@return number moved
+function Gadgets.Give(resource, amount, toTeamID, fromTeamID)
+	if fromTeamID == toTeamID or amount <= 0 then
+		return 0
+	end
+	adjust(fromTeamID, resource, -amount)
+	adjust(toTeamID, resource, amount)
+	return amount
 end
 
 return Gadgets

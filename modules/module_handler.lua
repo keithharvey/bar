@@ -11,7 +11,7 @@ local MODULES_DIR = "modules/"
 
 -- A module's api.lua runs in any Lua handle, so it calls nothing the engine offers in one handle only, and the same is
 -- true of policies/, lib/ and every other file not named here. api_synced.lua is the module's api in the synced
--- handle, with actions/ and any file named synced.lua behind it; api_unsynced.lua is its api in the unsynced one,
+-- handle, with any file named synced.lua behind it; api_unsynced.lua is its api in the unsynced one,
 -- with widgets/, rml_widgets/ and any file named unsynced.lua. A gadget runs in both, and says itself which half is
 -- which. Code that runs in any handle requires nothing bound to one, and code bound to a handle requires nothing
 -- bound to the other. The loader does not enforce
@@ -24,7 +24,6 @@ local LAYOUT = {
 	scripts = "scripts/",
 	modes = "modes/",
 	modeVerbs = "mode_verbs.lua",
-	actions = "actions/",
 	policies = "policies/",
 	modOptions = "modoptions.lua",
 }
@@ -226,73 +225,6 @@ end
 local function includeRegistrationFile(filePath, injected, vfsMode)
 	local env = setmetatable(injected, { __index = CHUNK_ENV })
 	return VFS.Include(filePath, env, vfsMode)
-end
-
-local actionsCache = {}
-
----@param filePath string
----@param vfsMode string?
----@return ActionDescriptor
-local function loadAction(filePath, vfsMode)
-	local actionName = nameFromFile(filePath)
-	local entry = { name = actionName }
-	---@cast entry ActionDescriptor -- execute arrives via RegisterExecute; enforced below
-	local registrar = {
-		---@param fn function pure precondition; must precede RegisterExecute
-		RegisterValidate = function(fn)
-			if type(fn) ~= "function" then
-				error(filePath .. ": Actions.RegisterValidate expects a function")
-			end
-			if entry.execute ~= nil then
-				error(filePath .. ": RegisterValidate must precede RegisterExecute")
-			end
-			if entry.validate ~= nil then
-				error(filePath .. ": duplicate RegisterValidate")
-			end
-			entry.validate = fn
-		end,
-		---@param fn function the only effectful code; exactly one per file
-		RegisterExecute = function(fn)
-			if type(fn) ~= "function" then
-				error(filePath .. ": Actions.RegisterExecute expects a function")
-			end
-			if entry.execute ~= nil then
-				error(filePath .. ": duplicate RegisterExecute — exactly one per action file")
-			end
-			entry.execute = fn
-		end,
-	}
-	local returned = includeRegistrationFile(filePath, { Actions = registrar }, vfsMode)
-	if returned ~= nil then
-		error(
-			filePath
-				.. ": action files register and return nothing; a returned value would be cached and the registration lost"
-		)
-	end
-	if entry.execute == nil then
-		error(filePath .. ": no Actions.RegisterExecute — every action must register execute")
-	end
-	return entry
-end
-
----@param name string module name
----@param vfsMode string?
----@return {byName: table<string, ActionDescriptor>, list: ActionDescriptor[]}
-function ModuleHandler.LoadActions(name, vfsMode)
-	if actionsCache[name] then
-		return actionsCache[name]
-	end
-	local manifest = ModuleHandler.Manifests(vfsMode)[name]
-	local registry = { byName = {}, list = {} }
-	local files = VFS.DirList(manifest.dir .. LAYOUT.actions, "*.lua", vfsMode)
-	table.sort(files)
-	for _, filePath in ipairs(files) do
-		local entry = loadAction(filePath, vfsMode)
-		registry.byName[entry.name] = entry
-		registry.list[#registry.list + 1] = entry
-	end
-	actionsCache[name] = registry
-	return registry
 end
 
 local policiesCache = {}
@@ -1139,7 +1071,6 @@ function ModuleHandler.ResetCaches()
 	defaultSelectionCache = nil
 	liveSetCache = {}
 	modeVerbsCache = {}
-	actionsCache = {}
 	policiesCache = {}
 	enrichersCache = {}
 	policyFiles = nil

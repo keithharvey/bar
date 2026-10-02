@@ -110,7 +110,7 @@ function gadget:RecvLuaMsg(msg, playerID)
 		local _, _, _, senderTeamID = springRepo.GetPlayerInfo(playerID, false)
 		---@cast senderTeamID integer?
 		if senderTeamID then
-			TransferApi.Units(params.unitIDs, params.targetTeamID, senderTeamID)
+			UnitTransfer.Share(params.unitIDs, params.targetTeamID, senderTeamID)
 		end
 		return true
 	end

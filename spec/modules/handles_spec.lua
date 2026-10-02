@@ -1,7 +1,7 @@
 local ModuleHandler = require("modules/module_handler")
 
 -- Which Lua handle a module file runs in, as modules/module_handler.lua states it above LAYOUT: api.lua and the rest
--- run in any, api_synced.lua with actions/ and any synced.lua behind it in the synced handle, api_unsynced.lua with
+-- run in any, api_synced.lua with any synced.lua behind it in the synced handle, api_unsynced.lua with
 -- widgets/, rml_widgets/ and any unsynced.lua in the unsynced one; a gadget runs in both, and says itself which half
 -- is which. This holds every module to that. The engine's own split comes from the recoil-lua-library's generated
 -- listings, one file per handle.
@@ -24,7 +24,7 @@ local function handleOf(path)
 	if rest:find("^gadgets/") then
 		return "both"
 	end
-	if base == "api_synced.lua" or base == "synced.lua" or rest:find("^actions/") then
+	if base == "api_synced.lua" or base == "synced.lua" then
 		return "synced"
 	end
 	if base == "api_unsynced.lua" or base == "unsynced.lua" or rest:find("^widgets/") or rest:find("^rml_widgets/") then
@@ -128,7 +128,6 @@ describe("the handle a module file runs in", function()
 		assert.is_nil(handleOf("modules/transfer/unit/shared.lua"))
 		assert.are.equal("synced", handleOf("modules/transport/api_synced.lua"))
 		assert.are.equal("synced", handleOf("modules/transfer/unit/synced.lua"))
-		assert.are.equal("synced", handleOf("modules/transport/actions/unloaded.lua"))
 		assert.are.equal("both", handleOf("modules/transfer/gadgets/cmd_take.lua"))
 		assert.are.equal("unsynced", handleOf("modules/transfer/api_unsynced.lua"))
 		assert.are.equal("unsynced", handleOf("modules/transfer/unit/unsynced.lua"))

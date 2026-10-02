@@ -17,7 +17,7 @@ end
 local ConstructionEnums = require("modules/construction/enums")
 local Shared = require("modules/transfer/unit/shared")
 local TakeComms = require("modules/transfer/take/comms")
-local TransferApi = require("modules/transfer/api")
+local ResourceTransfer = require("modules/transfer/api_synced").Resources
 local TransferEnums = require("modules/transfer/enums")
 local EconomyResources = require("modules/economy/api").Resources ---@type EconomyResourcesApi
 
@@ -44,7 +44,7 @@ local function transferResources(fromTeamID, toTeamID)
 	for _, resource in ipairs({ "metal", "energy" }) do
 		local amount = EconomyResources.Get(Spring, fromTeamID, resource)
 		if amount and amount > 0 then
-			TransferApi.GiveResources(resource, amount, toTeamID, fromTeamID)
+			ResourceTransfer.Give(resource, amount, toTeamID, fromTeamID)
 		end
 	end
 end

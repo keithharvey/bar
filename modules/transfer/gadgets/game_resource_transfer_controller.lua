@@ -25,7 +25,6 @@ local Modules = require("modules/enums").Modules
 local ResourceTransfer = require("modules/transfer/api_synced").Resources
 local ResourceTypes = require("gamedata/resource_types")
 local Tax = require("modules/transfer/resource/tax")
-local TransferApi = require("modules/transfer/api")
 
 local METAL = ResourceTypes.METAL
 local ENERGY = ResourceTypes.ENERGY
@@ -73,7 +72,7 @@ end
 function gadget:RecvLuaMsg(msg, playerID)
 	local params = LuaRulesMsg.ParseResourceShare(msg)
 	if params then
-		TransferApi.Resources(params.resourceType, params.amount, params.targetTeamID, params.senderTeamID)
+		ResourceTransfer.Share(params.resourceType, params.amount, params.targetTeamID, params.senderTeamID)
 		return true
 	end
 	return false

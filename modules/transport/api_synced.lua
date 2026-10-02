@@ -1,5 +1,11 @@
--- Transport's api in the synced handle: setting a passenger down where it will not stand on an ally, which is the one thing the
--- module does to the synced engine that a gadget or an action asks for by name.
+-- Transport's api in the synced handle: what the gadget asks of the module that touches the synced engine. The
+-- verdicts come from the neutral api; what follows a verdict — a carrier halting to load, what a passenger becomes
+-- aboard and when set down, a nano turret nudged off an ally — is done here: the domain's rules first, the engine after.
+local Api = require("modules/transport/api")
+local ModuleHandler = require("modules/module_handler")
+local Modules = require("modules/enums").Modules
+local Rules = require("modules/transport/lib/rules")
+local state = require("modules/transport/state")
 local Synced = {}
 
 local Traits = require("modules/transport/lib/traits")
@@ -113,6 +119,158 @@ function Unstack.Step(unitID, unitDefID)
 		Spring.SetUnitPosition(unitID, tx, tz)
 	end
 	return false
+end
+
+-- An air transport stops dead to load or set down.
+---@param carrierID integer
+function Synced.Halt(carrierID)
+	Spring.SetUnitVelocity(carrierID, 0, 0, 0)
+end
+
+---@param unitID integer
+---@param goalX number
+---@param goalY number
+---@param goalZ number
+---@return number
+local function distanceToGoal(unitID, goalX, goalY, goalZ)
+	local x, y, z = Spring.GetUnitPosition(unitID)
+	local dx, dy, dz = x - goalX, y - goalY, z - goalZ
+	return math.sqrt(dx * dx + dy * dy + dz * dz)
+end
+
+-- May the carrier load the passenger at the goal it is arriving at; a carrier with reach halts to take it.
+---@param carrierID integer
+---@param carrierDefID integer
+---@param passengerID integer
+---@param passengerDefID integer
+---@param goalX number
+---@param goalY number
+---@param goalZ number
+---@return boolean
+function Synced.MayLoad(carrierID, carrierDefID, passengerID, passengerDefID, goalX, goalY, goalZ)
+	---@type TransportContract
+	local Transport = ModuleHandler.Contract(Modules.Transport)
+	local reach = Traits.Of(carrierDefID).reach
+	local allowed = ModuleHandler.Evaluate(Transport.Load, {
+		carrierDef = UnitDefs[carrierDefID],
+		passengerDef = UnitDefs[passengerDefID],
+		goalY = goalY,
+		height = Spring.GetUnitHeight(passengerID),
+		reach = reach,
+		distance = reach and distanceToGoal(carrierID, goalX, goalY, goalZ) or 0,
+		allied = Spring.AreTeamsAllied(Spring.GetUnitTeam(carrierID), Spring.GetUnitTeam(passengerID)),
+		passengerSpeed = select(4, Spring.GetUnitVelocity(passengerID)),
+	}) == true
+	if allowed and reach then
+		Synced.Halt(carrierID)
+	end
+	return allowed
+end
+
+-- May the carrier set the passenger down at the goal; a carrier with reach halts to do it.
+---@param carrierID integer
+---@param carrierDefID integer
+---@param passengerID integer
+---@param goalX number
+---@param goalY number
+---@param goalZ number
+---@return boolean
+function Synced.MayUnload(carrierID, carrierDefID, passengerID, goalX, goalY, goalZ)
+	---@type TransportContract
+	local Transport = ModuleHandler.Contract(Modules.Transport)
+	local reach = Traits.Of(carrierDefID).reach
+	local allowed = ModuleHandler.Evaluate(Transport.Unload, {
+		goalY = goalY,
+		height = Spring.GetUnitHeight(passengerID),
+		reach = reach,
+		distance = reach and distanceToGoal(carrierID, goalX, goalY, goalZ) or 0,
+	}) == true
+	if allowed and reach then
+		Synced.Halt(carrierID)
+	end
+	return allowed
+end
+
+-- A passenger came aboard: a flying carrier's loaded speed is recorded, a stealthy carrier hides the passenger, and a
+-- passenger that leaves a ghost leaves none while carried.
+---@param unitID integer the passenger
+---@param unitDefID integer
+---@param transportID integer the carrier
+function Synced.Loaded(unitID, unitDefID, transportID)
+	local carrier = Traits.OfUnit(transportID)
+	if carrier == nil then
+		return
+	end
+	local passenger = Traits.Of(unitDefID)
+	if carrier.canFly then
+		local speed = Api.LoadedSpeed(transportID)
+		if speed ~= nil then
+			state.loadedSpeed[transportID] = speed
+		end
+	end
+	if carrier.stealthsPassengers and not passenger.isStealthy then
+		Spring.SetUnitStealth(unitID, true)
+	end
+	if passenger.leavesGhost then
+		Spring.SetUnitLeavesGhost(unitID, false, true)
+	end
+end
+
+-- A passenger was set down: the carrier's speed is what it still carries, the passenger is seen and ghosts again, an
+-- immobile one wakes the nano turrets it landed on, a paratrooper keeps a clamped fall, and anything else is pinned
+-- where it landed for a few frames so it does not slide.
+---@param unitID integer the passenger
+---@param unitDefID integer
+---@param transportID integer the carrier
+function Synced.Unloaded(unitID, unitDefID, transportID)
+	local carrier = Traits.OfUnit(transportID)
+	if carrier == nil then
+		return
+	end
+	local passenger = Traits.Of(unitDefID)
+	if carrier.canFly then
+		state.loadedSpeed[transportID] = Api.LoadedSpeed(transportID) or nil
+	end
+	if carrier.stealthsPassengers and not passenger.isStealthy then
+		Spring.SetUnitStealth(unitID, false)
+	end
+	if passenger.leavesGhost then
+		Spring.SetUnitLeavesGhost(unitID, true)
+	end
+	if not passenger.canMove then
+		Unstack.Wake(state.unstacking, unitID)
+	end
+	if passenger.isParatrooper then
+		local vx, vy, vz = Spring.GetUnitVelocity(transportID)
+		vx, vz = Rules.ClampParatrooperVelocity(vx), Rules.ClampParatrooperVelocity(vz)
+		local x, y, z = Spring.GetUnitPosition(unitID)
+		if y - Spring.GetGroundHeight(x, z) < Rules.PARATROOPER_GROUND_MARGIN then
+			vx, vy, vz = 0, 0, 0
+		end
+		Spring.SetUnitVelocity(unitID, vx, vy, vz)
+		Spring.GiveOrderToUnit(unitID, CMD.STOP, {}, 0)
+		return
+	end
+
+	local px, py, pz = Spring.GetUnitPosition(unitID)
+	local dx, dy, dz, rx, ry, rz = Spring.GetUnitDirection(unitID)
+	state.settling[unitID] = {
+		px = px,
+		py = py,
+		pz = pz,
+		dx = dx,
+		dy = dy,
+		dz = dz,
+		rx = rx,
+		ry = ry,
+		rz = rz,
+		frame = Spring.GetGameFrame() + Rules.UNLOAD_SETTLE_FRAMES,
+	}
+	Spring.SetUnitVelocity(unitID, 0, 0, 0)
+
+	if not Spring.GetUnitRulesParam(unitID, "unit_effigy") then
+		state.maybeDead[unitID] = transportID
+	end
 end
 
 return Synced

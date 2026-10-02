@@ -17,7 +17,8 @@ if not gadgetHandler:IsSyncedCode() then
 end
 
 local Transport = require("modules/transport/api")
-local Unstack = require("modules/transport/api_synced").Unstack
+local TransportSynced = require("modules/transport/api_synced")
+local Unstack = TransportSynced.Unstack
 local state = require("modules/transport/state")
 
 ---@param unitID integer
@@ -41,11 +42,19 @@ function gadget:AllowUnitTransportLoad(
 	goalY,
 	goalZ
 )
-	return Transport.MayLoad(transporterID, transporterDefID, transporteeID, transporteeDefID, goalX, goalY, goalZ)
+	return TransportSynced.MayLoad(
+		transporterID,
+		transporterDefID,
+		transporteeID,
+		transporteeDefID,
+		goalX,
+		goalY,
+		goalZ
+	)
 end
 
 function gadget:AllowUnitTransportUnload(transporterID, transporterDefID, _, transporteeID, _, _, goalX, goalY, goalZ)
-	return Transport.MayUnload(transporterID, transporterDefID, transporteeID, goalX, goalY, goalZ)
+	return TransportSynced.MayUnload(transporterID, transporterDefID, transporteeID, goalX, goalY, goalZ)
 end
 
 function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams)
@@ -69,14 +78,14 @@ function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams)
 end
 
 function gadget:UnitLoaded(unitID, unitDefID, _, transportID)
-	Transport.Loaded(unitID, unitDefID, transportID)
+	TransportSynced.Loaded(unitID, unitDefID, transportID)
 end
 
 function gadget:UnitUnloaded(unitID, unitDefID, _, transportID)
 	if unitID == nil or unitDefID == nil or transportID == nil then
 		return
 	end
-	Transport.Unloaded(unitID, unitDefID, transportID)
+	TransportSynced.Unloaded(unitID, unitDefID, transportID)
 end
 
 function gadget:GameFrame(frame)
