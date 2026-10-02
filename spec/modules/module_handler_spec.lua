@@ -90,7 +90,7 @@ describe("ModuleHandler", function()
 			ModuleHandler.ResetCaches()
 		end)
 
-		it("reads the modoptions files once: the live set for a selection is the same table each ask", function()
+		it("reads the modoptions files once", function()
 			local first = ModuleHandler.LiveModulesFor({})
 			local afterFirst = includes
 			local second = ModuleHandler.LiveModulesFor({})
@@ -150,7 +150,8 @@ describe("ModuleHandler", function()
 		-- Three modules on a fake VFS. owner declares its Check policy in the policy file that
 		-- builds it in one policy file and declares its facts in another; friend contributes a step to owner's Check
 		-- through Policies.Contract; loner's two policy files each claim the same category.
-		local FILES
+		---@type table<string, fun(env: table): any> the fake VFS: a path to what including it returns
+		local FILES = {}
 		local real = {}
 
 		---@param path string
