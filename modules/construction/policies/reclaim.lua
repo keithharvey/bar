@@ -20,10 +20,12 @@ local Reclaim = {
 Policy.Single(Reclaim)
 
 Policies.On(Reclaim)
-	.Unless(Reclaim.AlliedReclaimDisabled, function(ctx)
-		return not ctx.reclaimEnabled and ctx.allied and (ctx.command == "reclaim" or ctx.targetCanReclaim)
+	.Step(Reclaim.AlliedReclaimDisabled, function(ctx)
+		if not ctx.reclaimEnabled and ctx.allied and (ctx.command == "reclaim" or ctx.targetCanReclaim) then
+			return false
+		end
 	end)
-	.Answer(Reclaim.Allowed, function()
+	.Return(Reclaim.Allowed, function()
 		return true
 	end)
 

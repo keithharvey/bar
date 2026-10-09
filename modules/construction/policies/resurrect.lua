@@ -17,10 +17,12 @@ local Resurrect = {
 Policy.Single(Resurrect)
 
 Policies.On(Resurrect)
-	.Unless(Resurrect.PartialResurrectionDisabled, function(ctx)
-		return not ctx.partialAllowed
+	.Step(Resurrect.PartialResurrectionDisabled, function(ctx)
+		if not ctx.partialAllowed then
+			return false
+		end
 	end)
-	.Answer(Resurrect.Allowed, function()
+	.Return(Resurrect.Allowed, function()
 		return true
 	end)
 

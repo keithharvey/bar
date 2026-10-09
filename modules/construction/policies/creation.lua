@@ -17,7 +17,7 @@ local Creation = {
 }
 Policy.Single(Creation)
 
-Policies.On(Creation).Answer(Creation.Allowed, function()
+Policies.On(Creation).Return(Creation.Allowed, function()
 	return true
 end)
 

@@ -17,7 +17,7 @@ local UnitDef = {
 }
 Policy.Contributes(Defs.UnitDef, UnitDef)
 
-Policies.On(UnitDef).Apply(UnitDef.TechBlocking, function(ctx)
+Policies.On(UnitDef).Step(UnitDef.TechBlocking, function(ctx)
 	if ctx.modOptions[TechEnums.ModOptions.TechBlocking] then
 		TechDefs.Apply(ctx.name, ctx.def)
 	end

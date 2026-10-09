@@ -56,25 +56,36 @@ local function terms(ctx, canShare)
 	}
 end
 
+-- What every guard hands back when it trips: the terms, refused. A contributor's guard on this policy must return
+-- the same shape, and this file has no way to lend it one.
+---@param ctx table
+---@return table
+local function refusal(ctx)
+	return terms(ctx, false)
+end
+
 Policies.On(UnitTransfer)
-	.Refusal(function(ctx)
-		return terms(ctx, false)
-	end)
-	.Unless(UnitTransfer.SharingDisabled, function(ctx)
+	.Step(UnitTransfer.SharingDisabled, function(ctx)
 		local modes = modesOf(ctx)
-		return #modes == 1 and modes[1] == NONE
+		if #modes == 1 and modes[1] == NONE then
+			return refusal(ctx)
+		end
 	end)
-	.If(UnitTransfer.Allied, function(ctx)
-		return ctx.areAlliedTeams
+	.Step(UnitTransfer.Allied, function(ctx)
+		if not ctx.areAlliedTeams then
+			return refusal(ctx)
+		end
 	end)
-	.Unless(UnitTransfer.ReceiverHasNoPlayers, function(ctx)
+	.Step(UnitTransfer.ReceiverHasNoPlayers, function(ctx)
 		if ctx.isCheatingEnabled then
-			return false
+			return
 		end
 		local numActivePlayers = ctx.springRepo.GetTeamRulesParam(ctx.receiverTeamId, "numActivePlayers")
-		return numActivePlayers ~= nil and tonumber(numActivePlayers) == 0
+		if numActivePlayers ~= nil and tonumber(numActivePlayers) == 0 then
+			return refusal(ctx)
+		end
 	end)
-	.Answer(UnitTransfer.TransferTerms, function(ctx)
+	.Return(UnitTransfer.TransferTerms, function(ctx)
 		return terms(ctx, true)
 	end)
 

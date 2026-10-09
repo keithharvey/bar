@@ -30,14 +30,18 @@ local Placement = {
 Policy.Single(Placement)
 
 Policies.On(Placement)
-	.Unless(Placement.AlliedExtractorOccupied, function(ctx)
-		return ctx.extractor ~= nil and ctx.alliedExtractorNearby and not ctx.utilitySharing
+	.Step(Placement.AlliedExtractorOccupied, function(ctx)
+		if ctx.extractor ~= nil and ctx.alliedExtractorNearby and not ctx.utilitySharing then
+			return false
+		end
 	end)
-	.Unless(Placement.SpotHeldByAnAlly, function(ctx)
+	.Step(Placement.SpotHeldByAnAlly, function(ctx)
 		local upgradesTheirs = ctx.alliedExtractorNearby and ctx.utilitySharing
-		return ctx.extractor ~= nil and ctx.spotHolderAllied and not upgradesTheirs
+		if ctx.extractor ~= nil and ctx.spotHolderAllied and not upgradesTheirs then
+			return false
+		end
 	end)
-	.Answer(Placement.Allowed, function()
+	.Return(Placement.Allowed, function()
 		return true
 	end)
 

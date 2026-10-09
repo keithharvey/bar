@@ -49,15 +49,27 @@ local Load = {
 Policy.Single(Load)
 
 Policies.On(Load)
-	.Unless(Load.Submerged, submerged)
-	.If(Load.WithinReach, withinReach)
-	.Unless(Load.MovingEnemy, function(ctx)
-		return ctx.allied == false and (ctx.passengerSpeed or 0) >= NAP_MAX_SPEED
+	.Step(Load.Submerged, function(ctx)
+		if submerged(ctx) then
+			return false
+		end
 	end)
-	.Unless(Load.AlliedNano, function(ctx)
-		return ctx.nano == true and ctx.allied == true and ctx.ownTeam ~= true
+	.Step(Load.WithinReach, function(ctx)
+		if not withinReach(ctx) then
+			return false
+		end
 	end)
-	.Answer(Load.Allowed, function()
+	.Step(Load.MovingEnemy, function(ctx)
+		if ctx.allied == false and (ctx.passengerSpeed or 0) >= NAP_MAX_SPEED then
+			return false
+		end
+	end)
+	.Step(Load.AlliedNano, function(ctx)
+		if ctx.nano == true and ctx.allied == true and ctx.ownTeam ~= true then
+			return false
+		end
+	end)
+	.Return(Load.Allowed, function()
 		return true
 	end)
 
@@ -83,12 +95,22 @@ local Unload = {
 Policy.Single(Unload)
 
 Policies.On(Unload)
-	.Unless(Unload.Submerged, submerged)
-	.If(Unload.WithinReach, withinReach)
-	.Unless(Unload.NanoOnSlope, function(ctx)
-		return ctx.nano and (ctx.goalY < 0 or (ctx.groundNormalY or 1) < 0.9)
+	.Step(Unload.Submerged, function(ctx)
+		if submerged(ctx) then
+			return false
+		end
 	end)
-	.Answer(Unload.Allowed, function()
+	.Step(Unload.WithinReach, function(ctx)
+		if not withinReach(ctx) then
+			return false
+		end
+	end)
+	.Step(Unload.NanoOnSlope, function(ctx)
+		if ctx.nano and (ctx.goalY < 0 or (ctx.groundNormalY or 1) < 0.9) then
+			return false
+		end
+	end)
+	.Return(Unload.Allowed, function()
 		return true
 	end)
 
@@ -99,26 +121,35 @@ Policies.On(Unload)
 ---@field transportSpeed number
 ---@field dragEnabled boolean
 ---@field framesPerSecond number
+---@field product number|nil what the steps have multiplied so far; the Return hands it back
 
 ---@class TransportLoadedSpeedPolicy: PolicySteps<TransportLoadedSpeedContext, number>
 ---@field Base "Base"
 ---@field CommanderDrag "CommanderDrag"
+---@field Result "Result"
 
 ---@type TransportLoadedSpeedPolicy
 local LoadedSpeed = {
 	Base = "Base",
 	CommanderDrag = "CommanderDrag",
+	Result = "Result",
 }
-Policy.Product(LoadedSpeed)
+Policy.Single(LoadedSpeed)
 
 Policies.On(LoadedSpeed)
-	.Factor(LoadedSpeed.Base, function(ctx)
-		return ctx.transportSpeed / ctx.framesPerSecond
+	.Step(LoadedSpeed.Base, function(ctx)
+		ctx.product = (ctx.product or 1) * (ctx.transportSpeed / ctx.framesPerSecond)
 	end)
-	.Factor(LoadedSpeed.CommanderDrag, function(ctx)
+	.Step(LoadedSpeed.CommanderDrag, function(ctx)
 		if ctx.dragEnabled and ctx.carriesCommander then
-			return COMMANDER_DRAG_SPEED / ctx.transportSpeed
+			ctx.product = (ctx.product or 1) * (COMMANDER_DRAG_SPEED / ctx.transportSpeed)
 		end
+	end)
+	.Return(LoadedSpeed.Result, function(ctx)
+		if ctx.product == nil then
+			error("loaded_speed: no step gave a factor; the owner's Base must")
+		end
+		return ctx.product
 	end)
 
 ---@class (partial) TransportContract

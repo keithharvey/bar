@@ -24,10 +24,12 @@ local Build = {
 Policy.Single(Build)
 
 Policies.On(Build)
-	.Unless(Build.BuilderDelayed, function(ctx)
-		return ctx.delayed
+	.Step(Build.BuilderDelayed, function(ctx)
+		if ctx.delayed then
+			return false
+		end
 	end)
-	.Answer(Build.Allowed, function()
+	.Return(Build.Allowed, function()
 		return true
 	end)
 

@@ -23,12 +23,15 @@ Policies.For(Construction.CreationFacts).Provide(Construction.CreationFacts.Tier
 	return tonumber(raw) or 1
 end)
 
-Policies.On(Creation).Unless(Creation.BelowTier, function(ctx)
+-- construction's Creation refuses with false; this guard has to know that, and say it itself
+Policies.On(Creation).Step(Creation.BelowTier, function(ctx)
 	if ctx.tier == nil or not ctx.unitDef.isFactory then
-		return false
+		return
 	end
 	local required = tonumber(ctx.unitDef.customParams and ctx.unitDef.customParams.techlevel) or 1
-	return required >= 2 and ctx.tier < required
+	if required >= 2 and ctx.tier < required then
+		return false
+	end
 end)
 
 ---@class (partial) TechContract

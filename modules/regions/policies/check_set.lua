@@ -20,29 +20,35 @@ local Problems = require("modules/regions/lib/problems")
 
 ---@class RegionSetPolicy: PolicySteps<RegionSetContext<Region>, RegionSetContext<Region>>
 ---@field Each "Each"
+---@field Result "Result"
 
 ---@type RegionSetPolicy
 local CheckSet = {
 	Each = "Each",
+	Result = "Result",
 }
-Policy.Fold(CheckSet)
+Policy.Single(CheckSet)
 
-Policies.On(CheckSet).Apply(CheckSet.Each, function(ctx)
-	---@type RegionsContract
-	local Regions = ModuleHandler.Contract(Modules.Regions)
-	local names = {} ---@type table<Region, string>
-	for i, region in ipairs(ctx.regions) do
-		names[region] = ctx.names[i]
-	end
-	for i, region in ipairs(ctx.regions) do
-		---@type RegionCheckContext<Region>
-		local one = { type = ctx.type, region = region, siblings = ctx.regions, names = names, problems = {} }
-		ModuleHandler.Evaluate(Regions.Check, one)
-		for _, problem in ipairs(one.problems) do
-			Problems.OfRegion(ctx, i, problem.message, problem.at)
+Policies.On(CheckSet)
+	.Step(CheckSet.Each, function(ctx)
+		---@type RegionsContract
+		local Regions = ModuleHandler.Contract(Modules.Regions)
+		local names = {} ---@type table<Region, string>
+		for i, region in ipairs(ctx.regions) do
+			names[region] = ctx.names[i]
 		end
-	end
-end)
+		for i, region in ipairs(ctx.regions) do
+			---@type RegionCheckContext<Region>
+			local one = { type = ctx.type, region = region, siblings = ctx.regions, names = names, problems = {} }
+			ModuleHandler.Evaluate(Regions.Check, one)
+			for _, problem in ipairs(one.problems) do
+				Problems.OfRegion(ctx, i, problem.message, problem.at)
+			end
+		end
+	end)
+	.Return(CheckSet.Result, function(ctx)
+		return ctx
+	end)
 
 ---@class (partial) RegionsContract
 local Contract = {}

@@ -10,16 +10,22 @@ local Policy = require("modules/policy")
 
 ---@class DefsUnitDefPolicy: PolicySteps<DefContext, DefContext>
 ---@field Base "Base"
+---@field Result "Result"
 
 ---@type DefsUnitDefPolicy
 local UnitDef = {
 	Base = "Base",
+	Result = "Result",
 }
-Policy.Fold(UnitDef)
+Policy.Single(UnitDef)
 
-Policies.On(UnitDef).Apply(UnitDef.Base, function(ctx)
-	require("modules/defs/lib/base").Base().UnitDef_Post(ctx.name, ctx.def)
-end)
+Policies.On(UnitDef)
+	.Step(UnitDef.Base, function(ctx)
+		require("modules/defs/lib/base").Base().UnitDef_Post(ctx.name, ctx.def)
+	end)
+	.Return(UnitDef.Result, function(ctx)
+		return ctx
+	end)
 
 ---@class (partial) DefsContract
 local Contract = {}

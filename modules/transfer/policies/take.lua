@@ -20,7 +20,7 @@ local Take = {
 }
 Policy.Single(Take)
 
-Policies.On(Take).Answer(Take.TakeTerms, function(ctx)
+Policies.On(Take).Return(Take.TakeTerms, function(ctx)
 	local modOptions = ctx.modOptions
 	return {
 		mode = tostring(modOptions[TransferEnums.ModOptions.TakeMode] or TransferEnums.TakeMode.Enabled),
