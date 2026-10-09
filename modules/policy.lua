@@ -4,18 +4,16 @@ local Policy = {}
 ---@field springRepo Spring the engine, or a spec's stand-in: every provider reads the match through its context
 ---@field modOptions table<string, string|number|boolean>
 
----@class PolicySteps<C, T>: { [string]: string } step names for one policy; C is the context its evaluates receive, T the result it produces
+---@class PolicySteps<C, T>: { [string]: string } step names for one policy; C is the context its steps receive, T what the pipeline returns
 
 ---@class PolicyFacts<C>: { [string]: string } the facts a decision reads, named; C is the context providers receive
 
----@class AssembledPolicy<C, T>: { [integer]: PolicyStep } one policy as LoadPolicies hands it back, contributions applied
----@field result "single"|"product"|"fold"
----@field refusal (fun(ctx: C): T)|nil declared by the owner's Refusal; false is the refusal when absent
+---@class AssembledPolicy<C, T>: { [integer]: PolicyStep } one policy as LoadPolicies hands it back, contributions applied; the Return, if any, is last
 
 ---@class PolicyIdentity
 ---@field owner string the module whose policy or context this is
 ---@field category string its name within the module
----@field result "single"|"product"|"fold"|nil how a policy's results combine
+---@field steps boolean|nil true for a policy: steps, evaluated
 ---@field facts boolean|nil true for facts: provided, not evaluated
 
 ---@generic T: table
@@ -23,23 +21,7 @@ local Policy = {}
 ---@return T
 function Policy.Single(steps)
 	assert(type(steps) == "table" and getmetatable(steps) == nil, "Policy.Single(steps)")
-	return setmetatable(steps, { __result = "single" })
-end
-
----@generic T: table
----@param steps T enum of step names
----@return T
-function Policy.Product(steps)
-	assert(type(steps) == "table" and getmetatable(steps) == nil, "Policy.Product(steps)")
-	return setmetatable(steps, { __result = "product" })
-end
-
----@generic C
----@param steps PolicySteps<C, C>
----@return PolicySteps<C, C>
-function Policy.Fold(steps)
-	assert(type(steps) == "table" and getmetatable(steps) == nil, "Policy.Fold(steps)")
-	return setmetatable(steps, { __result = "fold" })
+	return setmetatable(steps, { __steps = true })
 end
 
 ---@generic C, T
@@ -72,17 +54,15 @@ function Policy.KeyOf(member)
 end
 
 ---@param owner string the module's name
----@param members table PascalCase name -> a policy's step enum (Single, Product or Fold), Contributes or Facts
+---@param members table PascalCase name -> a policy's step enum (Single), Contributes or Facts
 ---@param source string|nil where they were declared, for messages
 function Policy.Declare(owner, members, source)
 	local where = source and (source .. ": ") or "Policy.Declare: "
 	for member, steps in pairs(members) do
 		local meta = type(steps) == "table" and getmetatable(steps) or nil
 		assert(
-			meta ~= nil and (meta.__result ~= nil or meta.__facts or meta.__contributes),
-			where
-				.. tostring(member)
-				.. " must declare itself: Single(...), Product(...), Fold(...), Contributes(...) or Facts(...)"
+			meta ~= nil and (meta.__steps or meta.__facts or meta.__contributes),
+			where .. tostring(member) .. " must declare itself: Single(...), Contributes(...) or Facts(...)"
 		)
 		assert(
 			meta.__policy == nil,
@@ -94,7 +74,7 @@ function Policy.Declare(owner, members, source)
 		elseif meta.__facts then
 			meta.__policy = { owner = owner, category = category, facts = true }
 		else
-			meta.__policy = { owner = owner, category = category, result = meta.__result }
+			meta.__policy = { owner = owner, category = category, steps = true }
 		end
 	end
 end
@@ -114,8 +94,8 @@ function Policy.IdentityOf(steps)
 end
 
 ---@class PolicyOp
----@field op "add"|"replace"|"remove"|"refusal"
----@field kind "if"|"unless"|"answer"|"factor"|"apply"|nil add only
+---@field op "add"|"replace"|"remove"
+---@field kind "step"|"return"|nil add only
 ---@field name string
 ---@field evaluate function|nil
 ---@field after string|nil
@@ -123,15 +103,10 @@ end
 
 ---@class PolicyChain<C, T>
 ---@field steps table|nil the identity this chain builds against
----@field Unless fun(name: string, predicate: fun(ctx: C): boolean|nil): PolicyChain<C, T> truthy means the named condition holds and the policy refuses
----@field If fun(name: string, predicate: fun(ctx: C): boolean|nil): PolicyChain<C, T> falsy means the named condition fails to hold and the policy refuses
----@field Refusal fun(evaluate: fun(ctx: C): T): PolicyChain<C, T> how this policy shapes a refusal; false when never declared
----@field Answer fun(name: string, evaluate: fun(ctx: C): T|nil): PolicyChain<C, T> Single only: a step that may produce the answer; the last step must be one
----@field Factor fun(name: string, evaluate: fun(ctx: C): number|nil): PolicyChain<C, T> Product only: a multiplier, or nil to contribute nothing
----@field Apply fun(name: string, evaluate: fun(ctx: C)): PolicyChain<C, T> Fold only: runs on the context and passes it on
+---@field Step fun(name: string, evaluate: fun(ctx: C): T|nil): PolicyChain<C, T> a non-nil return ends the pipeline with that value; nil hands the context to the next step
+---@field Return fun(name: string, evaluate: fun(ctx: C): T|nil): PolicyChain<C, T> the owner's last step, one per policy, always last: what the pipeline returns when no step before it said anything
 ---@field After fun(name: string): PolicyChain<C, T> place the step just added after the named step
 ---@field Before fun(name: string): PolicyChain<C, T> place the step just added before the named step
----@field When fun(holds: fun(ctx: C): boolean): PolicyChain<C, T> the step just added runs only when this holds; otherwise an Apply does nothing, an Answer or Factor passes, a guard holds
 ---@field Replace fun(name: string, evaluate: fun(ctx: C): T|nil): PolicyChain<C, T> the named step, with this evaluate
 ---@field Remove fun(name: string): PolicyChain<C, T>
 ---@field Build fun(): PolicyOp[]
@@ -142,46 +117,34 @@ end
 function Policy.Chain(steps)
 	local ops = {} ---@type PolicyOp[]
 	local chain = { steps = steps }
+	local returned = false
 
-	---@param verb string
-	---@param kind "if"|"unless"|"answer"|"factor"|"apply"
+	---@param verb "Step"|"Return"
 	---@param name string
 	---@param evaluate function
-	local function add(verb, kind, name, evaluate)
+	local function add(verb, name, evaluate)
 		assert(type(name) == "string" and type(evaluate) == "function", "PolicyChain: " .. verb .. "(name, evaluate)")
-		ops[#ops + 1] = { op = "add", kind = kind, name = name, evaluate = evaluate }
+		assert(not returned, "PolicyChain: no step follows Return")
+		ops[#ops + 1] = { op = "add", kind = verb == "Return" and "return" or "step", name = name, evaluate = evaluate }
 	end
 
 	---@param modifier string
 	---@return PolicyOp
 	local function lastAdded(modifier)
 		local last = ops[#ops]
-		assert(
-			last ~= nil and last.op == "add",
-			"PolicyChain: ." .. modifier .. " must follow an If, Unless, Answer, Factor or Apply"
-		)
+		assert(last ~= nil and last.op == "add", "PolicyChain: ." .. modifier .. " must follow a Step")
+		assert(last.kind == "step", "PolicyChain: Return is always last; ." .. modifier .. " cannot place it")
 		assert(last.after == nil and last.before == nil, "PolicyChain: a step is placed once")
 		return last
 	end
 
-	chain.Unless = function(name, evaluate)
-		add("Unless", "unless", name, evaluate)
+	chain.Step = function(name, evaluate)
+		add("Step", name, evaluate)
 		return chain
 	end
-	chain.If = function(name, evaluate)
-		add("If", "if", name, evaluate)
-		return chain
-	end
-	chain.Answer = function(name, evaluate)
-		add("Answer", "answer", name, evaluate)
-		return chain
-	end
-	chain.Factor = function(name, evaluate)
-		add("Factor", "factor", name, evaluate)
-		return chain
-	end
-	chain.Apply = function(name, evaluate)
-		add("Apply", "apply", name, evaluate)
+	chain.Return = function(name, evaluate)
+		add("Return", name, evaluate)
+		returned = true
 		return chain
 	end
 	chain.After = function(name)
@@ -192,23 +155,6 @@ function Policy.Chain(steps)
 		lastAdded("Before").before = name
 		return chain
 	end
-	chain.When = function(holds)
-		assert(type(holds) == "function", "PolicyChain: When(holds)")
-		local last = ops[#ops]
-		assert(
-			last ~= nil and last.op == "add",
-			"PolicyChain: .When must follow an If, Unless, Answer, Factor or Apply"
-		)
-		local evaluate, kind = last.evaluate, last.kind
-		local skipped = kind == "if" and true or (kind == "unless" and false) or nil
-		last.evaluate = function(ctx)
-			if holds(ctx) then
-				return evaluate(ctx)
-			end
-			return skipped
-		end
-		return chain
-	end
 	chain.Replace = function(name, evaluate)
 		assert(type(name) == "string" and type(evaluate) == "function", "PolicyChain: Replace(name, evaluate)")
 		ops[#ops + 1] = { op = "replace", name = name, evaluate = evaluate }
@@ -217,11 +163,6 @@ function Policy.Chain(steps)
 	chain.Remove = function(name)
 		assert(type(name) == "string", "PolicyChain: Remove(name)")
 		ops[#ops + 1] = { op = "remove", name = name }
-		return chain
-	end
-	chain.Refusal = function(evaluate)
-		assert(type(evaluate) == "function", "PolicyChain: Refusal(evaluate)")
-		ops[#ops + 1] = { op = "refusal", evaluate = evaluate }
 		return chain
 	end
 	chain.Build = function()
@@ -242,15 +183,31 @@ function Policy.Assemble(steps, ops, origin)
 		end
 		return nil
 	end
+	local function returnAt()
+		for i, step in ipairs(steps) do
+			if step.kind == "return" then
+				return i
+			end
+		end
+		return nil
+	end
 	for _, op in ipairs(ops) do
 		if op.op == "add" then
 			assert(indexOf(op.name) == nil, origin .. ": the policy already has a step named " .. op.name)
+			local pinned = returnAt()
 			local at = #steps + 1
-			if op.kind ~= "answer" and #steps > 0 and steps[#steps].kind == "answer" then
-				at = #steps
+			if op.kind == "return" then
+				assert(
+					pinned == nil,
+					origin .. ": the policy already has a Return, " .. (pinned and steps[pinned].name or "")
+				)
+			elseif pinned ~= nil then
+				at = pinned
 			end
 			if op.after ~= nil then
-				at = assert(indexOf(op.after), origin .. ": no step named " .. op.after .. " to go after") + 1
+				local anchor = assert(indexOf(op.after), origin .. ": no step named " .. op.after .. " to go after")
+				assert(anchor ~= pinned, origin .. ": nothing goes after " .. op.after .. ": it is the Return")
+				at = anchor + 1
 			elseif op.before ~= nil then
 				at = assert(indexOf(op.before), origin .. ": no step named " .. op.before .. " to go before")
 			end
@@ -260,62 +217,8 @@ function Policy.Assemble(steps, ops, origin)
 			steps[at] = { name = op.name, kind = steps[at].kind, evaluate = op.evaluate }
 		elseif op.op == "remove" then
 			table.remove(steps, assert(indexOf(op.name), origin .. ": no step named " .. op.name .. " to remove"))
-		elseif op.op == "refusal" then
-			assert(steps.refusal == nil, origin .. ": the policy already has a Refusal")
-			steps.refusal = op.evaluate
 		end
 	end
-end
-
-local KIND_LABEL =
-	{ ["if"] = "a guard", unless = "a guard", answer = "an Answer", factor = "a Factor", apply = "an Apply" }
-
----@param steps PolicyStep[]
----@param result "single"|"product"|"fold"
----@param label string owner.category, for error messages
-function Policy.Validate(steps, result, label)
-	if result == "product" then
-		for _, step in ipairs(steps) do
-			assert(
-				step.kind == "factor",
-				label
-					.. ": a product policy multiplies Factor results; "
-					.. step.name
-					.. " is "
-					.. KIND_LABEL[step.kind]
-			)
-		end
-		return
-	end
-	if result == "fold" then
-		for _, step in ipairs(steps) do
-			assert(
-				step.kind == "apply",
-				label
-					.. ": a fold policy runs every Apply over the context; "
-					.. step.name
-					.. " is "
-					.. KIND_LABEL[step.kind]
-			)
-		end
-		return
-	end
-	assert(#steps > 0, label .. ": an empty policy")
-	for _, step in ipairs(steps) do
-		assert(
-			step.kind == "if" or step.kind == "unless" or step.kind == "answer",
-			label
-				.. ": a single-result policy takes guards and Answers; "
-				.. step.name
-				.. " is "
-				.. KIND_LABEL[step.kind]
-		)
-	end
-	local last = steps[#steps]
-	assert(
-		last.kind == "answer",
-		label .. ": a single-result policy ends with an Answer; " .. last.name .. " is " .. KIND_LABEL[last.kind]
-	)
 end
 
 ---@class PolicyProvision

@@ -11,20 +11,26 @@ local Policy = require("modules/policy")
 ---@class SpecProductCtx
 ---@field carriesCommander boolean|nil
 ---@field inMud boolean|nil
+---@field product number|nil
 
+-- Two guards and a Return. Each guard hands back the refusal itself: there is no other place for it to live.
 local function owner()
 	---@type AssembledPolicy<SpecCtx, boolean|string|table>
-	local steps = { result = "single" }
+	local steps = {}
 	Policy.Assemble(
 		steps,
 		Policy.Chain()
-			.Unless("Submerged", function(ctx)
-				return ctx.submerged
+			.Step("Submerged", function(ctx)
+				if ctx.submerged then
+					return false
+				end
 			end)
-			.Unless("OutOfReach", function(ctx)
-				return ctx.far
+			.Step("OutOfReach", function(ctx)
+				if ctx.far then
+					return false
+				end
 			end)
-			.Answer("Allowed", function()
+			.Return("Allowed", function()
 				return true
 			end)
 			.Build(),
@@ -53,14 +59,14 @@ local function declared(owner, members)
 end
 
 describe("a policy's identity", function()
-	it("carries owner, category and the declared result", function()
+	it("carries owner and category: every policy is steps", function()
 		local Contract = declared("transport", {
 			Load = Policy.Single({ Submerged = "Submerged" }),
-			LoadedSpeed = Policy.Product({ CommanderDrag = "CommanderDrag" }),
+			LoadedSpeed = Policy.Single({ CommanderDrag = "CommanderDrag" }),
 		})
-		assert.are.same({ owner = "transport", category = "load", result = "single" }, Policy.IdentityOf(Contract.Load))
+		assert.are.same({ owner = "transport", category = "load", steps = true }, Policy.IdentityOf(Contract.Load))
 		assert.are.same(
-			{ owner = "transport", category = "loaded_speed", result = "product" },
+			{ owner = "transport", category = "loaded_speed", steps = true },
 			Policy.IdentityOf(Contract.LoadedSpeed)
 		)
 		assert.is_nil(Policy.IdentityOf({}))
@@ -70,7 +76,7 @@ describe("a policy's identity", function()
 	it("requires every category to declare itself", function()
 		assert.has_error(function()
 			declared("transport", { Load = { Submerged = "Submerged" } })
-		end, "spec: Load must declare itself: Single(...), Product(...), Fold(...), Contributes(...) or Facts(...)")
+		end, "spec: Load must declare itself: Single(...), Contributes(...) or Facts(...)")
 	end)
 
 	it("serializes a declaration's name to the key the runtime uses", function()
@@ -80,13 +86,15 @@ describe("a policy's identity", function()
 end)
 
 describe("one chain for owners and contributors", function()
-	it("a bare step joins the end of the checks, never past the terminal", function()
+	it("a bare step joins the end of the checks, never past the Return", function()
 		local steps = owner()
 		Policy.Assemble(
 			steps,
 			Policy.Chain()
-				.Unless("NoTanks", function(ctx)
-					return ctx.tank
+				.Step("NoTanks", function(ctx)
+					if ctx.tank then
+						return false
+					end
 				end)
 				.Build(),
 			"mod"
@@ -99,16 +107,16 @@ describe("one chain for owners and contributors", function()
 	it("places a step after or before a named step", function()
 		local steps = owner()
 		local ops = Policy.Chain()
-			.Unless("A", function() end)
+			.Step("A", function() end)
 			.After("Submerged")
-			.Unless("B", function() end)
+			.Step("B", function() end)
 			.Before("Allowed")
 			.Build()
 		Policy.Assemble(steps, ops, "mod")
 		assert.are.same({ "Submerged", "A", "OutOfReach", "B", "Allowed" }, names(steps))
 	end)
 
-	it("replaces a step in place, keeping its kind, the terminal included", function()
+	it("replaces a step in place, keeping its kind, the Return included", function()
 		local steps = owner()
 		local ops = Policy.Chain()
 			.Replace("OutOfReach", function() end)
@@ -118,7 +126,7 @@ describe("one chain for owners and contributors", function()
 			.Build()
 		Policy.Assemble(steps, ops, "mod")
 		assert.are.same({ "Submerged", "OutOfReach", "Allowed" }, names(steps))
-		assert.are.equal("answer", steps[3].kind)
+		assert.are.equal("return", steps[3].kind)
 		assert.are.equal("maybe", run(steps, { far = true }))
 	end)
 
@@ -134,7 +142,7 @@ describe("one chain for owners and contributors", function()
 			Policy.Assemble(owner(), Policy.Chain().Replace("Ghost", function() end).Build(), "mod.lua")
 		end, "mod.lua: no step named Ghost to replace")
 		assert.has_error(function()
-			Policy.Assemble(owner(), Policy.Chain().Unless("Submerged", function() end).Build(), "mod.lua")
+			Policy.Assemble(owner(), Policy.Chain().Step("Submerged", function() end).Build(), "mod.lua")
 		end, "mod.lua: the policy already has a step named Submerged")
 		assert.has_error(function()
 			Policy.Chain().After("Submerged")
@@ -142,17 +150,19 @@ describe("one chain for owners and contributors", function()
 	end)
 end)
 
-describe("one chain for owners and contributors", function()
-	it("If is the inclusive guard: it refuses when its condition does not hold", function()
+describe("a guard", function()
+	it("is a Step that returns the refusal itself when its condition does not hold", function()
 		---@type AssembledPolicy<SpecCtx, boolean>
-		local steps = { result = "single" }
+		local steps = {}
 		Policy.Assemble(
 			steps,
 			Policy.Chain()
-				.If("WithinReach", function(ctx)
-					return ctx.reachable
+				.Step("WithinReach", function(ctx)
+					if not ctx.reachable then
+						return false
+					end
 				end)
-				.Answer("Allowed", function()
+				.Return("Allowed", function()
 					return true
 				end)
 				.Build(),
@@ -216,13 +226,13 @@ describe("module state", function()
 	end)
 end)
 
-describe("the refusal", function()
-	it("is what every Answer declining becomes: nothing said yes is a no", function()
-		local steps = { result = "single" }
+describe("what a guard returns", function()
+	it("nothing said yes is nil, unless the owner's Return says no", function()
+		local steps = {}
 		Policy.Assemble(
 			steps,
 			Policy.Chain()
-				.Answer("Stunned", function(ctx)
+				.Step("Stunned", function(ctx)
 					if ctx.stunned then
 						return true
 					end
@@ -231,11 +241,11 @@ describe("the refusal", function()
 			"owner"
 		)
 		assert.is_true(run(steps, { stunned = true }))
-		assert.is_false(run(steps, {}))
+		assert.is_nil(run(steps, {}))
 		Policy.Assemble(
 			steps,
 			Policy.Chain()
-				.Refusal(function()
+				.Return("Refused", function()
 					return { allowed = false, reason = "nobody said yes" }
 				end)
 				.Build(),
@@ -244,13 +254,21 @@ describe("the refusal", function()
 		assert.are.same({ allowed = false, reason = "nobody said yes" }, run(steps, {}))
 	end)
 
-	it("a Product with no factor is a broken owner, and says so", function()
-		local steps = { result = "product" }
+	it("a product by hand says nothing about a missing factor, unless its Return remembers to", function()
+		local steps = {}
 		Policy.Assemble(
 			steps,
 			Policy.Chain()
-				.Factor("Base", function(ctx)
-					return ctx.speed
+				.Step("Base", function(ctx)
+					if ctx.speed ~= nil then
+						ctx.product = (ctx.product or 1) * ctx.speed
+					end
+				end)
+				.Return("Result", function(ctx)
+					if ctx.product == nil then
+						error("loaded_speed: no step gave a factor; the owner's Base must")
+					end
+					return ctx.product
 				end)
 				.Build(),
 			"owner"
@@ -261,80 +279,89 @@ describe("the refusal", function()
 		end)
 	end)
 
-	it("is false unless the policy declares its shape", function()
+	it("is whatever each guard returns: false here, a shape there, and nothing holds them to one", function()
 		local steps = owner()
 		assert.is_false(run(steps, { submerged = true }))
 		Policy.Assemble(
 			steps,
 			Policy.Chain()
-				.Refusal(function(ctx)
-					return { allowed = false, deep = ctx.submerged }
+				.Replace("Submerged", function(ctx)
+					if ctx.submerged then
+						return { allowed = false, deep = ctx.submerged }
+					end
 				end)
 				.Build(),
 			"owner"
 		)
 		assert.are.same({ allowed = false, deep = true }, run(steps, { submerged = true }))
+		assert.is_false(run(steps, { far = true }))
 		assert.is_true(run(steps, {}))
 	end)
 
-	it("is declared once", function()
+	it("Return is declared once", function()
 		local steps = owner()
-		local shape = Policy.Chain()
-			.Refusal(function()
-				return false
-			end)
-			.Build()
-		Policy.Assemble(steps, shape, "owner")
 		assert.has_error(function()
-			Policy.Assemble(steps, shape, "mod.lua")
-		end, "mod.lua: the policy already has a Refusal")
+			Policy.Assemble(
+				steps,
+				Policy.Chain()
+					.Return("Again", function()
+						return false
+					end)
+					.Build(),
+				"mod.lua"
+			)
+		end, "mod.lua: the policy already has a Return, Allowed")
 	end)
 end)
 
-describe("the declared result", function()
-	it("single: ends with an Answer", function()
-		Policy.Validate(owner(), "single", "transport.load")
+describe("the Return", function()
+	it("is always last: nothing goes after it, and a step placed nowhere lands before it", function()
 		assert.has_error(function()
-			local steps = owner()
-			Policy.Assemble(steps, Policy.Chain().Remove("Allowed").Build(), "mod")
-			Policy.Validate(steps, "single", "transport.load")
-		end, "transport.load: a single-result policy ends with an Answer; OutOfReach is a guard")
-		assert.has_error(function()
-			local steps = owner()
-			Policy.Assemble(steps, Policy.Chain().Unless("Late", function() end).After("Allowed").Build(), "mod")
-			Policy.Validate(steps, "single", "transport.load")
-		end, "transport.load: a single-result policy ends with an Answer; Late is a guard")
+			Policy.Assemble(owner(), Policy.Chain().Step("Late", function() end).After("Allowed").Build(), "mod")
+		end, "mod: nothing goes after Allowed: it is the Return")
+		local steps = owner()
+		Policy.Assemble(steps, Policy.Chain().Step("Late", function() end).Build(), "mod")
+		assert.are.same({ "Submerged", "OutOfReach", "Late", "Allowed" }, names(steps))
 	end)
 
-	it("single: an early Answer preempts — answering when it can, passing when it cannot", function()
+	it("an early Step preempts — answering when it can, passing when it cannot", function()
 		local steps = owner()
 		Policy.Assemble(
 			steps,
 			Policy.Chain()
-				.Answer("Scripted", function(ctx)
+				.Step("Scripted", function(ctx)
 					return ctx.scripted
 				end)
 				.Before("Submerged")
 				.Build(),
 			"mod"
 		)
-		Policy.Validate(steps, "single", "transport.load")
 		assert.are.equal("override", run(steps, { scripted = "override", submerged = true }))
 		assert.is_false(run(steps, { submerged = true }))
 		assert.is_true(run(steps, {}))
 	end)
 
-	it("product: factors from every module multiply into one answer", function()
+	it("a product, by hand: steps multiply into the context and the Return hands it back", function()
 		---@type AssembledPolicy<SpecProductCtx, number>
-		local policy = { result = "product" }
+		local policy = {}
 		Policy.Assemble(
 			policy,
 			Policy.Chain()
-				.Factor("CommanderDrag", function(ctx)
-					return ctx.carriesCommander and 0.5 or nil
+				.Step("CommanderDrag", function(ctx)
+					if ctx.carriesCommander then
+						ctx.product = (ctx.product or 1) * 0.5
+					end
 				end)
-				.Factor("MudCrawl", function(ctx)
-					return ctx.inMud and 0.25 or nil
+				.Step("MudCrawl", function(ctx)
+					if ctx.inMud then
+						ctx.product = (ctx.product or 1) * 0.25
+					end
+				end)
+				.Return("Result", function(ctx)
+					if ctx.product == nil then
+						error("no step gave a factor")
+					end
+					return ctx.product
 				end)
 				.Build(),
 			"owner"
@@ -346,30 +373,40 @@ describe("the declared result", function()
 		end)
 	end)
 
-	it("product: every step is a Factor", function()
-		local steps = {}
-		Policy.Assemble(steps, Policy.Chain().Factor("CommanderDrag", function() end).Build(), "owner")
-		Policy.Validate(steps, "product", "transport.loaded_speed")
+	it("nothing follows Return in one chain, and nothing places it", function()
 		assert.has_error(function()
-			Policy.Assemble(steps, Policy.Chain().Unless("NoMud", function() end).Build(), "mod")
-			Policy.Validate(steps, "product", "transport.loaded_speed")
-		end, "transport.loaded_speed: a product policy multiplies Factor results; NoMud is a guard")
+			Policy.Chain()
+				.Return("Allowed", function()
+					return true
+				end)
+				.Step("Late", function() end)
+		end, "PolicyChain: no step follows Return")
+		assert.has_error(function()
+			Policy.Chain()
+				.Return("Allowed", function()
+					return true
+				end)
+				.After("Submerged")
+		end, "PolicyChain: Return is always last; .After cannot place it")
 	end)
 end)
 
-describe("the fold result", function()
+describe("a fold, by hand", function()
 	local function fold(ops, origin)
 		---@type AssembledPolicy<table, table>
-		local steps = { result = "fold" }
+		local steps = {}
 		Policy.Assemble(steps, ops, origin)
 		return steps
 	end
 
-	it("hands one context through every Apply, owner's first, and returns it", function()
+	it("hands one context through every step, owner's first, and the Return gives it back", function()
 		local steps = fold(
 			Policy.Chain()
-				.Apply("Base", function(ctx)
+				.Step("Base", function(ctx)
 					ctx.def.mass = (ctx.def.mass or 0) + 1
+				end)
+				.Return("Context", function(ctx)
+					return ctx
 				end)
 				.Build(),
 			"owner"
@@ -377,7 +414,7 @@ describe("the fold result", function()
 		Policy.Assemble(
 			steps,
 			Policy.Chain()
-				.Apply("Heavier", function(ctx)
+				.Step("Heavier", function(ctx)
 					ctx.def.mass = ctx.def.mass * 10
 				end)
 				.Build(),
@@ -386,21 +423,37 @@ describe("the fold result", function()
 		local ctx = { def = {} }
 		assert.are.equal(ctx, ModuleHandler.Evaluate(steps, ctx))
 		assert.are.equal(10, ctx.def.mass)
-		assert.are.same({ "Base", "Heavier" }, names(steps))
+		assert.are.same({ "Base", "Heavier", "Context" }, names(steps))
 	end)
 
-	it("every step is an Apply: a fold has nothing to refuse", function()
+	it("a step that returns ends the fold there: every step after it is skipped, with no word said", function()
 		local steps = fold(
 			Policy.Chain()
-				.Unless("Never", function()
-					return false
+				.Step("Base", function(ctx)
+					ctx.def.mass = 1
+				end)
+				.Return("Context", function(ctx)
+					return ctx
 				end)
 				.Build(),
 			"owner"
 		)
-		assert.has_error(function()
-			Policy.Validate(steps, "fold", "defs.unit_def")
-		end, "defs.unit_def: a fold policy runs every Apply over the context; Never is a guard")
+		Policy.Assemble(
+			steps,
+			Policy.Chain()
+				.Step("Stop", function()
+					return "stop"
+				end)
+				.Step("Heavier", function(ctx)
+					ctx.def.mass = ctx.def.mass * 10
+				end)
+				.Build(),
+			"mod"
+		)
+		local ctx = { def = {} }
+		assert.are.equal("stop", ModuleHandler.Evaluate(steps, ctx))
+		assert.are.equal(1, ctx.def.mass)
+		assert.are.same({ "Base", "Stop", "Heavier", "Context" }, names(steps))
 	end)
 end)
 
@@ -436,8 +489,8 @@ describe("a declared contribution", function()
 
 	it("is the only way to add a step: a name no contract declares is refused", function()
 		local ops = Policy.Chain()
-			.Unless("NoTanks", function()
-				return true
+			.Step("NoTanks", function()
+				return false
 			end)
 			.Build()
 		assert.is_nil(ModuleHandler.UndeclaredStep(ops, { NoTanks = true }))
@@ -588,27 +641,25 @@ describe("what a mode makes live", function()
 		}, ModuleHandler.IsolationConflicts(withOther, alwaysLive, { provider("other"), provider("tech") }))
 	end)
 
-	it("a step When'd on a condition steps aside when it does not hold: an Answer passes, a guard holds", function()
+	it("a step conditioned inside itself steps aside when the condition does not hold: it returns nothing", function()
 		local steps = Policy.Single({ Bar = "Bar", Quick = "Quick", Slow = "Slow" })
 		Policy.Declare("t", { Steps = steps })
 		local ops = Policy.Chain(steps)
-			.Unless(steps.Bar, function()
-				return true
+			.Step(steps.Bar, function(ctx)
+				if ctx.barred then
+					return false
+				end
 			end)
-			.When(function(ctx)
-				return ctx.barred
+			.Step(steps.Quick, function(ctx)
+				if ctx.hurry then
+					return "quick"
+				end
 			end)
-			.Answer(steps.Quick, function()
-				return "quick"
-			end)
-			.When(function(ctx)
-				return ctx.hurry
-			end)
-			.Answer(steps.Slow, function()
+			.Return(steps.Slow, function()
 				return "slow"
 			end)
 			.Build()
-		local policy = { result = "single" }
+		local policy = {}
 		Policy.Assemble(policy, ops, "t")
 		assert.are.equal("slow", run(policy, {}))
 		assert.are.equal("quick", run(policy, { hurry = true }))

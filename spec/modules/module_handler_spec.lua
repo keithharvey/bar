@@ -227,10 +227,15 @@ describe("ModuleHandler", function()
 					return { Terms = Policy.Facts({ Rate = "rate" }) }
 				end,
 				["modules/owner/policies/check.lua"] = function(env)
-					local Check = Policy.Fold({ Shape = "Shape" })
-					env.Policies.On(Check).Apply(Check.Shape, function(ctx)
-						ctx.seen[#ctx.seen + 1] = "owner"
-					end)
+					local Check = Policy.Single({ Shape = "Shape", Done = "Done" })
+					env.Policies
+						.On(Check)
+						.Step(Check.Shape, function(ctx)
+							ctx.seen[#ctx.seen + 1] = "owner"
+						end)
+						.Return(Check.Done, function(ctx)
+							return ctx
+						end)
 					return { Check = Check }
 				end,
 				["modules/friend/policies/owner.lua"] = function(env)
@@ -238,14 +243,14 @@ describe("ModuleHandler", function()
 					local Extra = Policy.Contributes(Owner.Check, { Friendly = "Friendly", Shy = "Shy" })
 					env.Policies
 						.On(Extra)
-						.Apply(Extra.Friendly, function(ctx)
+						.Step(Extra.Friendly, function(ctx)
 							ctx.seen[#ctx.seen + 1] = "friend"
 						end)
-						.Apply(Extra.Shy, function(ctx)
+						.Step(Extra.Shy, function(ctx)
+							if ctx.brave ~= true then
+								return
+							end
 							ctx.seen[#ctx.seen + 1] = "shy"
-						end)
-						.When(function(ctx)
-							return ctx.brave == true
 						end)
 					return { Extra = Extra }
 				end,
@@ -254,7 +259,7 @@ describe("ModuleHandler", function()
 
 		it("is what its policy files return, stamped by the loader", function()
 			local owner = ModuleHandler.Contract("owner")
-			assert.are.same({ owner = "owner", category = "check", result = "fold" }, Policy.IdentityOf(owner.Check))
+			assert.are.same({ owner = "owner", category = "check", steps = true }, Policy.IdentityOf(owner.Check))
 			assert.are.same({ owner = "owner", category = "terms", facts = true }, Policy.IdentityOf(owner.Terms))
 			assert.is_true(rawequal(owner, ModuleHandler.Contract("owner")))
 		end)
@@ -265,7 +270,7 @@ describe("ModuleHandler", function()
 			assert.are.same(
 				{ "owner", "friend" },
 				ctx.seen,
-				"a step When'd on a condition that does not hold does nothing"
+				"a step conditioned inside itself does nothing when the condition does not hold"
 			)
 			local brave = { seen = {}, brave = true }
 			ModuleHandler.Evaluate(ModuleHandler.LoadPolicies("owner").check, brave)
@@ -279,13 +284,13 @@ describe("ModuleHandler", function()
 
 		it("refuses a category declared twice, and a policy file returning anything but its steps", function()
 			FILES["modules/loner/policies/a.lua"] = function(env)
-				local Check = Policy.Fold({ A = "A" })
-				env.Policies.On(Check).Apply(Check.A, function() end)
+				local Check = Policy.Single({ A = "A" })
+				env.Policies.On(Check).Step(Check.A, function() end)
 				return { Check = Check }
 			end
 			FILES["modules/loner/policies/b.lua"] = function(env)
-				local Check = Policy.Fold({ B = "B" })
-				env.Policies.On(Check).Apply(Check.B, function() end)
+				local Check = Policy.Single({ B = "B" })
+				env.Policies.On(Check).Step(Check.B, function() end)
 				return { Check = Check }
 			end
 			assert.has_error(function()
@@ -295,26 +300,23 @@ describe("ModuleHandler", function()
 			FILES["modules/loner/policies/b.lua"] = function()
 				return { Check = { B = "B" } }
 			end
-			assert.has_error(
-				function()
-					ModuleHandler.Contract("loner")
-				end,
-				"modules/loner/policies/b.lua: Check must declare itself: Single(...), Product(...), Fold(...), Contributes(...) or Facts(...)"
-			)
+			assert.has_error(function()
+				ModuleHandler.Contract("loner")
+			end, "modules/loner/policies/b.lua: Check must declare itself: Single(...), Contributes(...) or Facts(...)")
 		end)
 
-		it("refuses a contributor's Refusal: the owner alone shapes it", function()
+		it("refuses a contributor's Return: the owner alone has the last word", function()
 			FILES["modules/friend/policies/owner.lua"] = function(env)
 				local Owner = env.Policies.Contract("owner")
-				local Extra = Policy.Contributes(Owner.Check, { Friendly = "Friendly" })
-				env.Policies.On(Extra).Apply(Extra.Friendly, function() end).Refusal(function()
+				local Extra = Policy.Contributes(Owner.Check, { Friendly = "Friendly", Mine = "Mine" })
+				env.Policies.On(Extra).Step(Extra.Friendly, function() end).Return(Extra.Mine, function()
 					return "mine"
 				end)
 				return { Extra = Extra }
 			end
 			assert.has_error(function()
 				ModuleHandler.LoadPolicies("owner")
-			end, "modules/friend/policies/owner.lua: only owner may shape the refusal of owner.check")
+			end, "modules/friend/policies/owner.lua: only owner may Return from owner.check")
 		end)
 
 		it("opens steps with On and facts with For, and refuses either the other way", function()
@@ -331,7 +333,7 @@ describe("ModuleHandler", function()
 			)
 			ModuleHandler.ResetCaches()
 			FILES["modules/owner/policies/wrong_door.lua"] = function(env)
-				local Gate = Policy.Fold({ Open = "Open" })
+				local Gate = Policy.Single({ Open = "Open" })
 				env.Policies.For(Gate)
 				return { WrongDoor = Gate }
 			end
