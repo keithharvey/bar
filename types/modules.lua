@@ -28,6 +28,6 @@ function Policies.Contract(moduleName) end
 
 ---@class PolicyStep
 ---@field name string
----@field kind "if"|"unless"|"answer"|"factor"|"apply"
+---@field kind "step"|"return"
 ---@field category string|nil Loader-stamped from the policy's identity
 ---@field evaluate function fun(...): result|nil

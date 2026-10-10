@@ -36,29 +36,36 @@ local METAL = TransferEnums.ResourceType.METAL
 
 ---@param ctx TransferResourceContext
 ---@return ResourceTransferTerms
+-- What every guard hands back when it trips. A contributor's guard on this policy must return the same shape,
+-- and this file has no way to lend it one.
 local function deny(ctx)
 	return Shared.CreateDenyPolicy(ctx.senderTeamId, ctx.receiverTeamId, ctx.resourceType, ctx.springRepo)
 end
 
 Policies.On(ResourceTransfer)
-	.Refusal(deny)
-	.Unless(ResourceTransfer.SharingDisabled, function(ctx)
-		return not SharedConfig.isResourceSharingEnabled(ctx.springRepo)
-	end)
-	.If(ResourceTransfer.Allied, function(ctx)
-		if ctx.isCheatingEnabled then
-			return true
+	.Step(ResourceTransfer.SharingDisabled, function(ctx)
+		if not SharedConfig.isResourceSharingEnabled(ctx.springRepo) then
+			return deny(ctx)
 		end
-		return ctx.areAlliedTeams or Shared.IsNonPlayerTeam(ctx.springRepo, ctx.senderTeamId)
 	end)
-	.Unless(ResourceTransfer.ReceiverHasNoPlayers, function(ctx)
+	.Step(ResourceTransfer.Allied, function(ctx)
 		if ctx.isCheatingEnabled then
-			return false
+			return
+		end
+		if not (ctx.areAlliedTeams or Shared.IsNonPlayerTeam(ctx.springRepo, ctx.senderTeamId)) then
+			return deny(ctx)
+		end
+	end)
+	.Step(ResourceTransfer.ReceiverHasNoPlayers, function(ctx)
+		if ctx.isCheatingEnabled then
+			return
 		end
 		local numActivePlayers = ctx.springRepo.GetTeamRulesParam(ctx.receiverTeamId, "numActivePlayers")
-		return numActivePlayers ~= nil and tonumber(numActivePlayers) == 0
+		if numActivePlayers ~= nil and tonumber(numActivePlayers) == 0 then
+			return deny(ctx)
+		end
 	end)
-	.Answer(ResourceTransfer.RateAndCapacity, function(ctx)
+	.Return(ResourceTransfer.RateAndCapacity, function(ctx)
 		local senderData, receiverData
 		if ctx.resourceType == METAL then
 			senderData = ctx.sender.metal

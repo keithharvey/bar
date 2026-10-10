@@ -78,7 +78,7 @@ local function activeUnitSharingModes(request)
 	return modes
 end
 
-Policies.On(TechCore).Answer(TechCore.TechCoreLadder, function(request)
+Policies.On(TechCore).Return(TechCore.TechCoreLadder, function(request)
 	local currentTax =
 		tonumber(TechTier.resolveByTechLevel(request.modOptions, "tax_resource_sharing_amount", request.level))
 	local taxUnlock = nextProgression(request, "tax_resource_sharing_amount", currentTax, tonumber)

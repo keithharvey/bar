@@ -19,9 +19,12 @@ local Build = {
 }
 Policy.Contributes(ConstructionContract.Build, Build)
 
-Policies.On(Build).Unless(Build.UnaffordableAssistTax, function(ctx)
+-- construction's Build refuses with false; this guard has to know that, and say it itself
+Policies.On(Build).Step(Build.UnaffordableAssistTax, function(ctx)
 	local quote = AssistTax.Quote(ctx, ctx.springRepo)
-	return quote ~= nil and not quote.affordable
+	if quote ~= nil and not quote.affordable then
+		return false
+	end
 end)
 
 -- Utility buildings may change hands between allies when the sharing mode says so

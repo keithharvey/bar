@@ -5,6 +5,8 @@ local RegionsApi = require("modules/regions/api")
 ---@type RegionsContract
 local Regions = Policies.Contract(Modules.Regions)
 
+local isMex = RegionsApi.OfType(RegionsApi.Enums.Types.MexRegion)
+
 ---@class (partial) RegionMap
 ---@field spots { x: number, z: number, worth: number|nil }[]|nil
 ---@field starts integer|nil how many starts the map has; a region is bound to one of them
@@ -44,19 +46,20 @@ local MexRegionsDescribe = {
 }
 Policy.Contributes(Regions.Describe, MexRegionsDescribe)
 
-Policies.On(MexRegionsNames)
-	.Apply(MexRegionsNames.FromGroup, function(ctx)
-		for i, region in ipairs(ctx.regions) do
-			local group = region.group
-			if group ~= nil and group ~= "" then
-				ctx.proposed[i] = tostring(group)
-			end
+Policies.On(MexRegionsNames).Step(MexRegionsNames.FromGroup, function(ctx)
+	if not isMex(ctx) then
+		return
+	end
+	for i, region in ipairs(ctx.regions) do
+		local group = region.group
+		if group ~= nil and group ~= "" then
+			ctx.proposed[i] = tostring(group)
 		end
-	end)
-	.When(RegionsApi.OfType(RegionsApi.Enums.Types.MexRegion))
+	end
+end)
 
 Policies.On(MexRegionsSet)
-	.Apply(MexRegionsSet.BoundToAStart, function(ctx)
+	.Step(MexRegionsSet.BoundToAStart, function(ctx)
 		local starts = ctx.map.starts
 		if starts == nil then
 			return
@@ -71,7 +74,10 @@ Policies.On(MexRegionsSet)
 			end
 		end
 	end)
-	.Apply(MexRegionsSet.MexesCovered, function(ctx)
+	.Step(MexRegionsSet.MexesCovered, function(ctx)
+		if not isMex(ctx) then
+			return
+		end
 		local spots = ctx.map.spots
 		if spots == nil then
 			return
@@ -95,28 +101,27 @@ Policies.On(MexRegionsSet)
 			)
 		end
 	end)
-	.When(RegionsApi.OfType(RegionsApi.Enums.Types.MexRegion))
 
-Policies.On(MexRegionsDescribe)
-	.Answer(MexRegionsDescribe.MexRegion, function(ctx)
-		local region = ctx.region
-		local description = { team = region.team, group = region.group }
-		local spots = ctx.map.spots
-		if spots and region.vertices then
-			local count, worth = 0, 0.0
-			for _, spot in ipairs(spots) do
-				if RegionsApi.Contains(spot.x, spot.z, region.vertices) then
-					count = count + 1
-					worth = worth + (spot.worth or 0)
-				end
+Policies.On(MexRegionsDescribe).Step(MexRegionsDescribe.MexRegion, function(ctx)
+	if not isMex(ctx) then
+		return
+	end
+	local region = ctx.region
+	local description = { team = region.team, group = region.group }
+	local spots = ctx.map.spots
+	if spots and region.vertices then
+		local count, worth = 0, 0.0
+		for _, spot in ipairs(spots) do
+			if RegionsApi.Contains(spot.x, spot.z, region.vertices) then
+				count = count + 1
+				worth = worth + (spot.worth or 0)
 			end
-			-- a thousandth of the metal map's sum is what the game floats over a spot: a T1 mex's income
-			description.spots, description.worth = count, worth / 1000
 		end
-		return description
-	end)
-	.When(RegionsApi.OfType(RegionsApi.Enums.Types.MexRegion))
-	.Before(Regions.Describe.Nobody)
+		-- a thousandth of the metal map's sum is what the game floats over a spot: a T1 mex's income
+		description.spots, description.worth = count, worth / 1000
+	end
+	return description
+end)
 
 ---@class (partial) TransferContract
 local Contract = {}

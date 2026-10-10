@@ -20,10 +20,12 @@ local Assist = {
 Policy.Single(Assist)
 
 Policies.On(Assist)
-	.Unless(Assist.AlliedAssistDisabled, function(ctx)
-		return not ctx.assistEnabled and ctx.allied and (not ctx.targetComplete or ctx.targetIsBuilder)
+	.Step(Assist.AlliedAssistDisabled, function(ctx)
+		if not ctx.assistEnabled and ctx.allied and (not ctx.targetComplete or ctx.targetIsBuilder) then
+			return false
+		end
 	end)
-	.Answer(Assist.Allowed, function()
+	.Return(Assist.Allowed, function()
 		return true
 	end)
 

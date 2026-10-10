@@ -45,21 +45,30 @@ local function noDeal(problems)
 	return { regions = {}, spots = {}, problems = problems }
 end
 
+-- What every guard hands back when it trips: no deal, with the problems. A contributor's guard on this policy must
+-- return the same shape, and this file has no way to lend it one.
+---@param ctx MexRegionsDealContext
+---@return MexRegionsDeal
+local function refused(ctx)
+	local problems = RegionsApi.ProblemLines(RegionsApi.Enums.Types.MexRegion, ctx.regions, { spots = ctx.spots })
+	if #problems == 0 and #ctx.spots == 0 then
+		problems[1] = "the map has no metal spots to deal"
+	end
+	return noDeal(problems)
+end
+
 Policies.On(MexSplitting)
-	.Refusal(function(ctx)
-		local problems = RegionsApi.ProblemLines(RegionsApi.Enums.Types.MexRegion, ctx.regions, { spots = ctx.spots })
-		if #problems == 0 and #ctx.spots == 0 then
-			problems[1] = "the map has no metal spots to deal"
+	.Step(MexSplitting.LayoutChecksOut, function(ctx)
+		if #RegionsApi.ProblemLines(RegionsApi.Enums.Types.MexRegion, ctx.regions, { spots = ctx.spots }) ~= 0 then
+			return refused(ctx)
 		end
-		return noDeal(problems)
 	end)
-	.If(MexSplitting.LayoutChecksOut, function(ctx)
-		return #RegionsApi.ProblemLines(RegionsApi.Enums.Types.MexRegion, ctx.regions, { spots = ctx.spots }) == 0
+	.Step(MexSplitting.SpotsKnown, function(ctx)
+		if #ctx.spots == 0 then
+			return refused(ctx)
+		end
 	end)
-	.If(MexSplitting.SpotsKnown, function(ctx)
-		return #ctx.spots > 0
-	end)
-	.Answer(MexSplitting.NearestRoundRobin, function(ctx)
+	.Return(MexSplitting.NearestRoundRobin, function(ctx)
 		local teams = Claims.RankRegionsByDistance(ctx.teams, ctx.regions)
 		local held = {} ---@type table<string, integer>
 		Claims.RoundRobin(teams, held, Claims.OwnStart)
@@ -89,7 +98,7 @@ local MexSplittingHeir = {
 }
 Policy.Single(MexSplittingHeir)
 
-Policies.On(MexSplittingHeir).Answer(MexSplittingHeir.FewestGiftedThenNearest, function(ctx)
+Policies.On(MexSplittingHeir).Return(MexSplittingHeir.FewestGiftedThenNearest, function(ctx)
 	local from = ctx.departing
 	local best, bestGifted, bestDistance = nil, math.huge, math.huge
 	for _, heir in ipairs(ctx.heirs) do

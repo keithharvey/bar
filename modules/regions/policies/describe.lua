@@ -16,7 +16,7 @@ local Describe = {
 }
 Policy.Single(Describe)
 
-Policies.On(Describe).Answer(Describe.Nobody, function()
+Policies.On(Describe).Return(Describe.Nobody, function()
 	return nil
 end)
 

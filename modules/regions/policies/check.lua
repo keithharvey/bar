@@ -12,11 +12,13 @@ local Policy = require("modules/policy")
 ---@class RegionCheckPolicy: PolicySteps<RegionCheckContext<Region>, RegionCheckContext<Region>>
 ---@field Shape string
 ---@field Fields string
+---@field Result string
 
 ---@type RegionCheckPolicy
-local Check = Policy.Fold({
+local Check = Policy.Single({
 	Shape = "Shape",
 	Fields = "Fields",
+	Result = "Result",
 })
 
 ---@param ctx RegionCheckContext<Region>
@@ -31,7 +33,7 @@ local function valueOf(ctx, region, field)
 end
 
 Policies.On(Check)
-	.Apply(Check.Shape, function(ctx)
+	.Step(Check.Shape, function(ctx)
 		if ctx.fieldsOnly then
 			return
 		end
@@ -52,7 +54,7 @@ Policies.On(Check)
 				{ message = "a " .. ctx.type.label:lower() .. " cannot be a " .. shape, at = vertices[1] }
 		end
 	end)
-	.Apply(Check.Fields, function(ctx)
+	.Step(Check.Fields, function(ctx)
 		for _, field in ipairs(ctx.type.fields) do
 			local value = valueOf(ctx, ctx.region, field)
 			local missing = value == nil or value == ""
@@ -79,6 +81,9 @@ Policies.On(Check)
 				end
 			end
 		end
+	end)
+	.Return(Check.Result, function(ctx)
+		return ctx
 	end)
 
 ---@class (partial) RegionsContract

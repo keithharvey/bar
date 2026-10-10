@@ -569,7 +569,7 @@ function ModuleHandler.LoadPolicies(name, vfsMode)
 			ordered[#ordered + 1] = chain
 		end
 		local contributions = (loadPolicyFiles(vfsMode).contributions[name] or {})[category] or {}
-		local policy = { result = list[1].identity.result }
+		local policy = {}
 		for _, chain in ipairs(ordered) do
 			local declared = {}
 			if chain.module == name then
@@ -604,10 +604,8 @@ function ModuleHandler.LoadPolicies(name, vfsMode)
 			end
 			if chain.module ~= name then
 				for _, op in ipairs(chain.ops) do
-					if op.op == "refusal" then
-						error(
-							chain.file .. ": only " .. name .. " may shape the refusal of " .. name .. "." .. category
-						)
+					if op.op == "add" and op.kind == "return" then
+						error(chain.file .. ": only " .. name .. " may Return from " .. name .. "." .. category)
 					end
 				end
 			end
@@ -616,7 +614,6 @@ function ModuleHandler.LoadPolicies(name, vfsMode)
 		for _, step in ipairs(policy) do
 			step.category = category
 		end
-		Policy.Validate(policy, policy.result, name .. "." .. category)
 		local landed = {}
 		for _, step in ipairs(policy) do
 			landed[step.name] = true
@@ -1113,53 +1110,18 @@ end
 ---@generic C, T
 ---@param policies PolicySteps<C, T>|AssembledPolicy<C, T> the policy's steps, or the policy the loader assembled from them
 ---@param ctx C
----@return T
+---@return T|nil the first step's non-nil result; nil when no step, the Return included, said anything
 function ModuleHandler.Evaluate(policies, ctx)
 	if Policy.IdentityOf(policies) ~= nil then
 		policies = ModuleHandler.Steps(policies)
 	end
-	if policies.result == "fold" then
-		for _, policy in ipairs(policies) do
-			policy.evaluate(ctx)
-		end
-		return ctx
-	end
-	if policies.result == "product" then
-		local product = nil
-		for _, policy in ipairs(policies) do
-			local factor = policy.evaluate(ctx)
-			if factor ~= nil then
-				product = (product or 1) * factor
-			end
-		end
-		if product == nil then
-			local last = policies[#policies]
-			error(
-				(last and last.category or "?")
-					.. ": no step gave a factor; the owner's "
-					.. (last and last.name or "?")
-					.. " must"
-			)
-		end
-		return product
-	end
-	for _, policy in ipairs(policies) do
-		if policy.kind == "unless" then
-			if policy.evaluate(ctx) then
-				return policies.refusal ~= nil and policies.refusal(ctx) or false
-			end
-		elseif policy.kind == "if" then
-			if not policy.evaluate(ctx) then
-				return policies.refusal ~= nil and policies.refusal(ctx) or false
-			end
-		else
-			local result = policy.evaluate(ctx)
-			if result ~= nil then
-				return result
-			end
+	for _, step in ipairs(policies) do
+		local result = step.evaluate(ctx)
+		if result ~= nil then
+			return result
 		end
 	end
-	return policies.refusal ~= nil and policies.refusal(ctx) or false
+	return nil
 end
 
 ---@param vfsMode string?

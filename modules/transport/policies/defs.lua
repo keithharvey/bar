@@ -18,7 +18,7 @@ Policy.Contributes(Defs.UnitDef, UnitDef)
 
 local TransportEnemy = TransportEnums.TransportEnemy
 
-Policies.On(UnitDef).Apply(UnitDef.EnemyTransport, function(ctx)
+Policies.On(UnitDef).Step(UnitDef.EnemyTransport, function(ctx)
 	local which = ctx.modOptions[TransportEnums.ModOptions.TransportEnemy]
 	if which == TransportEnemy.None then
 		ctx.def.transportbyenemy = false
